@@ -1,0 +1,345 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sbde</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bayesian Semiparametric Density Estimation</h2>
+
+<h3>Description</h3>
+
+<p>Provides a semiparametric estimation of the density function of independent univariate data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sbde(y, nsamp = 1e3, thin = 10, cens = rep(0,length(y)), 
+     wt = rep(1,length(y)), incr = list(knot=0.2, grid=0.01),
+     par = c("Hill-kde", "pmean", "rand")[1], tail.warp = c(0,0), 
+     hyper = list(sig = c(.1,.1), lam = c(6,4), kap = c(1.5,1.5,1)), 
+     prox.range = c(.2,.95), acpt.target = 0.15, ref.size = 3, 
+     blocking = c("all", "gp", "loc+scale+tail"), temp = 1, expo = 2, 
+     blocks.mu, blocks.S, fix.nu = FALSE, 
+     fbase = c("t", "t+", "gpd", "gpd-rescaled", "unif"), 
+     spacing=list(knot="regular", grid="regular"),
+     verbose = TRUE)
+
+## S3 method for class 'sbde'
+update(object, nadd, append = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>numeric vector of response data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsamp</code></td>
+<td>
+<p>number of posterior samples to be saved; defaults to 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thin</code></td>
+<td>
+<p>thinning rate for the Markov chain sampler – one posterior sample is saved per <code>thin</code> iterations. Defaults to 10. The Markov chain sampler runs for a total of <code>nsamp * thin</code> many iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cens</code></td>
+<td>
+<p>censoring status of response. Must be a vector of 0s and 1s of length same as length(y), with 1 indicating right censoring, and, 0 indicating no censoring. Defaults to all zeros.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wt</code></td>
+<td>
+<p>weights attached to the observation units, expected to be non-negative numbers, and defaults to a vector of ones.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>incr</code></td>
+<td>
+<p>a list with two named elements, 'knot' and 'grid', giving the increment sizes for the knots in the predictive process approximation and the grid to be used for logistic Gaussian process likelihood evaluation. Defaults to 0.2 and 0.01 respectively</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>par</code></td>
+<td>
+<p>either a numeric vector giving the parameter initialization or a character string indicating how the parameter should be initialized. If input numeric vector length is smaller than required parameter count, then supplied values are appended with zeros to create a full initialization. If input equals "pmean" then the mcmc is initialized at the prior center given by a vector of zeros, or if it equals "rand" then intialization is done by drawing randomly from the prior, or if it equals "Hill-kde" then the Hill estimate is used to estimate the shape parameter, the location and scale parameters are set based on data median and 95th percentile, and the initialization of the Gaussian process is done based on a kernel density estimate of the transformed data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tail.warp</code></td>
+<td>
+<p>a non-negative 2-vector giving the degrees of tail warping to be done at each tail. Larger values will allow more variation of the non-parametric density at the corresponding tail. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyper</code></td>
+<td>
+<p>hyperparameters of the prior distribution. Must be a list with one or both of the following two fields: <code>lam</code>: a two vector giving the parameters of the beta distribution on proximity = <code class="reqn">\exp(-0.01* \lambda^2)</code>, and <code>kap</code>:  a vector to be coerced into a <code>3 * nkap</code> matrix, with <code>nkap</code> being the number of components in the mixture of gamma prior on <code>kappa</code>, and each column of the matrix gives the shape, rate and mixing weight of a component.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prox.range</code></td>
+<td>
+<p>for specifying the range of length-scale parameter of the Gaussian process prior.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>acpt.target</code></td>
+<td>
+<p>target acceptance rate of the adaptive Metropolis sampler; defaults to 0.15</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ref.size</code></td>
+<td>
+<p>adaptation rate of the adaptive Metropolis sampler. The proposal density is updated once every <code>ref.size</code> iterations. Could be a single number or a vector of length same as the number of blocks.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blocking</code></td>
+<td>
+<p>type of blocking to be applied represented by a character vector with elements comprising of the strings: "gp", "loc", "scale", "tail" and their combinations separated by "+". Each of the basic string types will include the corresponding model parameters into the block. For example a valid input could be c("gp", "gp+loc+scale", "loc+scale+tail"), where the first block updates only the Gaussian process parameters, the second block jointly updates the GP parameters and the location and scale, and, the third block updates the location, scale and tail parameters. A combination of all four types can be represented as "all". </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>temp</code></td>
+<td>
+<p>temperature of the log-likelihood function. The log-likelihood function is raised to the power of <code>temp</code>. Defaults to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expo</code></td>
+<td>
+<p>the exponent to be used in the covariance kernel of the Gaussian process priors. Defaults to 2, giving the standard squared-exponential covariance kernel.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blocks.mu</code></td>
+<td>
+<p>initial block specific means in the form of  a list. If left unspecified then will be automatically generated as a list of vectors of zeros of appropriate lengths matching the corresponding block sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blocks.S</code></td>
+<td>
+<p>initial block specific covariance matrices in the form of a list. If left unspecified then will be automatically generated as a list of identity matrices of appropriate dimensions matching the corresponding block sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix.nu</code></td>
+<td>
+<p>either the logical FALSE indicating that nu should be learned, or a positive real number giving the fixed value of nu, which is then excluded from MCMC updates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fbase</code></td>
+<td>
+<p>either "t" (default) or "t+" (for half-t distributions on the positive real lines) or "gpd" (for generalized pareto distributions with location zero and parametrized by nu = 1 / shape) or "gpd-rescaled" (same as gpd, but scale parameter adjusted according to shape so that 90-th percentile matches that of gpd with shape=1/6 and scale=1) or  "unif" to indicate what base distribution is to be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spacing</code></td>
+<td>
+<p>the type of spacing to be used for the predictive process knots and the likelihood evaluation grid. For either object, the default choice is "regular". Any other specification is taken to equal "irregular". A regular grid places points equally between 0 and 1 as given by the prespecified increment value. When the likelihood "grid" is chosen to be "irregular", the regular grid is appended with more points at both extremes by recursive bisection until 1/<code>n</code> or 1 - 1/<code>n</code> is reached. For predictive process knots, "irregular" applies only when <code>tail.warp</code> is different that <code>c(0,0)</code>, and more knots are appended at each extreme based on how much warping is done to it.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical indicating whether MCMC progress should be printed, defaults to TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>a fitted model of the class 'qde'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nadd</code></td>
+<td>
+<p>number of additional MCMC samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>append</code></td>
+<td>
+<p>logical indicating whether new samples should be appended to old ones. If FALSE then old samples are discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>no additional arguments are allowed</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For positive valued data, it is recommended to use fbase as "gpd", which yields much faster computation than the choice of "t+". The difference is entirely due to difference in machine time needed to compute the CDF of the generalized Pareto versus that of the Student-t. 
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>sbde(y, ...)</code> returns a ‘sbde’ class object to be used by <code>coef</code>, <code>summary</code> and <code>predict</code>.
+</p>
+<p>Returned object is a list containing the following variables.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>par</code></td>
+<td>
+<p>latest draw of the parameter vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>response vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cens</code></td>
+<td>
+<p>censoring status vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wt</code></td>
+<td>
+<p>vector of observation weights</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyper</code></td>
+<td>
+<p>completed list of hyper-parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dim</code></td>
+<td>
+<p>model dimension vector of the form c(n, length of tau grid, position of <code class="reqn">\tau_0</code> on the grid, nknots, length of lambda grid, nkap, total number of MCMC iterations, thin, nsamp)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gridmats</code></td>
+<td>
+<p>details of covariance matrix factors etc, intended for internal use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.g</code></td>
+<td>
+<p>the tau grid</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>muV</code></td>
+<td>
+<p>list of means for parameter blocks</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SV</code></td>
+<td>
+<p>list of covariance matrices for parameter blocks</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blocks</code></td>
+<td>
+<p>list of blocks</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blocks.size</code></td>
+<td>
+<p>vector of block lengths</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dmcmcpar</code></td>
+<td>
+<p>numeric vector containing details of adaptive MCMC runs, equals c(temp, decay rate of adaptation, vector of target acceptance rates for the blocks, vector of increment scales used in adaptation). Intended strictly for internal use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>imcmcpar</code></td>
+<td>
+<p>numeric vector containing details of adaptive MCMC runs, equals c(number of parameter blocks, ref.size, indicator on whether details are to be printed during MCMC progress, rate of details printing, a vector of counters needed for printing). Intended strictly for internal use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parsamp</code></td>
+<td>
+<p>a long vector containing the parameter draws. Could be coerced into a matrix of dim <code>npar * nsamp</code>. Intended primarily for use by <code>summary</code> and <code>coef</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>acptsamp</code></td>
+<td>
+<p>a long vector containing rates of acceptance statistics for parameter blocks. Could be coerced into a matrix of dim <code>nblocks * nsamp</code>. Not very informative, because thinning times and adaptation times may not be exactly synced.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lpsamp</code></td>
+<td>
+<p>vector of log posterior values for the saved MCMC draws.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>other.controls</code></td>
+<td>
+<p>a vector of two integers, with the first storing the choice of the fbase, and the second storing the choice of the gridtype.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prox</code></td>
+<td>
+<p>vector of proximity (exp(-0.01*lambda^2)) grid values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>runtime</code></td>
+<td>
+<p>run time of the MCMC</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>base.bundle</code></td>
+<td>
+<p>a list of densty, distribution, quantile etc functions associated with the base distribution.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Tokdar, S.T., Jiang, S. and Cunningham, E.L. (2022). Heavy-tailed density estimation. <em>Journal of the American Statistical Association</em>, (just-accepted) &lt;https://doi.org/10.1080/01621459.2022.2104727&gt;.</p>
+
+
+<h3>See Also</h3>
+
+<p><code>summary.sbde</code>, <code>coef.sbde</code> and <code>predict.sbde</code>.</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">y &lt;- abs(rt(n=1000, df=4))
+fit &lt;- sbde(y, blocking="all", fbase="gpd", verbose=FALSE)
+coef(fit)
+</code></pre>
+
+
+</div>

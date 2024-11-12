@@ -1,0 +1,379 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>glmFilter</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Unsupervised Spatial Filtering with Eigenvectors in Generalized
+Linear Regression Models</h2>
+
+<h3>Description</h3>
+
+<p>This function implements the eigenvector-based semiparametric
+spatial filtering approach in a generalized linear regression framework using
+maximum likelihood estimation (MLE). Eigenvectors are selected by an unsupervised
+stepwise regression technique. Supported selection criteria are the minimization of
+residual autocorrelation, maximization of model fit, significance of residual
+autocorrelation, and the statistical significance of eigenvectors. Alternatively,
+all eigenvectors in the candidate set can be included as well.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">glmFilter(
+  y,
+  x = NULL,
+  W,
+  objfn = "AIC",
+  MX = NULL,
+  model,
+  optim.method = "BFGS",
+  sig = 0.05,
+  bonferroni = TRUE,
+  positive = TRUE,
+  ideal.setsize = FALSE,
+  min.reduction = 0.05,
+  boot.MI = 100,
+  resid.type = "pearson",
+  alpha = 0.25,
+  tol = 0.1,
+  na.rm = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>response variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>vector/ matrix of regressors (default = NULL)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>spatial connectivity matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>objfn</code></td>
+<td>
+<p>the objective function to be used for eigenvector
+selection. Possible criteria are: the maximization of model fit
+('AIC' or 'BIC'), minimization of residual autocorrelation ('MI'),
+significance level of candidate eigenvectors ('p'), significance of residual spatial
+autocorrelation ('pMI'), or all eigenvectors in the candidate set ('all')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>MX</code></td>
+<td>
+<p>covariates used to construct the projection matrix (default = NULL) - see
+Details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>a character string indicating the type of model to be estimated.
+Currently, 'probit', 'logit', and 'poisson' are valid inputs</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>optim.method</code></td>
+<td>
+<p>a character specifying the optimization method used by
+the <code>optim</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig</code></td>
+<td>
+<p>significance level to be used for eigenvector selection
+if <code>objfn = 'p'</code> or <code>objfn = 'pMI'</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bonferroni</code></td>
+<td>
+<p>Bonferroni adjustment for the significance level
+(TRUE/ FALSE) if <code>objfn = 'p'</code>. Set to FALSE if <code>objfn = 'pMI'</code> -
+see Details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>positive</code></td>
+<td>
+<p>restrict search to eigenvectors associated with positive
+levels of spatial autocorrelation (TRUE/ FALSE)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ideal.setsize</code></td>
+<td>
+<p>if <code>positive = TRUE</code>, uses the formula proposed by
+Chun et al. (2016) to determine the ideal size of the candidate set
+(TRUE/ FALSE)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min.reduction</code></td>
+<td>
+<p>if <code>objfn</code> is either 'AIC' or 'BIC'. A value in the
+interval [0,1) that determines the minimum reduction in AIC/ BIC (relative to the
+current AIC/ BIC) a candidate eigenvector need to achieve in order to be selected</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot.MI</code></td>
+<td>
+<p>number of iterations used to estimate the variance of Moran's I
+(default = 100). Alternatively, if <code>boot.MI = NULL</code>, analytical results will
+be used</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resid.type</code></td>
+<td>
+<p>character string specifying the residual type to be used.
+Options are 'raw', 'deviance', and 'pearson' (default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>a value in (0,1] indicating the range of candidate eigenvectors
+according to their associated level of spatial autocorrelation, see e.g.,
+Griffith (2003)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>if <code>objfn = 'MI'</code>, determines the amount of remaining residual
+autocorrelation at which the eigenvector selection terminates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>remove observations with missing values (TRUE/ FALSE)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <strong>W</strong> is not symmetric, it gets symmetrized by
+1/2 * (<strong>W</strong> + <strong>W</strong>') before the decomposition.
+</p>
+<p>If covariates are supplied to <code>MX</code>, the function uses these regressors
+to construct the following projection matrix:
+</p>
+<p><strong>M</strong> = <strong>I</strong> - <strong>X</strong> (<strong>X</strong>'<strong>X</strong>)^-1<strong>X</strong>'
+</p>
+<p>Eigenvectors from <strong>MWM</strong> using this specification of
+<strong>M</strong> are not only mutually uncorrelated but also orthogonal
+to the regressors specified in <code>MX</code>. Alternatively, if <code>MX = NULL</code>, the
+projection matrix becomes <strong>M</strong> = <strong>I</strong> - <strong>11</strong>'/ *n*,
+where <strong>1</strong> is a vector of ones and *n* represents the number of
+observations. Griffith and Tiefelsdorf (2007) show how the choice of the appropriate
+<strong>M</strong> depends on the underlying process that generates the spatial
+dependence.
+</p>
+<p>The Bonferroni correction is only possible if eigenvector selection is based on
+the significance level of the eigenvectors (<code>objfn = 'p'</code>). It is set to
+FALSE if eigenvectors are added to the model until the residuals exhibit no
+significant level of spatial autocorrelation (<code>objfn = 'pMI'</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>spfilter</code> containing the following
+information:
+</p>
+
+<dl>
+<dt><code>estimates</code></dt>
+<dd>
+<p>summary statistics of the parameter estimates</p>
+</dd>
+<dt><code>varcovar</code></dt>
+<dd>
+<p>estimated variance-covariance matrix</p>
+</dd>
+<dt><code>EV</code></dt>
+<dd>
+<p>a matrix containing the summary statistics of selected eigenvectors</p>
+</dd>
+<dt><code>selvecs</code></dt>
+<dd>
+<p>vector/ matrix of selected eigenvectors</p>
+</dd>
+<dt><code>evMI</code></dt>
+<dd>
+<p>Moran coefficient of all eigenvectors</p>
+</dd>
+<dt><code>moran</code></dt>
+<dd>
+<p>residual autocorrelation in the initial and the
+filtered model</p>
+</dd>
+<dt><code>fit</code></dt>
+<dd>
+<p>adjusted R-squared of the initial and the filtered model</p>
+</dd>
+<dt><code>residuals</code></dt>
+<dd>
+<p>initial and filtered model residuals</p>
+</dd>
+<dt><code>other</code></dt>
+<dd>
+<p>a list providing supplementary information:
+</p>
+
+<dl>
+<dt><code>ncandidates</code></dt>
+<dd>
+<p>number of candidate eigenvectors considered</p>
+</dd>
+<dt><code>nev</code></dt>
+<dd>
+<p>number of selected eigenvectors</p>
+</dd>
+<dt><code>condnum</code></dt>
+<dd>
+<p>condition number to assess the degree of multicollinearity
+among the eigenvectors induced by the link function, see e.g., Griffith/ Amrhein
+(1997)</p>
+</dd>
+<dt><code>sel_id</code></dt>
+<dd>
+<p>ID of selected eigenvectors</p>
+</dd>
+<dt><code>sf</code></dt>
+<dd>
+<p>vector representing the spatial filter</p>
+</dd>
+<dt><code>sfMI</code></dt>
+<dd>
+<p>Moran coefficient of the spatial filter</p>
+</dd>
+<dt><code>model</code></dt>
+<dd>
+<p>type of the regression model</p>
+</dd>
+<dt><code>dependence</code></dt>
+<dd>
+<p>filtered for positive or negative spatial dependence</p>
+</dd>
+<dt><code>objfn</code></dt>
+<dd>
+<p>selection criterion specified in the objective function of
+the stepwise regression procedure</p>
+</dd>
+<dt><code>bonferroni</code></dt>
+<dd>
+<p>TRUE/ FALSE: Bonferroni-adjusted significance level
+(if <code>objfn='p'</code>)</p>
+</dd>
+<dt><code>siglevel</code></dt>
+<dd>
+<p>if <code>objfn = 'p'</code> or <code>objfn = 'pMI'</code>: actual
+(unadjusted/ adjusted) significance level</p>
+</dd>
+<dt><code>resid.type</code></dt>
+<dd>
+<p>residual type ('raw', 'deviance', or 'pearson')</p>
+</dd>
+<dt><code>pseudoR2</code></dt>
+<dd>
+<p>McFadden's pseudo R-squared (filtered vs. unfiltered model)</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<h3>Note</h3>
+
+<p>If the condition number (<code>condnum</code>) suggests high levels of
+multicollinearity, eigenvectors can be sequentially removed from <code>selvecs</code>
+and the model can be re-estimated using the <code>glm</code> function in order to
+identify and manually remove the problematic eigenvectors. Moreover, if other
+models that are currently not implemented here need to be estimated
+(e.g., quasi-binomial models), users can extract eigenvectors using the function
+<code>getEVs</code> and perform a supervised eigenvector search using the <code>glm</code>
+function.
+</p>
+<p>In contrast to eigenvector-based spatial filtering in linear regression models,
+Chun (2014) notes that only a limited number of studies address the problem
+of measuring spatial autocorrelation in generalized linear model residuals.
+Consequently, eigenvector selection may be based on an objective function that
+maximizes model fit rather than minimizes residual spatial autocorrelation.
+</p>
+
+
+<h3>References</h3>
+
+<p>Chun, Yongwan (2014): Analyzing Space-Time Crime Incidents Using
+Eigenvector Spatial Filtering: An Application to Vehicle Burglary.
+Geographical Analysis 46 (2): pp. 165 - 184.
+</p>
+<p>Tiefelsdorf, Michael and Daniel A. Griffith (2007):
+Semiparametric filtering of spatial autocorrelation: the eigenvector
+approach. Environment and Planning A: Economy and Space, 39 (5):
+pp. 1193 - 1221.
+</p>
+<p>Griffith, Daniel A. (2003): Spatial Autocorrelation and Spatial Filtering:
+Gaining Understanding Through Theory and Scientific Visualization.
+Berlin/ Heidelberg, Springer.
+</p>
+<p>Griffith, Daniel A. and Carl G. Amrhein (1997): Multivariate Statistical
+Analysis for Geographers. Englewood Cliffs, Prentice Hall.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>lmFilter</code>, <code>getEVs</code>, <code>MI.resid</code>,
+<code>optim</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(fakedata)
+
+# poisson model
+y_pois &lt;- fakedataset$count
+poisson &lt;- glmFilter(y = y_pois, x = NULL, W = W, objfn = "MI", positive = FALSE,
+model = "poisson", boot.MI = 100)
+print(poisson)
+summary(poisson, EV = FALSE)
+
+# probit model - summarize EVs
+y_prob &lt;- fakedataset$indicator
+probit &lt;- glmFilter(y = y_prob, x = NULL, W = W, objfn = "p", positive = FALSE,
+model = "probit", boot.MI = 100)
+print(probit)
+summary(probit, EV = TRUE)
+
+# logit model - AIC objective function
+y_logit &lt;- fakedataset$indicator
+logit &lt;- glmFilter(y = y_logit, x = NULL, W = W, objfn = "AIC", positive = FALSE,
+model = "logit", min.reduction = .05)
+print(logit)
+summary(logit, EV = FALSE)
+
+</code></pre>
+
+
+</div>

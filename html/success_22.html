@@ -1,0 +1,193 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>generate_units</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate units with specified failure rate</h2>
+
+<h3>Description</h3>
+
+<p>Generate <code>n_sim</code> units with subjects arriving according to
+a Poisson
+process with rate <code>psi</code> until <code>time</code>. Failure rate is determined
+either from <code>cbaseh</code> or <code>inv_cbaseh</code>, or from specified
+<code>coxphmod</code>. Covariates will be resampled from <code>baseline_data</code> if
+specified.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">generate_units(time, psi, n_sim = 20, cbaseh, inv_cbaseh, coxphmod = NULL,
+  baseline_data, interval = c(0, 9e+12), mu = 0)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>A numeric value indicating until what time from the start of the
+study subjects can arrive.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi</code></td>
+<td>
+<p>Poisson arrival rate for subjects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_sim</code></td>
+<td>
+<p>An integer indicating how many units should be generated.
+Default is 20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cbaseh</code></td>
+<td>
+<p>A function returning the cumulative baseline hazard
+at each relevant time point. Will be numerically inverted to generate
+failure times. If
+the inverse cumulative baseline hazard function is available, please specify
+<code>inv_cbaseh</code> instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inv_cbaseh</code></td>
+<td>
+<p>A function returning the inverse cumulative baseline
+hazard at each relevant time point.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coxphmod</code></td>
+<td>
+<p>(optional): A cox proportional hazards model generated using
+<code>coxph()</code> or a list containing:
+</p>
+
+<dl>
+<dt>
+<code>formula</code>:</dt>
+<dd>
+<p>a <code>formula()</code> in the form <code>~ covariates</code>;</p>
+</dd>
+<dt>
+<code>coefficients</code>:</dt>
+<dd>
+<p>a named vector specifying risk adjustment coefficients
+for covariates. Names must be the same as in <code>formula</code> and colnames of <code>data</code>.</p>
+</dd>
+</dl>
+<p> If both <code>cbaseh</code> and <code>inv_cbaseh</code> are missing, the hazard rate
+will be determined from <code>coxphmod</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baseline_data</code></td>
+<td>
+<p>(optional): A <code>data.frame</code> used for covariate resampling
+with rows representing subjects and columns containing covariates to use for risk-adjustment.
+Should only be specified in combination with <code>coxphmod</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>(optional) A numeric vector of length 2 indicating in which
+range of values the failure times of subjects should be determined. By default,
+failure times will be restricted between 0 and 9e12.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>(optional) The increased log hazard ratio at the generated units with
+respect to the specified baseline hazard rate. Default is log(1) = 0.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In a Poisson arrival process, inter-arrival times are exponentially
+distributed with parameter <code>psi</code>. If <code>cbaseh</code> is specified,
+the inverse baseline hazard will be determined using <code>uniroot()</code>.
+The times of failure are then determined using <code>gen_surv_times()</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>data.frame</code> with rows representing subjects and the
+following named columns:
+</p>
+
+<dl>
+<dt>
+<code>entrytime</code>:</dt>
+<dd>
+<p>time of subject entry into the study;</p>
+</dd>
+<dt>
+<code>survtime</code>:</dt>
+<dd>
+<p>survival time of subject;</p>
+</dd>
+<dt>
+<code>censorid</code>:</dt>
+<dd>
+<p>censoring indicator, 0 = censored, 1 = observed;</p>
+</dd>
+<dt>
+<code>unit</code>:</dt>
+<dd>
+<p>unit number;</p>
+</dd>
+<dt>
+<code>expmu</code>:</dt>
+<dd>
+<p>exponent of the log hazard ratio used to generate
+survival times;</p>
+</dd>
+<dt>
+<code>psival</code>:</dt>
+<dd>
+<p>arrival rate at unit;</p>
+</dd>
+<dt>
+<code>covariates</code>:</dt>
+<dd>
+<p>covariates resampled from <code>baseline_data</code>.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Daniel Gomon
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(survival)
+#Fit a Cox model
+exprfit &lt;- as.formula("Surv(survtime, censorid) ~ age + sex + BMI")
+tcoxmod &lt;- coxph(exprfit, data= surgerydat)
+
+#Generate 30 hospitals with on average 2 patients per day arriving
+#according to the Cox model determined above, with resampling from the
+#original data set. The hazard rate at the hospitals is twice the baseline
+#hazard.
+generate_units(time = 50, psi = 2, n_sim = 30, coxphmod = tcoxmod,
+baseline_data = surgerydat, mu = log(2))
+
+
+
+</code></pre>
+
+
+</div>

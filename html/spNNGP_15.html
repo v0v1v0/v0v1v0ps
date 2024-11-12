@@ -1,0 +1,458 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spNNGP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Univariate Bayesian Spatial Regression
+Models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>spNNGP</code> fits Gaussian and non-Gaussian univariate Bayesian spatial
+regression models using Nearest Neighbor Gaussian Processes (NNGP).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spNNGP(formula, data = parent.frame(), coords, method = "response",
+      family="gaussian", weights, n.neighbors = 15, 
+      starting, tuning, priors, cov.model = "exponential",
+      n.samples, n.omp.threads = 1, search.type = "cb", ord,
+      return.neighbor.info = FALSE, neighbor.info,
+      fit.rep = FALSE, sub.sample, verbose = TRUE, n.report = 100, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the regression model to be
+fit. See example below. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the
+model. If not found in data, the variables are taken from
+<code>environment(formula)</code>, typically the environment from which <code>spNNGP</code> is called.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>an <code class="reqn">n \times 2</code> matrix of the observation
+coordinates in <code class="reqn">R^2</code> (e.g., easting and northing), or if
+<code>data</code> is a data frame then <code>coords</code> can be a vector of
+length two comprising coordinate column names or indices. There can
+be no duplicate locations. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a quoted keyword that specifies the NNGP sampling
+algorithm. Supported method keywords are: <code>"response"</code> and
+<code>"latent"</code>. When <code class="reqn">n</code> is large, the <code>"response"</code>
+algorithm should be faster and provide finer control over Metropolis
+acceptance rate for covariance parameters. In general,
+unless estimates of spatial random effects are needed, the
+<code>"response"</code> algorithm should be used. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>a quoted keyword that specifies the data
+likelihood. Choices are "gaussian" for continuous outcome and
+"binomial" for discrete outcome which assumes a logistic link modeled
+using Polya-Gamma latent variables. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>specifies the number of trials for each observation when
+<code>family="binomial"</code>. The default is 1 trial for each
+observation. Valid arguments are a scalar value that specifies the number
+of trials used if all observations have the same number of trials, and a
+vector of length <code class="reqn">n</code> that specifies the number of trials for
+each observation used there are differences in the number of trials. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starting</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. Valid tags are <code>beta</code>, <code>sigma.sq</code>,
+<code>tau.sq</code>, <code>phi</code>, and <code>nu</code>. <code>nu</code> is only
+specified if <code>cov.model="matern"</code>. The value portion of each
+tag is the parameter's startingvalue. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter
+name. Valid tags are <code>sigma.sq</code>, <code>tau.sq</code>, <code>phi</code>, and
+<code>nu</code>. If <code>method="latent"</code> then only <code>phi</code> and
+<code>nu</code> need to be specified. The value portion of each tag defines
+the variance of the Metropolis sampler Normal proposal distribution. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a
+parameter name. Valid tags are <code>sigma.sq.ig</code>,
+<code>tau.sq.ig</code>, <code>phi.unif</code>, and <code>nu.unif</code>. Variance parameters, <code>simga.sq</code> and
+<code>tau.sq</code>, are assumed to follow an
+inverse-Gamma distribution, whereas the spatial decay <code>phi</code>
+and smoothness <code>nu</code> parameters are assumed to follow Uniform distributions. The
+hyperparameters of the inverse-Gamma are
+passed as a vector of length two, with the first and second elements corresponding
+to the <em>shape</em> and <em>scale</em>, respectively. The hyperparameters
+of the Uniform are also passed as a vector of length two with the first
+and second elements corresponding to the lower and upper support,
+respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.  See below for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>the number of posterior samples to collect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating
+the number of threads to use for SMP parallel processing. The package must
+be compiled for OpenMP support. For most Intel-based machines, we
+recommend setting <code>n.omp.threads</code> up to the number of
+hyperthreaded cores. Note, <code>n.omp.threads</code> &gt; 1 might not
+work on some systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.rep</code></td>
+<td>
+<p>if <code>TRUE</code>, regression fitted and replicate data will be
+returned. The argument <code>sub.sample</code> controls which MCMC samples
+are used to generate the fitted and replicated data. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sub.sample</code></td>
+<td>
+<p>an optional list that specifies the samples used
+for <code>fit.rep</code>. Valid tags are <code>start</code>,
+<code>end</code>, and <code>thin</code>. Given the value associated with the tags,
+the sample subset is selected using <code>seq(as.integer(start),
+      as.integer(end), by=as.integer(thin))</code>. The default values are
+<code>start=floor(0.5*n.samples)</code>, <code>end=n.samples</code> and <code>thin=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, model specification and progress of the
+sampler is printed to the screen. Otherwise, nothing is printed to
+the screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search.type</code></td>
+<td>
+<p>a quoted keyword that specifies type of nearest
+neighbor search algorithm. Supported method key words are: <code>"cb"</code> and
+<code>"brute"</code>. The <code>"cb"</code> should generally be much
+faster. If locations do not have identical coordinate values on
+the axis used for the nearest neighbor ordering (see
+<code>ord</code> argument) then <code>"cb"</code> and <code>"brute"</code> should
+produce identical neighbor sets. However, if there are identical
+coordinate values on the axis used for nearest neighbor ordering,
+then <code>"cb"</code> and <code>"brute"</code> might produce different, but
+equally valid, neighbor sets, e.g., if data are on a grid. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ord</code></td>
+<td>
+<p>an index vector of length <code class="reqn">n</code> used for the nearest neighbor
+search. Internally, this vector is used to order <code>coords</code>,
+i.e., <code>coords[ord,]</code>, and associated data. Nearest neighbor
+candidates for the <em>i</em>-th row in the ordered <code>coords</code> are
+rows <code>1:(i-1)</code>, with the <code>n.neighbors</code> nearest neighbors being
+those with the minimum euclidean distance to the location defined by
+ordered <code>coords[i,]</code>. The default used when <code>ord</code> is not
+specified is x-axis ordering, i.e.,
+<code>order(coords[,1])</code>. This argument should typically be left
+blank. This argument will be ignored if the <code>neighbor.info</code>
+argument is used. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return.neighbor.info</code></td>
+<td>
+<p>if <code>TRUE</code>, a list called
+<code>neighbor.info</code> containing several data structures used for
+fitting the NNGP model is returned. If there is no change in input
+data or <code>n.neighbors</code>, this list can be passed to subsequent <code>spNNGP</code> calls via the <code>neighbor.info</code> argument to avoid
+the neighbor search, which can be time consuming if <code class="reqn">n</code> is
+large. In addition to the several cryptic data structures in
+<code>neighbor.info</code> there is a list called <code>n.indx</code> that is of
+length <code class="reqn">n</code>. The <em>i</em>-th element in <code>n.indx</code>
+corresponds to the <em>i</em>-th row in <code>coords[ord,]</code> and holds
+the vector of that location's nearest neighbor indices. This list can be useful for plotting the
+neighbor graph if desired. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighbor.info</code></td>
+<td>
+<p>see the <code>return.neighbor.info</code> argument
+description above.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis sampler acceptance
+and MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments.  </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Model parameters can be fixed at their <code>starting</code> values by setting their
+<code>tuning</code> values to zero.
+</p>
+<p>The <em>no nugget</em> model is specified by setting <code>tau.sq</code> to zero
+in the <code>starting</code> and <code>tuning</code> lists.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>NNGP</code> with additional class designations for
+<code>method</code> and <code>family</code>. The return object is a list comprising:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>p.beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+the regression coefficients. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+covariance parameters. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.w.samples</code></td>
+<td>
+<p>is a matrix of posterior samples for the spatial
+random effects, where rows correspond to locations in <code>coords</code> and columns hold the <code>n.samples</code> posterior samples. This is only returned if <code>method="latent"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.hat.samples</code></td>
+<td>
+<p>if <code>fit.rep=TRUE</code>, regression fitted values from posterior samples
+specified using <code>sub.sample</code>. See additional details below. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.hat.quants</code></td>
+<td>
+<p>if <code>fit.rep=TRUE</code>, 0.5, 0.025, and 0.975 quantiles of the <code>y.hat.samples</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rep.samples</code></td>
+<td>
+<p>if <code>fit.rep=TRUE</code>, replicated outcome from posterior samples
+specified using <code>sub.sample</code>. See additional details below. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rep.quants</code></td>
+<td>
+<p>if <code>fit.rep=TRUE</code>, 0.5, 0.025, and 0.975
+quantiles of the <code>y.rep.samples</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s.indx</code></td>
+<td>
+<p>if <code>fit.rep=TRUE</code>, the subset index specified with <code>sub.sample</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighbor.info</code></td>
+<td>
+<p>returned if <code>return.neighbor.info=TRUE</code> see the <code>return.neighbor.info</code> argument
+description above.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time for parameter estimation reported using
+<code>proc.time()</code>. This time does not include nearest neighbor
+search time for building the neighbor set.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for subsequent
+prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>, <br>
+Abhirup Datta <a href="mailto:abhidatta@jhu.edu">abhidatta@jhu.edu</a>, <br>
+Sudipto Banerjee <a href="mailto:sudipto@ucla.edu">sudipto@ucla.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Finley, A.O., A. Datta, S. Banerjee (2022) spNNGP R Package for
+Nearest Neighbor Gaussian Process Models. <em>Journal of Statistical
+Software</em>, <a href="https://doi.org/10.18637/jss.v103.i05">doi:10.18637/jss.v103.i05</a>.
+</p>
+<p>Datta, A., S. Banerjee, A.O. Finley, and A.E. Gelfand. (2016)
+Hierarchical Nearest-Neighbor Gaussian process models for large
+geostatistical datasets. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1080/01621459.2015.1044091">doi:10.1080/01621459.2015.1044091</a>.
+</p>
+<p>Finley, A.O., A. Datta, B.D. Cook, D.C. Morton, H.E. Andersen, and
+S. Banerjee. (2019) Efficient algorithms for Bayesian Nearest Neighbor
+Gaussian Processes. <em>Journal of Computational and Graphical
+Statistics</em>, <a href="https://doi.org/10.1080/10618600.2018.1537924">doi:10.1080/10618600.2018.1537924</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+rmvn &lt;- function(n, mu=0, V = matrix(1)){
+  p &lt;- length(mu)
+  if(any(is.na(match(dim(V),p))))
+    stop("Dimension problem!")
+  D &lt;- chol(V)
+  t(matrix(rnorm(n*p), ncol=p)%*%D + rep(mu,rep(n,p)))
+}
+
+##Make some data
+set.seed(1)
+n &lt;- 100
+coords &lt;- cbind(runif(n,0,1), runif(n,0,1))
+
+x &lt;- cbind(1, rnorm(n))
+
+B &lt;- as.matrix(c(1,5))
+
+sigma.sq &lt;- 5
+tau.sq &lt;- 1
+phi &lt;- 3/0.5
+
+D &lt;- as.matrix(dist(coords))
+R &lt;- exp(-phi*D)
+w &lt;- rmvn(1, rep(0,n), sigma.sq*R)
+y &lt;- rnorm(n, x%*%B + w, sqrt(tau.sq))
+
+##Fit a Response and Latent NNGP model
+n.samples &lt;- 500
+
+starting &lt;- list("phi"=phi, "sigma.sq"=5, "tau.sq"=1)
+
+tuning &lt;- list("phi"=0.5, "sigma.sq"=0.5, "tau.sq"=0.5)
+
+priors &lt;- list("phi.Unif"=c(3/1, 3/0.01), "sigma.sq.IG"=c(2, 5), "tau.sq.IG"=c(2, 1))
+
+cov.model &lt;- "exponential"
+
+m.s &lt;- spNNGP(y~x-1, coords=coords, starting=starting, method="latent", n.neighbors=10,
+              tuning=tuning, priors=priors, cov.model=cov.model,
+              n.samples=n.samples, n.omp.threads=1)
+
+summary(m.s)
+plot(apply(m.s$p.w.samples, 1, median), w)
+
+m.r &lt;- spNNGP(y~x-1, coords=coords, starting=starting, method="response", n.neighbors=10,
+              tuning=tuning, priors=priors, cov.model=cov.model,
+              n.samples=n.samples, n.omp.threads=1)
+
+summary(m.r)
+
+##Fit with some user defined neighbor ordering
+
+##ord &lt;- order(coords[,2]) ##y-axis 
+ord &lt;- order(coords[,1]+coords[,2]) ##x+y-axis
+##ord &lt;- sample(1:n, n) ##random
+
+m.r.xy &lt;- spNNGP(y~x-1, coords=coords, starting=starting, method="response", n.neighbors=10,
+              tuning=tuning, priors=priors, cov.model=cov.model,
+              ord=ord, return.neighbor.info=TRUE,
+              n.samples=n.samples, n.omp.threads=1)
+
+summary(m.r.xy)
+
+## Not run: 
+##Visualize the neighbor sets and ordering constraint
+n.indx &lt;- m.r.xy$neighbor.info$n.indx
+ord &lt;- m.r.xy$neighbor.info$ord
+
+##This is how the data are ordered internally for model fitting
+coords.ord &lt;- coords[ord,]
+
+for(i in 1:n){
+
+    plot(coords.ord, cex=1, xlab="Easting", ylab="Northing")
+    points(coords.ord[i,,drop=FALSE], col="blue", pch=19, cex=1)
+    points(coords.ord[n.indx[[i]],,drop=FALSE], col="red", pch=19, cex=1)
+
+    readline(prompt = "Pause. Press &lt;Enter&gt; to continue...")
+}
+
+## End(Not run)
+
+
+</code></pre>
+
+
+</div>

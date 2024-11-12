@@ -1,0 +1,61 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>algebra</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Control of matrix-algebraic methods</h2>
+
+<h3>Description</h3>
+
+<p>Autocorrelated gaussian random effects can be specified in terms of their covariance matrix, or in terms of the precision matrix (i.e. inverse covariance matrix). In a pre-processing step, spaMM may assess whether such precision matrices are sparse but the correlation matrix is dense, and if so, it may use “sparse-precision” algorithms efficient for this case. If the precision matrix does not appear sufficiently sparser than the correlation matrix, correlation matrices are used, and they can themselves be sparse or dense, with distinct algebraic methods used in each case. 
+</p>
+<p>For example, when the model includes a corrMatrix term specified by a covariance matrix, the precision matrix may be computed to assess its sparseness. The Example below illustrates a case where detecting sparsity of the precision matrix allows a faster fit. However, such a comparison of correlation and precision matrices takes time and is not performed for all types of random-effect structures. Instead, some fast heuristics may be used (see Details). The default selection of methods may not always be optimal, and may be overcome by using the <code>control.HLfit</code> argument of the fitting function (or by <code>spaMM.options()</code>, see Details). In particular one can use either <code>control.HLfit=list(sparse_precision= &lt;TRUE|FALSE&gt;)</code> or 
+<code>control.HLfit=list(algebra= &lt;"spprec"|"spcorr"|"decorr"&gt;)</code> with the obvious expected effects.
+</p>
+<p>Such control may be useful when you already know that the precision matrix is sparse (as spaMM may even kindly remind you of, see Example below). In that case, it is also efficient to specify the precision matrix directly (see Example in <code>Gryphon</code>), as spaMM then assumes that sparse-precision methods are better without checking the correlation matrix.
+</p>
+<p>Such control may also be useful when the correlation matrix is nearly singular so that computation of its inverse fails. This may occur if the model is poorly specified, but also occurs sometimes for valid correlation models because inversion of large matrices though Cholesky methods is not numerically accurate enough. In the latter case, you may be directed to this documentation by an error message, and specifying <code>sparse_precision= FALSE</code> may be useful.
+</p>
+
+
+<h3>Details</h3>
+
+<p>Currently the sparse-precision methods are selected by default in two cases (with possible exceptions indicated by specific messages): (1) for models including <code>IMRF</code> random effects; and (2) when the <code>corrMatrix</code> (or <code>covStruct</code>) syntax is used to provide a fixed precision matrix. Further, for models including autoregressive terms other than IMRF (i.e., adjacency, AR1), sparse-precision methods may or may not be selected on a simple heuristic based on the likely structure of the correlation matrix. 
+</p>
+<p>Algebraic methods can be controlled globally over all further fits by using<br><code>spaMM.options(sparse_precision= &lt;TRUE|FALSE&gt;)</code><br> 
+and, among the correlation-based methods,<br><code>spaMM.options(QRmethod= &lt;"sparse"|"dense"&gt;)</code><br> 
+to select <code>"spcorr"</code> vs. <code>"decorr"</code> methods. Fit-specific controls (by <code>control.HLfit</code>) override these global ones.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>pedigree</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (spaMM.getOption("example_maxtime")&gt;6) {
+ data("Gryphon")
+ 
+ gry_df &lt;- fitme(BWT ~ 1 + corrMatrix(1|ID), corrMatrix = Gryphon_A, 
+                 data = Gryphon_df, method = "REML")
+ how(gry_df)
+               
+ # =&gt; Note the message about 'Choosing matrix methods...'. 
+ # Using control.HLfit=list(algebra="spprec") would indeed 
+ # save the time used to select this method.
+ 
+ # Conversely, using a correlation-based method would be a waste of time:
+ 
+ gry_dn &lt;- fitme(BWT ~ 1 + corrMatrix(1|ID), corrMatrix = Gryphon_A, 
+               data = Gryphon_df, method = "REML",
+               control.HLfit=list(sparse_precision=FALSE))
+ how(gry_dn) # forced dense-correlation methods, which is slower here.
+}
+
+</code></pre>
+
+
+</div>

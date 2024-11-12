@@ -1,0 +1,533 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SeqDesignInference</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Inference for A Sequential Design</h2>
+
+<h3>Description</h3>
+
+<p>An R6 Class that estimates, tests and provides intervals for a treatment effect in a sequential design.
+This class takes a <code>SeqDesign</code> object as an input where this object
+contains data for a fully completed sequential experiment (i.e. all treatment
+assignments were allocated and all responses were collected). Then the user
+specifies the type of estimation (difference-in-means or OLS) and the type
+of sampling assumption (i.e. the superpopulation assumption leading to normal-based inference or 
+the finite population assumption implying randomization-exact-based inference) and then can query the
+estimate and pval for the test. If the test is normal-theory based it is 
+testing the population H_0: beta_T = 0 and if the test is a randomization test, 
+it is testing the sharp null that H_0: Y_T_i = Y_C_i for all subjects. Confidence
+interval construction is available for normal-theory based test type as well.
+</p>
+
+
+<h3>Public fields</h3>
+
+<div class="r6-fields">
+
+<dl>
+<dt><code>estimate_type</code></dt>
+<dd>
+<p>The type of estimate to compute (either "difference-in-means" or "OLS").</p>
+</dd>
+<dt><code>test_type</code></dt>
+<dd>
+<p>The type of test to run (either "normal-based" or "randomization-exact").</p>
+</dd>
+<dt><code>num_cores</code></dt>
+<dd>
+<p>The number of CPU cores to employr during sampling within randomization inference</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>A flag that indicates whether messages should be displayed to the user</p>
+</dd>
+</dl>
+</div>
+
+
+<h3>Methods</h3>
+
+
+
+<h4>Public methods</h4>
+
+
+<ul>
+<li> <p><a href="#method-new"><code>SeqDesignInference$new()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-compute_treatment_estimate"><code>SeqDesignInference$compute_treatment_estimate()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-compute_pval_for_no_treatment_effect"><code>SeqDesignInference$compute_pval_for_no_treatment_effect()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-randomization_inference_samples_for_no_treatment_effect"><code>SeqDesignInference$randomization_inference_samples_for_no_treatment_effect()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-compute_confidence_interval"><code>SeqDesignInference$compute_confidence_interval()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-clone"><code>SeqDesignInference$clone()</code></a>
+</p>
+</li>
+</ul>
+<hr>
+<a id="method-new"></a>
+
+
+
+<h4>Method <code>new()</code>
+</h4>
+
+<p>Initialize a sequential experimental design estimation and test object after the sequential design is completed.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesignInference$new(
+  seq_des_obj,
+  estimate_type = "OLS",
+  test_type = "randomization-exact",
+  num_cores = 1,
+  verbose = TRUE
+)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>seq_des_obj</code></dt>
+<dd>
+<p>A SeqDesign object whose entire n subjects are assigned and response y is recorded within.</p>
+</dd>
+<dt><code>estimate_type</code></dt>
+<dd>
+<p>The type of estimate to compute (either "difference-in-means" or "OLS"). Default is "OLS"
+as this provided higher power in our simulations.</p>
+</dd>
+<dt><code>test_type</code></dt>
+<dd>
+<p>The type of test to run (either "normal-based" implying your subject entrant sampling 
+assumption is from a superpopulation or "randomization-exact" implying a finite sampling
+assumption). The default option is "randomization-exact" as it provided properly-sized 
+tests in our simulations.</p>
+</dd>
+<dt><code>num_cores</code></dt>
+<dd>
+<p>The number of CPU cores to use to parallelize the sampling during randomization-based inference 
+(which is very slow). The default is 1 for serial computation. This parameter is ignored
+for <code>test_type = "normal-based"</code>.</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>A flag indicating whether messages should be displayed to the user. Default is <code>TRUE</code></p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>A new 'SeqDesignTest' object.
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+ 
+</pre>
+</div>
+
+
+<hr>
+<a id="method-compute_treatment_estimate"></a>
+
+
+
+<h4>Method <code>compute_treatment_estimate()</code>
+</h4>
+
+<p>Computes either the classic different-in-means estimate of the additive treatment effect, 
+i.e. ybar_T - ybar_C or the OLS estimate of the additive treatment effect linearly i.e. 
+the treatment different adjusted linearly for the p covariates.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesignInference$compute_treatment_estimate()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>The numeric estimate of the treatment effect
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+seq_des_inf$compute_treatment_estimate()
+		
+</pre>
+</div>
+
+
+<hr>
+<a id="method-compute_pval_for_no_treatment_effect"></a>
+
+
+
+<h4>Method <code>compute_pval_for_no_treatment_effect()</code>
+</h4>
+
+<p>Computes either the classic different-in-means estimate of the additive treatment effect, 
+i.e. ybar_T - ybar_C or the OLS estimate of the additive treatment effect linearly i.e. 
+the treatment different adjusted linearly for the p covariates.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesignInference$compute_pval_for_no_treatment_effect(nsim_exact_test = 501)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>nsim_exact_test</code></dt>
+<dd>
+<p>The number of randomization vectors to use in the randomization test (ignored if <code>test_type</code>
+is not "randomization-exact"). The default is 501 providing pvalue resolution to a fifth of a percent.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>The frequentist p-val for the test of nonzero treatment effect
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+seq_des_inf$compute_pval_for_no_treatment_effect()
+		
+</pre>
+</div>
+
+
+<hr>
+<a id="method-randomization_inference_samples_for_no_treatment_effect"></a>
+
+
+
+<h4>Method <code>randomization_inference_samples_for_no_treatment_effect()</code>
+</h4>
+
+<p>Computes many randomization samples of either the classic different-in-means estimate of 
+the additive treatment effect, i.e. ybar_T - ybar_C or the OLS estimate of the additive 
+treatment effect linearly i.e. the treatment different adjusted linearly for the p covariates.
+This function is useful if you wish to run your own, custom hypothesis tests.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesignInference$randomization_inference_samples_for_no_treatment_effect(
+  nsim_exact_test = 501
+)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>nsim_exact_test</code></dt>
+<dd>
+<p>The number of randomization vectors. 
+The default is 501 providing pvalue resolution to a fifth of a percent.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>The <code>nsim_exact_test</code> samples of the treatment effect under the null hypothesis of no treatment effect
+where each sample is estimated from a different assignment vector for the prespecified design
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+samps = seq_des_inf$randomization_inference_samples_for_no_treatment_effect()
+summary(samps)	
+
+</pre>
+</div>
+
+
+<hr>
+<a id="method-compute_confidence_interval"></a>
+
+
+
+<h4>Method <code>compute_confidence_interval()</code>
+</h4>
+
+<p>Computes either a:
+</p>
+<p>1. classic frequentist confidence interval (CI) of the additive treatment effect
+employing the normal theory approximation for both the
+(a) difference in means estimator i.e. [ybar_T - ybar_C +/- t_alpha/2, n_T + n_C - 2 s_ybar_T - ybar_C] or
+(b) the OLS estimator i.e. [beta_hat_T +/- t_alpha/2, n + p - 2 s_beta_hat_T]
+where the z approximation is employed in lieu of the t is the design is a KK design or
+</p>
+<p>2. a randomization-based CI of an additive shift effect of the potential outcomes under treatment and control
+by an inversion of the randomization test at level alpha (this feature is incomplete).
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesignInference$compute_confidence_interval(
+  alpha = 0.05,
+  nsim_exact_test = 501
+)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>alpha</code></dt>
+<dd>
+<p>The confidence level in the computed confidence interval is 1 - <code>alpha</code>. The default is 0.05.</p>
+</dd>
+<dt><code>nsim_exact_test</code></dt>
+<dd>
+<p>The number of randomization vectors. 
+The default is 1000 providing good resolutions to confidence intervals.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>A 1 - alpha sized frequentist confidence interval for the treatment effect
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des, test_type = "normal-based")
+seq_des_inf$compute_confidence_interval()
+		
+</pre>
+</div>
+
+
+<hr>
+<a id="method-clone"></a>
+
+
+
+<h4>Method <code>clone()</code>
+</h4>
+
+<p>The objects of this class are cloneable with this method.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesignInference$clone(deep = FALSE)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>deep</code></dt>
+<dd>
+<p>Whether to make a deep clone.</p>
+</dd>
+</dl>
+</div>
+
+
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## ------------------------------------------------
+## Method `SeqDesignInference$new`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+ 
+
+## ------------------------------------------------
+## Method `SeqDesignInference$compute_treatment_estimate`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+seq_des_inf$compute_treatment_estimate()
+		
+
+## ------------------------------------------------
+## Method `SeqDesignInference$compute_pval_for_no_treatment_effect`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+seq_des_inf$compute_pval_for_no_treatment_effect()
+		
+
+## ------------------------------------------------
+## Method `SeqDesignInference$randomization_inference_samples_for_no_treatment_effect`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des)
+samps = seq_des_inf$randomization_inference_samples_for_no_treatment_effect()
+summary(samps)	
+
+
+## ------------------------------------------------
+## Method `SeqDesignInference$compute_confidence_interval`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des_inf = SeqDesignInference$new(seq_des, test_type = "normal-based")
+seq_des_inf$compute_confidence_interval()
+		
+</code></pre>
+
+
+</div>

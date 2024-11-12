@@ -1,0 +1,172 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>waicAbund</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute Widely Applicable Information Criterion for spAbundance Model Objects</h2>
+
+<h3>Description</h3>
+
+<p>Function for computing the Widely Applicable Information Criterion 
+(WAIC; Watanabe 2010) for <code>spAbundance</code> model objects. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">waicAbund(object, N.max, by.species = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class <code>NMix</code>, <code>spNMix</code>, <code>msNMix</code>, 
+<code>lfMsNMix</code>, <code>sfMsNMix</code>, <code>abund</code>, <code>spAbund</code>, 
+<code>msAbund</code>, <code>lfMsAbund</code>, <code>sfMsAbund</code>, <code>DS</code>, <code>spDS</code>, 
+<code>msDS</code>, <code>lfMsDS</code>, <code>sfMsDS</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N.max</code></td>
+<td>
+<p>values indicating the upper limit on the latent abundance 
+values when calculating WAIC for N-mixture models or hierarchical distance sampling models. 
+For single-species models, this can be a single value or a vector of 
+different values for each site. For multi-species models, this can be a 
+single value, a vector of values for each species, or a species by site matrix
+for a separate value for each species/site combination. 
+Defaults to ten plus the largest abundance value for each site/species 
+in the posterior samples <code>object$N.samples</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by.species</code></td>
+<td>
+<p>a logical value indicating whether or not WAIC should be
+reported individually for each species (<code>TRUE</code>) or summed across
+the entire community (<code>FALSE</code>) for multi-species models. Ignored for 
+single species models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The effective number of parameters is calculated following the recommendations
+of Gelman et al. (2014).
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a vector with three elements corresponding to 
+estimates of the expected log pointwise predictive density (elpd), the 
+effective number of parameters (pD), and the WAIC. If calculating WAIC
+for a multi-species model and <code>by.species = TRUE</code>, this will be a 
+data frame with rows corresponding to the different species.
+</p>
+
+
+<h3>Note</h3>
+
+<p>When fitting zero-inflated Gaussian models, the WAIC is only calculated for the 
+non-zero values. If fitting a first stage model with 
+<code>spOccupancy</code> to the binary portion of the 
+zero-inflated model, you can use the <code>spOccupancy::waicOcc</code> function to 
+calculate WAIC for the binary component. 
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>References</h3>
+
+<p>Watanabe, S. (2010). Asymptotic equivalence of Bayes cross
+validation and widely applicable information criterion in 
+singular learning theory. <em>Journal of Machine Learning Research</em>, 
+11:3571-3594.
+</p>
+<p>Gelman, A., J. B. Carlin, H. S. Stern, D. B. Dunson, A. Vehtari, 
+and D. B. Rubin. (2013). Bayesian Data Analysis. 3rd edition. 
+CRC Press, Taylor and Francis Group
+</p>
+<p>Gelman, A., J. Hwang, and A. Vehtari (2014). Understanding predictive
+information criteria for Bayesian models. <em>Statistics and Computing</em>, 
+24:997-1016.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(1010)
+J.x &lt;- 15
+J.y &lt;- 15
+J &lt;- J.x * J.y
+n.rep &lt;- sample(3, J, replace = TRUE)
+beta &lt;- c(0, -1.5, 0.3, -0.8)
+p.abund &lt;- length(beta)
+mu.RE &lt;- list(levels = c(30), sigma.sq.mu = c(1.3))
+kappa &lt;- 0.5
+sp &lt;- FALSE 
+family &lt;- 'NB'
+dat &lt;- simAbund(J.x = J.x, J.y = J.y, n.rep = n.rep, beta = beta, 
+                kappa = kappa, mu.RE = mu.RE, sp = sp, family = 'NB')
+
+y &lt;- dat$y
+X &lt;- dat$X
+X.re &lt;- dat$X.re
+
+abund.covs &lt;- list(int = X[, , 1], 
+                   abund.cov.1 = X[, , 2], 
+                   abund.cov.2 = X[, , 3], 
+                   abund.cov.3 = X[, , 4],
+                   abund.factor.1 = X.re[, , 1])
+
+data.list &lt;- list(y = y, covs = abund.covs)
+
+# Priors
+prior.list &lt;- list(beta.normal = list(mean = 0, var = 100),
+                   kappa.unif = c(0.001, 10)) 
+# Starting values
+inits.list &lt;- list(beta = 0, kappa = kappa)
+
+n.batch &lt;- 5
+batch.length &lt;- 25
+n.burn &lt;- 0
+n.thin &lt;- 1
+n.chains &lt;- 1
+
+out &lt;- abund(formula = ~ abund.cov.1 + abund.cov.2 + abund.cov.3 + 
+                         (1 | abund.factor.1),
+             data = data.list, 
+             n.batch = n.batch, 
+             batch.length = batch.length, 
+             inits = inits.list, 
+             priors = prior.list, 
+             accept.rate = 0.43, 
+             n.omp.threads = 1, 
+             verbose = TRUE, 
+             n.report = 1,
+             n.burn = n.burn,
+             n.thin = n.thin,
+             n.chains = n.chains) 
+
+# Calculate WAIC
+waicAbund(out)
+</code></pre>
+
+
+</div>

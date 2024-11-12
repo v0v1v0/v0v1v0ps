@@ -1,0 +1,64 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pedigree</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit mixed-effects models incorporating pedigrees</h2>
+
+<h3>Description</h3>
+
+<p>This example illustrates how to use spaMM for quantitative genetic analyses. spaMM appears competitive in terms of speed for GLMMs with large data sets, particularly when using the PQL method, which may be a quite good approximation in such cases. For large pedigrees it may be useful to compute the inverse of the relationship matrix using some efficient ad hoc algorithm, then to provide it as argument of the fit using the <code>covStruct(list(precision=...))</code> syntax. If the precision matrix is not specified, spaMM will generally evaluate it to assess whether it should use sparse-precision methods. see <code>sparse_precision</code> for further control of this computation, on another example from quantitative genetics.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sparse_precision</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# if(requireNamespace("pedigreemm", quietly=TRUE)) {
+    ## derived from help("pedigreemm")
+    # p1 &lt;- new("pedigree",
+              sire = as.integer(c(NA,NA,1, 1,4,5)),
+              dam  = as.integer(c(NA,NA,2,NA,3,2)),
+              label = as.character(1:6))
+    # A &lt;- pedigreemm::getA(p1) ## relationship matrix 
+# }
+## =&gt; Manually-built matrix: 
+A &lt;- matrix(NA, ncol=6,nrow=6)
+A[lower.tri(A,diag=TRUE)] &lt;- c(8,0,4,4,4,2, 8,4,0,2,5, 8,2,5,4.5, 8,5,2.5, 9,5.5, 9)/8
+A &lt;- Matrix::forceSymmetric(A,uplo = "L")
+colnames(A) &lt;- rownames(A) &lt;- 1:6
+
+## data simulation
+cholA &lt;- chol(A)  
+varU &lt;- 0.4; varE &lt;- 0.6; rep &lt;- 20
+n &lt;- rep*6
+set.seed(108)
+bStar &lt;- rnorm(6, sd=sqrt(varU))
+b &lt;- crossprod(as.matrix(cholA),bStar)
+ID &lt;- rep(1:6, each=rep)
+e0 &lt;- rnorm(n, sd=sqrt(varE))
+y &lt;- b[ID]+e0
+obs &lt;- data.frame(y=y,IDgen=ID,IDenv=ID) ## two copies of ID for readability of GLMM results
+
+## fits
+fitme(y ~ 1+ corrMatrix(1|IDgen) , corrMatrix=A,data=obs,method="REML")
+obs$y01 &lt;- ifelse(y&lt;1.3,0,1)
+fitme(y01 ~ 1+ corrMatrix(1|IDgen)+(1|IDenv), corrMatrix=A,data=obs, 
+      family=binomial(), method="REML")
+
+prec_mat &lt;- solve(A)
+colnames(prec_mat) &lt;- rownames(prec_mat) &lt;- rownames(A) # important
+fitme(y01 ~ 1+ corrMatrix(1|IDgen)+(1|IDenv) , covStruct=list(precision=prec_mat),
+      data=obs, family=binomial(), method="REML")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

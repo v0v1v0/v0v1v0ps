@@ -1,0 +1,311 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>MCgof</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Monte Carlo Goodness-of-fit for SECR Models</h2>
+
+<h3>Description</h3>
+
+<p><code>MCgof</code> implements and extends the Monte Carlo resampling method of Choo et al. (2024) to emulate Bayesian posterior predictive checks (Gelman et al. 1996, Royle et al. 2014). Initial results suggest the approach is more informative than the deviance-based test proposed by Borchers and Efford (2008) and implemented in <code>secr.test</code>. 
+However, the tests have limited power.
+</p>
+<p><code>MCgof</code> is under development. The structure of the output may change and 
+bugs may be found. See Warning below for exclusions.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+## S3 method for class 'secr'
+MCgof(object, nsim = 100, statfn = NULL, testfn = NULL, seed = NULL, 
+    ncores = 1, clustertype = c("PSOCK", "FORK"), usefxi = TRUE, 
+    useMVN = TRUE, Ndist = NULL, quiet = FALSE, ...)
+
+## S3 method for class 'secrlist'
+MCgof(object, nsim = 100, statfn = NULL, testfn = NULL, seed = NULL, 
+    ncores = 1, clustertype = c("PSOCK", "FORK"), usefxi = TRUE, 
+    useMVN = TRUE, Ndist = NULL, quiet = FALSE, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>secr fitted model or <code>secrlist</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>integer number of replicates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>statfn</code></td>
+<td>
+<p>function to extract summary statistics from capture histories</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>testfn</code></td>
+<td>
+<p>function to compare observed and expected counts</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>integer seed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>integer for number of parallel cores</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clustertype</code></td>
+<td>
+<p>character cluster type for parallel::makeCluster</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>usefxi</code></td>
+<td>
+<p>logical; if FALSE then AC are simulated de novo from the density 
+process rather than using information on the detected individuals</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>useMVN</code></td>
+<td>
+<p>logical; if FALSE parameter values are fixed at the MLE rather
+than drawn from multivariate normal distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ndist</code></td>
+<td>
+<p>character; distribution of number of unobserved AC (optional) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>logical; if FALSE then a progress bar (ncores=1) and final timing are shown</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments (not used)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>At each replicate parameter values are sampled from the multivariate-normal sampling distribution of the fitted model. The putative location of each detected individual is drawn from the spatial distribution implied by its observations and the resampled parameters (see <code>fxi</code>); locations of undetected individuals are simulated from the complement of pdot(x) times D(x). 
+</p>
+<p>New detections are simulated under the model for individuals at the simulated locations, along with the expected numbers. Detections form a capthist object, a 3-D array with dimensions for individual <code class="reqn">i</code>, occasion <code class="reqn">j</code> and detector <code class="reqn">k</code>*. Thus for each replicate and detected individual there are the original observations <code class="reqn">y_{ijk}</code>, simulated observations <code class="reqn">Y_{ijk}</code>, and expected counts <code class="reqn">\mbox E (y_{ijk})</code>. Two discrepancy statistics are calculated for each replicate – observed vs expected counts, and simulated vs expected counts – and a record is kept of which of these discrepancy statistics is the larger (indicating poorer fit). 
+</p>
+<p>* Notation differs slightly from Choo et al. (2024), using <code class="reqn">j</code> for occasion and <code class="reqn">k</code> for detector to be consistent with usage in <span class="pkg">secr</span> and elsewhere (e.g., Borchers and Fewster 2016).
+</p>
+<p>The default discrepancy (<code>testfn</code>) is the Freeman-Tukey statistic as in Choo et al. (2024) and Royle et al. (2014) (see also Brooks, Catchpole and Morgan 2000). The statistic has this general form for <code class="reqn">M</code> counts <code class="reqn">y_m</code> with expected value <code class="reqn">\mbox E(y_m)</code>:
+</p>
+<p style="text-align: center;"><code class="reqn">T = \sum_{m=1}^{m=M} \left(\sqrt {y_m} - \sqrt{E(y_m)}\right)^2.</code>
+</p>
+
+<p>The key output of <code>MCgof</code> is the proportion of replicates in which the simulated discrepancy exceeds the observed discrepancy. For perfect fit this will be about 0.5, and for poor fit it will approach zero.
+</p>
+<p>By default, tests are performed separately for three types of count: the numbers of detections of each individual (yi), at each detector (yk), and for each individual at each detector (yik) extracted by the default <code>statfn</code> from the margins of the observed and simulated capture histories.
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code class="reqn">y_{ik} = \sum_j y_{ijk}</code> </td>
+<td style="text-align: left;"> </td>
+<td style="text-align: left;"> individual x detector </td>
+</tr>
+<tr>
+<td style="text-align: left;"> 
+<code class="reqn">y_{i} = \sum_j \sum_k y_{ijk}</code> </td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"> individual </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code class="reqn">y_{k} = \sum_i \sum_j y_{ijk}</code>  </td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"> detector </td>
+</tr>
+<tr>
+<td style="text-align: left;"> 
+</td>
+</tr>
+</table>
+<p>Parallel processing is offered using multiple cores (CPUs) through the package <span class="pkg">parallel</span> when ncores &gt; 1. This differs from the usual multithreading paradigm in <span class="pkg">secr</span> and does not rely on the environment variable set by <code>setNumThreads</code> <em>except</em> that, if ncores = NULL, ncores will be set to the value from <code>setNumThreads</code>. The cluster type "FORK" is available only on Unix-like systems; it can require large amounts of memory, but is generally fast. A small value of ncores&gt;1 may be optimal, especially With cluster type "PSOCK".
+</p>
+<p>‘usefxi’ and ‘useMVN’ may be used to drop key elements of the Choo et al. (2024) 
+approach - they are provided for demonstration only.
+</p>
+<p>‘Ndist’ refers to the distribution of the number of unobserved AC, conditional on the expected number <code class="reqn">q = D^*A - n</code> where <code class="reqn">D^*</code> is the resampled density, <code class="reqn">A</code> the mask area, and <code class="reqn">n</code> the number of detected individuals. By default ‘Ndist’ depends on the distribution component of the ‘details’ argument of the fitted model (“poisson" for Poisson <code class="reqn">n</code>, “fixed"" for binomial <code class="reqn">n</code>). 
+</p>
+<p>The <code>RNGkind</code> of the random number generator is set internally for consistency across platforms.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Invisibly returns an object of class ‘MCgof’ with components -
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>as input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>statfn</code></td>
+<td>
+<p>as input or default</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>testfn</code></td>
+<td>
+<p>as input or default</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>all</code></td>
+<td>
+<p>list of outputs: for each statistic, a 3 x nsim matrix. Rows
+correspond to Tobs, Tsim, and a binary indicator for Tsim &gt; Tobs</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proctime</code></td>
+<td>
+<p>execution time in seconds</p>
+</td>
+</tr>
+</table>
+<p>For secrlist input the value returned is a list of ‘MCgof’ objects.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>Not all models are covered and some are untested. These models are specifically 
+excluded -
+</p>
+ 
+<ol>
+<li>
+<p> multi-session models
+</p>
+</li>
+<li>
+<p> models with groups
+</p>
+</li>
+<li>
+<p> conditional likelihood
+</p>
+</li>
+<li>
+<p> polygon, transect, telemetry or signal detectors
+</p>
+</li>
+<li>
+<p> non-binary behavioural responses
+</p>
+</li>
+</ol>
+<h3>Notes</h3>
+
+<p>This implementation extends the work of Choo et al. (2024) in these respects -
+</p>
+ 
+<ol>
+<li>
+<p> detector types ‘multi’ and ‘count’ are allowed
+</p>
+</li>
+<li>
+<p> the model may include variation among detectors
+</p>
+</li>
+<li>
+<p> the model may include behavioural responses
+</p>
+</li>
+<li>
+<p> 2-class finite mixture and hybrid mixture models are both allowed.
+</p>
+</li>
+</ol>
+<h3>Author(s)</h3>
+
+<p>Murray Efford and Yan Ru Choo
+</p>
+
+
+<h3>References</h3>
+
+<p>Borchers, D. L. and Efford, M. G. (2008) Spatially
+explicit maximum likelihood methods for capture–recapture studies.
+<em>Biometrics</em> <b>64</b>, 377–385.
+</p>
+<p>Borchers, D. L. and Fewster, R. M. (2016) Spatial capture–recapture models.  
+<em>Statistical Science</em> <b>31</b>, 219–232.
+</p>
+<p>Brooks, S. P., Catchpole, E. A. and Morgan, B. J. T. (2000) Bayesian animal 
+survival estimation. <em>Statistical Science</em> <b>15</b>, 357–376.
+</p>
+<p>Choo, Y. R., Sutherland, C. and Johnston, A. (2024) A Monte Carlo resampling 
+framework for implementing goodness-of-fit tests in spatial capture-recapture model
+<em>Methods in Ecology and Evolution</em> DOI: 10.1111/2041-210X.14386.
+</p>
+<p>Gelman, A., Meng, X.-L., and Stern, H. (1996) Posterior predictive assessment of 
+model fitness via realized discrepancies. <em>Statistica Sinica</em> <b>6</b>, 733–807.
+</p>
+<p>Royle, J. A., Chandler, R. B., Sollmann, R. and Gardner, B. (2014)
+<em>Spatial capture–recapture.</em> Academic Press.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Parallel,
+<code>secr.test</code>, 
+<code>plot.MCgof</code>, 
+<code>hist.MCgof</code>, 
+<code>summary.MCgof</code>  
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+tmp &lt;- MCgof(secrdemo.0)
+summary(tmp)
+par(mfrow = c(1,3), pty = 's')
+plot(tmp)
+
+
+</code></pre>
+
+
+</div>

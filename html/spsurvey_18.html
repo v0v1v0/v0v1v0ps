@@ -1,0 +1,545 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>irs</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Select an independent random sample (IRS)</h2>
+
+<h3>Description</h3>
+
+<p>Select a sample that is not spatially balanced from a point (finite), linear / linestring (infinite),
+or areal / polygon (infinite) sampling frame using the Independent Random Sampling (IRS) algorithm.
+The IRS algorithm accommodates unstratified and
+stratified sampling designs and allows for equal inclusion probabilities, unequal
+inclusion probabilities according to a categorical variable, and inclusion
+probabilities proportional to a positive auxiliary variable. Several additional
+sampling options are included, such as including legacy (historical) sites,
+requiring a minimum distance between sites, and selecting replacement sites.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">irs(
+  sframe,
+  n_base,
+  stratum_var = NULL,
+  seltype = NULL,
+  caty_var = NULL,
+  caty_n = NULL,
+  aux_var = NULL,
+  legacy_var = NULL,
+  legacy_sites = NULL,
+  legacy_stratum_var = NULL,
+  legacy_caty_var = NULL,
+  legacy_aux_var = NULL,
+  mindis = NULL,
+  maxtry = 10,
+  n_over = NULL,
+  n_near = NULL,
+  wgt_units = NULL,
+  pt_density = NULL,
+  DesignID = "Site",
+  SiteBegin = 1,
+  sep = "-",
+  projcrs_check = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sframe</code></td>
+<td>
+<p>A sampling frame as an <code>sf</code> object. The coordinate
+system for <code>sframe</code> must projected (not geographic). If m or z values
+are in <code>sframe</code>'s geometry, they are silently dropped (i.e., only x-coordinates
+and y-coordinates are preserved).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_base</code></td>
+<td>
+<p>The base sample size required. If the sampling design is unstratified,
+this is a single numeric value. If the sampling design is stratified, this is a named
+vector or list whose names represent each stratum and whose values represent each
+stratum's sample size. These names must match the values of the stratification
+variable represented by <code>stratum_var</code>. Legacy sites are considered part
+of the base sample, so the value for <code>n_base</code> should be equal to the number
+of legacy sites plus the number of desired non-legacy sites.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratum_var</code></td>
+<td>
+<p>A character string containing the name of the column from
+<code>sframe</code> that identifies stratum membership for each element in <code>sframe</code>.
+If stratum equals <code>NULL</code>, the sampling design is unstratified and all elements in <code>sframe</code>
+are eligible to be selected in the sample. The default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seltype</code></td>
+<td>
+<p>A character string or vector indicating the inclusion probability type,
+which must be one of following: <code>"equal"</code> for equal inclusion probabilities;
+<code>"unequal"</code> for unequal inclusion probabilities according to a categorical
+variable specified by <code>caty_var</code>; and <code>"proportional"</code> for inclusion
+probabilities proportional to a positive auxiliary variable specified by
+<code>aux_var</code>. If the sampling design is unstratified, <code>seltype</code> is a single
+character vector. If the sampling design is stratified, <code>seltype</code> is a named vector
+whose names represent each stratum and whose values represent each stratum's
+inclusion probability type. <code>seltype</code>'s default value tries to match the
+intended inclusion probability type: If <code>caty_var</code> and <code>aux_var</code> are
+not specified, <code>seltype</code> is <code>"equal"</code>; if <code>caty_var</code> is specified,
+<code>seltype</code> is <code>"unequal"</code>; and if <code>aux_var</code> is specified, <code>seltype</code>
+is <code>"proportional"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>caty_var</code></td>
+<td>
+<p>A character string containing the name of the column from
+<code>sframe</code> that represents the unequal probability variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>caty_n</code></td>
+<td>
+<p>A character vector indicating the expected sample size for each
+level of <code>caty_var</code>, the unequal probability variable. If the sampling design
+is unstratified, <code>caty_n</code> is a named vector whose names represent each
+level of <code>caty_var</code> and whose values represent each level's expected
+sample size. The sum of <code>caty_n</code> must equal <code>n_base</code>. If the sampling design
+is stratified and the expected sample sizes are the same among strata, <code>caty_n</code> is
+a named vector whose names represent represent each
+level of <code>caty_var</code> and whose values represent each level's expected
+sample size – these expected sample sizes are applied to all strata. The sum of
+<code>caty_n</code> must equal each stratum's value in <code>n_base</code>.
+If the sampling design is stratified and the expected sample sizes differ among strata,
+<code>caty_n</code> is a list where each element  is named as a stratum in <code>n_base</code>.
+Each stratum's list element is a named vector whose
+names represent each level of <code>caty_var</code> and whose values represent each
+level's expected sample size (within the stratum). The sum of the values in each stratum's
+list element must equal that stratum's value in <code>n_base</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>aux_var</code></td>
+<td>
+<p>A character string containing the name of the column from
+<code>sframe</code> that represents the proportional (to size) inclusion probability
+variable (auxiliary variable). This auxiliary variable must be positive, and the resulting
+inclusion probabilities are proportional to the values of the auxiliary variable.
+Larger values of the auxiliary variable result in higher inclusion probabilities.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>legacy_var</code></td>
+<td>
+<p>This argument can be used instead of <code>legacy_sites</code>
+when <code>sframe</code> is a <code>POINT</code> or <code>MULTIPOINT</code>
+geometry (i.e. a finite sampling frame),
+When <code>legacy_var</code> is used, it is a character string containing the name of the column
+from <code>sframe</code> that represents whether each site is a legacy site. For
+legacy sites, the values of the <code>legacy_var</code> must contain character strings that
+act as a legacy site identifier. For non-legacy sites, the values of the
+<code>legacy_var</code> column must be <code>NA</code>. Using this approach,
+<code>legacy_stratum_var</code>, <code>legacy_caty_var</code>, and <code>legacy_aux_var</code>
+are not required and should not be used (because <code>legacy_var</code> represents a column
+in <code>sframe</code>). <code>spsurvey</code> assumes that the legacy sites were selected from
+a previous sampling design that incorporated randomness into site selection
+and that the legacy sites are elements of the current sampling frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>legacy_sites</code></td>
+<td>
+<p>An sf object with a <code>POINT</code> or <code>MULTIPOINT</code>
+geometry representing the legacy sites. spsurvey assumes that
+the legacy sites were selected from a previous sampling design that
+incorporated randomness into site selection and that the legacy sites
+are elements of the current sampling frame. If <code>sframe</code> has a
+<code>POINT</code> or <code>MULTIPOINT</code> geometry, the observations in <code>legacy_sites</code>
+should not also be in <code>sframe</code> (i.e., duplicates are not removed). Thus, <code>sframe</code>
+and <code>legacy_sites</code> together compose the current sampling frame. If m or z values
+are in <code>legacy_sites</code>' geometry, they are silently dropped (i.e., only x-coordinates
+and y-coordinates are preserved).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>legacy_stratum_var</code></td>
+<td>
+<p>A character string containing the name of the column from
+<code>legacy_sites</code> that identifies stratum membership for each element of <code>legacy_sites</code>.
+This argument is required when the sampling design is stratified and its levels
+must be contained in the levels of the <code>stratum_var</code> variable. The default value of <code>legacy_stratum_var</code>
+is <code>stratum_var</code>, so <code>legacy_stratum_var</code> need only be specified explicitly when
+the name of the stratification variable in <code>legacy_sites</code> differs from <code>stratum_var</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>legacy_caty_var</code></td>
+<td>
+<p>A character string containing the name of the column from
+<code>legacy_sites</code> that identifies the unequal probability variable for each element of <code>legacy_sites</code>.
+This argument is required when the sampling design uses unequal selection probabilities and its categories
+must be contained in the levels of the <code>caty_var</code> variable. The default value of <code>legacy_caty_var</code>
+is <code>caty_var</code>, so <code>legacy_caty_var</code> need only be specified explicitly when
+the name of the unequal probability variable in <code>legacy_sites</code> differs from <code>caty_var</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>legacy_aux_var</code></td>
+<td>
+<p>A character string containing the name of the column from
+<code>legacy_sites</code> that identifies the proportional probability variable for each element of <code>legacy_sites</code>.
+This argument is required when the sampling design uses proportional selection probabilities and the values of the
+<code>legacy_aux_var</code> variable must be positive. The
+default value of <code>legacy_aux_var</code> is <code>aux_var</code>, so <code>legacy_aux_var</code> need only be specified explicitly
+when the name of the proportional probability variable in <code>legacy_sites</code> differs from <code>aux_var</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mindis</code></td>
+<td>
+<p>A numeric value indicating the desired minimum distance between sampled
+sites. If the sampling design is stratified and <code>mindis</code> is an numeric value, the minimum
+distance is applied to all strata. If the sampling design is stratified and different minimum distances
+are desired among strata, then <code>mindis</code>
+is a list whose names match the names of <code>n_base</code> and whose and values
+are the minimum distance for the corresponding stratum.  If a minimum distance is not desired
+for a particular stratum, then the corresponding value in <code>mindis</code> should be <code>0</code> or
+<code>NULL</code> (which is equivalent to <code>0</code>).
+The units of <code>mindis</code> must represent the units in <code>sframe</code>. A warning is returned if the
+minimum distance could not be reached after <code>maxtry</code> attempts. If legacy sites are used, the minimum distance
+requirement (and subsequent warning if <code>maxtry</code> attempts are reached) is enforced for all base sites
+that are not legacy sites (i.e., the minimum distance is enforced for these sites
+by comparing distances against all base sites (legacy and non-legacy)).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxtry</code></td>
+<td>
+<p>The number of maximum attempts to apply the minimum distance algorithm to obtain
+the desired minimum distance between sites. Each iteration takes roughly as long as the
+standard GRTS algorithm. Successive iterations will always contain at least as many
+sites satisfying the minimum distance requirement as the previous iteration. The algorithm stops
+when the minimum distance requirement is met or there are <code>maxtry</code> iterations.
+The default number of maximum iterations is <code>10</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_over</code></td>
+<td>
+<p>The number of reverse hierarchically ordered (rho) replacement sites.
+If the sampling design is unstratified, then
+<code>n_over</code> is an integer specifying the number of rho replacement sites desired.
+If the sampling design is stratified,
+then <code>n_over</code> is a vector (or list) whose names match the names of <code>n_base</code> and
+whose values indicate the number of rho replacement sites for each stratum.
+If replacement sites are not desired for a particular stratum, then the corresponding
+value in <code>n_over</code> should be <code>0</code> or <code>NULL</code> (which is equivalent to <code>0</code>).
+If the sampling design is stratified but the number of <code>n_over</code> sites is the same in each
+stratum, <code>n_over</code> can be a vector which is used for each stratum.
+If <code>n_over</code> is an unnamed, length-one vector, it's value is recycled
+and used for each stratum. Note that if the
+sampling design has unequal selection probabilities (<code>seltype = "unequal"</code>), then <code>n_over</code> sites
+are given the same proportion of <code>caty_n</code> values as <code>n_base</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_near</code></td>
+<td>
+<p>The number of nearest neighbor (nn) replacement sites.
+If the sampling design is unstratified, <code>n_near</code> is integer from <code>1</code>
+to <code>10</code> specifying the number of
+nn replacement sites to be selected for each base site. If the sampling design
+is stratified but the same number of nn replacement sites is desired
+for each stratum,  <code>n_near</code> is integer from <code>1</code>
+to <code>10</code> specifying the number of
+nn replacement sites to be selected for each base site. If the sampling design is
+unstratified and a different number of nn replacement sites is
+desired for each stratum, <code>n_near</code> is a vector (or list) whose names represent strata and whose
+values is integer from <code>1</code>
+to <code>10</code> specifying the number of
+nn replacement sites to be selected for each base site in the stratum. If replacement sites
+are not desired for a particular stratum, then the corresponding value in <code>n_over</code>
+should be <code>0</code> or <code>NULL</code> (which is equivalent to <code>0</code>). For
+infinite sampling frames, the distance between a site and its nn
+depends on <code>pt_density</code>. The larger <code>pt_density</code>, the closer the nn neighbors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wgt_units</code></td>
+<td>
+<p>The units used to compute the design weights. These
+units must be standard units as defined by the <code>set_units()</code> function in
+the units package. The default units match the units of the sf object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pt_density</code></td>
+<td>
+<p>A positive integer controlling the density of the GRTS approximation
+for infinite sampling frames. The GRTS approximation for infinite sample
+frames vastly improves computational efficiency by generating many finite points and
+selecting a sample from the points. <code>pt_density</code> represents the density
+of finite points per unit to use in the approximation. More specifically,
+for each stratum, the number of points used in the approximation equals
+<code>pt_density * (n_base + n_over)</code>. A larger value of <code>pt_density</code>
+means a closer approximation to the infinite sampling frame but less
+computational efficiency. The default value of <code>pt_density</code> is <code>10</code>. Note that
+when used with <code>caty_n</code>, the unequal inclusion probabilities generated from
+this approach are also approximations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DesignID</code></td>
+<td>
+<p>A character string indicating the naming structure for each
+site's identifier selected in the sample, which is matched with <code>SiteBegin</code> and
+included as a variable in the
+sf object in the function's output. Default is "Site".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SiteBegin</code></td>
+<td>
+<p>A character string indicating the first number to use to match
+with <code>DesignID</code> while creating each site's identifier selected in the sample.
+Successive sites are given successive integers. The default starting number
+is <code>1</code> and the number of digits is equal to number of digits in
+<code>nbase + nover</code>.
+For example, if <code>nbase</code> is 50 and <code>nover</code> is 0, then the default
+site identifiers are <code>Site-01</code> to <code>Site-50</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sep</code></td>
+<td>
+<p>A character string that acts as a separator between
+<code>DesignID</code> and <code>SiteBegin</code>. The default is <code>"-"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>projcrs_check</code></td>
+<td>
+<p>A check for whether the coordinates are projected. If <code>TRUE</code>,
+an error is returned if coordinates are not projected  (i.e., they are geographic or NA). If <code>FALSE</code>, the
+check is not performed, which means that the crs in <code>sframe</code> (and <code>legacy_sites</code> if provided) can be projected, geographic, or NA.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>n_base</code> is the number of sites used to calculate
+the design weights, which is typically the number of sites used in an analysis. When a panel sampling design is implemented, <code>n_base</code> is typically the
+number of sites in all panels that will be sampled in the same temporal period –
+<code>n_base</code> is not the total number of sites in all panels. The sum of <code>n_base</code> and
+<code>n_over</code> is equal to the total number of sites to be visited for all panels plus
+any replacement sites that may be required.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The sampling design sites and additional information about the sampling design. More specifically, it is, a list with five elements:
+</p>
+
+<ul>
+<li> <p><code>sites_legacy</code> An sf object containing legacy sites. This is
+<code>NULL</code> if legacy sites were not included in the sample.
+</p>
+</li>
+<li> <p><code>sites_base</code> An sf object containing the base sites. This is <code>NULL</code>
+if <code>n_base</code> equals the number of legacy sites.
+</p>
+</li>
+<li> <p><code>sites_over</code> An sf object containing the reverse hierarchically
+ordered replacement sites. This is <code>NULL</code> if no reverse hierarchically
+ordered replacement sites were included in the sample.
+</p>
+</li>
+<li> <p><code>sites_near</code> An sf object containing the nearest neighbor
+replacement sites. This is <code>NULL</code> if no nearest neighbor replacement
+sites were included in the sample.
+</p>
+</li>
+<li> <p><code>design</code> A list documenting the specifications of this sampling design.
+This can be checked to verify your sampling design ran as intended.
+</p>
+
+<ul>
+<li> <p><code>call</code> The original function call.
+</p>
+</li>
+<li> <p><code>stratum_var</code> The name of the stratification variable in <code>sframe</code>.
+This equals <code>NULL</code> if no stratification is used.
+</p>
+</li>
+<li> <p><code>stratum</code> The unique strata. This equals <code>"None"</code> if
+the sampling design is unstratified.
+</p>
+</li>
+<li> <p><code>n_base</code> The base sample size per stratum.
+</p>
+</li>
+<li> <p><code>seltype</code> The selection type per stratum.
+</p>
+</li>
+<li> <p><code>caty_var</code> The name of the unequal probability variable in <code>sframe</code>.
+This equals <code>NULL</code> if no unequal probability variable is used.
+</p>
+</li>
+<li> <p><code>caty_n</code> The expected sample sizes for each level of the
+unequal probability grouping variable per stratum. This equals
+<code>NULL</code> when <code>seltype</code> is not <code>"unequal"</code>.
+</p>
+</li>
+<li> <p><code>aux_var</code> The name of the proportional probability (auxiliary) variable in <code>sframe</code>.
+This equals <code>NULL</code> if no proportional probability variable is used.
+</p>
+</li>
+<li> <p><code>legacy</code> A logical variable indicating whether legacy sites
+were included in the sample.
+</p>
+</li>
+<li> <p><code>legacy_stratum_var</code> The name of the stratification variable in <code>legacy_sites</code>.
+Omitted if legacy sites are not used. This equals <code>NULL</code> if legacy sites were used but
+no stratification variable is used.
+</p>
+</li>
+<li> <p><code>legacy_caty_var</code> The name of the unequal probability variable in <code>legacy_sites</code>.
+Omitted if legacy sites are not used. This equals <code>NULL</code> if legacy sites were used but
+no unequal probability variable is used.
+</p>
+</li>
+<li> <p><code>legacy_aux_var</code> The name of the proportional probability (auxiliary)
+variable in <code>legacy_sites</code>.
+Omitted if legacy sites are not used. This equals <code>NULL</code> if legacy sites
+were used but no proportional probability variable is used.
+</p>
+</li>
+<li> <p><code>mindis</code> The minimum distance requirement desired. This
+is <code>NULL</code> when no minimum distance requirement was applied.
+</p>
+</li>
+<li> <p><code>n_over</code> The reverse hierarchically ordered replacement
+site sample sizes per stratum. If <code>seltype</code> is <code>unequal</code>,
+this represents the expected sample sizes. This is <code>NULL</code>
+when no reverse hierarchically ordered replacement sites were selected.
+</p>
+</li>
+<li> <p><code>n_near</code> The number of nearest neighbor replacement sites
+desired. This is <code>NULL</code> when no nearest neighbor replacement
+sites were selected.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>When non-<code>NULL</code>, the <code>sites_legacy</code>, <code>sites_base</code>,
+<code>sites_over</code>, and <code>sites_near</code> objects contain the original columns
+in <code>sframe</code> and include a few additional columns. These additional columns
+are
+</p>
+
+<ul>
+<li> <p><code>siteID</code> A site identifier (as named using the <code>DesignID</code>
+and <code>SiteBegin</code> arguments to <code>grts()</code>).
+</p>
+</li>
+<li> <p><code>siteuse</code> Whether the site is a legacy site (<code>Legacy</code>), base
+site (<code>Base</code>), reverse hierarchically ordered replacement site
+(<code>Over</code>), or nearest neighbor replacement site (<code>Near</code>).
+</p>
+</li>
+<li> <p><code>replsite</code> The replacement site ordering. <code>replsite</code> is
+<code>None</code> if the site is not a replacement site, <code>Next</code> if it is
+the next reverse hierarchically ordered replacement site to use, or
+<code>Near_</code>, where the word following <code>_</code> indicates the ordering of sites closest to
+the originally sampled site.
+</p>
+</li>
+<li> <p><code>lon_WGS84</code> Longitude coordinates using the WGS84 coordinate
+system (EPSG:4326). Only given if coordinates are projected.
+</p>
+</li>
+<li> <p><code>lat_WGS84</code> Latitude coordinates using the WGS84 coordinate
+system (EPSG:4326). Only given if coordinates are projected.
+</p>
+</li>
+<li> <p><code>X</code> Longitude coordinates using the provided coordinate
+system. Only given if coordinates are not projected (i.e., they are geographic or NA).
+</p>
+</li>
+<li> <p><code>Y</code> Latitude coordinates using the provided coordinate
+system. Only given if coordinates are not projected (i.e., they are geographic or NA).
+</p>
+</li>
+<li> <p><code>stratum</code> A stratum indicator. <code>stratum</code> is <code>None</code>
+if the sampling design was unstratified. If the sampling design was <code>stratified</code>,
+<code>stratum</code> indicates the stratum.
+</p>
+</li>
+<li> <p><code>wgt</code> The design weight.
+</p>
+</li>
+<li> <p><code>ip</code> The site's original inclusion probability (the reciprocal)
+of (<code>wgt</code>).
+</p>
+</li>
+<li> <p><code>caty</code> An unequal probability grouping indicator. <code>caty</code>
+is <code>None</code> if the sampling design did not use unequal inclusion probabilities.
+If the sampling design did use unequal inclusion probabilities, <code>caty</code>
+indicates the unequal probability level.
+</p>
+</li>
+<li> <p><code>aux</code> The auxiliary proportional probability variable. This
+column is only returned if <code>seltype</code> was <code>proportional</code> in the
+original sampling design.
+</p>
+</li>
+</ul>
+<p>If any columns in <code>sframe</code> contain these names, those columns
+from <code>sframe</code> will be automatically prefixed with <code>sframe_</code>
+in the <code>sites</code> object. When output is printed, a summary of site counts by
+the levels in <code>stratum_var</code> and <code>caty_var</code> is shown.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Tony Olsen <a href="mailto:olsen.tony@epa.gov">olsen.tony@epa.gov</a>
+</p>
+
+
+<h3>See Also</h3>
+
+
+<dl>
+<dt><code>grts</code></dt>
+<dd>
+<p> to select a sample that is spatially balanced</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+samp &lt;- irs(NE_Lakes, n_base = 100)
+print(samp)
+strata_n &lt;- c(low = 25, high = 30)
+samp_strat &lt;- irs(NE_Lakes, n_base = strata_n, stratum_var = "ELEV_CAT")
+print(samp_strat)
+samp_over &lt;- irs(NE_Lakes, n_base = 30, n_over = 5)
+print(samp_over)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,113 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_network</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>extract topic correlation network</h2>
+
+<h3>Description</h3>
+
+<p><code> get_network()</code> is a helper function to extract topic correlation networks
+as tidygraph objects and add labels and topic proportions.
+</p>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The stm model for computing the correlation network.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>The method for determining edges. Can be either  <code>'simple'</code> or  <code>'huge'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutoff</code></td>
+<td>
+<p>The correlation cutoff criterion for <code>method = 'cutoff'</code>. Defaults to <code>0.05</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>labels</code></td>
+<td>
+<p>An optional vector of topic labels. Must include a label for each topic of the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutiso</code></td>
+<td>
+<p>Remove isolated notes without any edges from the network. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns tidygraph network of topic correlations.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+library(stm)
+library(ggraph)
+library(quanteda)
+
+# prepare data
+data &lt;- corpus(gadarian, text_field = 'open.ended.response')
+docvars(data)$text &lt;- as.character(data)
+
+data &lt;- tokens(data, remove_punct = TRUE) |&gt;
+  tokens_wordstem() |&gt;
+  tokens_remove(stopwords('english')) |&gt; dfm() |&gt;
+  dfm_trim(min_termfreq = 2)
+
+out &lt;- convert(data, to = 'stm')
+
+# fit model
+gadarian_10 &lt;- stm(documents = out$documents,
+                   vocab = out$vocab,
+                   data = out$meta,
+                   prevalence = ~ treatment + s(pid_rep),
+                   K = 10,
+                   max.em.its = 1, # reduce computation time for example
+                   verbose = FALSE)
+
+## Not run: 
+# extract network
+stm_corrs &lt;- get_network(model = gadarian_10,
+                         method = 'simple',
+                         labels = paste('Topic', 1:10),
+                         cutoff = 0.001,
+                         cutiso = TRUE)
+
+
+# plot network
+ggraph(stm_corrs, layout = 'auto') +
+  geom_edge_link(
+    aes(edge_width = weight),
+    label_colour = '#fc8d62',
+    edge_colour = '#377eb8') +
+  geom_node_point(size = 4, colour = 'black')  +
+  geom_node_label(
+    aes(label = name, size = props),
+    colour = 'black',  repel = TRUE, alpha = 0.85) +
+  scale_size(range = c(2, 10), labels = scales::percent) +
+  labs(size = 'Topic Proportion',  edge_width = 'Topic Correlation') +
+  scale_edge_width(range = c(1, 3)) +
+  theme_graph()
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,239 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sk_GLS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generalized least squares (GLS) with Kronecker covariances for sk grids</h2>
+
+<h3>Description</h3>
+
+<p>Computes coefficients b of the linear model E(Z) = Xb using the GLS equation
+for sk grid <code>g</code> and covariance model <code>pars</code>. By default the function returns the
+linear predictor as an sk object
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sk_GLS(g, pars, X = NA, out = "s", fac_method = "eigen", fac = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>a sk grid object (or list with entries 'gdim', 'gres', 'gval')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars</code></td>
+<td>
+<p>list of form returned by <code>sk_pars</code> (with entries 'y', 'x', 'eps', 'psill')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>sk grid, matrix or NA, the linear predictors (in columns) excluding intercept</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>out</code></td>
+<td>
+<p>character, either 'b' (coefficients), 'z' or 's' (Xb), or 'a' (all)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fac_method</code></td>
+<td>
+<p>character, factorization method: 'eigen' (default) or 'chol' (see <code>sk_var</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fac</code></td>
+<td>
+<p>matrix or list, (optional) pre-computed covariance matrix factorization</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is the maximum likelihood estimator for the linear trend Xb if we
+assume the covariance parameters (in <code>pars</code>) are specified correctly.
+</p>
+<p>The GLS solution is: b = ( X^T V^-1 X )^-1 X^T V^-1 z,
+</p>
+<p>where V is the covariance matrix for data vector z (which is <code>g[!is.na(g)]</code>), and X
+is a matrix of covariates. V is generated from the covariance model <code>pars</code> with grid
+layout <code>g</code>.
+</p>
+<p>Operations with V^-1 are computed using the factorization <code>fac</code> (see <code>sk_var</code>), or
+else as specified in <code>fac_method</code>.
+</p>
+<p>Argument <code>X</code> can be an sk grid (matching <code>g</code>) with covariates in layers; or it can be
+a matrix of covariates. DO NOT include an intercept layer (all 1's) in argument <code>X</code> or
+you will get collinearity errors. Matrix <code>X</code> should have independent columns, and its
+rows should match the order of <code>g[]</code> or <code>g[!is.na(g)]</code>.
+</p>
+<p>Use <code>X=NA</code> to specify an intercept-only model; ie to fit a spatially constant mean. This
+replaces X in the GLS equation by a vector of 1's.
+</p>
+<p>By default <code>out='s'</code> returns the linear predictor in an sk grid object. Change this to
+<code>'z'</code> to return it as a vector, or <code>'b'</code> to get the GLS coefficients only. Set it to <code>'a'</code>
+to get the second two return types (in a list) along with matrix <code>X</code> and its factorization.
+</p>
+<p>The length of the vector output for <code>out='z'</code> will match the number of rows in <code>X</code>.
+This means that if <code>NA</code> grid points are excluded from <code>X</code>, they will not appear in
+the output (and vice versa). In the <code>X=NA</code> case, the length is equal to the number of
+non-<code>NA</code> points in <code>g</code>. Note that if a point is observed in <code>g</code>, the function will expect
+its covariates to be included <code>X</code> (ie <code>X</code> should have no <code>NA</code>s corresponding to non-<code>NA</code>
+points in <code>g</code>).
+</p>
+<p>If <code>g[]</code> is a matrix (a multi-layer grid), the covariates in <code>X</code> are recycled
+for each layer. Layers are assumed mutually independent and the GLS equation is evaluated
+using the corresponding block-diagonal V. This is equivalent to (but faster than) calling
+<code>sk_GLS</code> separately on each layer with the same <code>X</code> and averaging the resulting b estimates.
+</p>
+
+
+<h3>Value</h3>
+
+<p>linear predictor Xb as an sk grid, or numeric vector, or coefficients (see details)
+</p>
+
+
+<h3>See Also</h3>
+
+<p>sk
+</p>
+<p>Other estimators: 
+<code>sk_cmean()</code>
+</p>
+<p>Other variance-related functions: 
+<code>sk_LL()</code>,
+<code>sk_cmean()</code>,
+<code>sk_nLL()</code>,
+<code>sk_sim()</code>,
+<code>sk_var()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># set up example grid and covariance parameters
+gdim = c(45, 31)
+g_empty = sk(gdim)
+n = length(g_empty)
+pars = utils::modifyList(sk_pars(g_empty, 'gau'), list(psill=2))
+
+# generate spatial noise
+g_noise = sk_sim(g_empty, pars)
+plot(g_noise)
+
+# generate more spatial noise to use as covariates
+n_betas = 3
+betas = stats::rnorm(n_betas, 0, 10)
+g_X = sk_sim(g_empty, pars, n_layer=n_betas-1L)
+X = g_X[]
+X_all = cbind(1, X)
+g_lm = g_empty
+g_lm[] = as.vector(X_all %*% betas)
+plot(g_lm)
+
+# combine with noise to make "observed" data
+g_obs = g_lm + g_noise
+plot(g_obs)
+
+# By default (out='s') the function returns the linear predictor
+g_lm_est = sk_GLS(g_obs, pars, g_X, out='s')
+g_lm_est
+plot(g_lm_est)
+
+# equivalent, but slightly faster to get vector output
+max(abs( sk_GLS(g_obs, pars, g_X, out='z') - g_lm_est[] ))
+
+# repeat with matrix X
+max(abs( sk_GLS(g_obs, pars, g_X[], out='z') - g_lm_est[] ))
+
+# return the GLS coefficients
+betas_est = sk_GLS(g_obs, pars, g_X, out='b')
+print(betas_est)
+print(betas)
+
+# compute trend manually as product of betas with X and intercept
+lm_est = X_all %*% betas_est
+max( abs(lm_est - g_lm_est[] ) )
+
+# de-trend observations by subtracting linear predictor
+plot(g_obs - g_lm_est)
+
+# repeat with pre-computed eigen factorization (same result but faster)
+fac_eigen = sk_var(g_obs, pars, fac_method='eigen', sep=TRUE)
+betas_est_compare = sk_GLS(g_obs, pars, g_X, fac=fac_eigen, out='b')
+max( abs( betas_est_compare - betas_est ) )
+
+# missing data example
+n_obs = 10
+g_miss = g_obs
+idx_miss = sort(sample.int(n, n-n_obs))
+g_miss[idx_miss] = NA
+is_obs = !is.na(g_miss)
+plot(g_miss)
+
+# coefficient estimates are still unbiased but less precise
+betas_est = sk_GLS(g_miss, pars, g_X, out='b')
+print(betas_est)
+print(betas)
+
+# set X to NA to estimate the spatially constant trend
+b0 = sk_GLS(g_miss, pars, X=NA, out='b')
+
+# matrix X does not need to include unobserved points, but output is filled to match X
+X_obs = X[is_obs,]
+sk_GLS(g_miss, pars, X=X_obs)
+sk_GLS(g_miss, pars, X=X)
+
+# verify GLS results manually
+X_all_obs = cbind(1, X_obs)
+V = sk_var(g_miss, pars)
+z = g_miss[!is.na(g_miss)]
+X_trans = t(X_all_obs) %*% solve(V)
+betas_compare = solve( X_trans %*% X_all_obs ) %*% X_trans %*% z
+betas_compare - betas_est
+
+# multi-layer examples skipped to stay below 5s exec time on slower machines
+
+
+# generate some extra noise for 10-layer example
+g_noise_multi = sk_sim(g_empty, pars, n_layer=10)
+g_multi = g_lm + g_noise_multi
+betas_complete = sk_GLS(g_multi, pars, g_X, out='b')
+print(betas_complete)
+print(betas)
+
+# multi-layer input shares covariates matrix X, and output is to a single layer
+summary(sk_GLS(g_multi, pars, g_X))
+summary(sk_GLS(g_multi, pars, X))
+# note that X cannot be missing data where `g` is observed
+
+# repeat with missing data
+g_multi[!is_obs,] = NA
+g_X_obs = g_X
+g_X_obs[!is_obs,] = NA
+betas_sparse = sk_GLS(g_multi, pars, X, out='b')
+print(betas_sparse)
+print(betas)
+summary(sk_GLS(g_multi, pars, g_X))
+summary(sk_GLS(g_multi, pars, X))
+summary(sk_GLS(g_multi, pars, g_X_obs))
+summary(sk_GLS(g_multi, pars, X_obs))
+
+
+</code></pre>
+
+
+</div>

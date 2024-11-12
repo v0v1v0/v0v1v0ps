@@ -1,0 +1,211 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fit.simpr_tibble</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit models to the simulated data</h2>
+
+<h3>Description</h3>
+
+<p>Takes simulated data from
+<code>generate</code>
+and applies functions to it, usually
+model-fitting functions.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'simpr_tibble'
+fit(
+  object,
+  ...,
+  .quiet = TRUE,
+  .warn_on_error = TRUE,
+  .stop_on_error = FALSE,
+  .debug = FALSE,
+  .progress = FALSE,
+  .options = furrr_options()
+)
+
+## S3 method for class 'simpr_spec'
+fit(
+  object,
+  ...,
+  .quiet = TRUE,
+  .warn_on_error = TRUE,
+  .stop_on_error = FALSE,
+  .debug = FALSE,
+  .progress = FALSE,
+  .options = furrr_options()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>a <code>simpr_tibble</code> object–the
+simulated data from
+<code>generate</code>–or
+an <code>simpr_spec</code> object not yet
+generated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p><code>purrr</code>-style lambda functions
+used for computing on the simulated data. See
+<em>Details</em> and <em>Examples</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.quiet</code></td>
+<td>
+<p>Should simulation errors be
+broadcast to the user as they occur?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.warn_on_error</code></td>
+<td>
+<p>Should there be a warning
+when simulation errors occur? See
+<code>vignette("Managing simulation errors")</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.stop_on_error</code></td>
+<td>
+<p>Should the simulation
+stop immediately when simulation errors
+occur?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.debug</code></td>
+<td>
+<p>Run simulation in debug mode,
+allowing objects, etc. to be explored for
+each attempt to fit objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.progress</code></td>
+<td>
+<p>A logical, for whether or not
+to print a progress bar for multiprocess,
+multisession, and multicore plans .</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.options</code></td>
+<td>
+<p>The <code>future</code> specific
+options to use with the workers when using
+futures. This must be the result from a call
+to
+<code>furrr_options()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is the fourth step in the simulation
+process: after generating the simulation data,
+apply functions such as fitting a statistical
+model to the data. The output is often then
+passed to <code>tidy_fits</code> or
+<code>glance_fits</code> to extract relevant
+model estimates from the object.
+</p>
+<p>Similar to
+<code>specify</code>, the
+model-fitting <code>...</code> arguments can be
+arbitrary R expressions (<code>purrr</code>-style
+lambda functions, see
+<code>as_mapper</code>) to specify
+fitting models to the data. The functions are
+computed within each simulation cell, so
+dataset names are generally unnecessary: e.g.,
+to compute regressions on each cell,
+<code>fit(linear_model = ~ lm(c ~ a + b)</code>.  If
+your modeling function requires a reference to
+the full dataset, use <code>.</code>, e.g.
+<code>fit(linear_model = ~lm(c ~ a + b, data =
+.)</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a <code>simpr_tibble</code> object with
+additional list-columns for the output of the
+provided functions (e.g. model outputs). Just
+like the output of
+<code>generate</code>,
+there is one row per repetition per
+combination of metaparameters, and the
+columns are the repetition number <code>rep</code>,
+the metaparameter names, the simulated data
+<code>sim</code>, with additional columns for the
+function outputs specified in <code>...</code>.
+If <code>per_sim</code> was called
+previously, <code>fit</code> returns the object to
+default <code>simpr_tibble</code> mode.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Generate data to fit models
+simple_linear_data = specify(a = ~ 2 + rnorm(n),
+                               b = ~ 5 + 3*a + rnorm(n, 0, sd = 0.5)) %&gt;%
+  define(n = 100:101) %&gt;%
+  generate(2)
+
+## Fit with a single linear term
+linear_fit = simple_linear_data %&gt;%
+  fit(linear = ~lm(b ~ a, data = .))
+
+linear_fit # first fit element also prints
+
+## Each element of $linear is a model object
+linear_fit$linear
+
+## We can fit multiple models to the same data
+multi_fit = simple_linear_data %&gt;%
+  fit(linear = ~lm(b ~ a, data = .),
+      quadratic = ~lm(b ~ a + I(a^2), data = .))
+
+## Two columns, one for each model
+multi_fit
+
+## Again, each element is a model object
+multi_fit$quadratic
+
+## Can view terms more nicely with tidy_fits
+multi_fit %&gt;%
+  tidy_fits
+
+## Can view model summaries with glance_fits
+multi_fit %&gt;%
+  glance_fits
+
+## Fit functions do not actually need to be any particular kind of model, they
+## can be any arbitrary function. However, not all functions will lead to useful
+## output with tidy_fits and glance_fits.
+add_five_data = simple_linear_data %&gt;%
+  fit(add_five = ~ . + 5)  ## adds 5 to every value in dataset
+
+add_five_data
+
+</code></pre>
+
+
+</div>

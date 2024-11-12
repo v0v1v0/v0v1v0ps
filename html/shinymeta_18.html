@@ -1,0 +1,236 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>expandChain</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Expand code objects</h2>
+
+<h3>Description</h3>
+
+<p>Use <code>expandChain</code> to write code out of one or more metaReactive objects.
+Each meta-reactive object (expression, observer, or renderer) will cause not
+only its own code to be written, but that of its dependencies as well.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">newExpansionContext()
+
+expandChain(..., .expansionContext = newExpansionContext())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>All arguments must be unnamed, and must be one of: 1) calls to
+meta-reactive objects, 2) comment string (e.g. <code>"# A comment"</code>), 3)
+language object (e.g. <code>quote(print(1 + 1))</code>), or 4) <code>NULL</code> (which will be
+ignored). Calls to meta-reactive objects can optionally be <code>invisible()</code>,
+see Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.expansionContext</code></td>
+<td>
+<p>Accept the default value if calling <code>expandChain</code> a
+single time to generate a corpus of code; or create an expansion context
+object using <code>newExpansionContext()</code> and pass it to multiple related calls
+of <code>expandChain</code>. See Details.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>There are two ways to extract code from meta objects (i.e. <code>metaReactive()</code>,
+<code>metaObserve()</code>, and <code>metaRender()</code>): <code>withMetaMode()</code> and <code>expandChain()</code>.
+The simplest is <code>withMetaMode(obj())</code>, which crawls the tree of meta-reactive
+dependencies and expands each <code>..()</code> in place.
+</p>
+<p>For example, consider these meta objects:</p>
+<pre>    nums &lt;- metaReactive({ runif(100) })
+    obs &lt;- metaObserve({
+      summary(..(nums()))
+      hist(..(nums()))
+    })
+</pre>
+<p>When code is extracted using <code>withMetaMode</code>:</p>
+<pre>    withMetaMode(obs())
+</pre>
+<p>The result looks like this:</p>
+<pre>    summary(runif(100))
+    plot(runif(100))
+</pre>
+<p>Notice how <code>runif(100)</code> is inlined wherever <code>..(nums())</code>
+appears, which is not desirable if we wish to reuse the same
+values for <code>summary()</code> and <code>plot()</code>.
+</p>
+<p>The <code>expandChain</code> function helps us workaround this issue
+by assigning return values of <code>metaReactive()</code> expressions to
+a name, then replaces relevant expansion (e.g., <code>..(nums())</code>)
+with the appropriate name (e.g. <code>nums</code>).</p>
+<pre>    expandChain(obs())
+</pre>
+<p>The result looks like this:</p>
+<pre>    nums &lt;- runif(100)
+    summary(nums)
+    plot(nums)
+</pre>
+<p>You can pass multiple meta objects and/or comments to <code>expandChain</code>.</p>
+<pre>    expandChain(
+      "# Generate values",
+      nums(),
+      "# Summarize and plot",
+      obs()
+    )
+</pre>
+<p>Output:</p>
+<pre>    # Load data
+    nums &lt;- runif(100)
+    nums
+    # Inspect data
+    summary(nums)
+    plot(nums)
+</pre>
+<p>You can suppress the printing of the <code>nums</code> vector in the previous example by
+wrapping the <code>nums()</code> argument to <code>expandChain()</code> with <code>invisible(nums())</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The return value of <code>expandChain()</code> is a code object that's suitable for
+printing or passing to <code>displayCodeModal()</code>, <code>buildScriptBundle()</code>, or
+<code>buildRmdBundle()</code>.
+</p>
+<p>The return value of <code>newExpansionContext</code> is an object that should be
+passed to multiple <code>expandChain()</code> calls.
+</p>
+
+
+<h3>Preserving dependencies between <code>expandChain()</code> calls</h3>
+
+<p>Sometimes we may have related meta objects that we want to generate code for,
+but we want the code for some objects in one code chunk, and the code for
+other objects in another code chunk; for example, you might be constructing
+an R Markdown report that has a specific place for each code chunk.
+</p>
+<p>Within a single <code>expandChain()</code> call, all <code>metaReactive</code> objects are
+guaranteed to only be declared once, even if they're declared on by multiple
+meta objects; but since we're making two <code>expandChain()</code> calls, we will end
+up with duplicated code. To remove this duplication, we need the second
+<code>expandChain</code> call to know what code was emitted in the first <code>expandChain</code>
+call.
+</p>
+<p>We can achieve this by creating an "expansion context" and sharing it between
+the two calls.</p>
+<pre>    exp_ctx &lt;- newExpansionContext()
+    chunk1 &lt;- expandChain(.expansionContext = exp_ctx,
+      invisible(nums())
+    )
+    chunk2 &lt;- expandChain(.expansionContext = exp_ctx,
+      obs()
+    )
+</pre>
+<p>After this code is run, <code>chunk1</code> contains only the definition of <code>nums</code> and
+<code>chunk2</code> contains only the code for <code>obs</code>.
+</p>
+
+
+<h3>Substituting <code>metaReactive</code> objects</h3>
+
+<p>Sometimes, when generating code, we want to completely replace the
+implementation of a <code>metaReactive</code>. For example, our Shiny app might contain
+this logic, using <code>shiny::fileInput()</code>:</p>
+<pre>    data &lt;- metaReactive2({
+      req(input$file_upload)
+      metaExpr(read.csv(..(input$file_upload$datapath)))
+    })
+    obs &lt;- metaObserve({
+      summary(..(data()))
+    })
+</pre>
+<p>Shiny's file input works by saving uploading files to a temp directory. The
+file referred to by <code>input$file_upload$datapath</code> won't be available when
+another user tries to run the generated code.
+</p>
+<p>You can use the expansion context object to swap out the implementation of
+<code>data</code>, or any other <code>metaReactive</code>:</p>
+<pre>    ec &lt;- newExpansionContext()
+    ec$substituteMetaReactive(data, function() {
+      metaExpr(read.csv("data.csv"))
+    })
+
+    expandChain(.expansionContext = ec, obs())
+</pre>
+<p>Result:</p>
+<pre>    data &lt;- read.csv("data.csv")
+    summary(data)
+</pre>
+<p>Just make sure this code ends up in a script or Rmd bundle that includes the
+uploaded file as <code>data.csv</code>, and the user will be able to reproduce your
+analysis.
+</p>
+<p>The <code>substituteMetaReactive</code> method takes two arguments: the <code>metaReactive</code>
+object to substitute, and a function that takes zero arguments and returns a
+quoted expression (for the nicest looking results, use <code>metaExpr</code> to create
+the expression). This function will be invoked the first time the
+<code>metaReactive</code> object is encountered (or if the <code>metaReactive</code> is defined
+with <code>inline = TRUE</code>, then every time it is encountered).
+</p>
+
+
+<h3>References</h3>
+
+<p><a href="https://rstudio.github.io/shinymeta/articles/code-generation.html">https://rstudio.github.io/shinymeta/articles/code-generation.html</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">input &lt;- list(dataset = "cars")
+
+# varname is only required if srcref aren't supported
+# (R CMD check disables them for some reason?)
+mr &lt;- metaReactive({
+  get(..(input$dataset), "package:datasets")
+})
+
+top &lt;- metaReactive({
+  head(..(mr()))
+})
+
+bottom &lt;- metaReactive({
+  tail(..(mr()))
+})
+
+obs &lt;- metaObserve({
+  message("Top:")
+  summary(..(top()))
+  message("Bottom:")
+  summary(..(bottom()))
+})
+
+# Simple case
+expandChain(obs())
+
+# Explicitly print top
+expandChain(top(), obs())
+
+# Separate into two code chunks
+exp_ctx &lt;- newExpansionContext()
+expandChain(.expansionContext = exp_ctx,
+  invisible(top()),
+  invisible(bottom()))
+expandChain(.expansionContext = exp_ctx,
+  obs())
+
+</code></pre>
+
+
+</div>

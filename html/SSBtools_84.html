@@ -1,0 +1,202 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Reduce0exact</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Reducing a non-negative regression problem</h2>
+
+<h3>Description</h3>
+
+<p>The linear equation problem, <code>z = t(x) %*% y</code> with y non-negative and x as a design (dummy) matrix,
+is reduced to a smaller problem by identifying elements of <code>y</code> that can be found exactly from <code>x</code> and <code>z</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Reduce0exact(
+  x,
+  z = NULL,
+  reduceByColSums = FALSE,
+  reduceByLeverage = FALSE,
+  leverageLimit = 0.999999,
+  digitsRoundWhole = 9,
+  y = NULL,
+  yStart = NULL,
+  printInc = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z</code></td>
+<td>
+<p>A single column matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reduceByColSums</code></td>
+<td>
+<p>See Details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reduceByLeverage</code></td>
+<td>
+<p>See Details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>leverageLimit</code></td>
+<td>
+<p>Limit to determine perfect fit</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>digitsRoundWhole</code></td>
+<td>
+<p><code>RoundWhole</code> parameter for fitted values (when <code>leverageLimit</code> and <code>y</code> not in input)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A single column matrix. With <code>y</code> in input, <code>z</code> in input can be omitted and estimating <code>y</code> (when <code>leverageLimit</code>) is avoided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>yStart</code></td>
+<td>
+<p>A starting estimate when this function is combined with iterative proportional fitting. Zeros in yStart will be used to reduce the problem.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>printInc</code></td>
+<td>
+<p>Printing iteration information to console when TRUE</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Exact elements can be identified in three ways in an iterative manner:
+</p>
+
+<ol>
+<li>
+<p> By zeros in <code>z</code>. This is always done.
+</p>
+</li>
+<li>
+<p> By columns in x with a singe nonzero value. Done when <code>reduceByColSums</code> or <code>reduceByLeverage</code> is <code>TRUE</code>.
+</p>
+</li>
+<li>
+<p> By exact linear regression fit (when leverage is one). Done when <code>reduceByLeverage</code> is <code>TRUE</code>.
+The leverages are computed by <code>hat(as.matrix(x), intercept = FALSE)</code>, which can be very time and memory consuming.
+Furthermore, without <code>y</code> in input, known values will be computed by <code>ginv</code>.
+</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p>A list of five elements:
+</p>
+
+<ul>
+<li> <p><code>x</code>: A reduced version of input <code>x</code>
+</p>
+</li>
+<li> <p><code>z</code>: Corresponding reduced <code>z</code>
+</p>
+</li>
+<li> <p><code>yKnown</code>: Logical, specifying known values of <code>y</code>
+</p>
+</li>
+<li> <p><code>y</code>: A version of <code>y</code> with known values correct and others zero
+</p>
+</li>
+<li> <p><code>zSkipped</code>: Logical, specifying omitted columns of <code>x</code>
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Øyvind Langsrud
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Make a special data set
+d &lt;- SSBtoolsData("sprt_emp")
+d$ths_per &lt;- round(d$ths_per)
+d &lt;- rbind(d, d)
+d$year &lt;- as.character(rep(2014:2019, each = 6))
+to0 &lt;- rep(TRUE, 36)
+to0[c(6, 14, 17, 18, 25, 27, 30, 34, 36)] &lt;- FALSE
+d$ths_per[to0] &lt;- 0
+
+# Values as a single column matrix
+y &lt;- Matrix(d$ths_per, ncol = 1)
+
+# A model matrix using a special year hierarchy
+x &lt;- Hierarchies2ModelMatrix(d, hierarchies = list(geo = "", age = "", year = 
+    c("y1418 = 2014+2015+2016+2017+2018", "y1519 = 2015+2016+2017+2018+2019", 
+      "y151719 = 2015+2017+2019", "yTotal = 2014+2015+2016+2017+2018+2019")), 
+      inputInOutput = FALSE)
+
+# Aggregates 
+z &lt;- t(x) %*% y
+sum(z == 0)  # 5 zeros
+
+# From zeros in z
+a &lt;- Reduce0exact(x, z)
+sum(a$yKnown)   # 17 zeros in y is known
+dim(a$x)        # Reduced x, without known y and z with zeros 
+dim(a$z)        # Corresponding reduced z 
+sum(a$zSkipped) # 5 elements skipped 
+t(a$y)          # Just zeros (known are 0 and unknown set to 0) 
+
+# It seems that three additional y-values can be found directly from z
+sum(colSums(a$x) == 1)
+
+# But it is the same element of y (row 18)
+a$x[18, colSums(a$x) == 1]
+
+# Make use of ones in colSums
+a2 &lt;- Reduce0exact(x, z, reduceByColSums = TRUE)
+sum(a2$yKnown)          # 18 values in y is known
+dim(a2$x)               # Reduced x
+dim(a2$z)               # Corresponding reduced z
+a2$y[which(a2$yKnown)]  # The known values of y (unknown set to 0)
+
+# Six ones in leverage values 
+# Thus six extra elements in y can be found by linear estimation
+hat(as.matrix(a2$x), intercept = FALSE)
+
+# Make use of ones in leverages (hat-values)
+a3 &lt;- Reduce0exact(x, z, reduceByLeverage = TRUE)
+sum(a3$yKnown)          # 26 values in y is known (more than 6 extra)
+dim(a3$x)               # Reduced x
+dim(a3$z)               # Corresponding reduced z
+a3$y[which(a3$yKnown)]  # The known values of y (unknown set to 0)
+
+# More than 6 extra is caused by iteration 
+# Extra checking of zeros in z after reduction by leverages 
+# Similar checking performed also after reduction by colSums
+
+</code></pre>
+
+
+</div>

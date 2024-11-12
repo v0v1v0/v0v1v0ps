@@ -1,0 +1,499 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>mmec</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+<strong>m</strong>ixed <strong>m</strong>odel <strong>e</strong>quations for <strong>c</strong> coefficients
+</h2>
+
+<h3>Description</h3>
+
+<p>The <code>mmec</code> function uses the Henderson mixed model equations and the Average Information algorithm coded in C++ using the Armadillo library to optimize matrix operations common in problems with sparse data (e.g., genotype by environment models). This algorithm is <strong>intended to be used for problems of the type r &gt; c (more records in the data than coefficients to estimate)</strong>. For problems with of the type c &gt; r (more coefficients to estimate than records available), the direct inversion algorithms are faster and we recommend to shift to the use of the <code>mmer</code> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+mmec(fixed, random, rcov, data, W, nIters=25, tolParConvLL = 1e-03,
+     tolParConvNorm = 1e-04, tolParInv = 1e-06, naMethodX="exclude",
+     naMethodY="exclude", returnParam=FALSE, dateWarning=TRUE,
+     verbose=TRUE,addScaleParam=NULL, stepWeight=NULL, emWeight=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+<p>A formula specifying the <strong>response variable(s)</strong> <strong>and fixed effects</strong>, i.e:
+</p>
+<p><em>response ~ covariate</em>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>random</code></td>
+<td>
+<p>A formula specifying the name of the <strong>random effects</strong>, e.g., <em>random= ~ genotype + year</em>.
+</p>
+<p>Useful functions can be used to fit heterogeneous variances and other special models (<em>see 'Special Functions' in the Details section for more information</em>):
+</p>
+<p><code>vsc(...,Gu)</code> is the main function to specify variance models and special structures for random effects. On the ... argument you provide the unknown variance-covariance structures (e.g., usc,dsc,at,csc) and the random effect where such covariance structure will be used (the random effect of interest). Gu is used to provide known covariance matrices among the levels of the random effect. Auxiliar functions for building the variance models are:
+</p>
+<p>** <code>dsc(x)</code>, <code>usc(x)</code>, <code>rrc(x,y,z)</code> , <code>isc(x)</code>,<code>csc(x)</code>, and <code>atc(x,levs)</code> can be used to specify unknown diagonal, unstructured, reduced-rank, identity, and customized unstructured and diagonal covariance structures respectively to be estimated by REML.
+</p>
+<p>** <code>unsm(x)</code>, <code>fixm(x)</code> and <code>diag(x)</code> can be used to build easily matrices to specify constraints in the Gtc argument of the <code>vsc()</code> function.
+</p>
+<p>** <code>overlay()</code>, <code>spl2Dc()</code>, and <code>leg()</code>, <code>redmm()</code> functions can be used to specify overlayed of design matrices of random effects, two dimensional spline, random regression, and dimensionality-reduction models within the <code>vsc()</code> function.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rcov</code></td>
+<td>
+<p>A formula specifying the name of the <strong>error term</strong>, e.g., <em>rcov= ~ units</em>.
+</p>
+<p>Special heterogeneous and special variance models and constraints for the residual part are the same used on the random term but the name of the random effect is always "units" which can be thought as a column with as many levels as rows in the data, e.g., <em>rcov=~vsc(dsc(covariate),isc(units))</em>
+</p>
+<p>When fitting structures at the level of residuals please make sure that your data is sorted based on the factors defining the structure. For example, for <em>rcov= ~ vsc(dsc(xx), isc(units))</em> sort the datatset by the variable xx.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame containing the variables specified in the formulas for response, fixed, and random effects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>Weights matrix (e.g., when covariance among plots exist). Internally W is squared and inverted as Wsi = solve(chol(W)), then the residual matrix is calculated as R = Wsi*O*Wsi.t(), where * is the matrix product, and O is the original residual matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nIters</code></td>
+<td>
+<p>Maximum number of iterations allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolParConvLL</code></td>
+<td>
+<p>Convergence criteria based in the change of log-likelihood between iteration i and i-1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolParConvNorm</code></td>
+<td>
+<p>Convergence criteria based in the norm proposed by Jensen, Madsen and Thompson (1997):
+</p>
+<p>e1 = || InfMatInv.diag()/sqrt(N) * dLu ||
+</p>
+<p>where InfMatInv.diag() is the diagonal of the inverse of the information matrix, N is the total number of variance components, and dLu is the vector of first derivatives.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolParInv</code></td>
+<td>
+<p>Tolerance parameter for matrix inverse used when singularities are encountered in the estimation procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>naMethodX</code></td>
+<td>
+<p>One of the two possible values; "include" or "exclude". If "include" is selected then the function will impute the X matrices for fixed effects with the median value. If "exclude" is selected it will get rid of all rows with missing values for the X (fixed) covariates. The default is "exclude". The "include" option should be used carefully.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>naMethodY</code></td>
+<td>
+<p>One of the three possible values; "include", "include2" or "exclude" (default) to treat the observations in response variable to be used in the estimation of variance components. The first option "include" will impute the response variables for all rows with the median value, whereas "include2" imputes the responses only for rows where there is observation(s) for at least one of the responses (only available in the multi-response models). If "exclude" is selected (default) it will get rid of rows in response(s) where missing values are present for at least one of the responses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnParam</code></td>
+<td>
+<p>A TRUE/FALSE value to indicate if the program should return the parameters to be used for fitting the model instead of fitting the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dateWarning</code></td>
+<td>
+<p>A TRUE/FALSE value to indicate if the program should warn you when is time to update the sommer package.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>A TRUE/FALSE value to indicate if the program should return the progress of the iterative algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>addScaleParam</code></td>
+<td>
+<p>additional scale parameters for the thetaF matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stepWeight</code></td>
+<td>
+<p>A vector of values (of length equal to the number of iterations) indicating the weight used to multiply the update (delta) for variance components at each iteration. If NULL the 1st iteration will be multiplied by 0.5, the 2nd by 0.7, and the rest by 0.9. This argument can help to avoid that variance components go outside the parameter space in the initial iterations which happens very often with the AI method but it can be detected by looking at the behavior of the likelihood. In that case you may want to give a smaller weight.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>emWeight</code></td>
+<td>
+<p>A vector of values (of length equal to the number of iterations) indicating with values between 0 and 1 the weight assigned to the EM information matrix. And the values 1 - emWeight will be applied to the AI information matrix to produce a joint information matrix. By default the function gives a weight to the EM algorithm of a logarithmic decrease rate using the following code <code>logspace(nIters,1,0.05)</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The use of this function requires a good understanding of mixed models. Please review the 'sommer.quick.start' vignette and pay attention to details like format of your random and fixed variables (e.g. character and factor variables have different properties when returning BLUEs or BLUPs, please see the 'sommer.changes.and.faqs' vignette).
+</p>
+<p><strong>For tutorials</strong> on how to perform different analysis with sommer please look at the vignettes by typing in the terminal:
+</p>
+<p>vignette("v1.sommer.quick.start")
+</p>
+<p>vignette("v2.sommer.changes.and.faqs")
+</p>
+<p>vignette("v3.sommer.qg")
+</p>
+<p>vignette("v4.sommer.gxe")
+</p>
+<p><strong>Citation</strong>
+</p>
+<p>Type <em>citation("sommer")</em> to know how to cite the sommer package in your publications.
+</p>
+<p><strong>Special variance structures</strong>
+</p>
+<p><code>vsc(atc(x,levels),isc(y))</code>
+</p>
+<p>can be used to specify heterogeneous variance for the "y" covariate at specific levels of the covariate "x", e.g., <em>random=~vsc(at(Location,c("A","B")),isc(ID))</em> fits a variance component for ID at levels A and B of the covariate Location.
+</p>
+<p><code>vsc(dsc(x),isc(y))</code>
+</p>
+<p>can be used to specify a diagonal covariance structure for the "y" covariate for all levels of the covariate "x", e.g., <em>random=~vsc(dsc(Location),isc(ID))</em>  fits a variance component for ID at all levels of the covariate Location.
+</p>
+<p><code>vsc(usc(x),isc(y))</code>
+</p>
+<p>can be used to specify an unstructured covariance structure for the "y" covariate for all levels of the  covariate "x", e.g., <em>random=~vsc(usc(Location),isc(ID))</em>  fits variance and covariance components for ID at all levels of the covariate Location.
+</p>
+<p><code>vsc(usc(rrc(x,y,z,nPC)),isc(y))</code>
+</p>
+<p>can be used to specify an unstructured covariance structure for the "y" effect for all levels of the  covariate "x", and a response variable "z", e.g., <em>random=~vsc(rrc(Location,ID,response, nPC=2),isc(ID))</em>  fits a reduced-rank factor analytic covariance for ID at 2 principal components of the covariate Location.
+</p>
+<p><code>vsc(isc(overlay(...,rlist=NULL,prefix=NULL)))</code>
+</p>
+<p>can be used to specify overlay of design matrices between consecutive random effects specified, e.g., <em>random=~vsc(isc(overlay(male,female)))</em> overlays (overlaps) the incidence matrices for the male and female random effects to obtain a single variance component for both effects. The 'rlist' argument is a list with each element being a numeric value that multiplies the incidence matrix to be overlayed. See <code>overlay</code> for details.Can be combined with vsc().
+</p>
+<p><code>vsc(isc(redmm(x,M,nPC)))</code>
+</p>
+<p>can be used to create a reduced model matrix of an effect (x) assumed to be a linear function of some feature matrix (M), e.g., <em>random=~vsc(isc(redmm(x,M)))</em> creates an incidence matrix from a very large set of features (M) that belong to the levels of x to create a reduced model matrix. See <code>redmm</code> for details.Can be combined with vsc().
+</p>
+<p><code>vsc(leg(x,n),isc(y))</code>
+</p>
+<p>can be used to fit a random regression model using a numerical variable <code>x</code> that marks the trayectory for the random effect <code>y</code>. The leg function can be combined with the special functions <code>dsc</code>, <code>usc</code> <code>at</code> and <code>csc</code>. For example <em>random=~vsc(leg(x,1),isc(y))</em> or <em>random=~vsc(usc(leg(x,1)),isc(y))</em>.
+</p>
+<p><code>spl2Dc(x.coord, y.coord, at.var, at.levels))</code>
+</p>
+<p>can be used to fit a 2-dimensional spline (e.g., spatial modeling) using coordinates <code>x.coord</code> and <code>y.coord</code> (in numeric class) assuming multiple variance components. The 2D spline can be fitted at specific levels using the <code>at.var</code> and <code>at.levels</code> arguments. For example <em>random=~spl2Dc(x.coord=Row,y.coord=Range,at.var=FIELD)</em>.
+</p>
+<p><strong>Covariance between random effects</strong>
+</p>
+<p><code>covc( vsc(isc(ran1)), vsc(isc(ran2)) )</code>
+</p>
+<p>can be used to specify covariance between two different random effects, e.g., <em>random=~covc( vsc(isc(x1)), vsc(isc(x2)) )</em> where two random effects in their own vsc() structure are encapsulated. Only applies for simple random effects.
+</p>
+<p><strong>S3 methods</strong>
+</p>
+<p>S3 methods are available for some parameter extraction such as <code>fitted.mmec</code>, <code>residuals.mmec</code>, <code>summary.mmec</code>, <code>randef</code>, <code>coef.mmec</code>, <code>anova.mmec</code>, <code>plot.mmec</code>, and <code>predict.mmec</code> to obtain adjusted means. In addition, the <code>vpredict</code> function (replacement of the pin function) can be used to estimate standard errors for linear combinations of variance components (e.g., ratios like h2). The <code>r2</code> function calculates reliability. 
+</p>
+<p><strong>Additional Functions</strong>
+</p>
+<p>Additional functions for genetic analysis have been included such as relationship matrix building (<code>A.mat</code>, <code>D.mat</code>, <code>E.mat</code>, <code>H.mat</code>),  build a genotypic hybrid marker matrix (<code>build.HMM</code>), plot of genetic maps (<code>map.plot</code>), and manhattan plots (<code>manhattan</code>). If you need to build a pedigree-based relationship matrix use the <code>getA</code> function from the pedigreemm package.
+</p>
+<p><strong>Bug report and contact</strong>
+</p>
+<p>If you have any technical questions or suggestions please post it in https://stackoverflow.com or https://stats.stackexchange.com
+</p>
+<p>If you have any bug report please go to https://github.com/covaruber/sommer or send me an email to address it asap, just make sure you have read the vignettes carefully before sending your question.
+</p>
+<p><strong>Example Datasets</strong>
+</p>
+<p>The package has been equiped with several datasets to learn how to use the sommer package:
+</p>
+<p>* <code>DT_halfdiallel</code>, <code>DT_fulldiallel</code> and <code>DT_mohring</code> datasets have examples to fit half and full diallel designs.
+</p>
+<p>* <code>DT_h2</code> to calculate heritability
+</p>
+<p>* <code>DT_cornhybrids</code> and <code>DT_technow</code> datasets to perform genomic prediction in hybrid single crosses
+</p>
+<p>* <code>DT_wheat</code> dataset to do genomic prediction in single crosses in species displaying only additive effects.
+</p>
+<p>* <code>DT_cpdata</code> dataset to fit genomic prediction models within a biparental population coming from 2 highly heterozygous parents including additive, dominance and epistatic effects.
+</p>
+<p>* <code>DT_polyploid</code> to fit genomic prediction and GWAS analysis in polyploids.
+</p>
+<p>* <code>DT_gryphon</code> data contains an example of an animal model including pedigree information.
+</p>
+<p>* <code>DT_btdata</code> dataset contains an animal (birds) model.
+</p>
+<p>* <code>DT_legendre</code> simulated dataset for random regression model.
+</p>
+<p>* <code>DT_sleepstudy</code> dataset to know how to translate lme4 models to sommer models.
+</p>
+<p>* <code>DT_ige</code> dataset to show how to fit indirect genetic effect models.
+</p>
+<p><strong>Models Enabled</strong>
+</p>
+<p>For details about the models enabled and more information about the covariance structures please check the help page of the package (<code>sommer</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>If all parameters are correctly indicated the program will return a list with the following information:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>llik</code></td>
+<td>
+<p>the vector of log-likelihoods across iterations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M</code></td>
+<td>
+<p>the coeficient matrix extended by the response vector y] </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>the column binded matrix W = [X Z y] </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>the vector of fixed effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u</code></td>
+<td>
+<p>the vector of random effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bu</code></td>
+<td>
+<p>the vector of fixed and random effects together.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ci</code></td>
+<td>
+<p>the inverse of the coefficient matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>avInf</code></td>
+<td>
+<p>The matrix of second derivatives of the likelihood with respect to the i.j th variance-covariance component.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>monitor</code></td>
+<td>
+<p>The values of the variance-covariance components across iterations during the REML estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraints</code></td>
+<td>
+<p>The vector of constraints.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>AIC</code></td>
+<td>
+<p>Akaike information criterion</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>BIC</code></td>
+<td>
+<p>Bayesian information criterion</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>convergence</code></td>
+<td>
+<p>a TRUE/FALSE statement indicating if the model converged.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>partitions</code></td>
+<td>
+<p>a list where each element contains a matrix indicating where each random effect starts and ends.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>percDelta</code></td>
+<td>
+<p>the matrix of percentage change in deltas (see tolParConvNorm argument).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normMonitor</code></td>
+<td>
+<p>the matrix of the three norms calculated (see tolParConvNorm argument).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>toBoundary</code></td>
+<td>
+<p>the matrix of variance components that were forced to the boundary across iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Cchol</code></td>
+<td>
+<p>the Cholesky decomposition of the coefficient matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+<p>a list of estimated variance covariance matrices. Each element of the list corresponds to the different random and residual components</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>the vector form of the variance-covariance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>the dataset used in the model fitting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>the response vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>partitionsX</code></td>
+<td>
+<p>a list where each element contains a matrix indicating where each fixed effect starts and ends.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uList</code></td>
+<td>
+<p>a list containing the BLUPs in data frame format where rows are levels of the random effects and column the different factors at which the random effect is fitted. This is specially useful for diagonal and unstructured models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uPevList</code></td>
+<td>
+<p>a list containing the BLUPs in data frame format where rows are levels of the random effects and column the different factors at which the random effect is fitted. This is specially useful for diagonal and unstructured models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Dtable</code></td>
+<td>
+<p>the table to be used for the predict function to help the program recognize the factors available.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args</code></td>
+<td>
+<p>the fixed, random and residual formulas from the mmec model.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Coded by Christelle Fernandez Camacho &amp; Giovanny Covarrubias-Pazaran
+</p>
+
+
+<h3>References</h3>
+
+<p>Jensen, J., Mantysaari, E. A., Madsen, P., and Thompson, R. (1997). Residual maximum likelihood estimation of (co) variance components in multivariate mixed linear models using average information. Journal of the Indian Society of Agricultural Statistics, 49, 215-236.
+</p>
+<p>Covarrubias-Pazaran G. Genome assisted prediction of quantitative traits using the R package sommer. PLoS ONE 2016, 11(6): doi:10.1371/journal.pone.0156744
+</p>
+<p>Gilmour et al. 1995. Average Information REML: An efficient algorithm for variance parameter estimation in linear mixed models. Biometrics 51(4):1440-1450.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+####=========================================####
+#### For CRAN time limitations most lines in the
+#### examples are silenced with one '#' mark,
+#### remove them and run the examples
+####=========================================####
+
+####=========================================####
+#### EXAMPLES
+#### Different models with sommer
+####=========================================####
+
+data(DT_example)
+DT &lt;- DT_example
+head(DT)
+
+####=========================================####
+#### Univariate homogeneous variance models  ####
+####=========================================####
+
+## Compound simmetry (CS) model
+ans1 &lt;- mmec(Yield~Env,
+             random= ~ Name + Env:Name,
+             rcov= ~ units,
+             data=DT)
+summary(ans1)
+
+# ####===========================================####
+# #### Univariate heterogeneous variance models  ####
+# ####===========================================####
+# DT=DT[with(DT, order(Env)), ]
+# ## Compound simmetry (CS) + Diagonal (DIAG) model
+# ans2 &lt;- mmec(Yield~Env,
+#              random= ~Name + vsc(dsc(Env),isc(Name)),
+#              rcov= ~ vsc(dsc(Env),isc(units)),
+#              data=DT)
+# summary(ans2)
+# 
+# ####===========================================####
+# ####  Univariate unstructured variance models  ####
+# ####===========================================####
+# 
+# ans3 &lt;- mmec(Yield~Env,
+#              random=~ vsc(usc(Env),isc(Name)),
+#              rcov=~vsc(dsc(Env),isc(units)),
+#              data=DT)
+# summary(ans3)
+
+</code></pre>
+
+
+</div>

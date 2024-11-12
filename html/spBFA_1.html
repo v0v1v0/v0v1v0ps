@@ -1,0 +1,385 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bfa_sp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spatial factor analysis using a Bayesian hierarchical model.</h2>
+
+<h3>Description</h3>
+
+<p><code>bfa_sp</code> is a Markov chain Monte Carlo (MCMC) sampler for a Bayesian spatial factor analysis model. The spatial component is 
+introduced using a Probit stick-breaking process prior on the factor loadings. The model is implemented using a Bayesian hierarchical framework.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bfa_sp(
+  formula,
+  data,
+  dist,
+  time,
+  K,
+  L = Inf,
+  trials = NULL,
+  family = "normal",
+  temporal.structure = "exponential",
+  spatial.structure = "discrete",
+  starting = NULL,
+  hypers = NULL,
+  tuning = NULL,
+  mcmc = NULL,
+  seed = 54,
+  gamma.shrinkage = TRUE,
+  include.space = TRUE,
+  clustering = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>A <code>formula</code> object, corresponding to the spatial factor analysis model. The response must be on the left of a <code>~</code> operator, and the terms on the right 
+must indicate the covariates to be included in the fixed effects. If no covariates are desired a zero should be used, <code>~ 0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A required <code>data.frame</code> containing the variables in the model. The data frame must contain <code>M x O x Nu</code> rows.
+Here, <code>M</code> represents the number of spatial locations, <code>O</code> the number of different observation types
+and <code>Nu</code> the number of temporal visits. The observations must be first be
+ordered spatially, second by observation type and then temporally. This means that the first <code>M x O</code> observations come from the first time point and
+the first <code>M</code> observations come the first spatial observation type.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>A <code>M x M</code> dimensional distance matrix. For a <code>discrete</code> spatial process the matrix contains binary adjacencies that dictate the
+spatial neighborhood structure and for <code>continuous</code> spatial processes the matrix should be a continuous distance matrix (e.g., Euclidean).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>A <code>Nu</code> dimensional vector containing the observed time points
+in increasing order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>A scalar that indicates the dimension (i.e., quantity) of latent factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>L</code></td>
+<td>
+<p>The number of latent clusters. If finite, a scalar indicating the number of clusters for each column of the factor loadings matrix. By default <code>L</code> is set at <code>Inf</code>
+so that the Probit stick-breaking process becomes an infinite mixture model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trials</code></td>
+<td>
+<p>A variable in <code>data</code> that contains the number of trials for each of the binomial observations. If there is no count data, <code>trials</code> should be left missing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Character string indicating the distribution of the observed data. Options
+include: <code>"normal"</code>, <code>"probit"</code>, <code>"tobit"</code>, and <code>"binomial"</code>. <code>family</code> must have either <code>O</code> or
+<code>1</code> dimension(s) (the one populates the rest). Any combination of likelihoods can be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>temporal.structure</code></td>
+<td>
+<p>Character string indicating the temporal kernel. Options include:
+<code>"exponential"</code> and <code>"ar1"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spatial.structure</code></td>
+<td>
+<p>Character string indicating the type of spatial process. Options include:
+<code>"continuous"</code> (i.e., Gaussian process with exponential kernel) and <code>"discrete"</code> (i.e., proper CAR).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starting</code></td>
+<td>
+<p>Either <code>NULL</code> or a <code>list</code> containing starting values
+to be specified for the MCMC sampler. If <code>NULL</code> is not chosen then none, some or all
+of the starting values may be specified.
+</p>
+<p>When <code>NULL</code> is chosen then default starting values are automatically generated.
+Otherwise a <code>list</code> must be provided with names <code>Beta</code>, <code>Delta</code>, <code>Sigma2</code>, <code>Kappa</code>, <code>Rho</code>, <code>Upsilon</code> or
+<code>Psi</code> containing appropriate objects. <code>Beta</code> (or <code>Delta</code>) must either be a <code>P</code> (or <code>K</code>) dimensional
+vector or a scalar (the scalar populates the entire vector). <code>Sigma2</code> must be either a <code>M x (O - C)</code> matrix or a scalar.
+<code>Kappa</code> must be a <code>O x O</code> dimensional matrix, <code>Rho</code> a scalar, <code>Upsilon</code> a <code>K x K</code> matrix, and <code>Psi</code> a scalar.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hypers</code></td>
+<td>
+<p>Either <code>NULL</code> or a <code>list</code> containing hyperparameter values
+to be specified for the MCMC sampler. If <code>NULL</code> is not chosen then none, some or all
+of the hyperparameter values may be specified.
+</p>
+<p>When <code>NULL</code> is chosen then default hyperparameter values are automatically
+generated. These default hyperparameters are described in detail in (Berchuck et al.).
+Otherwise a <code>list</code> must be provided with names <code>Beta</code>, <code>Delta</code>, <code>Sigma2</code>, <code>Kappa</code>, <code>Rho</code>, <code>Upsilon</code> or
+<code>Psi</code> containing further hyperparameter information. These objects are themselves
+<code>lists</code> and may be constructed as follows.
+</p>
+<p><code>Beta</code> is a <code>list</code> with two objects, <code>MuBeta</code> and <code>SigmaBeta</code>. These values represent the prior mean and variance 
+parameters for the multivariate normal prior.
+</p>
+<p><code>Delta</code> is a <code>list</code> with two objects, <code>A1</code> and <code>A2</code>. These values represent the prior shape 
+parameters for the multiplicative Gamma shrinkage prior.
+</p>
+<p><code>Sigma2</code> is a <code>list</code> with two objects, <code>A</code> and <code>B</code>. These values represent the shape and scale for the variance parameters.
+</p>
+<p><code>Kappa</code> is a <code>list</code> with two objects,
+<code>SmallUpsilon</code> and <code>BigTheta</code>. <code>SmallUpsilon</code> represents the degrees of freedom parameter for the
+inverse-Wishart hyperprior and must be a real number scalar, while <code>BigTheta</code> represents
+the scale matrix and must be a <code>O x O</code> dimensional positive definite matrix.
+</p>
+<p><code>Rho</code> is a <code>list</code> with two objects, <code>ARho</code> and <code>BRho</code>. <code>ARho</code>
+represents the lower bound for the uniform hyperprior, while <code>BRho</code> represents
+the upper bound. The bounds must be specified carefully. This is only specified for continuous spatial processes.
+</p>
+<p><code>Upsilon</code> is a <code>list</code> with two objects,
+<code>Zeta</code> and <code>Omega</code>. <code>Zeta</code> represents the degrees of freedom parameter for the
+inverse-Wishart hyperprior and must be a real number scalar, while <code>Omega</code> represents
+the scale matrix and must be a <code>K x K</code> dimensional positive definite matrix.
+</p>
+<p><code>Psi</code> is a <code>list</code> with two objects, dependent on if the temporal kernel is <code>exponential</code> or <code>ar1</code>.
+For <code>exponential</code>, the two objects are <code>APsi</code> and <code>BPsi</code>. <code>APsi</code>
+represents the lower bound for the uniform hyperprior, while <code>BPsi</code> represents
+the upper bound. The bounds must be specified carefully. For <code>ar1</code>, the two objects are <code>Beta</code> and <code>Gamma</code>, which are the 
+two shape parameters of a Beta distribution shifted to have domain in (-1, 1).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>Either <code>NULL</code> or a <code>list</code> containing tuning values
+to be specified for the MCMC Metropolis steps. If <code>NULL</code> is not chosen then all
+of the tuning values must be specified.
+</p>
+<p>When <code>NULL</code> is chosen then default tuning values are automatically generated to
+<code>1</code>. Otherwise a <code>list</code> must be provided with names <code>Psi</code>, 
+or <code>Rho</code>. Each of these entries must be scalars containing tuning variances for their corresponding Metropolis updates.
+<code>Rho</code> is only specified for continuous spatial processes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc</code></td>
+<td>
+<p>Either <code>NULL</code> or a <code>list</code> containing input values to be used
+for implementing the MCMC sampler. If <code>NULL</code> is not chosen then all
+of the MCMC input values must be specified.
+</p>
+<p><code>NBurn</code>: The number of sampler scans included in the burn-in phase. (default =
+<code>10,000</code>)
+</p>
+<p><code>NSims</code>: The number of post-burn-in scans for which to perform the
+sampler. (default = <code>10,000</code>)
+</p>
+<p><code>NThin</code>: Value such that during the post-burn-in phase, only every
+<code>NThin</code>-th scan is recorded for use in posterior inference (For return values
+we define, NKeep = NSims / NThin (default = <code>1</code>).
+</p>
+<p><code>NPilot</code>: The number of times during the burn-in phase that pilot adaptation
+is performed (default = <code>20</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>An integer value used to set the seed for the random number generator
+(default = 54).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gamma.shrinkage</code></td>
+<td>
+<p>A logical indicating whether a gamma shrinkage process prior is used for the variances of the factor loadings columns. If FALSE,
+the hyperparameters (A1 and A2) indicate the shape and rate for a gamma prior on the precisions. Default is TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include.space</code></td>
+<td>
+<p>A logical indicating whether a spatial process should be included. Default is TRUE, however if FALSE the spatial correlation matrix 
+is fixed as an identity matrix. This specification overrides the <code>spatial.structure</code> input.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clustering</code></td>
+<td>
+<p>A logical indicating whether the Bayesian non-parametric process should be used, default is TRUE. If FALSE is specified
+each column is instead modeled with an independent spatial process.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Details of the underlying statistical model proposed by
+Berchuck et al. 2019. are forthcoming.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>bfa_sp</code> returns a list containing the following objects
+</p>
+
+<dl>
+<dt><code>lambda</code></dt>
+<dd>
+<p><code>NKeep x (M x O x K)</code> <code>matrix</code> of posterior samples for factor loadings matrix <code>lambda</code>.
+The labels for each column are Lambda_O_M_K.</p>
+</dd>
+<dt><code>eta</code></dt>
+<dd>
+<p><code>NKeep x (Nu x K)</code> <code>matrix</code> of posterior samples for the latent factors <code>eta</code>.
+The labels for each column are Eta_Nu_K.</p>
+</dd>
+<dt><code>beta</code></dt>
+<dd>
+<p><code>NKeep x P</code> <code>matrix</code> of posterior samples for <code>beta</code>.</p>
+</dd>
+<dt><code>sigma2</code></dt>
+<dd>
+<p><code>NKeep x (M * (O - C))</code> <code>matrix</code> of posterior samples for the variances <code>sigma2</code>.
+The labels for each column are Sigma2_O_M.</p>
+</dd>
+<dt><code>kappa</code></dt>
+<dd>
+<p><code>NKeep x ((O * (O + 1)) / 2)</code> <code>matrix</code> of posterior samples for <code>kappa</code>. The
+columns have names that describe the samples within them. The row is listed first, e.g.,
+<code>Kappa3_2</code> refers to the entry in row <code>3</code>, column <code>2</code>.</p>
+</dd>
+<dt><code>delta</code></dt>
+<dd>
+<p><code>NKeep x K</code> <code>matrix</code> of posterior samples for <code>delta</code>.</p>
+</dd>
+<dt><code>tau</code></dt>
+<dd>
+<p><code>NKeep x K</code> <code>matrix</code> of posterior samples for <code>tau</code>.</p>
+</dd>
+<dt><code>upsilon</code></dt>
+<dd>
+<p><code>NKeep x ((K * (K + 1)) / 2)</code> <code>matrix</code> of posterior samples for <code>Upsilon</code>. The
+columns have names that describe the samples within them. The row is listed first, e.g.,
+<code>Upsilon3_2</code> refers to the entry in row <code>3</code>, column <code>2</code>.</p>
+</dd>
+<dt><code>psi</code></dt>
+<dd>
+<p><code>NKeep x 1</code> <code>matrix</code> of posterior samples for <code>psi</code>.</p>
+</dd>
+<dt><code>xi</code></dt>
+<dd>
+<p><code>NKeep x (M x O x K)</code> <code>matrix</code> of posterior samples for factor loadings cluster labels <code>xi</code>.
+The labels for each column are Xi_O_M_K.</p>
+</dd>
+<dt><code>rho</code></dt>
+<dd>
+<p><code>NKeep x 1</code> <code>matrix</code> of posterior samples for <code>rho</code>.</p>
+</dd>
+<dt><code>metropolis</code></dt>
+<dd>
+<p><code>2 (or 1) x 3</code> <code>matrix</code> of metropolis
+acceptance rates, updated tuners, and original tuners that result from the pilot
+adaptation.</p>
+</dd>
+<dt><code>runtime</code></dt>
+<dd>
+<p>A <code>character</code> string giving the runtime of the MCMC sampler.</p>
+</dd>
+<dt><code>datobj</code></dt>
+<dd>
+<p>A <code>list</code> of data objects that are used in future <code>bfa_sp</code> functions
+and should be ignored by the user.</p>
+</dd>
+<dt><code>dataug</code></dt>
+<dd>
+<p>A <code>list</code> of data augmentation objects that are used in future
+<code>bfa_sp</code> functions and should be ignored by the user.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Reference for Berchuck et al. 2019 is forthcoming.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+###Load womblR for example visual field data
+library(womblR)
+
+###Format data for MCMC sampler
+blind_spot &lt;- c(26, 35) # define blind spot
+VFSeries &lt;- VFSeries[order(VFSeries$Location), ] # sort by location
+VFSeries &lt;- VFSeries[order(VFSeries$Visit), ] # sort by visit
+VFSeries &lt;- VFSeries[!VFSeries$Location %in% blind_spot, ] # remove blind spot locations
+dat &lt;- data.frame(Y = VFSeries$DLS / 10) # create data frame with scaled data
+Time &lt;- unique(VFSeries$Time) / 365 # years since baseline visit
+W &lt;- HFAII_Queen[-blind_spot, -blind_spot] # visual field adjacency matrix (data object from womblR)
+M &lt;- dim(W)[1] # number of locations
+
+###Prior bounds for psi
+TimeDist &lt;- as.matrix(dist(Time))
+BPsi &lt;- log(0.025) / -min(TimeDist[TimeDist &gt; 0])
+APsi &lt;- log(0.975) / -max(TimeDist)
+
+###MCMC options
+K &lt;- 10 # number of latent factors
+O &lt;- 1 # number of spatial observation types
+Hypers &lt;- list(Sigma2 = list(A = 0.001, B = 0.001),
+               Kappa = list(SmallUpsilon = O + 1, BigTheta = diag(O)),
+               Delta = list(A1 = 1, A2 = 20),
+               Psi = list(APsi = APsi, BPsi = BPsi),
+               Upsilon = list(Zeta = K + 1, Omega = diag(K)))
+Starting &lt;- list(Sigma2 = 1,
+                 Kappa = diag(O),
+                 Delta = 2 * (1:K),
+                 Psi = (APsi + BPsi) / 2,
+                 Upsilon = diag(K))
+Tuning &lt;- list(Psi = 1)
+MCMC &lt;- list(NBurn = 1000, NSims = 1000, NThin = 2, NPilot = 5)
+
+###Fit MCMC Sampler
+reg.bfa_sp &lt;- bfa_sp(Y ~ 0, data = dat, dist = W, time = Time,  K = 10, 
+                     starting = Starting, hypers = Hypers, tuning = Tuning, mcmc = MCMC,
+                     L = Inf,
+                     family = "tobit",
+                     trials = NULL,
+                     temporal.structure = "exponential",
+                     spatial.structure = "discrete",
+                     seed = 54, 
+                     gamma.shrinkage = TRUE,
+                     include.space = TRUE,
+                     clustering = TRUE)
+
+###Note that this code produces the pre-computed data object "reg.bfa_sp"
+###More details can be found in the vignette.
+
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,348 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>forest_plot</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Forest plots for survival analysis.</h2>
+
+<h3>Description</h3>
+
+<p>Creates a forest plot from SurvivalAnalysisResult objects.
+Both univariate (<code>analyse_survival</code>) results, typically with use_one_hot=TRUE,
+and multivariate (<code>analyse_multivariate</code>) results are acceptable.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">forest_plot(
+  ...,
+  use_one_hot = FALSE,
+  factor_labeller = identity,
+  endpoint_labeller = identity,
+  orderer = identity_order,
+  categorizer = NULL,
+  relative_widths = c(1, 1, 1),
+  ggtheme = theme_bw(),
+  labels_displayed = c("endpoint", "factor"),
+  label_headers = c(endpoint = "Endpoint", factor = "Subgroup", n = "n"),
+  values_displayed = c("HR", "CI", "p"),
+  value_headers = c(HR = "HR", CI = "CI", p = "p", n = "n", subgroup_n = "n"),
+  HRsprintfFormat = "%.2f",
+  psprintfFormat = "%.3f",
+  p_lessthan_cutoff = 0.001,
+  log_scale = TRUE,
+  HR_x_breaks = seq(0, 10),
+  HR_x_limits = NULL,
+  factor_id_sep = ":",
+  na_rm = TRUE,
+  title = NULL,
+  title_relative_height = 0.1,
+  title_label_args = list(),
+  base_papersize = dinA(4)
+)
+
+forest_plot.df(
+  .df,
+  factor_labeller = identity,
+  endpoint_labeller = identity,
+  orderer = identity_order,
+  categorizer = NULL,
+  relative_widths = c(1, 1, 1),
+  ggtheme = theme_bw(),
+  labels_displayed = c("endpoint", "factor"),
+  label_headers = c(endpoint = "Endpoint", factor = "Subgroup", n = "n"),
+  values_displayed = c("HR", "CI", "p"),
+  value_headers = c(HR = "HR", CI = "CI", p = "p", n = "n", subgroup_n = "n"),
+  HRsprintfFormat = "%.2f",
+  psprintfFormat = "%.3f",
+  p_lessthan_cutoff = 0.001,
+  log_scale = TRUE,
+  HR_x_breaks = seq(0, 10),
+  HR_x_limits = NULL,
+  factor_id_sep = ":",
+  na_rm = TRUE,
+  title = NULL,
+  title_relative_height = 0.1,
+  title_label_args = list(),
+  base_papersize = dinA(4)
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>The SurvivalAnalysisResult objects.
+You can also pass one list of such objects, or use explicit splicing (!!! operator).
+If not <code>use_one_hot</code>, also a list of coxph objects, or a mix is acceptable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_one_hot</code></td>
+<td>
+<p>If not use_one_hot (default), will take univariate or multivariate results and plot hazard ratios
+against the reference level (as provided to the <code>analyse_survival</code> or <code>analyse_multivariate</code>
+function, or, per default, the first factor level), resulting in k-1 values for k levels.
+If use_one_hot == TRUE, will only accept univariate results from <code>analyse_survival</code> and plot HRs of one factor
+level vs. remaining cohort, resulting in k values for k levels.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>factor_labeller, endpoint_labeller</code></td>
+<td>
+<p>Either</p>
+
+<ul>
+<li>
+<p> A function which returns labels for the input:
+First argument, a vector of either (factor.ids) or (endpoints), resp.
+If the function takes ... or two arguments, as second argument a data frame with (at least)
+the columns survivalResult, endpoint, factor.id, factor.name, factor.value, HR, Lower_CI, Upper_CI, p, n,
+where survivalResult is the corresponding result object passed to forest_plot;
+Note the function must be vectorized, if you have a non-vectorized function taking single arguments,
+you may want to have a look at purrr::map_chr or purrr::pmap_chr.
+</p>
+</li>
+<li>
+<p> a dictionaryish list, looks up by (endpoints) or (factor.ids).
+The factor.id value: For continous factors, the factor name (column name in data frame);
+For categorical factors, factor name, factor_id_sep, and the factor level value.
+(note: If use_one_hot = FALSE, the HR is factor level value vs. cox reference given to survival_analysis;
+if use_one_hot = TRUE, the HR is the factor level value vs. remaining population)
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>orderer</code></td>
+<td>
+<p>A function which returns an integer ordering vector for the input:
+</p>
+
+<ul>
+<li>
+<p> if the supplied function takes exactly one argument, a data frame with (at least)
+the columns survivalResult, endpoint, factor.id, factor.name, factor.value, HR, Lower_CI, Upper_CI, p, n, subgroup_n
+where survivalResult is the corresponding result object passed to forest_plot;
+</p>
+</li>
+<li>
+<p> or, if the function takes more than one argument, or its arguments include ..., the nine vectors
+(endpoint, factor.name, factor.value, HR, Lower_CI, Upper_CI, p, n, subgroup_n):
+a vector of endpoints (as given to Surv(endpoint, ...) in coxph),
+a vector of factors (as given to the right hand side of the coxph formula), and
+numeric vectors of the HR, lower CI, upper CI, p-value
+</p>
+</li>
+<li>
+<p> You can create a function from ordered vectors via orderer_function_from_sorted_vectors,
+or call order() with one or more of these vectors.
+</p>
+</li>
+<li>
+<p> Alternatively, you can provide a quosure of code, or a right-hand side formula;
+it will be executed such that the above nine vectors are available as symbols.
+</p>
+</li>
+</ul>
+<p>Example:
+</p>
+
+<ul>
+<li> <p><code>orderer = quo(order(endpoint, HR))</code>
+</p>
+</li>
+<li>
+<p>   equivalent to <code>orderer = ~order(endpoint, HR)</code>
+</p>
+</li>
+<li>
+<p>   equivalent to <code>orderer = function(df) df %$% order(endpoint, HR)</code>
+</p>
+</li>
+<li>
+<p>   equivalent to <code>orderer = function(df) { order(df$endpoint, df$HR) }</code>
+</p>
+</li>
+<li>
+<p>   equivalent to <code>orderer = function(endpoint, factor.name, factor.value, HR, ...) order(endpoint, HR)</code>
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>categorizer</code></td>
+<td>
+<p>A function which returns one logical value if a breaking line should be
+inserted _above_ the input: Same semantics as for orderer.
+!Please note!: The order of the data is not yet ordered as per your orderer!
+If you do calculations depending on order, first order with your own orderer function.
+A proper implementation is easy using <code>sequential_duplicates</code>,
+for example <code>categorizer=~!sequential_duplicates(endpoint, ordering = order(endpoint, HR))</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>relative_widths</code></td>
+<td>
+<p>relation of the width of the plots, labels, plot, values. Default is 1:1:1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ggtheme</code></td>
+<td>
+<p>ggplot2 theme to use</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>labels_displayed</code></td>
+<td>
+<p>Combination of "endpoint", "factor", "n", determining what is shown on the left-hand table
+and in which order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>label_headers</code></td>
+<td>
+<p>Named vector with name=&lt;allowed values of labels_displayed&gt;, value=&lt;your heading&gt;.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>values_displayed</code></td>
+<td>
+<p>Combination of "HR", "CI", "p", "subgroup_n", determining what is shown on the right-hand table
+and in which order. Note: subgroup_n is only applicable if oneHot=TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>value_headers</code></td>
+<td>
+<p>Named vector with name=&lt;allowed values of values_displayed&gt;, value=&lt;your heading&gt;.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>HRsprintfFormat, psprintfFormat</code></td>
+<td>
+<p>sprintf() format strings for hazard ratio and p value</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_lessthan_cutoff</code></td>
+<td>
+<p>The lower limit below which p value will be displayed as "less than".
+If p_lessthan_cutoff == 0.001, the a p value of 0.002 will be displayed as is, while 0.0005 will become "p &lt; 0.001".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>log_scale</code></td>
+<td>
+<p>Plot on log scale, which is quite common and gives symmetric length for the CI bars.
+Note that HRs of 0 (did not converge) will not be plotted in this case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>HR_x_breaks</code></td>
+<td>
+<p>Breaks of the x scale for plotting HR and CI</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>HR_x_limits</code></td>
+<td>
+<p>Limits of the x scale for plotting HR and CI.
+Default (HR_x_lim = NULL) depends on log_scale and existing limits.
+Pass NA to use the existing minimum and maximum values without interference.
+Pass a vector of size 2 to specify (min, max) manually</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>factor_id_sep</code></td>
+<td>
+<p>Allows you to customize the separator of the factor id, the documentation of factor_labeller.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na_rm</code></td>
+<td>
+<p>Only used in the multivariate case (use_one_hot = FALSE). Should null coefficients (NA/0/Inf) be removed?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>title, title_relative_height, title_label_args</code></td>
+<td>
+<p>A title on top of the plot, taking a fraction of title_relative_height of the returned plot.
+The title is drawn using <code>draw_label</code>; you can specify any arguments to this function by giving title_label_args
+Per default, font attributes are taken from the "title" entry from the given ggtheme, and the label
+is drawn centered as per <code>draw_label</code> defaults.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>base_papersize</code></td>
+<td>
+<p>numeric vector of length 2, c(width, height), unit inches.
+forest_plot will store a suggested "papersize" attribute in the return value, computed from
+base_papersize and the number of entries in the plot (in particular, the height will be adjusted)
+The attribute is read by save_pdf.
+It will also store a "forestplot_entries" attribute which you can use for your own calculations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.df</code></td>
+<td>
+<p>Data frame containing the columns
+<code>survivalResult, endpoint, factor.id, factor.name, factor.value, HR, Lower_CI, Upper_CI, p, n, subgroup_n</code>
+giving the information that is to be presented in the forest plot</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+<p>For the variant taking a data frame: A data frame which must contain (at least) the columns:
+endpoint, factor.id, factor.name, factor.value, HR, Lower_CI, Upper_CI, p, n, subgroup_n</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The plot has a left column containing the labels (covariate name, levels for categorical variables, optionally subgroup size),
+the actual line plot in the middle column, and a right column to display the hazard ratios and their confidence intervals.
+A rich set of parameters allows full customizability to create publication-ready plots.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A ggplot2 plot object
+</p>
+
+
+<h3>Functions</h3>
+
+
+<ul><li> <p><code>forest_plot.df</code>: Creates a forest plot from the given data frame
+</p>
+</li></ul>
+<h3>See Also</h3>
+
+<p><code>forest_plot_grid</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(magrittr)
+library(dplyr)
+survival::colon %&gt;%
+   analyse_multivariate(vars(time, status),
+                        vars(rx, sex, age, obstruct, perfor, nodes, differ, extent)) %&gt;%
+   forest_plot()
+</code></pre>
+
+
+</div>

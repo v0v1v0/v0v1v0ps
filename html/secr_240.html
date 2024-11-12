@@ -1,0 +1,178 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>PG</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Telemetry Fixes in Polygons</h2>
+
+<h3>Description</h3>
+
+<p>For a telemetry dataset, either as a standalone capthist object with
+detector type ‘telemetryonly’ or the xylist attribute of a combined capthist
+object resulting from <code>addTelemetry</code>, determine the proportion of
+fixes of each individual that lie within a set of polygons. Typically
+used to obtain the proportion of fixes on a trapping grid, hence
+‘proportion on grid’.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+PG(CH, poly = NULL, includeNULL = FALSE, plt = FALSE, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>CH</code></td>
+<td>
+<p> capthist object including telemetry locations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>poly</code></td>
+<td>
+<p> polygon object (see <code>boundarytoSF</code>) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>includeNULL</code></td>
+<td>
+<p> logical; if TRUE then missing values are returned
+for animals without telemetry data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plt</code></td>
+<td>
+<p> logical; if TRUE then poly and telemetry locations are plotted</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p> other arguments passed to <code>bufferContour</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>By default <code>poly</code> is obtained by applying
+<code>bufferContour</code> with arguments ... to the traps
+attribute of <code>CH</code>. Note that either a positive <code>buffer</code>
+argument or <code>convex = TRUE</code> is needed for the polygon to have
+area &gt; 0.
+</p>
+<p>If <code>plt = TRUE</code>, <code>bufferContour</code> is used to plot
+<code>poly</code> and the points are overplotted (open circles outside,
+filled circles inside). To control the framing of the plot, create an
+initial plot (e.g., with plot.traps, setting the <code>border</code>
+argument) and use <code>add = TRUE</code> (see Examples).
+</p>
+
+
+<h3>Value</h3>
+
+<p>Numeric vector of proportions. If <code>includeNULL = TRUE</code> length
+equal to number of animals (rows) in <code>CH</code>; otherwise length is
+the number of animals for which there is telemetry data (because
+xylist may cover only a subset of animals in <code>CH</code>).
+</p>
+
+
+<h3>References</h3>
+
+<p>Grant, T. J. and Doherty, P. F. (2007) Monitoring of the flat-tailed
+horned lizard with methods incorporating detection
+probability. <em>Journal of Wildlife Management</em> <b>71</b>, 1050–1056
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>addTelemetry</code>,  <code>bufferContour</code>, 
+<code>pointsInPolygon</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+olddir &lt;- setwd('d:/density communication/combining telemetry and secr/possums')
+CvilleCH &lt;- read.capthist('CVILLE summer captures 4occ.txt',
+                          'CVILLE detectors summer 4occ.txt',
+                          detector = 'single')
+CvilleGPS &lt;- read.telemetry('CVILLE GPS Combined 4occ.txt')
+CvilleGPSnew &lt;- read.telemetry('CVILLE summer GPS New occasions.txt')
+setwd(olddir)
+
+CvilleBoth &lt;- addTelemetry(CvilleCH, CvilleGPSnew)
+plot(CvilleBoth, border = 400)
+PG(CvilleBoth, buffer = 100, convex = TRUE, plt = TRUE, add = TRUE, 
+    col = 'red')
+
+###################################################################
+## this code computes an area-adjusted density estimate
+## cf Grant and Doherty 2007
+PGD &lt;- function (CH, estimator = 'h2', ...) {
+    pg &lt;- PG(CH, ...)
+    PGbar &lt;- mean(pg)
+    N &lt;- closedN(CH, estimator)
+    A &lt;- polyarea(bufferContour(traps(CH), ...)[[1]])
+    Dhat &lt;- N$Nhat / A * PGbar
+    varDhat &lt;- (N$Nhat^2 * var(pg) + PGbar^2 * N$seNhat^2) / A^2 
+    c(Dhat = Dhat, seDhat = sqrt(varDhat))
+}
+plot(traps(CvilleBoth), border = 400)
+PGD(CvilleBoth, buffer = 0, convex = TRUE, plt = TRUE, add = TRUE)
+PGD(CvilleBoth, est='null', buffer = 0, convex = TRUE, plt = FALSE)
+
+###################################################################
+## this code generates a PG summary for telemetry records randomly
+## translated and rotated, keeping the centres within a habitat mask
+
+randomPG &lt;- function(CH, poly = NULL, mask, reorient = TRUE, nrepl = 1,
+                     seed = 12345, ...) {
+    moveone &lt;- function(xy, newcentre) {
+        xy &lt;- sweep(xy,2,apply(xy,2,mean))
+        if (reorient)  ## random rotation about centre
+            xy &lt;- rotate(xy, runif(1)*360)
+        sweep(xy,2,unlist(newcentre), "+")
+    }
+    onerepl &lt;- function(r) {   ## r is dummy for replicate
+        centres &lt;- sim.popn(D = D, core = mask, model2D = "IHP",
+                            Ndist = "fixed")
+        xyl &lt;- mapply(moveone, xyl, split(centres, rownames(centres)))
+        attr(CH, 'xylist') &lt;- xyl  ## substitute random placement
+        PG(CH = CH , poly = poly, plt = FALSE, ...)
+    }
+    set.seed(seed)
+    if (!requireNamespace('sf')) stop ("requires package sf")
+    if (is.null(poly)) {
+        poly &lt;- bufferContour (traps(CH), ...)
+        poly &lt;- lapply(poly, as.matrix)
+        poly &lt;- sf::st_sfc(sf::st_polygon(poly))
+    }
+    xyl &lt;- telemetryxy(CH)
+    D &lt;- length(xyl) / maskarea(mask)
+    sapply(1:nrepl, onerepl)
+}
+
+mask &lt;- make.mask (traps(CvilleBoth), buffer = 400, type = "trapbuffer")
+pg &lt;- randomPG (CvilleBoth, mask = mask, buffer = 100, convex = TRUE,
+    nrepl = 20)
+apply(pg, 1, mean)
+###################################################################
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

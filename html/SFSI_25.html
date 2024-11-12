@@ -1,0 +1,383 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>5. Sparse Genomic Prediction (SGP)</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sparse Genomic Prediction</h2>
+
+<h3>Description</h3>
+
+<p>Computes the entire Elastic-Net solution for the regression coefficients of a Selection Index for a grid of values of the penalization parameter.
+</p>
+<p>An optimal penalization can be chosen using cross-validation (CV) within a specific training set.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SGP(y = NULL, X = NULL, b = NULL, Z = NULL, K = NULL,
+    trn = NULL, tst = NULL, varU = NULL, varE = NULL,
+    ID_geno = NULL, ID_trait = NULL, intercept = TRUE,
+    alpha = 1, lambda = NULL, nlambda = 100,
+    lambda.min = .Machine$double.eps^0.5,
+    common.lambda = TRUE, subset = NULL, tol = 1E-4,
+    maxiter = 500, method = c("REML","ML"), tag = NULL,
+    save.at = NULL, precision.format = c("single","double"),
+    mc.cores = 1L, verbose = 2)
+    
+SGP.CV(y, X = NULL, b = NULL, Z = NULL, K,
+       trn = NULL, varU = NULL, varE = NULL,
+       ID_geno = NULL, ID_trait = NULL,
+       intercept = TRUE, alpha = 1, lambda = NULL,
+       nlambda = 100, lambda.min = .Machine$double.eps^0.5,
+       common.lambda = TRUE, nfolds = 5, nCV = 1L,
+       folds = NULL, seed = NULL, subset = NULL, tol = 1E-4,
+       maxiter = 500, method = c("REML","ML"), tag = NULL,
+       save.at = NULL, mc.cores = 1L, verbose = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>(numeric vector) Response variable. It can be a matrix with each column representing a different response variable. If it is passed to the 'SGP' function, predicted values for testing data are computed using phenotypes from training data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>(numeric matrix) Design matrix for fixed effects. When <code>X = NULL</code>, a vector of ones is constructed only for the intercept (default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>(numeric vector) Fixed effects. When <code>b = NULL</code>, only the intercept is estimated from training data using generalized least squares (default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>(numeric matrix) Kinship relationship matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Z</code></td>
+<td>
+<p>(numeric matrix) Design matrix for random effects. When <code>Z = NULL</code> an identity matrix is considered (default) thus <b>G</b> = <b>K</b>; otherwise <b>G</b> = <b>Z K Z'</b> is used</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varU, varE</code></td>
+<td>
+<p>(numeric) Genetic and residual variances. When either <code>varU = NULL</code> or <code>varE = NULL</code> (default), they are calculated from training data using the function 'fitBLUP' (see <code>help(fitBLUP)</code>) for single-trait analysis. For multi-trait analysis, unstructured matrices are calculated using the function 'getGenCov' in a pairwise fashion</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ID_geno</code></td>
+<td>
+<p>(character/integer) For multi-trait analysis only, vector with either names or indices mapping entries of the vector <code>y</code> to rows/columns of matrix <code>G</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ID_trait</code></td>
+<td>
+<p>(character/integer) For multi-trait analysis only, vector with either names or indices mapping entries of the vector <code>y</code> to rows/columns of matrices <code>varU</code> and <code>varE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to whether fit an intercept. When <code>FALSE</code>, the model assumes a null intercept</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trn, tst</code></td>
+<td>
+<p>(integer vector) Which elements from vector <code>y</code> are in training and testing sets, respectively. When both <code>trn = NULL</code> and <code>tst = NULL</code>, non-NA entries in vector <code>y</code> will be used as training set</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+<p>(integer vector) <code class="reqn">c(m,M)</code> to fit the model only for the m<sup>th</sup>
+subset out of <code class="reqn">M</code> subsets that the testing set will be divided into. Results can be automatically saved as per the <code>save.at</code> argument and can be retrieved later using function 'read_SGP' (see <code>help(read_SGP)</code>). In cross-validation, it should has format <code class="reqn">c(fold,CV)</code> to fit the model for a given fold within partition</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>(numeric) Value between 0 and 1 for the weights given to the L1 and L2-penalties</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>(numeric vector) Penalization parameter sequence. Default is <code>lambda = NULL</code>, in this case a decreasing grid of <code>nlambda</code> lambdas will be generated
+starting from a maximum equal to
+</p>
+<p style="text-align:center;font-family:courier">max(abs(G[trn,tst])/alpha)</p>
+<p>to a minimum equal to zero. If <code>alpha = 0</code> the grid is generated starting from a maximum equal to 5</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlambda</code></td>
+<td>
+<p>(integer) Number of lambdas generated when <code>lambda = NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda.min</code></td>
+<td>
+<p>(numeric) Minimum value of lambda in the generated grid when <code>lambda = NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nfolds</code></td>
+<td>
+<p>(integer/character) Either 2,3,5,10 or 'n' indicating the number of non-overlapping folds in which the data is split into to do cross-validation. When <code>nfolds = 'n'</code> a leave-one-out CV is performed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>(numeric vector) Seed to fix randomization when creating folds for cross-validation. If it is a vector, a number equal to its length of CV repetitions are performed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCV</code></td>
+<td>
+<p>(integer) Number of CV repetitions to be performed. Default is <code>nCV = 1</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>folds</code></td>
+<td>
+<p>(integer matrix) A matrix with <code>nTRN</code> rows and <code>nCV</code> columns where each column represents a different partition with <code>nfolds</code> folds. It can be created using the function 'get_folds'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>common.lambda</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to whether computing the coefficients for a grid of lambdas common to all individuals in testing set
+or for a grid of lambdas specific to each individual in testing set. Default is <code>common.lambda = TRUE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mc.cores</code></td>
+<td>
+<p>(integer) Number of cores used. When <code>mc.cores</code> &gt; 1, the analysis is run in parallel for each testing set individual. Default is <code>mc.cores = 1</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>(numeric) Maximum error between two consecutive solutions of the CD algorithm to declare convergence</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+<p>(integer) Maximum number of iterations to run the CD algorithm at each lambda step before convergence is reached</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save.at</code></td>
+<td>
+<p>(character) Path where files (regression coefficients and output object) are to be saved (this may include a prefix added to the files). Default <code>save.at = NULL</code> will no save any results and they are returned in the output object. No regression coefficients are saved for function 'SGP.CV'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>precision.format</code></td>
+<td>
+<p>(character) Either 'single' or 'double' for numeric precision and memory occupancy (4 or 8 bytes, respectively) of the regression coefficients. This is only used when <code>save.at</code> is not <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>(character) Either 'REML' (Restricted Maximum Likelihood) or 'ML' (Maximum Likelihood) to calculate variance components as per the function 'fitBLUP'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tag</code></td>
+<td>
+<p>(character) Name given to the output for tagging purposes. Default <code>tag = NULL</code> will give the name of the method used</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>(integer) If greater than zero analysis details will be printed</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The basic linear mixed model that relates phenotypes with genetic values is of the form
+</p>
+<p style="text-align:center"><b>y</b> = <b>X b</b> + <b>Z g</b> + <b>e</b></p>
+<p>where
+<b>y</b> is a vector with the response,
+<b>b</b> is the vector of fixed effects,
+<b>g</b> is the vector of the genetic values of the genotypes,
+<b>e</b> is the vector of environmental residuals, and
+<b>X</b> and <b>Z</b> are design matrices for the fixed and genetic effects, respectively. Genetic effects are assumed to follow a Normal distribution as
+<b>g</b> ~ N(<b>0</b>,σ<sup>2</sup><sub>u</sub><b>K</b>), and environmental terms are assumed
+<b>e</b> ~ N(<b>0</b>,σ<sup>2</sup><sub>e</sub><b>I</b>).
+</p>
+<p>The resulting vector of genetic values
+<b>u</b> = <b>Z g</b> will therefore follow 
+<b>u</b> ~ N(<b>0</b>,σ<sup>2</sup><sub>u</sub><b>G</b>) where
+<b>G</b> = <b>Z K Z'</b>.
+In the un-replicated case, <b>Z</b> = <b>I</b> is an identity matrix, and hence 
+<b>u</b> = <b>g</b> and
+<b>G</b> = <b>K</b>.
+</p>
+<p>The values <b>u</b><sub>tst</sub> = {u<sub>i</sub>},
+i = 1,2,...,n<sub>tst</sub>, for a testing set are estimated individual-wise using (as predictors) all available observations in a training set as
+</p>
+<p style="text-align:center">u<sub>i</sub> = <b>β</b>'<sub>i</sub> (<b>y</b><sub>trn</sub> - <b>X</b><sub>trn</sub><b>b</b>)</p>
+<p>where <b>β</b><sub>i</sub>
+is a vector of weights that are found separately for each individual in the testing set, by minimizing the penalized mean squared error function
+</p>
+<p style="text-align:center">-σ<sup>2</sup><sub>u</sub><b>G</b>'<sub>trn,tst(i)</sub><b>β</b><sub>i</sub> + 1/2 <b>β</b>'<sub>i</sub>(σ<sup>2</sup><sub>u</sub><b>G</b><sub>trn</sub> + σ<sup>2</sup><sub>e</sub><b>I</b>)<b>β</b><sub>i</sub> + λ J(<b>β</b><sub>i</sub>)</p>
+<p>where
+<b>G</b><sub>trn,tst(i)</sub>
+is the i<sup>th</sup> column of the
+sub-matrix of <b>G</b> whose rows correspond to the training set and columns to the testing set;
+<b>G</b><sub>trn</sub>
+is the sub-matrix corresponding to the training set; λ is the penalization parameter; and
+J(<b>β</b><sub>i</sub>)
+is a penalty function given by
+</p>
+<p style="text-align:center">1/2(1-α)||<b>β</b><sub>i</sub>||<sub>2</sub><sup>2</sup> + α||<b>β</b><sub>i</sub>||<sub>1</sub></p>
+<p>where 0 ≤ α ≤ 1, and
+||<b>β</b><sub>i</sub>||<sub>1</sub> = ∑<sub>j=1</sub>|β<sub>ij</sub>| and
+||<b>β</b><sub>i</sub>||<sub>2</sub><sup>2</sup> = ∑<sub>j=1</sub>β<sub>ij</sub><sup>2</sup> are the L1 and (squared) L2-norms, respectively.
+</p>
+<p>Function 'SGP' calculates each individual solution using the function 'solveEN' (via the Coordinate Descent algorithm, see <code>help(solveEN)</code>) by setting the argument <code>Sigma</code> equal to
+σ<sup>2</sup><sub>u</sub><b>G</b><sub>trn</sub> + σ<sup>2</sup><sub>e</sub><b>I</b>
+and <code>Gamma</code> equal to
+σ<sup>2</sup><sub>u</sub><b>G</b><sub>trn,tst(i)</sub>.
+</p>
+<p>Function 'SGP.CV' performs cross-validation within the training data specified in argument <code>trn</code>. Training data is divided into <code class="reqn">k</code> folds and the SGP is sequentially derived for (all individuals in) one fold (as testing set) using information from the remaining folds (as training set).
+</p>
+
+
+<h3>Value</h3>
+
+<p>Function 'SGP' returns a list object of the class 'SGP' for which methods <code>coef</code>, <code>predict</code>, <code>plot</code>, and <code>summary</code> exist. Functions 'net.plot' and 'path.plot' can be also used. It contains the elements:
+</p>
+
+<ul>
+<li> <p><code>b</code>: (vector) fixed effects solutions (including the intercept).
+</p>
+</li>
+<li> <p><code>Xb</code>: (vector) total fixed values (<b>X b</b>).
+</p>
+</li>
+<li> <p><code>u</code>: (matrix) total genetic values (<b>u</b> = <b>Z g</b>)
+for testing individuals (in rows) associated to each value of lambda (in columns).
+</p>
+</li>
+<li> <p><code>varU</code>, <code>varE</code>, <code>h2</code>: variance components solutions.
+</p>
+</li>
+<li> <p><code>alpha</code>: value for the elastic-net weights used.
+</p>
+</li>
+<li> <p><code>lambda</code>: (matrix) sequence of values of lambda used (in columns) for each testing individual (in rows).
+</p>
+</li>
+<li> <p><code>nsup</code>: (matrix) number of non-zero predictors at each solution given by lambda for each testing individual (in rows).
+</p>
+</li>
+<li> <p><code>file_beta</code>: path where regression coefficients are saved.
+</p>
+</li>
+</ul>
+<p>Function 'SGP.CV' returns a list object of length <code>nCV</code> of the class 'SGP'. Optimal cross-validated penalization values can be obtained using the<code>summary</code> method. Method <code>plot</code> is also available.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">  require(SFSI)
+  data(wheatHTP)
+  
+  index = which(Y$trial %in% 1:12)    # Use only a subset of data
+  Y = Y[index,]
+  M = scale(M[index,])/sqrt(ncol(M))  # Subset and scale markers
+  G = tcrossprod(M)                   # Genomic relationship matrix
+  Y0 = scale(as.matrix(Y[,4:6]))      # Response variable
+  
+  #---------------------------------------------------
+  # Single-trait model
+  #---------------------------------------------------
+  y = Y0[,1]    
+  
+  # Training and testing sets
+  tst = which(Y$trial %in% 2:3)
+  trn = seq_along(y)[-tst]
+  
+  # Sparse genomic prediction
+  fm1 = SGP(y, K=G, trn=trn, tst=tst)
+  
+  uHat = predict(fm1)        # Predicted values for each testing element
+  out = summary(fm1)         # Useful function to get results
+  corTST = out$accuracy      # Testing set accuracy (correlation cor(y,yHat))
+  out$optCOR                 # SGP with maximum accuracy
+  B = coef(fm1)              # Regression coefficients for all tst
+  B = coef(fm1, iy=1)        # Coefficients for first tst (tst[1])
+  B = coef(fm1, ilambda=10)  # Coefficients associated to the 10th lambda
+  B = coef(fm1, nsup=10)     # Coefficients for which nsup=10
+  
+  plot(fm1)                  # Penalization vs accuracy plot
+  plot(fm1, y.stat="MSE", ylab='Mean Square Error', xlab='Sparsity')     
+  
+  varU = fm1$varU
+  varE = fm1$varE
+  b = fm1$b
+  
+  #---------------------------------------------------
+  # Predicting a testing set using a value of lambda
+  # obtained from cross-validation in a traning set
+  #---------------------------------------------------
+  # Run a cross validation in training set
+  fm2 = SGP.CV(y, K=G, varU=varU, varE=varE, b=b, trn=trn, nfolds=5, tag="1 5CV")
+  lambda = summary(fm2)$optCOR["lambda"]
+
+  # Fit the index with the obtained lambda
+  fm3 = SGP(y, K=G, varU=varU, varE=varE, b=b, trn=trn, tst=tst, lambda=lambda)
+  summary(fm3)$accuracy        # Testing set accuracy
+
+  # Compare the accuracy with that of the non-sparse index (G-BLUP)
+  summary(fm1)$accuracy[fm1$nlambda,1] # we take the last one
+  
+  #---------------------------------------------------
+  # Multi-trait SGP
+  #---------------------------------------------------
+  ID_geno = as.vector(row(Y0))
+  ID_trait = as.vector(col(Y0))
+  y = as.vector(Y0)
+  
+  # Training and testing sets
+  tst = c(which(ID_trait==1)[Y$trial %in% 2:3],
+          which(ID_trait==2)[Y$trial %in% 2],
+          which(ID_trait==3)[Y$trial %in% 3])
+  trn = seq_along(y)[-tst]
+  
+  fmMT = SGP(y=y, K=G, ID_geno=ID_geno, ID_trait=ID_trait,
+             trn=trn, tst=tst)
+  
+  multitrait.plot(fmMT)
+  
+</code></pre>
+
+
+</div>

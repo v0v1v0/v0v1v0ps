@@ -1,0 +1,254 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>blend_predictions</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Determine stacking coefficients from a data stack</h2>
+
+<h3>Description</h3>
+
+<p>Evaluates a data stack by fitting a regularized model on the
+assessment predictions from each candidate member to predict
+the true outcome.
+</p>
+<p>This process determines the "stacking coefficients" of the model
+stack. The stacking coefficients are used to weight the
+predictions from each candidate (represented by a unique column
+in the data stack), and are given by the betas of a LASSO model
+fitting the true outcome with the predictions given in the
+remaining columns of the data stack.
+</p>
+<p>Candidates with non-zero stacking coefficients are model stack
+members, and need to be trained on the full training set (rather
+than just the assessment set) with <code>fit_members()</code>. This function
+is typically used after a number of calls to <code>add_candidates()</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">blend_predictions(
+  data_stack,
+  penalty = 10^(-6:-1),
+  mixture = 1,
+  non_negative = TRUE,
+  metric = NULL,
+  control = tune::control_grid(),
+  times = 25,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data_stack</code></td>
+<td>
+<p>A <code>data_stack</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>A numeric vector of proposed values for total amount of
+regularization used in member weighting. Higher penalties will generally
+result in fewer members being included in the resulting model stack, and
+vice versa. The package will tune over a grid formed from the cross
+product of the <code>penalty</code> and <code>mixture</code> arguments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mixture</code></td>
+<td>
+<p>A number between zero and one (inclusive) giving the
+proportion of L1 regularization (i.e. lasso) in the model. <code>mixture = 1</code>
+indicates a pure lasso model, <code>mixture = 0</code> indicates ridge regression, and
+values in <code style="white-space: pre;">⁠(0, 1)⁠</code> indicate an elastic net. The package will tune over
+a grid formed from the cross product of the <code>penalty</code> and <code>mixture</code>
+arguments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>non_negative</code></td>
+<td>
+<p>A logical giving whether to restrict stacking
+coefficients to non-negative values. If <code>TRUE</code> (default), 0 is passed as
+the <code>lower.limits</code> argument to <code>glmnet::glmnet()</code> in fitting the
+model on the data stack. Otherwise, <code>-Inf</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>A call to <code>yardstick::metric_set()</code>. The metric(s) to use in
+tuning the lasso penalty on the stacking coefficients. Default values are
+determined by <code>tune::tune_grid()</code> from the outcome class.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>An object inheriting from <code>control_grid</code> to be passed to
+the model determining stacking coefficients. See <code>tune::control_grid()</code>
+documentation for details on possible values. Note that any <code>extract</code>
+entry will be overwritten internally.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>times</code></td>
+<td>
+<p>Number of bootstrap samples tuned over by the model that
+determines stacking coefficients. See <code>rsample::bootstraps()</code> to
+learn more.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments. Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Note that a regularized linear model is one of many possible
+learning algorithms that could be used to fit a stacked ensemble
+model. For implementations of additional ensemble learning algorithms, see
+<code>h2o::h2o.stackedEnsemble()</code> and <code>SuperLearner::SuperLearner()</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>model_stack</code> object—while <code>model_stack</code>s largely contain the
+same elements as <code>data_stack</code>s, the primary data objects shift from the
+assessment set predictions to the member models.
+</p>
+
+
+<h3>Example Data</h3>
+
+<p>This package provides some resampling objects and datasets for use in examples
+and vignettes derived from a study on 1212 red-eyed tree frog embryos!
+</p>
+<p>Red-eyed tree frog (RETF) embryos can hatch earlier than their normal
+7ish days if they detect potential predator threat. Researchers wanted
+to determine how, and when, these tree frog embryos were able to detect
+stimulus from their environment. To do so, they subjected the embryos
+at varying developmental stages to "predator stimulus" by jiggling
+the embryos with a blunt probe. Beforehand, though some of the embryos
+were treated with gentamicin, a compound that knocks out their lateral
+line (a sensory organ.) Researcher Julie Jung and her crew found that
+these factors inform whether an embryo hatches prematurely or not!
+</p>
+<p>Note that the data included with the stacks package is not necessarily
+a representative or unbiased subset of the complete dataset, and is
+only for demonstrative purposes.
+</p>
+<p><code>reg_folds</code> and <code>class_folds</code> are <code>rset</code> cross-fold validation objects
+from <code>rsample</code>, splitting the training data into for the regression
+and classification model objects, respectively. <code>tree_frogs_reg_test</code> and
+<code>tree_frogs_class_test</code> are the analogous testing sets.
+</p>
+<p><code>reg_res_lr</code>, <code>reg_res_svm</code>, and <code>reg_res_sp</code> contain regression tuning results
+for a linear regression, support vector machine, and spline model, respectively,
+fitting <code>latency</code> (i.e. how long the embryos took to hatch in response
+to the jiggle) in the <code>tree_frogs</code> data, using most all of the other
+variables as predictors. Note that the data underlying these models is
+filtered to include data only from embryos that hatched in response to
+the stimulus.
+</p>
+<p><code>class_res_rf</code> and <code>class_res_nn</code> contain multiclass classification tuning
+results for a random forest and neural network classification model,
+respectively, fitting <code>reflex</code> (a measure of ear function) in the
+data using most all of the other variables as predictors.
+</p>
+<p><code>log_res_rf</code> and <code>log_res_nn</code>, contain binary classification tuning results
+for a random forest and neural network classification model, respectively,
+fitting <code>hatched</code> (whether or not the embryos hatched in response
+to the stimulus) using most all of the other variables as predictors.
+</p>
+<p>See <code>?example_data</code> to learn more about these objects, as well as browse
+the source code that generated them.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other core verbs: 
+<code>add_candidates()</code>,
+<code>fit_members()</code>,
+<code>stacks()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# see the "Example Data" section above for
+# clarification on the objects used in these examples!
+
+# put together a data stack
+reg_st &lt;- 
+  stacks() %&gt;%
+  add_candidates(reg_res_lr) %&gt;%
+  add_candidates(reg_res_svm) %&gt;%
+  add_candidates(reg_res_sp)
+  
+reg_st
+
+# evaluate the data stack
+reg_st %&gt;%
+  blend_predictions()
+
+# include fewer models by proposing higher penalties
+reg_st %&gt;% 
+  blend_predictions(penalty = c(.5, 1))
+
+# allow for negative stacking coefficients 
+# with the non_negative argument
+reg_st %&gt;% 
+  blend_predictions(non_negative = FALSE)
+  
+# use a custom metric in tuning the lasso penalty
+library(yardstick)
+reg_st %&gt;% 
+  blend_predictions(metric = metric_set(rmse))
+  
+# pass control options for stack blending
+reg_st %&gt;% 
+  blend_predictions(
+    control = tune::control_grid(allow_par = TRUE)
+  )
+ 
+# to speed up the stacking process for preliminary
+# results, bump down the `times` argument:
+reg_st %&gt;% 
+  blend_predictions(times = 5)
+  
+# the process looks the same with 
+# multinomial classification models
+class_st &lt;-
+  stacks() %&gt;%
+  add_candidates(class_res_nn) %&gt;%
+  add_candidates(class_res_rf) %&gt;%
+  blend_predictions()
+  
+class_st
+
+# ...or binomial classification models
+log_st &lt;-
+  stacks() %&gt;%
+  add_candidates(log_res_nn) %&gt;%
+  add_candidates(log_res_rf) %&gt;%
+  blend_predictions()
+  
+log_st
+
+</code></pre>
+
+
+</div>

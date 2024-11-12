@@ -1,0 +1,171 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dag_from_data</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Fills a partially specified <code>DAG</code> object with parameters estimated from reference data
+</h2>
+
+<h3>Description</h3>
+
+<p>Given a partially specified <code>DAG</code> object, where only the <code>name</code>, <code>type</code> and the <code>parents</code> are specified plus a <code>data.frame</code> containing realizations of these nodes, return a fully specified <code>DAG</code> (with beta-coefficients, intercepts, errors, ...). The returned <code>DAG</code> can be used directly to simulate data with the <code>sim_from_dag</code> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dag_from_data(dag, data, return_models=FALSE, na.rm=FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dag</code></td>
+<td>
+
+<p>A partially specified <code>DAG</code> object created using the <code>empty_dag</code> and <code>node</code> functions. See <code>?node</code> for a more detailed description on how to do this. All nodes need to contain information about their <code>name</code>, <code>type</code> and <code>parents</code>. All other attributes will be added (or overwritten if already in there) when using this function. Currently does not support DAGs with time-dependent nodes added with the <code>node_td</code> function.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>A <code>data.frame</code> or <code>data.table</code> used to obtain the parameters needed in the <code>DAG</code> object. It needs to contain a column for every node specified in the <code>dag</code> argument.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_models</code></td>
+<td>
+
+<p>Whether to return a list of all models that were fit to estimate the information for all child nodes (elements in <code>dag</code> where the <code>parents</code> argument is not <code>NULL</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+
+<p>Whether to remove missing values or not.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><strong><em>How it works</em></strong>:
+</p>
+<p>It can be cumbersome to specify all the node information needed for the simulation, especially when there are a lot of nodes to consider. Additionally, if data is available, it is natural to fit appropriate models to the data to get an empirical estimate of the node information for the simulation. This function automates this process. If the user has a reasonable DAG and knows the node types, this is a very fast way to generate synthetic data that corresponds well to the empirical data.
+</p>
+<p>All the user has to do is create a minimal <code>DAG</code> object including only information on the <code>parents</code>, the <code>name</code> and the node <code>type</code>. For root nodes, the required distribution parameters are extracted from the data. For child nodes, regression models corresponding to the specified <code>type</code> are fit to the data using the <code>parents</code> as independent covariates and the <code>name</code> as dependent variable. All required information is extracted from these models and added to the respective node. The output contains a fully specified <code>DAG</code> object which can then be used directly in the <code>sim_from_dag</code> function. It may also include a list containing the fitted models for further inspection, if <code>return_models=TRUE</code>.
+</p>
+<p><strong><em>Supported root node types</em></strong>:
+</p>
+<p>Currently, the following root node types are supported:
+</p>
+
+<ul>
+<li>
+<p><code>"rnorm"</code>: Estimates parameters of a normal distribution.
+</p>
+</li>
+<li>
+<p><code>"rbernoulli"</code>: Estimates the <code>p</code> parameter of a Bernoulli distribution.
+</p>
+</li>
+<li>
+<p><code>"rcategorical"</code>: Estimates the class probabilities in a categorical distribution.
+</p>
+</li>
+</ul>
+<p>Other types need to be implemented by the user.
+</p>
+<p><strong><em>Supported child node types</em></strong>:
+</p>
+<p>Currently, the following child node types are supported:
+</p>
+
+<ul>
+<li>
+<p><code>"gaussian"</code>: Estimates parameters for a node of type <code>"gaussian"</code>.
+</p>
+</li>
+<li>
+<p><code>"binomial"</code>: Estimates parameters for a node of type <code>"binomial"</code>.
+</p>
+</li>
+<li>
+<p><code>"poisson"</code>: Estimates parameters for a node of type <code>"poisson"</code>.
+</p>
+</li>
+<li>
+<p><code>"negative_binomial"</code>: Estimates parameters for a node of type <code>"negative_binomial"</code>.
+</p>
+</li>
+<li>
+<p><code>"conditional_prob"</code>: Estimates parameters for a node of type <code>"conditional_prob"</code>.
+</p>
+</li>
+</ul>
+<p>Other types need to be implemented by the user.
+</p>
+<p><strong><em>Support for custom nodes</em></strong>:
+</p>
+<p>The <code>sim_from_dag</code> function supports custom node functions, as described in <code>node_custom</code>. It is impossible for us to directly support these custom types in this function directly. However, the user can extend this function easily to accommodate any of his/her custom types. Similar to defining a custom node type, the user simply has to write a function that returns a correctly specified <code>node.DAG</code> object, given the named arguments <code>name</code>, <code>parents</code>, <code>type</code>, <code>data</code> and <code>return_model</code>. The first three arguments should simply be added directly to the output. The <code>data</code> should be used inside your function to fit a model or obtain the required parameters in some other way. The <code>return_model</code> argument should control whether the model should be added to the output (in a named argument called <code>model</code>). The function name should be <code>paste0("gen_node_", YOURTYPE)</code>. An examples is given below.
+</p>
+<p><strong><em>Interactions &amp; cubic terms</em></strong>:
+</p>
+<p>This function currently does not support the usage of interaction effects or non-linear terms (such as using <code>A ~ B + I(B^2)</code> as a formula). Instead, it will be assumed that all values in <code>parents</code> have a linear effect on the respective node. For example, using <code>parents=c("A", "B")</code> for a node named <code>"C"</code> will use the formula <code>C ~ A + B</code>. If other behavior is desired, users need to integrate this into their own custom function as described above.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of length two containing the new fully specified <code>DAG</code> object named <code>dag</code> and a list of the fitted models (if <code>return_models=TRUE</code>) in the object named <code>models</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Robin Denz
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(simDAG)
+
+set.seed(457456)
+
+# get some example data from a known DAG
+dag &lt;- empty_dag() +
+  node("death", type="binomial", parents=c("age", "sex"), betas=c(1, 2),
+       intercept=-10) +
+  node("age", type="rnorm", mean=10, sd=2) +
+  node("sex", parents="", type="rbernoulli", p=0.5) +
+  node("smoking", parents=c("sex", "age"), type="binomial",
+       betas=c(0.6, 0.2), intercept=-2)
+
+data &lt;- sim_from_dag(dag=dag, n_sim=1000)
+
+# suppose we only know the causal structure and the node type:
+dag &lt;- empty_dag() +
+  node("death", type="binomial", parents=c("age", "sex")) +
+  node("age", type="rnorm") +
+  node("sex", type="rbernoulli") +
+  node("smoking", type="binomial", parents=c("sex", "age"))
+
+# get parameter estimates from data
+dag_full &lt;- dag_from_data(dag=dag, data=data)
+
+# can now be used to simulate data
+data2 &lt;- sim_from_dag(dag=dag_full$dag, n_sim=100)
+</code></pre>
+
+
+</div>

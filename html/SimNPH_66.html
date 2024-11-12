@@ -1,0 +1,135 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>summarise_estimator</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generic Summarise function for esitmators</h2>
+
+<h3>Description</h3>
+
+<p>Generic Summarise function for esitmators
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">summarise_estimator(
+  est,
+  real,
+  lower = NULL,
+  upper = NULL,
+  null = NULL,
+  est_sd = NULL,
+  name = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>est</code></td>
+<td>
+<p>estimator, expression evaluated in results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>real</code></td>
+<td>
+<p>real summary statistic, expression evaluated in condition</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+<p>lower CI, expression evaluated in results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>upper CI, expression evaluated in results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>null</code></td>
+<td>
+<p>parameter value under the null hypothesis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est_sd</code></td>
+<td>
+<p>standard deviation estimated by the method, evaluated in results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>name for the summarise function,
+appended to the name of the analysis method in the final results</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The different parameters are evaluated in different envionments, <code>est</code>,
+<code>lower</code>, <code>upper</code>, <code>est_sd</code> refer to output of the method and are evaluated in
+the results dataset. <code>real</code> refers to a real value of a summary statistic in
+this scenario and is therefore evaluated in the condition dataset. <code>null</code> and
+<code>name</code> are constants and directly evaluated when the function is defined.
+The argument <code>null</code>, the parameter value under the null hypothesis is used to
+output the rejection rate based on the confidence intervall. Which is output
+in the column <code>null_cover</code>
+</p>
+
+
+<h3>Value</h3>
+
+<p>A function that can be used in Summarise that returns a data frame with
+summary statistics of the performance measures in the columns.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# generate the design matrix and append the true summary statistics
+condition &lt;- merge(
+  assumptions_delayed_effect(),
+  design_fixed_followup(),
+  by=NULL
+) |&gt;
+  tail(4) |&gt;
+  head(1) |&gt;
+  true_summary_statistics_delayed_effect(cutoff_stats = 15)
+
+# create some summarise functions
+summarise_all &lt;- create_summarise_function(
+  coxph=summarise_estimator(hr, gAHR_15, hr_lower, hr_upper, name="gAHR"),
+  coxph=summarise_estimator(hr, hazard_trt/hazard_ctrl, hr_lower, hr_upper, name="HR"),
+  coxph=summarise_estimator(hr, NA_real_, name="NA")
+)
+
+# runs simulations
+sim_results &lt;- runSimulation(
+  design=condition,
+  replications=10,
+  generate=generate_delayed_effect,
+  analyse=list(
+    coxph=analyse_coxph()
+  ),
+  summarise = summarise_all
+)
+
+# mse is missing for the summarise function in which the real value was NA
+sim_results[, names(sim_results) |&gt; grepl(pattern="\\.mse$")]
+# but the standard deviation can be estimated in all cases
+sim_results[, names(sim_results) |&gt; grepl(pattern="\\.sd_est$")]
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,125 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>residuals.HLfit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Extract model residuals
+</h2>
+
+<h3>Description</h3>
+
+<p>Extracts several types of residuals from an object of class <code>HLfit</code>. Note that the default type (<code>"deviance"</code>) of returned residuals differs from the default  (response residuals) of equivalent functions in base R.  
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'HLfit'
+residuals(object, 
+  type = c("deviance", "pearson", "response", "working", "std_dev_res"), force=FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object of class <code>HLfit</code>, as returned by the fitting functions in <code>spaMM</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+
+<p>The type of residuals which should be returned. See Details for additional information. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>force</code></td>
+<td>
+<p>Boolean: to force recomputation of the <code>"std_dev_res"</code> residuals even if they are available in the object, for checking purposes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>For consistency with the generic.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The four types <code>"deviance"</code> (default), <code>"pearson"</code>, <code>"response"</code> are <code>"working"</code> are, for GLM families, the same that are returned by <code>residuals.glm</code>. <code>"working"</code> residuals may be returned only for fixed-effect models. <code>"deviance"</code> residuals are the signed square root of those returned by <code>dev_resids</code> when there are no prior weights.
+</p>
+<p>In the presence of prior weights, what the standard extractors do is often a matter of confusion and <span class="pkg">spaMM</span> has not always been consistent with them. For a gaussian-response GLM (see Examples) <code>stats::deviance.lm</code> calls <code>weighted.residuals()</code> which returns <em>unscaled</em> deviance residuals weighted by prior weights. Unscaled deviance residuals are defined in McCullagh and Nelder 1989, p. 34 and depend on the response values and fitted values but not on the canonical <code class="reqn">\phi</code> parameter, and prior weights are not considered. <code>weighted.residuals()</code> still ignores <code class="reqn">\phi</code> but accounts for prior weights. This means that different <code>residuals(&lt;glm&gt;)</code> and <code>deviance(&lt;glm&gt;)</code> will be returned for equivalent fits with different parametrizations of the residual variance (as produced by <code>glm(., family=gaussian, weights=rep(2,nrow&lt;data&gt;))</code> versus the <code>glm</code> call without weights). <code>residuals(&lt;HLfit object&gt;,"deviance")</code> and <code>deviance(&lt;HLfit object&gt;,"deviance")</code> are consistent with this behavior. By contrast, <code>dev_resids(&lt;HLfit object&gt;)</code> always return the unscaled deviance residuals by default.   
+</p>
+<p>Following Lee et al. (2006, p.52), the standardized deviance residuals returned for <code>type="std_dev_res"</code> are defined as the deviance residuals divided by <code class="reqn">\phi\sqrt(1-q)</code>, where the deviance residuals are defined as for a GLM, <code class="reqn">\phi</code> is the dispersion parameter of the response family (a vector of values, for heteroscedastic cases), and <code class="reqn">q</code> is a vector of leverages given by <code>hatvalues(., type="std")</code> (see <code>hatvalues</code> for details about these specific standardizing leverages).
+</p>
+<p>Some definitions must be extended for non-GLM response families. In the latter case, the deviance residuals are as defined in Details of <code>llm.fit</code> (there is no concept of unscaled residuals here, nor indeed of scaled ones since the residual dispersion parameter is not generally a scale factor, but the returned deviance residuals for non-GLMs are analogous to the scaled ones for GLMs as they depend on residual dispersion). <code>"std_dev_res"</code> residuals are defined from them as shown above for GLM response families, with the additional convention that <code class="reqn">\phi=1</code> (since the family's own residual dispersion parameter already enters in the definition of deviance residuals for non-GLM families).  Pearson residuals and response residuals are defined as in <code>stats:::residuals.glm</code>.  The <code>"working"</code> residuals are defined for each response as <code class="reqn">- [d \log(clik)/d \eta]/[d^2 \log(clik)/d \eta^2]</code> where clik is the conditional likelihood.
+</p>
+
+
+<h3>Value</h3>
+
+<p> A vector of residuals</p>
+
+
+<h3>References</h3>
+
+<p>Lee, Y., Nelder, J. A. and Pawitan, Y. (2006). Generalized linear models with random effects: unified analysis via
+h-likelihood. Chapman &amp; Hall: London.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("wafers")
+fit &lt;- fitme(y ~X1+(1|batch) ,data=wafers, init=list(phi=NaN))  # : this 'init' 
+#                 implies that standardized deviance residuals are saved in the 
+#                 fit result, allowing the following comparison: 
+
+r1 &lt;- residuals(fit, type="std_dev_res") # gets stored value
+r2 &lt;- residuals(fit, type="std_dev_res", force=TRUE) # forced recomputation
+if (diff(range(r1-r2))&gt;1e-14) stop()
+
+##### 
+## Not run: 
+glmfit &lt;- glm(I(y/1000)~X1, family=gaussian(), data=wafers)
+deviance(glmfit) #           3...                       (a)
+sum(residuals(glmfit)^2) #   3...                       (b) 
+
+# Same model, with different parametrization of residual variance 
+glmfit2 &lt;- glm(I(y/1000)~X1, family=gaussian(), data=wafers, weights=rep(2,198))
+deviance(glmfit2) #          6...                       (c)  
+sum(residuals(glmfit2)^2) #  6...                       (d)
+
+# Same comparison but for HLfit objects:
+spfit &lt;- fitme(I(y/1000)~X1, family=gaussian(), data=wafers)
+deviance(spfit) #            3...                       (e)
+sum(residuals(spfit)^2) #    3...                       (f)  
+sum(dev_resids(spfit)) #     3...                         
+
+spfit2 &lt;- fitme(I(y/1000)~X1, family=gaussian(), data=wafers, prior.weights=rep(2,198))
+deviance(spfit2) #           6...                       (g) ~ (c,d) # post v4.2.0
+sum(residuals(spfit2)^2) #   6...                       (h) ~ (c,d) 
+sum(dev_resids(spfit2)) #    3...                         
+
+# Unscaled residuals should no depend on arbitrarily fixed residual variance:
+spfit3 &lt;- fitme(I(y/1000)~X1, family=gaussian(), data=wafers, fixed=list(phi=2),
+                prior.weights=rep(2,198))
+deviance(spfit3) #           6...                       (i) ~ (g)
+sum(residuals(spfit3)^2) #   6...                       (k) ~ (h)
+sum(dev_resids(spfit3)) #    3...                         
+
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

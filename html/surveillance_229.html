@@ -1,0 +1,453 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>nowcast</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Adjust a univariate time series of counts for observed
+but-not-yet-reported events
+</h2>
+
+<h3>Description</h3>
+
+<p>Nowcasting can help to obtain up-to-date information on trends during
+a situation where reports about events arrive with delay. For example
+in public health reporting, reports about important
+indicators (such as occurrence of cases) are prone to be delayed due to
+for example manual quality checking and reporting system
+hierarchies. Altogether, the delays are subject to a delay distribution,
+which may, or may not, vary over time.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">nowcast(now, when, data, dEventCol="dHospital", dReportCol="dReport",
+        method=c("bayes.notrunc", "bayes.notrunc.bnb", "lawless",
+                 "bayes.trunc", "unif", "bayes.trunc.ddcp"),
+        aggregate.by="1 day",
+        D=15,
+        m=NULL, m.interpretation=c("hoehle_anderheiden2014", "lawless1994"),
+        control=list(
+            dRange=NULL, alpha=0.05, nSamples=1e3,
+            N.tInf.prior=c("poisgamma","pois","unif"),
+            N.tInf.max=300, gd.prior.kappa=0.1,
+            ddcp=list(ddChangepoint=NULL,
+                      cp_order=c("zero","one"),
+                      Wextra=NULL,
+                      logLambda=c("iidLogGa","tps","rw1","rw2"),
+                      responseDistr=c("poisson", "negbin"),
+                      mcmc=c(burnin=2500, sample=10000, thin=1, adapt=1000,
+                             store.samples=FALSE)),
+            score=FALSE, predPMF=FALSE))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>now</code></td>
+<td>
+
+<p>an object of class <code>Date</code> denoting the day at which to do the
+nowcast. This corresponds to <code class="reqn">T</code> in the notation of
+Höhle and an der Heiden (2014).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>when</code></td>
+<td>
+<p>a vector of <code>Date</code> objects denoting the day(s) for which
+the projections are to be done. One needs to ensure that each
+element in <code>when</code> is smaller or equal to <code>now</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame with one row per case – for each case on needs
+information on the day of the event (e.g. hospitalization) and the
+day of report of this event.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dEventCol</code></td>
+<td>
+<p>The name of the column in <code>data</code> which contains the
+date of the event, e.g. hospitalization. Default: <code>"dHospital"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dReportCol</code></td>
+<td>
+<p>Name of the column in <code>data</code> containing the date at
+which the report arrives at the respective register. Default:
+<code>"dReport"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>A vector of strings denoting the different methods for doing
+the nowcasting. Note that results of the first name in this list are
+officially
+returned by the function. However, it is possible to specify several
+methods here, e.g., in order to compare score evaluations. Details of
+the methods are described in Höhle and an der Heiden (2014).
+</p>
+
+<dl>
+<dt><code>"unif"</code></dt>
+<dd></dd>
+<dt><code>"bayes.notrunc"</code></dt>
+<dd>
+<p>A Bayesian procedure ignoring
+truncation.</p>
+</dd>
+<dt><code>"bayes.notrunc.bnb"</code></dt>
+<dd>
+<p>A fast Bayesian procedure ignoring
+truncation and which calculates the adjustment per-time
+(i.e. ignoring other delays) using the negative binomial.</p>
+</dd>
+<dt><code>"lawless"</code></dt>
+<dd>
+<p>A discretized version of the Gaussian
+predictive distribution suggested in Lawless (1994).</p>
+</dd>
+<dt><code>"bayes.trunc"</code></dt>
+<dd>
+<p>Bayesian method based on the generalized
+Dirichlet distribution, which is the conjugate prior-posterior for the
+delay distribution PMF under right-truncated sampling as shown in HadH
+(2014).</p>
+</dd>
+<dt><code>"bayes.trunc.ddcp"</code></dt>
+<dd>
+<p>Fully Bayesian method allowing for
+change-points in the delay distribution, e.g., due to speed-ups
+in the reporting process. A discrete-survival
+model is used for the delay distribution. Details of
+the methods are described in HadH (2014). Note: This method
+requires that the JAGS program is installed on the system.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>aggregate.by</code></td>
+<td>
+<p>Time scale used for the temporal aggregation of
+the records in the data <code>data</code>. See
+<code>linelist2sts</code> and <code>seq.Date</code> for further
+information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>Maximum possible or maximum relevant delay (unit:
+<code>aggregate.by</code>). Default: 15.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>Size of the moving window for the estimation of the delay
+distribution. Default: <code>NULL</code>, i.e. take all values at all
+times. Otherwise: a positive integer equal to or greater than <code>D</code>
+such that only values from a sliding window are used. The shape of the
+window depends on the value of <code>m.interpretation</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m.interpretation</code></td>
+<td>
+<p>This parameter controls the interpretation of
+the sliding window used to estimate the delay distribution. If
+<code>m.interpretation="hoehle_anderheiden2014"</code> (Default) then the
+sliding window is defined as a horizontal cut in the reporting
+triangle, i.e. the values for the delay estimation originate from
+reports occurring during <code>(now-m):now</code>. This means that the estimation of long delays is
+based on fewer observations than the estimation of the short delays,
+hence, the long delay estimates are subject to more variability. If
+for example <code class="reqn">m=D</code> then the estimate for a delay of <code class="reqn">d=D</code> is
+based on only one observation.
+The advantage of this choice is that one explicitly knows which time
+period all observations originate from. For details see Section 3 of
+Höhle and an der Heiden (2014).    
+</p>
+<p>Alternatively, when <code>m.interpretation</code>="lawless1994", the cut in
+the reporting triangle is made such that each delay <code>d</code> is
+estimated based on the same number of observations (<code class="reqn">m+1</code>). This
+means that in order to estimate the delay for <code class="reqn">d</code> days, a
+sliding rectangle of length <code class="reqn">m+1</code> containing the reports which
+occurred during <code>(now-m-d):now</code>. See Fig. 2 in Lawless (1994) for
+details. Note: A warning is given is
+<code>method="lawless"</code>, but <code>m.interpretation</code> is not.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A list with named arguments controlling the
+functionality of the nowcasting.
+</p>
+
+<dl>
+<dt>dRange</dt>
+<dd>
+<p>Default: <code>NULL</code>. In this case the
+<code>dEventCol</code> column is used to extract the first and last
+available in <code>data</code>.</p>
+</dd>
+<dt>alpha</dt>
+<dd>
+<p>Equal tailed (1-<code class="reqn">\alpha</code>)*100% prediction
+intervals are calculated. Default: 0.05.</p>
+</dd>
+<dt>nSamples</dt>
+<dd>
+<p>Number of PMF samples in the <code>bayes.*</code>
+procedures. Note: Entire vectors containing the PMF on the grid from 0
+to <code>N.tInf.max</code> are drawn and which are then combined. The
+argument does not apply to the <code>bayes.trunc.ddcp</code> method.</p>
+</dd>
+<dt>N.tInf.prior</dt>
+<dd>
+<p>Prior distribution of
+<code class="reqn">N(t,\infty)</code>. Applies only to the <code>bayes.*</code> except
+<code>bayes.bayes.ddcp</code> methods. See example on how to control the
+distribution parameters.</p>
+</dd>
+<dt>N.tInf.max</dt>
+<dd>
+<p>Limit of the support of <code class="reqn">N(t,\infty)</code>. The
+value needs to be high enough such that at this limit only little of
+the predictive distribution is right-truncated. Default: 300.</p>
+</dd>
+<dt>gd.prior.kappa</dt>
+<dd>
+<p>Concentration parameter for the Dirichlet
+prior for the delay distribution on <code class="reqn">0,...,D</code>. Default: 0.1. Note:
+The procedure is quite sensitive to this parameter in case only few
+cases are available.</p>
+</dd>
+<dt>ddcp</dt>
+<dd>
+<p>A list specifying the change point model for the delay
+distribution. This method should only be used if detailed information
+about changes in the delay distribution are available as, e.g., in the
+case of the STEC O104:H4 outbreak. The components are as
+follows:
+</p>
+
+<dl>
+<dt><code>ddChangepoint</code></dt>
+<dd>
+<p>Vector of Date objects corresponding
+to the changepoints</p>
+</dd>
+<dt><code>cp_order</code></dt>
+<dd>
+<p>Either <code>"zero"</code> (Default) or
+<code>"one"</code>. This is the degree of the TPS spline for the baseline
+hazard, which is formed by the changepoints. Order zero corresponds to
+the dummy variables of the change-points being simply zero or one. In
+case a 1st order polynomial is chosen, this allows the delay
+distribution to change towards faster or slow reporting as time
+progresses (until the next change-point). The later can be helpful in
+very dynamic epidemic situations where a lot of cases suddenly appear
+overwhelming the surveillance system infrastructure.</p>
+</dd>
+<dt><code>Wextra</code></dt>
+<dd>
+<p>An additional design matrix part to be joined
+onto the part originating from the change-points. Altogether, the
+column bind of these two quantities will be <code class="reqn">W_{t,d}</code>. This allows
+one to include, e.g., day of the week effects or holidays.</p>
+</dd>
+<dt><code>logLambda</code></dt>
+<dd>
+<p>Prior on the spline. One of
+<code>c("iidLogGa","tps","rw1","rw2")</code>.</p>
+</dd>
+<dt><code>respDistr</code></dt>
+<dd>
+<p>Response distribution of <code class="reqn">n_{t,d}</code>
+in the reporting triangle. Default is <code>"poisson"</code>. An
+experimental alternative is to use <code>"negbin"</code>.</p>
+</dd>
+<dt><code>tau.gamma</code></dt>
+<dd></dd>
+<dt><code>eta.mu</code></dt>
+<dd>
+<p>Vector of coefficients describing the
+mean of the prior normal distribution of the regression effects in the
+discrete time survival model.</p>
+</dd>
+<dt><code>eta.prec</code></dt>
+<dd>
+<p>A precision matrix for the regression
+effects in the discrete time survival model.</p>
+</dd>
+<dt><code>mcmc</code></dt>
+<dd>
+<p>A named vector of length 5 containing
+burn-in (default: 2500), number of samples (10000),
+thinning (1) and adaptation (1000) for the
+three MCMC chains which are ran. The values are passed on to
+<code>run.jags</code>. The fifth argument <code>store.samples</code>
+denotes if the output of the JAGS sampling should be included as part of the
+returned <code>stsNC</code> object. Warning: If <code>TRUE</code> (Default: <code>FALSE</code>)
+the size of the returned object might increase substantially.</p>
+</dd>
+</dl>
+</dd>
+<dt>score</dt>
+<dd>
+<p>Compute scoring rules. Default: <code>FALSE</code>. The
+computed scores are found in the <code>SR</code> slot of the result.</p>
+</dd>
+<dt>predPMF</dt>
+<dd>
+<p>Boolean whether to return the probability mass
+functions of the individual forecasts (Default: <code>FALSE</code>). The
+result can be found in the <code>control</code> slot of the return object.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The methodological details of the nowcasting procedures are described in
+Höhle M and an der Heiden M (2014).
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>nowcast</code> returns an object of <code>"stsNC"</code>. The
+<code>upperbound</code> slot contains the median of the method specified at
+the first position the argument <code>method</code>. The slot <code>pi</code> (for
+prediction interval)
+contains the equal tailed (1-<code class="reqn">\alpha</code>)*100% prediction
+intervals, which are calculated based on the predictive distributions
+in slot <code>predPMF</code>.
+Furthermore, slot <code>truth</code> contains an <code>sts</code> object
+containing the true number of cases (if possible to compute it is based on
+the data in <code>data</code>). Finally, slot <code>SR</code> contains the results
+for the proper scoring rules (requires truth to be calculable).
+</p>
+
+
+<h3>Note</h3>
+
+<p>Note: The <code>bayes.trunc.ddcp</code> uses the JAGS software together with
+the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package <span class="pkg">runjags</span> to handle the parallelization of
+the MCMC using the <code>"rjparallel"</code> method of
+<code>run.jags</code>, which additionally requires the
+<span class="pkg">rjags</span> package. You need to manually install
+JAGS on your computer for the package to work – see
+<a href="https://mcmc-jags.sourceforge.io/">https://mcmc-jags.sourceforge.io/</a>
+and the documentation of <span class="pkg">runjags</span> for details.
+</p>
+<p>Note: The function is still under development and might change in the
+future. Unfortunately, little emphasis has so far been put on making
+the function easy to understand and use.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Michael Höhle
+</p>
+
+
+<h3>References</h3>
+
+<p>Höhle, M. and an der Heiden, M. (2014): Bayesian nowcasting
+during the STEC O104:H4 outbreak in Germany, 2011. <em>Biometrics</em>
+70(4):993-1002. <a href="https://doi.org/10.1111/biom.12194">doi:10.1111/biom.12194</a>.<br>
+A preprint is available as
+<a href="https://staff.math.su.se/hoehle/pubs/hoehle_anderheiden2014-preprint.pdf">https://staff.math.su.se/hoehle/pubs/hoehle_anderheiden2014-preprint.pdf</a>.
+</p>
+<p>Günther, F. and Bender, A. and Katz, K. and
+Küchenhoff, H. and Höhle, M. (2020):
+Nowcasting the COVID-19 pandemic in Bavaria.
+<em>Biometrical Journal</em>. <a href="https://doi.org/10.1002/bimj.202000112">doi:10.1002/bimj.202000112</a><br>
+Preprint available at <a href="https://doi.org/10.1101/2020.06.26.20140210">doi:10.1101/2020.06.26.20140210</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("husO104Hosp")
+
+#Extract the reporting triangle at a specific day
+t.repTriangle &lt;- as.Date("2011-07-04")
+
+#Use 'void' nowcasting procedure (we just want the reporting triangle)
+nc &lt;- nowcast(now=t.repTriangle,when=t.repTriangle,
+              dEventCol="dHosp",dReportCol="dReport",data=husO104Hosp,
+              D=15,method="unif")
+
+#Show reporting triangle
+reportingTriangle(nc)
+
+#Perform Bayesian nowcasting assuming the delay distribution is stable over time
+nc.control &lt;- list(N.tInf.prior=structure("poisgamma",
+                                mean.lambda=50,var.lambda=3000),
+                                nSamples=1e2)
+
+t.repTriangle &lt;- as.Date("2011-06-10")
+when &lt;- seq(t.repTriangle-3,length.out=10,by="-1 day")
+nc &lt;- nowcast(now=t.repTriangle,when=when,
+              dEventCol="dHosp",dReportCol="dReport",data=husO104Hosp,
+              D=15,method="bayes.trunc",control=nc.control)
+
+#Show time series and posterior median forecast/nowcast
+plot(nc,xaxis.tickFreq=list("%d"=atChange,"%m"=atChange),
+     xaxis.labelFreq=list("%d"=at2ndChange),xaxis.labelFormat="%d-%b",
+     xlab="Time (days)",lty=c(1,1,1,1),lwd=c(1,1,2))
+
+## Not run: 
+### Using runjags to do a Bayesian model with changepoint(s)
+### -- this might take a while
+nc.control.ddcp &lt;- modifyList(nc.control,
+                    list(gd.prior.kappa=0.1,
+                         ddcp=list(ddChangepoint=as.Date(c("2011-05-23")),
+                             logLambda="tps",
+                             tau.gamma=1,
+                             mcmc=c(burnin=1000,sample=1000,thin=1,
+                                    adapt=1000,store.samples=FALSE))))
+
+nc.ddcp &lt;- nowcast(now=t.repTriangle,when=when,
+               dEventCol="dHosp",dReportCol="dReport",
+               data=husO104Hosp, aggregate.by="1 day",
+               method="bayes.trunc.ddcp", D=15,
+                   control=nc.control.ddcp)
+
+plot(nc.ddcp,legend.opts=NULL,
+     xaxis.tickFreq=list("%d"=atChange,"%m"=atChange),
+     xaxis.labelFreq=list("%d"=at2ndChange),xaxis.labelFormat="%d-%b",
+     xlab="Time (days)",lty=c(1,1,1,1),lwd=c(1,1,2))
+
+lambda &lt;- attr(delayCDF(nc.ddcp)[["bayes.trunc.ddcp"]],"model")$lambda
+showIdx &lt;- seq(which( max(when) == epoch(nc.ddcp))) #seq(ncol(lambda))
+matlines( showIdx,t(lambda)[showIdx,],col="gray",lwd=c(1,2,1),lty=c(2,1,2))
+legend(x="topright",c(expression(lambda(t)),"95% CI"),col="gray",lwd=c(2,1),lty=c(1,2))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

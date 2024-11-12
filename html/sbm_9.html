@@ -1,0 +1,189 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>estimateMultiplexSBM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimation for Multiplex SBM</h2>
+
+<h3>Description</h3>
+
+<p>Estimation for Multiplex SBM
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">estimateMultiplexSBM(listSBM, dependent = FALSE, estimOptions = list())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>listSBM</code></td>
+<td>
+<p>list of networks that were defined by the <code>defineSBM</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dependent</code></td>
+<td>
+<p>logical parameter indicating whether the networks in the multiplex structure are dependent beyond the latent variables,</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimOptions</code></td>
+<td>
+<p>options for the inference procedure</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The list of parameters <code>estimOptions</code> essentially tunes the optimization process and the variational EM algorithm, with the following parameters
+</p>
+
+<ul>
+<li>
+<p> "nbCores" integer for number of cores used.  Default is 2
+</p>
+</li>
+<li>
+<p> "verbosity" integer for verbosity (0, 1). Default is 1
+</p>
+</li>
+<li>
+<p> "nbBlocksRange" List of length the number of functional groups, each element supplying the minimal and maximal number of blocks to be explored. The names of the list must be the names of the functional groups.  Default value is from 1 to 10)
+</p>
+</li>
+<li>
+<p> "initBM" Boolean. True if using simple and bipartite SBM as initialisations. Default value  = TRUE
+</p>
+</li>
+<li>
+<p> "maxiterVEM" Number of max. number of iterations in  the VEM. Default value  = 100
+</p>
+</li>
+<li>
+<p> "maxiterVE" Number of max. number of iterations in  the VE. Default value  = 100
+</p>
+</li>
+<li>
+<p> "plot" boolean, should the ICL by dynamically plotted or not. Default is TRUE. For dependent networks
+</p>
+</li>
+<li>
+<p> "exploreFactor" control the exploration of the number of groups. For dependent networks
+</p>
+</li>
+<li>
+<p> "exploreMin" explore at least until exploreMin even if the exploration factor rule is achieved. Default 4. See the package blockmodels for details. For dependent networks
+</p>
+</li>
+<li>
+<p> "exploreMax" Stop exploration at exploreMax  even if the exploration factor rule is not achieved. Default Inf. See the package blockmodels for details. For dependent networks
+</p>
+</li>
+<li>
+<p> "nbBlocksRange" minimal and maximal number or blocks explored. For dependent networks
+</p>
+</li>
+<li>
+<p> "fast" logical: should approximation be used for Bernoulli model with covariates. Default to <code>TRUE</code>. For dependent networks
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>a MultiplexSBM_fit object with the estimated parameters and the blocks
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+### =======================================
+### MULTIPLEX SBM without dependence between layers
+##
+Nnodes &lt;- 40
+blockProp &lt;- c(.4,.6)
+nbLayers &lt;- 2
+connectParam &lt;- list(list(mean=matrix(rbeta(4,.5,.5),2,2)),list(mean=matrix(rexp(4,.5),2,2)))
+model &lt;- c("bernoulli","poisson")
+type &lt;- "directed"
+mySampleMultiplexSBM &lt;-
+   sampleMultiplexSBM(
+   nbNodes = Nnodes,
+    blockProp = blockProp,
+   nbLayers = nbLayers,
+   connectParam = connectParam,
+   model=model,
+   type=type)
+listSBM &lt;- mySampleMultiplexSBM$listSBM
+estimOptions &lt;- list(initBM = FALSE, nbCores  = 2)
+myMultiplexSBM &lt;- estimateMultiplexSBM(listSBM,estimOptions,dependent=FALSE)
+### =======================================
+### MULTIPLEX SBM Gaussian with dependence
+##
+Q &lt;- 3
+nbLayers &lt;- 2
+connectParam &lt;- list()
+connectParam$mu &lt;- vector("list",nbLayers)
+connectParam$mu[[1]] &lt;-  matrix(.1,Q,Q) + diag(1:Q)
+connectParam$mu[[2]] &lt;- matrix(-2,Q,Q) + diag(rev(Q:1))
+connectParam$Sigma &lt;- matrix(c(2,1,1,4),nbLayers,nbLayers)
+model &lt;- rep("gaussian",2)
+type &lt;- "directed"
+Nnodes &lt;- 80
+blockProp &lt;- c(.3,.3,.4)
+mySampleMultiplexSBM &lt;-
+  sampleMultiplexSBM(
+     nbNodes = Nnodes,
+     blockProp = blockProp,
+     nbLayers = nbLayers,
+     connectParam = connectParam,
+     model=model,
+     type="undirected",
+     dependent=TRUE)
+listSBM &lt;- mySampleMultiplexSBM$listSBM
+myMultiplexSBM &lt;- estimateMultiplexSBM(listSBM,estimOptions,dependent=TRUE)
+## MultiplexSBM Bernoulli with dependence
+Q &lt;- 2
+P00&lt;-matrix(runif(Q*Q),Q,Q)
+P10&lt;-matrix(runif(Q*Q),Q,Q)
+P01&lt;-matrix(runif(Q*Q),Q,Q)
+P11&lt;-matrix(runif(Q*Q),Q,Q)
+SumP&lt;-P00+P10+P01+P11
+P00&lt;-P00/SumP
+P01&lt;-P01/SumP
+P10&lt;-P10/SumP
+P11&lt;-P11/SumP
+connectParam &lt;- list()
+connectParam$prob00 &lt;- P00
+connectParam$prob01 &lt;- P01
+connectParam$prob10 &lt;- P10
+connectParam$prob11 &lt;- P11
+model &lt;- rep("bernoulli",2)
+type &lt;- "directed"
+nbLayers &lt;- 2
+Nnodes &lt;- 40
+blockProp &lt;- c(.6,.4)
+mySampleMultiplexSBM &lt;-
+   sampleMultiplexSBM(
+     nbNodes = Nnodes,
+     blockProp = blockProp,
+     nbLayers = nbLayers,
+     connectParam = connectParam,
+     model=model,
+     type=type,
+     dependent=TRUE)
+listSBM &lt;- mySampleMultiplexSBM$listSBM
+myMultiplexSBM &lt;- estimateMultiplexSBM(listSBM,estimOptions,dependent=TRUE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

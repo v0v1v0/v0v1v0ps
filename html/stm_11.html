@@ -1,0 +1,241 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>estimateEffect</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimates regressions using an STM object</h2>
+
+<h3>Description</h3>
+
+<p>Estimates a regression where documents are the units, the outcome is the
+proportion of each document about a topic in an STM model and the covariates
+are document-meta data.  This procedure incorporates measurement uncertainty
+from the STM model using the method of composition.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">estimateEffect(
+  formula,
+  stmobj,
+  metadata = NULL,
+  uncertainty = c("Global", "Local", "None"),
+  documents = NULL,
+  nsims = 25,
+  prior = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>A formula for the regression.  It should have an integer or
+vector of numbers on the left-hand side and an equation with covariates on
+the right hand side.  See Details for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stmobj</code></td>
+<td>
+<p>Model output from STM</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metadata</code></td>
+<td>
+<p>A dataframe where all predictor variables in the formula can
+be found. If <code>NULL</code> R will look for the variables in the global
+namespace.  It will not look for them in the <code>STM</code> object which for
+memory efficiency only stores the transformed design matrix and thus will
+not in general have the original covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uncertainty</code></td>
+<td>
+<p>Which procedure should be used to approximate the
+measurement uncertainty in the topic proportions.  See details for more
+information.  Defaults to the Global approximation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>documents</code></td>
+<td>
+<p>If uncertainty is set to <code>Local</code>, the user needs to
+provide the documents object (see <code>stm</code> for format).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsims</code></td>
+<td>
+<p>The number of simulated draws from the variational posterior.
+Defaults to 25.  This can often go even lower without affecting the results
+too dramatically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior</code></td>
+<td>
+<p>This argument allows the user to specify a ridge penalty to be
+added to the least squares solution for the purposes of numerical stability.
+If its a scalar it is added to all coefficients.  If its a matrix it should
+be the prior precision matrix (a diagonal matrix of the same dimension as
+the <code>ncol(X)</code>).  When the design matrix is collinear but this argument
+is not specified, a warning will pop up and the function will estimate with
+a small default penalty.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function performs a regression where topic-proportions are the outcome
+variable.  This allows us to conditional expectation of topic prevalence
+given document characteristics.  Use of the method of composition allows us
+to incorporate our estimation uncertainty in the dependent variable. Mechanically
+this means we draw a set of topic proportions from the variational posterior,
+compute our coefficients, then repeat.  To compute quantities of interest we
+simulate within each batch of coefficients and then average over all our results.
+</p>
+<p>The formula specifies the nature of the linear model.  On the left hand-side
+we use a vector of integers to indicate the topics to be included as outcome
+variables.  If left blank then the default of all topics is used. On the
+right hand-side we can specify a linear model of covariates including
+standard transformations.  Thus the model <code>2:4 ~ var1 + s(var2)</code> would
+indicate that we want to run three regressions on Topics 2, 3 and 4 with
+predictor variables <code>var1</code> and a b-spline transformed <code>var2</code>.  We
+encourage the use of spline functions for non-linear transformations of
+variables.
+</p>
+<p>The function allows the user to specify any variables in the model.
+However, we caution that for the assumptions of the method of composition to
+be the most plausible the topic model should contain at least all the
+covariates contained in the <code>estimateEffect</code> regression.  However the
+inverse need not be true.  The function will automatically check whether the
+covariate matrix is singular which generally results from linearly dependent
+columns.  Some common causes include a factor variable with an unobserved
+level, a spline with degrees of freedom that are too high, or a spline with
+a continuous variable where a gap in the support of the variable results in
+several empty basis functions.  In these cases the function will still
+estimate by adding a small ridge penalty to the likelihood.  However, we
+emphasize that while this will produce an estimate it is only identified by
+the penalty.  In many cases this will be an indication that the user should
+specify a different model.
+</p>
+<p>The function can handle factors and numeric variables.  Dates should be
+converted to numeric variables before analysis.
+</p>
+<p>We offer several different methods of incorporating uncertainty.  Ideally we
+would want to use the covariance matrix that governs the variational
+posterior for each document (<code class="reqn">\nu</code>).  The updates for the global
+parameters rely only on the sum of these matrices and so we do not store
+copies for each individual document.  The default uncertainty method
+<code>Global</code> uses an approximation to the average covariance matrix formed
+using the global parameters.  The uncertainty method <code>Local</code> steps
+through each document and updates the parameters calculating and then saving
+the local covariance matrix.  The option <code>None</code> simply uses the map
+estimates for <code class="reqn">\theta</code> and does not incorporate any uncertainty.  We
+strongly recommend the <code>Global</code> approximation as it provides the best
+tradeoff of accuracy and computational tractability.
+</p>
+<p>Effects are plotted based on the results of <code>estimateEffect</code>
+which contains information on how the estimates are constructed.  Note that
+in some circumstances the expected value of a topic proportion given a
+covariate level can be above 1 or below 0.  This is because we use a Normal
+distribution rather than something constrained to the range between 0 and 1.
+If a continuous variable goes above 0 or 1 within the range of the data it
+may indicate that a more flexible non-linear specification is needed (such
+as using a spline or a spline with greater degrees of freedom).
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>parameters</code></td>
+<td>
+<p>A list of K elements each corresponding to a
+topic.  Each element is itself a list of n elements one per simulation.
+Each simulation contains the MLE of the parameter vector and the variance
+covariance matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>topics</code></td>
+<td>
+<p>The topic vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>The original
+call</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uncertainty</code></td>
+<td>
+<p>The user choice of uncertainty measure</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>The formula object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The original user provided
+meta data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modelframe</code></td>
+<td>
+<p>The model frame created from the formula and
+data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varlist</code></td>
+<td>
+<p>A variable list useful for mapping terms with columns
+in the design matrix</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>plot.estimateEffect</code> <code>summary.estimateEffect</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#Just one topic (note we need c() to indicate it is a vector)
+prep &lt;- estimateEffect(c(1) ~ treatment, gadarianFit, gadarian)
+summary(prep)
+plot(prep, "treatment", model=gadarianFit, method="pointestimate")
+
+#three topics at once
+prep &lt;- estimateEffect(1:3 ~ treatment, gadarianFit, gadarian)
+summary(prep)
+plot(prep, "treatment", model=gadarianFit, method="pointestimate")
+
+#with interactions
+prep &lt;- estimateEffect(1 ~ treatment*s(pid_rep), gadarianFit, gadarian)
+summary(prep)
+</code></pre>
+
+
+</div>

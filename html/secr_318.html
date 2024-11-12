@@ -1,0 +1,175 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Rsurface</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Smoothed Resource Surface</h2>
+
+<h3>Description</h3>
+
+<p>Creates a smoothed resource surface from a covariate of a
+mask. Smoothing entails summing the value in each pixel weighted by a
+detection kernel centred on the focal pixel. The detection kernel
+represents home-range utilization with spatial scale sigma. The
+resulting surface is equivalent to the denominator used by Royle et
+al. (2013) to normalize site-specific detection.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+Rsurface(mask, sigma, usecov = NULL, alpha2 = 1, detectfn = 'HHN', z = 1,
+ inverse = FALSE, scale = TRUE)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+<p>secr habitat mask object (single-session)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>numeric spatial scale of home range model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha2</code></td>
+<td>
+<p>numeric coefficient of spatial covariate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>usecov</code></td>
+<td>
+<p>character name of resource covariate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectfn</code></td>
+<td>
+<p>integer or character code for detection function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z</code></td>
+<td>
+<p>numeric shape parameter of home range model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inverse</code></td>
+<td>
+<p>logical; if TRUE the reciprocal of smoothed resource is returned</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>logical; not used</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>detectfn</code> may be uniform (‘UN’) or one of the
+cumulative-hazard functions (‘HHN’, ‘HHR’, ‘HEX’,
+‘HAN’, ‘HCG’) (or integer codes 4, 14:18; see
+detectfn).
+</p>
+<p>The default ‘HHN’ corresponds to a halfnormal function on the hazard
+scale, or a bivariate circular normal home range.
+</p>
+<p>If <code>usecov</code> is not named then it takes the value 1.0 for all points
+on the mask and zero otherwise.
+</p>
+<p>The Rsurface can be used implicitly to normalize detection probability when
+fitting a model with detector-specific covariate equal to
+<code>usecov</code> (see details, but the process is intricate and not
+fully documented).
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object with class c(‘Rsurface’, ‘mask’, ‘data.frame’) and covariate ‘Resource’
+(other covariates are retained from the input mask). The attribute
+‘scale’ is 1.0 if <code>scale = FALSE</code>; otherwise it is the average of the
+resource over the masked area.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Consider a focal pixel <b>s</b> and another point in the habitat mask
+<b>x</b>, with distance <code class="reqn">d = |x - s|</code>. Weights are given by a kernel <code class="reqn">f(d)</code>. Typically the kernel
+will be halfnormal <code class="reqn">f(d) = \exp(-d^2/(2\sigma^2))</code> (detectfn = ‘HHN’) or exponential
+<code class="reqn">f(d) = \exp(-d/\sigma)</code> (detectfn =
+‘HEX’) (see detectfn for other possibilities).
+</p>
+<p>If <code class="reqn">z(x)</code> represents the covariate value at point
+<b>x</b>, the summed resource availability at <b>s</b> is given by
+</p>
+<p style="text-align: center;"><code class="reqn">R(s) = \sum_x f(d)\, \exp(\alpha_2 \,
+  z(x)).</code>
+</p>
+
+<p>This corresponds to the denominator of eqn 4 in Royle et al. (2013).
+</p>
+<p>By default, the numerical values reported by <code>Rsurface</code> are not raw
+<code class="reqn">R</code> values. If <code>scale = TRUE</code>, values are standardized by
+dividing by the mean: <code class="reqn">R'(s) = R(s) /
+  (\sum_s R(s) / n)</code> where <code class="reqn">n</code> is the number of
+pixels. Values of <code class="reqn">R'(s)</code> are centred on 1.0.
+</p>
+<p>If <code>inverse = TRUE</code>, the numeric values are <code class="reqn">1 /
+  R'(s)</code>
+or <code class="reqn">1 / R(s)</code> as determined by <code>scale</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Royle, J. A., Chandler, R. B., Sun, C. C. and Fuller, A. K. (2013)
+Integrating resource selection information with spatial
+capture–recapture. <em>Methods in Ecology and Evolution</em> <b>4</b>,
+520–530.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>mask</code>, <code>plot.Rsurface</code>,
+<code>spotHeight</code>, details
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## create binary covariate (0 outside habitat)
+msk &lt;- make.mask(traps(possumCH), buffer = 800)
+covariates(msk) &lt;- data.frame(z = as.numeric(pointsInPolygon
+    (msk,possumarea)))
+
+## derive and plot "resource availability"
+Rs &lt;- Rsurface(msk, sigma = 100, usecov = 'z')
+plot(Rs, plottype = 'contour', col = topo.colors(10))
+lines(possumarea)
+
+if (interactive()) {
+    spotHeight(Rs, dec = 2)
+}
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,220 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>poly2poly_ap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Area and population weighted polygon-to-polygon interpolation</h2>
+
+<h3>Description</h3>
+
+<p>Function for interpolating values from a source polygon layer to an overlapping (but spatially misaligned) destination polygon layer, using area and/or population weights.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">poly2poly_ap(
+  poly_from,
+  poly_to,
+  poly_to_id,
+  geo_vor = NULL,
+  methodz = "aw",
+  char_methodz = "aw",
+  pop_raster = NULL,
+  varz = NULL,
+  pycno_varz = NULL,
+  char_varz = NULL,
+  char_assign = "biggest_overlap",
+  funz = function(x, w) {
+     stats::weighted.mean(x, w, na.rm = TRUE)
+ },
+  seed = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>poly_from</code></td>
+<td>
+<p>Source polygon layer. <code>sf</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>poly_to</code></td>
+<td>
+<p>Destination polygon layer. Must have identical CRS to <code>poly_from</code>. <code>sf</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>poly_to_id</code></td>
+<td>
+<p>Name of unique ID column for destination polygon layer. Character string.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>geo_vor</code></td>
+<td>
+<p>Voronoi polygons object (used internally by <code>point2poly_tess</code>). <code>sf</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>methodz</code></td>
+<td>
+<p>Area interpolation method(s). Could be either of "aw" (areal weighting, default) and/or "pw" (population weighting). See "details". Character string or vector of character strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>char_methodz</code></td>
+<td>
+<p>Interpolation method(s) for character strings. Could be either of "aw" (areal weighting, default) or "pw" (population weighting). See "details". Character string.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pop_raster</code></td>
+<td>
+<p>Population raster to be used for population weighting, Must be supplied if <code>methodz="pw"</code>. Must have identical CRS to <code>poly_from</code>. <code>raster</code> or <code>SpatRaster</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varz</code></td>
+<td>
+<p>Names of numeric variable(s) to be interpolated from source polygon layer to destination polygons. Character string or vector of character strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pycno_varz</code></td>
+<td>
+<p>Names of spatially extensive numeric variables for which the pycnophylactic (mass-preserving) property should be preserved. Character string or vector of character strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>char_varz</code></td>
+<td>
+<p>Names of character string variables to be interpolated from source polygon layer to destination polygons. Character string or vector of character strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>char_assign</code></td>
+<td>
+<p>Assignment rule to be used for variables specified in <code>char_varz</code>. Could be either "biggest_overlap" (default) or "all_overlap". See "details". Character string or vector of character strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>funz</code></td>
+<td>
+<p>Aggregation function to be applied to variables specified in <code>varz</code>. Must take as an input a numeric vector <code>x</code> and vector of weights <code>w</code>. Function or list of functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Seed for generation of random numbers. Default is 1. Numeric.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Currently supported integration methods (<code>methodz</code>) include:
+</p>
+
+<ul>
+<li>
+<p> Areal weighting ("aw"). Values from <code>poly_from</code> weighted in proportion to relative area of spatial overlap between source features and geometries of <code>poly_to</code>.
+</p>
+</li>
+<li>
+<p> Population weighting ("pw"). Values from <code>poly_from</code> weighted in proportion to relative population sizes in areas of spatial overlap between source features and geometries of <code>poly_to</code>. This routine uses a third layer (supplied in <code>pop_raster</code>) to calculate the weights.
+</p>
+</li>
+</ul>
+<p>It is possible to pass multiple arguments to <code>methodz</code> (e.g. <code>methodz=c("aw","pw")</code>), in which case the function will calculate both sets of weights, and append the resulting columns to the output.
+</p>
+<p>Interpolation procedures are handled somewhat differently for numeric and character string variables. For numeric variables supplied in <code>varz</code>, "aw" and/or "pw" weights are passed to the function specified in <code>funz</code>. If different sets of numeric variables are to be aggregated with different functions, both <code>varz</code> and <code>funz</code> should be specified as lists (see examples below).
+</p>
+<p>For character string (and any other) variables supplied in <code>char_varz</code>, "aw" and/or "pw" weights are passed to the assignment rule(s) specified in <code>char_assign</code>. Note that the <code>char_varz</code> argument may include numerical variables, but <code>varz</code> cannot include character string variables.
+</p>
+<p>Currently supported assignment rules for character strings (<code>char_assign</code>) include:
+</p>
+
+<ul>
+<li>
+<p> "biggest_overlap". For each variable in <code>char_varz</code>, the features in <code>poly_to</code> are assigned a single value from overlapping <code>poly_from</code> features, corresponding to the intersection with largest area and/or population weight.
+</p>
+</li>
+<li>
+<p> "all_overlap". For each variable in <code>char_varz</code>, the features in <code>poly_to</code> are assigned all values from overlapping <code>poly_from</code> features, ranked by area and/or population weights (largest-to-smallest) of intersections.
+</p>
+</li>
+</ul>
+<p>It is possible to pass multiple arguments to <code>char_assign</code> (e.g. <code>char_assign=c("biggest_overlap","all_overlap")</code>), in which case the function will calculate both, and append the resulting columns to the output.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>sf</code> polygon object, with variables from <code>poly_from</code> interpolated to the geometries of <code>poly_to</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Interpolation of a single variable, with area weights
+## Not run: 
+data(clea_deu2009)
+data(hex_05_deu)
+out_1 &lt;- poly2poly_ap(poly_from = clea_deu2009,
+              poly_to = hex_05_deu,
+              poly_to_id = "HEX_ID",
+              varz = "to1"
+             )
+
+## End(Not run)
+
+# Interpolation of multiple variables, with area weights
+## Not run: 
+out_2 &lt;- poly2poly_ap(
+              poly_from = clea_deu2009,
+              poly_to = hex_05_deu,
+              poly_to_id = "HEX_ID",
+              varz = list(
+                c("to1","pvs1_margin"),
+                c("vv1") ),
+              pycno_varz = "vv1",
+              funz = list(
+                function(x,w){stats::weighted.mean(x,w)},
+                function(x,w){sum(x*w)} ),
+              char_varz = c("incumb_pty_n","win1_pty_n")
+             )
+
+## End(Not run)
+
+# Interpolation of a single variable, with population weights
+## Not run: 
+data(gpw4_deu2010)
+out_3 &lt;- poly2poly_ap(poly_from = clea_deu2009,
+                         poly_to = hex_05_deu,
+                         poly_to_id = "HEX_ID",
+                         varz = "to1",
+                         methodz = "pw",
+                         pop_raster = gpw4_deu2010)
+
+## End(Not run)
+
+# Interpolation of a single variable, with area and population weights
+## Not run: 
+out_4 &lt;- poly2poly_ap(poly_from = clea_deu2009,
+                         poly_to = hex_05_deu,
+                         poly_to_id = "HEX_ID",
+                         varz = "to1",
+                         methodz = c("aw","pw"),
+                         pop_raster = gpw4_deu2010)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

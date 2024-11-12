@@ -1,0 +1,108 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>reactiveTimer</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Timer</h2>
+
+<h3>Description</h3>
+
+<p>Creates a reactive timer with the given interval. A reactive timer is like a
+reactive value, except reactive values are triggered when they are set, while
+reactive timers are triggered simply by the passage of time.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">reactiveTimer(intervalMs = 1000, session = getDefaultReactiveDomain())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>intervalMs</code></td>
+<td>
+<p>How often to fire, in milliseconds</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>session</code></td>
+<td>
+<p>A session object. This is needed to cancel any scheduled
+invalidations after a user has ended the session. If <code>NULL</code>, then
+this invalidation will not be tied to any session, and so it will still
+occur.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Reactive expressions and observers that want to be
+invalidated by the timer need to call the timer function that
+<code>reactiveTimer</code> returns, even if the current time value is not actually
+needed.
+</p>
+<p>See <code>invalidateLater()</code> as a safer and simpler alternative.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A no-parameter function that can be called from a reactive context,
+in order to cause that context to be invalidated the next time the timer
+interval elapses. Calling the returned function also happens to yield the
+current time (as in <code>base::Sys.time()</code>).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>invalidateLater()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Only run examples in interactive R sessions
+if (interactive()) {
+
+ui &lt;- fluidPage(
+  sliderInput("n", "Number of observations", 2, 1000, 500),
+  plotOutput("plot")
+)
+
+server &lt;- function(input, output) {
+
+  # Anything that calls autoInvalidate will automatically invalidate
+  # every 2 seconds.
+  autoInvalidate &lt;- reactiveTimer(2000)
+
+  observe({
+    # Invalidate and re-execute this reactive expression every time the
+    # timer fires.
+    autoInvalidate()
+
+    # Do something each time this is invalidated.
+    # The isolate() makes this observer _not_ get invalidated and re-executed
+    # when input$n changes.
+    print(paste("The value of input$n is", isolate(input$n)))
+  })
+
+  # Generate a new histogram each time the timer fires, but not when
+  # input$n changes.
+  output$plot &lt;- renderPlot({
+    autoInvalidate()
+    hist(rnorm(isolate(input$n)))
+  })
+}
+
+shinyApp(ui, server)
+}
+</code></pre>
+
+
+</div>

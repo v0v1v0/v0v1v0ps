@@ -1,0 +1,694 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>shrinkTVP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Markov Chain Monte Carlo (MCMC) for time-varying parameter models with shrinkage</h2>
+
+<h3>Description</h3>
+
+<p><code>shrinkTVP</code> samples from the joint posterior distribution of the parameters of a time-varying
+parameter model with shrinkage, potentially including stochastic volatility (SV), and returns the MCMC draws.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">shrinkTVP(
+  formula,
+  data,
+  mod_type = "double",
+  niter = 10000,
+  nburn = round(niter/2),
+  nthin = 1,
+  learn_a_xi = TRUE,
+  learn_a_tau = TRUE,
+  a_xi = 0.1,
+  a_tau = 0.1,
+  learn_c_xi = TRUE,
+  learn_c_tau = TRUE,
+  c_xi = 0.1,
+  c_tau = 0.1,
+  a_eq_c_xi = FALSE,
+  a_eq_c_tau = FALSE,
+  learn_kappa2_B = TRUE,
+  learn_lambda2_B = TRUE,
+  kappa2_B = 20,
+  lambda2_B = 20,
+  hyperprior_param,
+  display_progress = TRUE,
+  sv = FALSE,
+  sv_param,
+  MH_tuning,
+  starting_vals
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>object of class "formula": a symbolic representation of the model, as in the
+function <code>lm</code>. For details, see <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p><em>optional</em> data frame containing the response variable and the covariates. If not found in <code>data</code>,
+the variables are taken from <code>environment(formula)</code>, typically the environment from which <code>shrinkTVP</code>
+is called. No <code>NA</code>s are allowed in the response variable and the covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mod_type</code></td>
+<td>
+<p>character string that reads either <code>"triple"</code>, <code>"double"</code> or <code>"ridge"</code>.
+Determines whether the triple gamma, double gamma or ridge prior are used for <code>theta_sr</code> and <code>beta_mean</code>.
+The default is "double".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>niter</code></td>
+<td>
+<p>positive integer, indicating the number of MCMC iterations
+to perform, including the burn-in. Has to be larger than or equal to <code>nburn</code> + 2. The default value is 10000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nburn</code></td>
+<td>
+<p>non-negative integer, indicating the number of iterations discarded
+as burn-in. Has to be smaller than or equal to <code>niter</code> - 2. The default value is <code>round(niter / 2)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nthin</code></td>
+<td>
+<p>positive integer, indicating the degree of thinning to be performed. Every <code>nthin</code> draw is kept and returned.
+The default value is 1, implying that every draw is kept.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learn_a_xi</code></td>
+<td>
+<p>logical value indicating whether to learn a_xi, the spike parameter of the state variances.
+Ignored if <code>mod_type</code> is set to <code>"ridge"</code>. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learn_a_tau</code></td>
+<td>
+<p>logical value indicating whether to learn a_tau, the spike parameter of the mean of the
+initial values of the states. Ignored if <code>mod_type</code> is set to <code>"ridge"</code>. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_xi</code></td>
+<td>
+<p>positive, real number, indicating the (fixed) value for a_xi. Ignored if
+<code>learn_a_xi</code> is <code>TRUE</code> or <code>mod_type</code> is set to <code>"ridge"</code>. The default value is 0.1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_tau</code></td>
+<td>
+<p>positive, real number, indicating the (fixed) value for a_tau. Ignored if
+<code>learn_a_tau</code> is <code>TRUE</code> or <code>mod_type</code> is set to <code>"ridge"</code>. The default value is 0.1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learn_c_xi</code></td>
+<td>
+<p>logical value indicating whether to learn c_xi, the tail parameter of the state variances.
+Ignored if <code>mod_type</code> is not set to <code>"triple"</code> or <code>a_eq_c_xi</code> is set to <code>TRUE</code>.
+The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learn_c_tau</code></td>
+<td>
+<p>logical value indicating whether to learn c_tau, the tail parameter of the mean of the
+initial values of the states. Ignored if <code>mod_type</code> is not set to <code>"triple"</code> or <code>a_eq_c_tau</code> is set to <code>TRUE</code>.
+The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_xi</code></td>
+<td>
+<p>positive, real number, indicating the (fixed) value for c_xi. Ignored if
+<code>learn_c_xi</code> is <code>TRUE</code>, <code>mod_type</code> is not set to <code>"triple"</code> or <code>a_eq_c_xi</code> is set to <code>TRUE</code>.
+The default value is 0.1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_tau</code></td>
+<td>
+<p>positive, real number, indicating the (fixed) value for c_tau. Ignored if
+<code>learn_c_xi</code> is <code>TRUE</code>, <code>mod_type</code> is not set to <code>"triple"</code>  or <code>a_eq_c_tau</code> is set to <code>TRUE</code>.
+The default value is 0.1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_eq_c_xi</code></td>
+<td>
+<p>logical value indicating whether to force <code>a_xi</code> and <code>c_xi</code> to be equal.
+If set to <code>TRUE</code>, <code>beta_a_xi</code> and <code>alpha_a_xi</code> are used as the hyperparameters and <code>beta_c_xi</code> and <code>alpha_c_xi</code> are ignored.
+Ignored if <code>mod_type</code> is not set to <code>"triple"</code>. The default value is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_eq_c_tau</code></td>
+<td>
+<p>logical value indicating whether to force <code>a_tau</code> and <code>c_tau</code> to be equal.
+If set to <code>TRUE</code>, <code>beta_a_tau</code> and <code>alpha_a_tau</code> are used as the hyperparameters and <code>beta_c_tau</code> and <code>alpha_c_tau</code> are ignored.
+Ignored if <code>mod_type</code> is not set to <code>"triple"</code>. The default value is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learn_kappa2_B</code></td>
+<td>
+<p>logical value indicating whether to learn kappa2_B, the global level of shrinkage for
+the state variances. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learn_lambda2_B</code></td>
+<td>
+<p>logical value indicating whether to learn the lambda2_B parameter,
+the global level of shrinkage for the mean of the initial values of the states. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa2_B</code></td>
+<td>
+<p>positive, real number, indicating the (fixed) value for kappa2_B. Ignored if
+<code>learn_kappa2_B</code> is <code>TRUE</code>. The default value is 20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda2_B</code></td>
+<td>
+<p>positive, real number, indicating the (fixed) value for lambda2_B. Ignored if
+<code>learn_lambda2_B</code> is <code>TRUE</code>. The default value is 20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperprior_param</code></td>
+<td>
+<p><em>optional</em> named list containing hyperparameter values.
+Not all have to be supplied, with those missing being replaced by the default values.
+Any list elements that are misnamed will be ignored and a warning will be thrown.
+All hyperparameter values have to be positive, real numbers. The following hyperparameters can be
+supplied:
+</p>
+
+<ul>
+<li> <p><code>c0</code>: The default value is 2.5.
+</p>
+</li>
+<li> <p><code>g0</code>: The default value is 5.
+</p>
+</li>
+<li> <p><code>G0</code>: The default value is 5 / (2.5 - 1).
+</p>
+</li>
+<li> <p><code>e1</code>: The default value is 0.001.
+</p>
+</li>
+<li> <p><code>e2</code>: The default value is 0.001.
+</p>
+</li>
+<li> <p><code>d1</code>: The default value is 0.001.
+</p>
+</li>
+<li> <p><code>d2</code>: The default value is 0.001.
+</p>
+</li>
+<li> <p><code>alpha_a_xi</code>: The default value is 5.
+</p>
+</li>
+<li> <p><code>alpha_a_tau</code>: The default value is 5.
+</p>
+</li>
+<li> <p><code>beta_a_xi</code>: The default value is 10.
+</p>
+</li>
+<li> <p><code>beta_a_tau</code>: The default value is 10.
+</p>
+</li>
+<li> <p><code>alpha_c_xi</code>: The default value is 5.
+</p>
+</li>
+<li> <p><code>alpha_c_tau</code>: The default value is 5.
+</p>
+</li>
+<li> <p><code>beta_c_xi</code>: The default value is 2.
+</p>
+</li>
+<li> <p><code>beta_c_tau</code>: The default value is 2.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>display_progress</code></td>
+<td>
+<p>logical value indicating whether the progress bar and other informative output should be
+displayed. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sv</code></td>
+<td>
+<p>logical value indicating whether to use stochastic volatility for the error of the observation
+equation. For details please see <code>stochvol</code>, in particular <code>svsample</code>. The default value is
+<code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sv_param</code></td>
+<td>
+<p><em>optional</em> named list containing hyperparameter values for the stochastic volatility
+parameters. Not all have to be supplied, with those missing being replaced by the default values.
+Any list elements that are misnamed will be ignored and a warning will be thrown. Ignored if
+<code>sv</code> is <code>FALSE</code>. The following elements can be supplied:
+</p>
+
+<ul>
+<li> <p><code>Bsigma_sv</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>a0_sv</code>: positive, real number. The default value is 5.
+</p>
+</li>
+<li> <p><code>b0_sv</code>: positive, real number. The default value is 1.5.
+</p>
+</li>
+<li> <p><code>bmu</code>: real number. The default value is 0.
+</p>
+</li>
+<li> <p><code>Bmu</code>: real number. larger than 0. The default value is 1.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>MH_tuning</code></td>
+<td>
+<p><em>optional</em> named list containing values used to tune the MH steps for <code>a_xi</code>, <code>a_tau</code>,
+<code>c_xi</code>, and <code>c_tau</code>. Not all have to be supplied, with those missing being replaced by the default values.
+Any list elements that are misnamed will be ignored and a warning will be thrown.
+The arguments for <code>a_xi</code>(<code>a_tau</code>) are only used if <code>learn_a_xi</code>(<code>learn_a_tau</code>)
+is set to <code>TRUE</code> and <code>mod_type</code> is not equal to <code>"ridge"</code>. The arguments for <code>c_xi</code>(<code>c_tau</code>) are only
+used if <code>learn_c_xi</code>(<code>learn_c_tau</code>) is set to <code>TRUE</code> and <code>mod_type</code> is equal to <code>"triple"</code>. Arguments ending in "adaptive" are
+logical values indicating whether or not to make the MH step for the respective parameter adaptive. Arguments ending in "tuning_par" serve two different purposes.
+If the respective MH step is not set to be adaptive, it acts as the standard deviation of the proposal distribution. If the respective MH step
+is set to be adaptive, it acts as the initial standard deviation. Arguments ending in "target_rate" define the acceptance rate the algorithm aims to achieve.
+Arguments ending in "max_adapt" set the maximum value by which the logarithm of the standard deviation of the proposal distribution is adjusted. Finally,
+arguments ending in "batch_size" set the batch size after which the standard deviation of the proposal distribution is adjusted.
+The following elements can be supplied:
+</p>
+
+<ul>
+<li> <p><code>a_xi_adaptive</code>: logical value. The default is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>a_xi_tuning_par</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>a_xi_target_rate</code>: positive, real number, between 0 and 1. The default value is 0.44.
+</p>
+</li>
+<li> <p><code>a_xi_max_adapt</code>: positive, real number. The default value is 0.01.
+</p>
+</li>
+<li> <p><code>a_xi_batch_size</code>: positive integer. The default value is 50.
+</p>
+</li>
+<li> <p><code>a_tau_adaptive</code>: logical value. The default is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>a_tau_tuning_par</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>a_tau_target_rate</code>: positive, real number, between 0 and 1. The default value is 0.44.
+</p>
+</li>
+<li> <p><code>a_tau_max_adapt</code>: positive, real number. The default value is 0.01.
+</p>
+</li>
+<li> <p><code>a_tau_batch_size</code>: positive integer. The default value is 50.
+</p>
+</li>
+<li> <p><code>c_xi_adaptive</code>: logical value. The default is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>c_xi_tuning_par</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>c_xi_target_rate</code>: positive, real number, between 0 and 1. The default value is 0.44.
+</p>
+</li>
+<li> <p><code>c_xi_max_adapt</code>: positive, real number. The default value is 0.01.
+</p>
+</li>
+<li> <p><code>c_xi_batch_size</code>: positive integer. The default value is 50.
+</p>
+</li>
+<li> <p><code>c_tau_adaptive</code>: logical value. The default is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>c_tau_tuning_par</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>c_tau_target_rate</code>: positive, real number, between 0 and 1. The default value is 0.44.
+</p>
+</li>
+<li> <p><code>c_tau_max_adapt</code>: positive, real number. The default value is 0.01.
+</p>
+</li>
+<li> <p><code>c_tau_batch_size</code>: positive integer. The default value is 50.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starting_vals</code></td>
+<td>
+<p><em>optional</em> named list containing the values at which the MCMC algorithm will be initialized. In the
+following <code>d</code> refers to the number of covariates, including the intercept and expanded factors.
+Not all have to be supplied, with those missing being replaced by the default values.
+Any list elements that are misnamed will be ignored and a warning will be thrown. The following elements can be supplied:
+</p>
+
+<ul>
+<li> <p><code>beta_mean_st</code>: vector of length <code>d</code> containing single numbers. The default is <code>rep(0, d)</code>.
+</p>
+</li>
+<li> <p><code>theta_sr_st</code>: vector of length <code>d</code> containing single, positive numbers. The default is <code>rep(1, d)</code>.
+</p>
+</li>
+<li> <p><code>tau2_st</code>: vector of length <code>d</code> containing single, positive numbers. The default is <code>rep(1, d)</code>.
+</p>
+</li>
+<li> <p><code>xi2_st</code>: vector of length <code>d</code> containing single, positive numbers. The default is <code>rep(1, d)</code>.
+</p>
+</li>
+<li> <p><code>kappa2_st</code>: vector of length <code>d</code> containing single, positive numbers. The default is <code>rep(1, d)</code>.
+</p>
+</li>
+<li> <p><code>lambda2_st</code>: vector of length <code>d</code> containing single, positive numbers. The default is <code>rep(1, d)</code>.
+</p>
+</li>
+<li> <p><code>kappa2_B_st</code>: positive, real number. The default value is 20.
+</p>
+</li>
+<li> <p><code>lambda2_B_st</code>: positive, real number. The default value is 20.
+</p>
+</li>
+<li> <p><code>a_xi_st</code>: positive, real number. The default value is 0.1.
+</p>
+</li>
+<li> <p><code>a_tau_st</code>: positive, real number. The default value is 0.1.
+</p>
+</li>
+<li> <p><code>c_xi_st</code>: positive, real number. The default value is 0.1. Note that the prior for <code>c_xi</code> is restricted to (0, 0.5).
+</p>
+</li>
+<li> <p><code>c_tau_st</code>: positive, real number. The default value is 0.1. Note that the prior for <code>c_tau</code> is restricted to (0, 0.5).
+</p>
+</li>
+<li> <p><code>sv_mu_st</code>: real number. The default value is -10.
+</p>
+</li>
+<li> <p><code>sv_phi_st</code>: positive, real number between -1 and 1. The default value is 0.5.
+</p>
+</li>
+<li> <p><code>sv_sigma2_st </code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>C0_st</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>sigma2_st</code>: positive, real number if <code>sv</code> is <code>FALSE</code>, otherwise a vector of positive, real numbers of length <code>N</code>. The default value is 1 or a vector thereof.
+</p>
+</li>
+<li> <p><code>h0_st</code>: real number. The default value is 0.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For details concerning the algorithms please refer to the papers by Bitto and Frühwirth-Schnatter (2019) and Cadonna et al. (2020).
+For more details on the package and the usage of the functions, see Knaus et al. (2021).
+</p>
+
+
+<h3>Value</h3>
+
+<p>The value returned is a list object of class <code>shrinkTVP</code> containing
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p><code>list</code> object containing an <code>mcmc.tvp</code> object for the parameter draws from the posterior distribution of the centered
+states, one for each covariate. In the case that there is only one covariate, this becomes just a single <code>mcmc.tvp</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_mean</code></td>
+<td>
+<p><code>mcmc</code> object containing the parameter draws from the posterior distribution of beta_mean.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta_sr</code></td>
+<td>
+<p><code>mcmc</code> object containing the parameter draws from the posterior distribution of the square root of theta.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau2</code></td>
+<td>
+<p><code>mcmc</code> object containing the parameter draws from the posterior distribution of tau2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xi2</code></td>
+<td>
+<p><code>mcmc</code> object containing the parameter draws from the posterior distribution of xi2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda2</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of lambda2.
+Not returned if <code>mod_type</code> is not <code>"triple"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa2</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of kappa2.
+Not returned if <code>mod_type</code> is not <code>"triple"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_xi</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of a_xi.
+Not returned if <code>learn_a_xi</code> is <code>FALSE</code> or <code>mod_type</code> is <code>"ridge"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_tau</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of a_tau.
+Not returned if <code>learn_a_tau</code> is <code>FALSE</code> or <code>mod_type</code> is <code>"ridge"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_xi</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of c_xi.
+Not returned if <code>learn_c_xi</code> is <code>FALSE</code> or <code>mod_type</code> is not <code>"triple"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_tau</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of c_tau.
+Not returned if <code>learn_c_tau</code> is <code>FALSE</code> or <code>mod_type</code> is not <code>"triple"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda2_B</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of lambda2_B.
+Not returned if <code>learn_lambda2_B</code> is <code>FALSE</code> or <code>mod_type</code> is <code>"ridge"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa2_B</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of kappa2_B.
+Not returned if <code>learn_kappa2_B</code> is <code>FALSE</code> or <code>mod_type</code> is <code>"ridge"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma2</code></td>
+<td>
+<p><code>mcmc</code> object containing the parameter draws from the posterior distribution of <code>sigma2</code>.
+If <code>sv</code> is <code>TRUE</code>, <code>sigma2</code> is additionally an <code>mcmc.tvp</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>C0</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of C0.
+Not returned if <code>sv</code> is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sv_mu</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of the mu
+parameter for the stochastic volatility model on the errors. Not returned if <code>sv</code> is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sv_phi</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of the phi
+parameter for the stochastic volatility model on the errors. Not returned if <code>sv</code> is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sv_sigma2</code></td>
+<td>
+<p><em>(optional)</em> <code>mcmc</code> object containing the parameter draws from the posterior distribution of the sigma2
+parameter for the stochastic volatility model on the errors. Not returned if <code>sv</code> is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>MH_diag</code></td>
+<td>
+<p><em>(optional)</em> named list containing statistics for assessing MH performance. Not returned if no MH steps are required
+or none of them are specified to be adaptive.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>internals</code></td>
+<td>
+<p><code>list</code> object containing two arrays that are required for calculating the LPDS.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorvals</code></td>
+<td>
+<p><code>list</code> object containing hyperparameter values of the prior distributions, as specified by the user.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p><code>list</code> object containing the model matrix, model response and formula used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>summaries</code></td>
+<td>
+<p><code>list</code> object containing a collection of summary statistics of the posterior draws.</p>
+</td>
+</tr>
+</table>
+<p>To display the output, use <code>plot</code> and <code>summary</code>. The <code>summary</code> method displays the specified prior values stored in
+<code>priorvals</code> and the posterior summaries stored in <code>summaries</code>, while the <code>plot</code> method calls <code>coda</code>'s <code>plot.mcmc</code>
+or the <code>plot.mcmc.tvp</code> method. Furthermore, all functions that can be applied to <code>coda::mcmc</code> objects
+(e.g. <code>coda::acfplot</code>) can be applied to all output elements that are <code>coda</code> compatible.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Peter Knaus <a href="mailto:peter.knaus@wu.ac.at">peter.knaus@wu.ac.at</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Bitto, A., &amp; Frühwirth-Schnatter, S. (2019). "Achieving shrinkage in a time-varying parameter model framework."
+<em>Journal of Econometrics</em>, 210(1), 75-97. &lt;doi:10.1016/j.jeconom.2018.11.006&gt;
+</p>
+<p>Cadonna, A., Frühwirth-Schnatter, S., &amp; Knaus, P. (2020). "Triple the Gamma—A Unifying Shrinkage Prior for Variance and Variable Selection in Sparse State Space and TVP Models."
+<em>Econometrics</em>, 8(2), 20. &lt;doi:10.3390/econometrics8020020&gt;
+</p>
+<p>Knaus, P., Bitto-Nemling, A., Cadonna, A., &amp; Frühwirth-Schnatter, S. (2021) "Shrinkage in the Time-Varying Parameter Model Framework Using the <code>R</code> Package <code>shrinkTVP</code>."
+<em>Journal of Statistical Software</em> 100(13), 1–32. &lt;doi:10.18637/jss.v100.i13&gt;
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.shrinkTVP</code>, <code>plot.mcmc.tvp</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+## Example 1, learn everything
+set.seed(123)
+sim &lt;- simTVP(theta = c(0.2, 0, 0), beta_mean = c(1.5, -0.3, 0))
+data &lt;- sim$data
+
+res &lt;- shrinkTVP(y ~ x1 + x2, data = data)
+# summarize output
+summary(res)
+
+
+## Example 2, hierarchical Bayesian Lasso
+res &lt;- shrinkTVP(y ~ x1 + x2, data = data,
+                learn_a_xi = FALSE, learn_a_tau = FALSE,
+                a_xi = 1, a_tau = 1)
+
+
+## Example 3, non-hierarchical Bayesian Lasso
+res &lt;- shrinkTVP(y ~ x1 + x2, data = data,
+                learn_a_xi = FALSE, learn_a_tau = FALSE,
+                a_xi = 1, a_tau = 1,
+                learn_kappa2 = FALSE, learn_lambda2 = FALSE)
+
+
+## Example 4, adding stochastic volatility
+res &lt;- shrinkTVP(y ~ x1 + x2, data = data,
+                sv = TRUE)
+
+
+## Example 4, changing some of the default hyperparameters
+res &lt;- shrinkTVP(y ~ x1 + x2, data = data,
+                hyperprior_param = list(beta_a_xi = 5,
+                                        alpha_a_xi = 10))
+
+## Example 5, using the triple gamma prior
+res &lt;- shrinkTVP(y ~ x1 + x2, data = data,
+                mod_type = "triple")
+
+
+</code></pre>
+
+
+</div>

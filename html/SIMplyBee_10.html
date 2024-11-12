@@ -1,0 +1,176 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>buildUp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build up Colony or MultiColony object by adding (raising) workers and drones</h2>
+
+<h3>Description</h3>
+
+<p>Level 2 function that builds up a Colony or MultiColony object by adding
+(raising) workers and drones usually in spring or after events such as split or
+swarming.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">buildUp(
+  x,
+  nWorkers = NULL,
+  nDrones = NULL,
+  new = TRUE,
+  exact = FALSE,
+  resetEvents = FALSE,
+  simParamBee = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code>Colony-class</code> or <code>MultiColony-class</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nWorkers</code></td>
+<td>
+<p>numeric or function, number of worker to add to the colony,
+but see <code>new</code>; if <code>NULL</code> then <code>SimParamBee$nWorkers</code>
+is used. If input is <code>MultiColony-class</code>,
+the input could also be a vector of the same length as the number of colonies. If
+a single value is provided, the same value will be applied to all the colonies.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nDrones</code></td>
+<td>
+<p>numeric or function, number of drones to add to the colony,
+but see <code>new</code>; if <code>NULL</code> then <code>SimParamBee$nDrones</code>
+is used. If input is <code>MultiColony-class</code>,
+the input could also be a vector of the same length as the number of colonies. If
+a single value is provided, the same value will be applied to all the colonies.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new</code></td>
+<td>
+<p>logical, should the number of workers and drones be added anew or
+should we only top-up the existing number of workers and drones to
+<code>nWorkers</code> and <code>nDrones</code> (see details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exact</code></td>
+<td>
+<p>logical, if the csd locus is turned on and exact is <code>TRUE</code>,
+create the exact specified number of only viable workers (heterozygous on
+the csd locus)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resetEvents</code></td>
+<td>
+<p>logical, call <code>resetEvents</code> as part of the
+build up</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simParamBee</code></td>
+<td>
+<p><code>SimParamBee</code>, global simulation parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments passed to <code>nWorkers</code> or <code>nDrones</code>
+when these arguments are a function</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function increases queen's <code>nWorkers</code>, <code>nHomBrood</code>,
+and <code>nDrones</code> counters. It also turns production on.
+</p>
+<p>Argument <code>new</code> enables simulation of two common cases. First,
+if you are modelling year-to-year cycle, you will likely want
+<code>new = TRUE</code>, so that, say, in spring you will replace old (from last
+year) workers and drones with the new ones. This is the case that we are
+targeting and hence <code>new = TRUE</code> is default. Second, if you are
+modelling shorter period cycles, you will likely want <code>new = FALSE</code> to
+just top up the current workers and drones - you might also want to look at
+<code>replaceWorkers</code> and <code>replaceDrones</code>.
+</p>
+<p>TODO: Discuss on how to model day-to-day variation with <code>new = FALSE</code>.
+We are not sure this is easy to achieve with current implementation
+just now, but could be expanded.
+https://github.com/HighlanderLab/SIMplyBee/issues/176
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>Colony-class</code> or <code>MultiColony-class</code> with workers and
+drones replaced or added
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">founderGenomes &lt;- quickHaplo(nInd = 4, nChr = 1, segSites = 50)
+SP &lt;- SimParamBee$new(founderGenomes)
+
+basePop &lt;- createVirginQueens(founderGenomes)
+
+drones &lt;- createDrones(x = basePop[1], nInd = 1000)
+droneGroups &lt;- pullDroneGroupsFromDCA(drones, n = 10, nDrones = nFathersPoisson)
+
+# Create a Colony and a MultiColony class
+colony &lt;- createColony(x = basePop[2])
+colony &lt;- cross(colony, drones = droneGroups[[1]])
+isProductive(colony)
+apiary &lt;- createMultiColony(basePop[3:4], n = 2)
+apiary &lt;- cross(apiary, drones = droneGroups[c(2, 3)])
+isProductive(apiary)
+
+# Build up
+# Using defaults in SP$nWorkers &amp; SP$nDrones
+(colony &lt;- buildUp(colony))
+isProductive(colony)
+# Build-up a MultiColony class
+(apiary &lt;- buildUp(apiary))
+isProductive(apiary)
+
+# The user can also specify a function that will give a number
+colony &lt;- removeWorkers(colony) # Remove workers to start from fresh
+colony &lt;- removeDrones(colony) # Remove drones to start from fresh
+buildUp(colony, nWorkers = nWorkersPoisson, nDrones = nDronesPoisson)
+buildUp(colony, nWorkers = nWorkersPoisson, nDrones = nDronesPoisson)
+# nWorkers and nDrones will vary between function calls when a function is used
+# You can store these functions or a values in the SP object
+SP$nWorkers &lt;- nWorkersPoisson
+SP$nDrones &lt;- nDronesPoisson
+
+# Specifying own number
+colony &lt;- buildUp(colony, nWorkers = 100)
+# Build up a MultiColony class
+apiary &lt;- buildUp(apiary, nWorkers = 250)
+# Build up with different numbers
+apiary &lt;- buildUp(apiary, nWorkers = c(1000, 2000), nDrones = c(100, 150))
+nWorkers(apiary)
+nDrones(apiary)
+
+# Queen's counters
+getMisc(getQueen(buildUp(colony)))
+</code></pre>
+
+
+</div>

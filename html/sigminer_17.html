@@ -1,0 +1,628 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>A Best Practice for Signature Extraction and Exposure (Activity) Attribution</h2>
+
+<h3>Description</h3>
+
+<p>These functions are combined to provide a best practice for optimally
+identifying mutational signatures and attributing their activities (exposures)
+in tumor samples. They are listed in order to use.
+</p>
+
+<ul>
+<li> <p><code>bp_extract_signatures()</code> for extracting signatures.
+</p>
+</li>
+<li> <p><code>bp_show_survey()</code> for showing measures change under different
+signature numbers to help user select optimal signature number.
+At default, an aggregated score (named score) is generated to
+suggest the best solution.
+</p>
+</li>
+<li> <p><code>bp_show_survey2()</code> for showing simplified signature number survey like
+<code>show_sig_number_survey()</code>.
+</p>
+</li>
+<li> <p><code>bp_get_sig_obj()</code> for get a (list of) <code>Signature</code> object which is common
+used in <strong>sigminer</strong> for analysis and visualization.
+</p>
+</li>
+<li> <p><code>bp_attribute_activity()</code> for optimizing signature activities (exposures).
+NOTE: the activities from extraction step may be better!
+You can also use sig_extract to get optimal NMF result from multiple NMF runs.
+Besides, you can use sig_fit to quantify exposures based on signatures extracted
+from <code>bp_extract_signatures()</code>.
+</p>
+</li>
+<li> <p><code>bp_extract_signatures_iter()</code> for extracting signature in a iteration way.
+</p>
+</li>
+<li> <p><code>bp_cluster_iter_list()</code> for clustering (<code>hclust</code> with average linkage)
+iterated signatures to help collapse
+multiple signatures into one. The result cluster can be visualized by
+<code>plot()</code> or <code>factoextra::fviz_dend()</code>.
+</p>
+</li>
+<li> <p><code>bp_get_clustered_sigs()</code> for getting clustered (grouped) mean signatures from signature clusters.
+</p>
+</li>
+<li>
+<p> Extra: <code>bp_get_stats</code>() for obtaining stats for signatures and samples of a solution.
+These stats are aggregated (averaged) as the stats for a solution
+(specific signature number).
+</p>
+</li>
+<li>
+<p> Extra: <code>bp_get_rank_score()</code> for obtaining rank score for all signature numbers.
+</p>
+</li>
+</ul>
+<h3>Usage</h3>
+
+<pre><code class="language-R">bp_extract_signatures(
+  nmf_matrix,
+  range = 2:5,
+  n_bootstrap = 20L,
+  n_nmf_run = 50,
+  RTOL = 0.001,
+  min_contribution = 0,
+  cores = min(4L, future::availableCores()),
+  cores_solution = min(cores, length(range)),
+  seed = 123456L,
+  handle_hyper_mutation = TRUE,
+  report_integer_exposure = FALSE,
+  only_core_stats = nrow(nmf_matrix) &gt; 100,
+  cache_dir = file.path(tempdir(), "sigminer_bp"),
+  keep_cache = FALSE,
+  pynmf = FALSE,
+  use_conda = TRUE,
+  py_path = "/Users/wsx/anaconda3/bin/python"
+)
+
+bp_extract_signatures_iter(
+  nmf_matrix,
+  range = 2:5,
+  sim_threshold = 0.95,
+  max_iter = 10L,
+  n_bootstrap = 20L,
+  n_nmf_run = 50,
+  RTOL = 0.001,
+  min_contribution = 0,
+  cores = min(4L, future::availableCores()),
+  cores_solution = min(cores, length(range)),
+  seed = 123456L,
+  handle_hyper_mutation = TRUE,
+  report_integer_exposure = FALSE,
+  only_core_stats = nrow(nmf_matrix) &gt; 100,
+  cache_dir = file.path(tempdir(), "sigminer_bp"),
+  keep_cache = FALSE,
+  pynmf = FALSE,
+  use_conda = FALSE,
+  py_path = "/Users/wsx/anaconda3/bin/python"
+)
+
+bp_cluster_iter_list(x, k = NULL, include_final_iteration = TRUE)
+
+bp_get_clustered_sigs(SigClusters, cluster_label)
+
+bp_get_sig_obj(obj, signum = NULL)
+
+bp_get_stats(obj)
+
+bp_get_rank_score(obj)
+
+bp_show_survey2(
+  obj,
+  x = "signature_number",
+  left_y = "silhouette",
+  right_y = "L2_error",
+  left_name = left_y,
+  right_name = right_y,
+  left_color = "black",
+  right_color = "red",
+  left_shape = 16,
+  right_shape = 18,
+  shape_size = 4,
+  highlight = NULL
+)
+
+bp_show_survey(
+  obj,
+  add_score = FALSE,
+  scales = c("free_y", "free"),
+  fixed_ratio = TRUE
+)
+
+bp_attribute_activity(
+  input,
+  sample_class = NULL,
+  nmf_matrix = NULL,
+  method = c("bt", "stepwise"),
+  bt_use_prop = FALSE,
+  return_class = c("matrix", "data.table"),
+  use_parallel = FALSE,
+  cache_dir = file.path(tempdir(), "sigminer_attribute_activity"),
+  keep_cache = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>nmf_matrix</code></td>
+<td>
+<p>a <code>matrix</code> used for NMF decomposition with rows indicate samples and columns indicate components.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>range</code></td>
+<td>
+<p>a <code>numeric</code> vector containing the ranks of factorization to try. Note that duplicates are removed
+and values are sorted in increasing order. The results are notably returned in this order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_bootstrap</code></td>
+<td>
+<p>number of bootstrapped (resampling) catalogs used.
+When it is <code>0</code>, the original (input) mutation catalog is used for NMF decomposition,
+this is not recommended, just for testing, user should not set it to <code>0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_nmf_run</code></td>
+<td>
+<p>number of NMF runs for each bootstrapped or original catalog.
+At default, in total n_bootstrap x n_nmf_run (i.e. 1000) NMF runs are used
+for the task.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RTOL</code></td>
+<td>
+<p>a threshold proposed by Nature Cancer paper to control how to
+filter solutions of NMF. Default is <code style="white-space: pre;">⁠0.1%⁠</code> (from reference #2),
+only NMF solutions with KLD (KL deviance) &lt;= <code style="white-space: pre;">⁠100.1%⁠</code> minimal KLD are kept.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_contribution</code></td>
+<td>
+<p>a component contribution threshold to filer out small
+contributed components.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cpu cores to run NMF.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores_solution</code></td>
+<td>
+<p>cores for processing solutions, default is equal to argument <code>cores</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>a random seed to make reproducible result.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>handle_hyper_mutation</code></td>
+<td>
+<p>default is <code>TRUE</code>, handle hyper-mutant samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>report_integer_exposure</code></td>
+<td>
+<p>if <code>TRUE</code>, report integer signature
+exposure by bootstrapping technique.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>only_core_stats</code></td>
+<td>
+<p>if <code>TRUE</code>, only calculate the core stats for signatures and samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cache_dir</code></td>
+<td>
+<p>a directory for keep temp result files.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep_cache</code></td>
+<td>
+<p>if <code>TRUE</code>, keep cache results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pynmf</code></td>
+<td>
+<p>if <code>TRUE</code>, use Python NMF driver <a href="http://nimfa.biolab.si/index.html">Nimfa</a>.
+The seed currently is not used by this implementation, so the only way to reproduce
+your result is setting <code>keep_cache = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_conda</code></td>
+<td>
+<p>if <code>TRUE</code>, create an independent conda environment to run NMF.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>py_path</code></td>
+<td>
+<p>path to Python executable file, e.g. '/Users/wsx/anaconda3/bin/python'. In my
+test, it is more stable than <code>use_conda=TRUE</code>. You can install the Nimfa package by yourself
+or set <code>use_conda</code> to <code>TRUE</code> to install required Python environment, and then set this option.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim_threshold</code></td>
+<td>
+<p>a similarity threshold for selecting samples to auto-rerun
+the extraction procedure (i.e. <code>bp_extract_signatures()</code>), default is <code>0.95</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>the maximum iteration size, default is 10, i.e., at most run
+the extraction procedure 10 times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>result from <code>bp_extract_signatures_iter()</code> or a list of
+<code>Signature</code> objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>an integer sequence specifying the cluster number to get silhouette.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_final_iteration</code></td>
+<td>
+<p>if <code>FALSE</code>, exclude final iteration result
+from clustering for input from <code>bp_extract_signatures_iter()</code>, not applied
+if input is a list of <code>Signature</code> objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SigClusters</code></td>
+<td>
+<p>result from <code>bp_cluster_iter_list()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster_label</code></td>
+<td>
+<p>cluster labels for a specified cluster number, obtain it
+from <code>SigClusters$sil_df</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>a <code>ExtractionResult</code> object from <code>bp_extract_signatures()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>signum</code></td>
+<td>
+<p>a integer vector to extract the corresponding <code>Signature</code> object(s).
+If it is <code>NULL</code> (default), all will be returned.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>left_y</code></td>
+<td>
+<p>column name for left y axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>right_y</code></td>
+<td>
+<p>column name for right y axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>left_name</code></td>
+<td>
+<p>label name for left y axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>right_name</code></td>
+<td>
+<p>label name for right y axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>left_color</code></td>
+<td>
+<p>color for left axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>right_color</code></td>
+<td>
+<p>color for right axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>left_shape, right_shape, shape_size</code></td>
+<td>
+<p>shape setting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>highlight</code></td>
+<td>
+<p>a <code>integer</code> to highlight a <code>x</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>add_score</code></td>
+<td>
+<p>if <code>FALSE</code>, don't show score and label optimal points by
+rank score.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scales</code></td>
+<td>
+<p>one of "free_y" (default) and "free" to control the scales
+of plot facet.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed_ratio</code></td>
+<td>
+<p>if <code>TRUE</code> (default), make the x/y axis ratio fixed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>input</code></td>
+<td>
+<p>result from <code>bp_extract_signatures()</code> or a Signature object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample_class</code></td>
+<td>
+<p>a named string vector whose names are sample names
+and values are class labels (i.e. cancer subtype). If it is <code>NULL</code> (the default),
+treat all samples as one group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>one of 'bt' (use bootstrap exposure median, from reference #2,
+<strong>the most recommended way in my personal view</strong>) or stepwise'
+(stepwise reduce and update signatures then do signature fitting
+with last signature sets, from reference #2, the result tends to assign
+the contribution of removed signatures to the remaining signatures,
+<strong>maybe I misunderstand the paper method? PAY ATTENTION</strong>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bt_use_prop</code></td>
+<td>
+<p>this parameter is only used for <code>bt</code> method to reset
+low contributing signature activity (relative activity <code style="white-space: pre;">⁠&lt;0.01⁠</code>). If <code>TRUE</code>,
+use empirical P value calculation way (i.e. proportion, used by reference <code style="white-space: pre;">⁠#2⁠</code>),
+otherwise a <code>t.test</code> is applied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_class</code></td>
+<td>
+<p>string, 'matrix' or 'data.table'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_parallel</code></td>
+<td>
+<p>if <code>TRUE</code>, use parallel computation based on <strong>furrr</strong> package.
+It can also be an integer for specifying cores.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The signature extraction approach is adopted from reference #1, #2, and
+the whole best practice is adopted from the pipeline used by reference #3.
+I implement the whole procedure with R code based on the method description
+of papers. The code is well organized, tested and documented so user will
+find it pretty simple and useful. Besides, the structure of the results is
+very clear to see and also visualize like other approaches provided by <strong>sigminer</strong>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>It depends on the called function.
+</p>
+
+
+<h3>Measure Explanation in Survey Plot</h3>
+
+<p>The survey plot provides a pretty good way to facilitate the signature number
+selection. A <code>score</code> measure is calculated as the weighted mean of selected
+measures and visualized as the first sub-plot. The optimal number is highlighted
+with red color dot and the best values for each measures are also
+highlighted with orange color dots. The detail of 6 measures shown in plot are
+explained as below.
+</p>
+
+<ul>
+<li> <p><code>score</code> - an aggregated score based on rank scores from selected measures below.
+The higher, the better. When two signature numbers have the same score,
+the larger signature number is preferred (this is a rare situation, you
+have to double check other measures).
+</p>
+</li>
+<li> <p><code>silhouette</code> - the average silhouette width for signatures, also named as ASW in reference #2.
+The signature number with silhouette decreases sharply is preferred.
+</p>
+</li>
+<li> <p><code>distance</code> - the average sample reconstructed cosine distance, the lower value is better.
+</p>
+</li>
+<li> <p><code>error</code> - the average sample reconstructed error calculated with L2 formula
+(i.e. L2 error). This lower value is better. This measure represents a
+similar concept like <code>distance</code> above, they are all used to quantify how well
+sample mutation profiles can be reconstructed from signatures, but <code>distance</code>
+cares the whole mutation profile similarity while <code>error</code> here cares value difference.
+</p>
+</li>
+<li> <p><code style="white-space: pre;">⁠pos cor⁠</code> - the average positive signature exposure correlation coefficient.
+The lower value is better. This measure is constructed based on my understanding
+about signatures: mutational signatures are typically treated as independent
+recurrent patterns, so their activities are less correlated.
+</p>
+</li>
+<li> <p><code>similarity</code> - the average similarity within in a signature cluster.
+Like <code>silhouette</code>, the point decreases sharply is preferred.
+In the practice, results from multiple NMF runs are clustered
+with "clustering with match" algorithm proposed by reference #2. This value
+indicates if the signature profiles extracted from different NMF runs are similar.
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Shixiang Wang <a href="mailto:w_shixiang@163.com">w_shixiang@163.com</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Alexandrov, Ludmil B., et al. "Deciphering signatures of mutational processes operative in human cancer." Cell reports 3.1 (2013): 246-259.
+</p>
+<p>Degasperi, Andrea, et al. "A practical framework and online tool for mutational signature analyses show intertissue variation and driver dependencies." Nature cancer 1.2 (2020): 249-263.
+</p>
+<p>Alexandrov, Ludmil B., et al. “The repertoire of mutational signatures in human cancer.” Nature 578.7793 (2020): 94-101.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See sig_estimate, sig_extract, sig_auto_extract,
+sigprofiler_extract for other approaches.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("simulated_catalogs")
+
+# Here I reduce the values for n_bootstrap and n_nmf_run
+# for reducing the run time.
+# In practice, you should keep default or increase the values
+# for better estimation.
+#
+# The input data here is simulated from 10 mutational signatures
+
+# e1 &lt;- bp_extract_signatures(
+#   t(simulated_catalogs$set1),
+#   range = 8:12,
+#   n_bootstrap = 5,
+#   n_nmf_run = 10
+# )
+#
+# To avoid computation in examples,
+# Here just load the result
+# (e1$signature and e1$exposure set to NA to reduce package size)
+load(system.file("extdata", "e1.RData", package = "sigminer"))
+
+
+# See the survey for different signature numbers
+# The suggested solution is marked as red dot
+# with highest integrated score.
+p1 &lt;- bp_show_survey(e1)
+p1
+# You can also exclude plotting and highlighting the score
+p2 &lt;- bp_show_survey(e1, add_score = FALSE)
+p2
+
+# You can also plot a simplified version
+p3 &lt;- bp_show_survey2(e1, highlight = 10)
+p3
+
+# Obtain the suggested solution from extraction result
+obj_suggested &lt;- bp_get_sig_obj(e1, e1$suggested)
+obj_suggested
+# If you think the suggested signature number is not right
+# Just pick up the solution you want
+obj_s8 &lt;- bp_get_sig_obj(e1, 8)
+
+# Track the reconstructed profile similarity
+rec_sim &lt;- get_sig_rec_similarity(obj_s8, t(simulated_catalogs$set1))
+rec_sim
+
+# After extraction, you can assign the signatures
+# to reference COSMIC signatures
+# More see ?get_sig_similarity
+sim &lt;- get_sig_similarity(obj_suggested)
+# Visualize the match result
+if (require(pheatmap)) {
+  pheatmap::pheatmap(sim$similarity)
+}
+
+# You already got the activities of signatures
+# in obj_suggested, however, you can still
+# try to optimize the result.
+# NOTE: the optimization step may not truly optimize the result!
+expo &lt;- bp_attribute_activity(e1, return_class = "data.table")
+expo$abs_activity
+
+
+## Not run: 
+# Iterative extraction:
+# This procedure will rerun extraction step
+# for those samples with reconstructed catalog similarity
+# lower than a threshold (default is 0.95)
+e2 &lt;- bp_extract_signatures_iter(
+  t(simulated_catalogs$set1),
+  range = 9:11,
+  n_bootstrap = 5,
+  n_nmf_run = 5,
+  sim_threshold = 0.99
+)
+e2
+# When the procedure run multiple rounds
+# you can cluster the signatures from different rounds by
+# the following command
+# bp_cluster_iter_list(e2)
+
+## Extra utilities
+rank_score &lt;- bp_get_rank_score(e1)
+rank_score
+stats &lt;- bp_get_stats(e2$iter1)
+# Get the mean reconstructed similarity
+1 - stats$stats_sample$cosine_distance_mean
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,288 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim_discrete_time</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Using Discrete-Time Simulation to Generate Complex Data from a Given DAG and Node Information
+</h2>
+
+<h3>Description</h3>
+
+<p>Similar to the <code>sim_from_dag</code> function, this function can be used to generate data from a given DAG. In contrast to the <code>sim_from_dag</code> function, this function utilizes a discrete-time simulation approach. This is not an "off-the-shelves" simulation function, it should rather be seen as a "framework-function", making it easier to create discrete-time-simulations. It usually requires custom functions written by the user. See details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim_discrete_time(dag, n_sim=NULL, t0_sort_dag=TRUE,
+                  t0_data=NULL, t0_transform_fun=NULL,
+                  t0_transform_args=list(), max_t,
+                  tx_nodes_order=NULL, tx_transform_fun=NULL,
+                  tx_transform_args=list(),
+                  save_states="last", save_states_at=NULL,
+                  verbose=FALSE, check_inputs=TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dag</code></td>
+<td>
+
+<p>A <code>DAG</code> object created using the <code>empty_dag</code> function with <code>node_td</code> calls added to it (see details and examples). If the <code>dag</code> contains root nodes and child nodes which are time-fixed (those who were added using <code>node</code> calls), data according to this DAG will be generated for time = 0. That data will then be used as starting data for the following simulation. Alternatively, the user can specify the <code>t0_data</code> argument directly. In either case, the supplied <code>dag</code> needs to contain at least one time-dependent node added using the <code>node_td</code> function.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_sim</code></td>
+<td>
+
+<p>A single number specifying how many observations should be generated. If a <code>data.table</code> is supplied to the <code>t0_data</code> argument, this argument is ignored. The sample size will then correspond to the number of rows in <code>t0_data</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0_sort_dag</code></td>
+<td>
+
+<p>Corresponds to the <code>sort_dag</code> argument in the <code>sim_from_dag</code> function. Ignored if <code>t0_data</code> is specified.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0_data</code></td>
+<td>
+
+<p>An optional <code>data.table</code> like object (also accepts a <code>data.frame</code>, <code>tibble</code> etc.) containing values for all relevant variables at <code class="reqn">t = 0</code>. This dataset will then be transformed over time according to the node functions specified in <code>tx_nodes</code>. Alternatively, data for <code class="reqn">t = 0</code> may be generated automatically by this function if standard <code>node</code> calls were added to the <code>dag</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0_transform_fun</code></td>
+<td>
+
+<p>An optional function that takes the data created at <code class="reqn">t = 0</code> as the first argument. The function will be applied to the starting data and its output will replace the <code>data.table</code>. Can be used to perform arbitrary data transformations after the starting data was created. Set to <code>NULL</code> (default) to not use this functionality.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0_transform_args</code></td>
+<td>
+
+<p>A named list of additional arguments passed to the <code>t0_transform_fun</code>. Ignored if <code>t0_transform_fun=NULL</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_t</code></td>
+<td>
+
+<p>A single integer specifying the final point in time to which the simulation should be carried out. The simulation will start at <code class="reqn">t = 1</code> (after creating the starting data with the arguments above) and will continue until <code>max_t</code> by increasing the time by one unit at every step, updating the time-dependent nodes along the way.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tx_nodes_order</code></td>
+<td>
+
+<p>A numeric vector specifying the order in which the time-dependent nodes added to the <code>dag</code> object using the <code>node_td</code> function should be executed at each time step. If <code>NULL</code> (default), the nodes will be generated in the order in which they were originally added.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tx_transform_fun</code></td>
+<td>
+
+<p>An optional function that takes the data created after every point in time  <code class="reqn">t &gt; 0</code> as the first argument and the simulation time as the second argument. The function will be applied to that data after all node functions at that point in time have been executed and its output will replace the previous <code>data.table</code>. Can be used to perform arbitrary data transformations at every point in time. Set to <code>NULL</code> (default) to not use this functionality.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tx_transform_args</code></td>
+<td>
+
+<p>A named list of additional arguments passed to the <code>tx_transform_fun</code>. Ignored if <code>tx_transform_fun=NULL</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_states</code></td>
+<td>
+
+<p>Specifies the amount of simulation states that should be saved in the output object. Has to be one of <code>"all"</code>, <code>"at_t"</code> or <code>"last"</code> (default). If set to <code>"all"</code>, a list of containing the <code>data.table</code> after every point in time will be added to the output object. If <code>"at_t"</code>, only the states at specific points in time specified by the <code>save_states_at</code> argument will be saved (plus the final state). If <code>"last"</code>, only the final state of the <code>data.table</code> is added to the output.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_states_at</code></td>
+<td>
+
+<p>The specific points in time at which the simulated <code>data.table</code> should be saved. Ignored if <code>save_states!="at_t"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+
+<p>If <code>TRUE</code> prints one line at every point in time before a node function is executed. This can be useful when debugging custom node functions. Defaults to <code>FALSE</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_inputs</code></td>
+<td>
+
+<p>Whether to perform plausibility checks for the user input or not. Is set to <code>TRUE</code> by default, but can be set to <code>FALSE</code> in order to speed things up when using this function in a simulation study or something similar.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Sometimes it is necessary to simulate complex data that cannot be described easily with a single DAG and node information. This may be the case if the desired data should contain multiple time-dependent variables or time-to-event variables in which the event has time-dependent effects on other events. An example for this is data on vaccinations and their effects on the occurrence of adverse events (see vignette). Discrete-Time Simulation can be an effective tool to generate these kinds of datasets.
+</p>
+<p><strong><em>What is Discrete-Time Simulation?</em></strong>:
+</p>
+<p>In a discrete-time simulation, there are entities who have certain states associated with them that only change at discrete points in time. For example, the entities could be people and the state could be alive or dead. In this example we could generate 100 people with some covariates such as age, sex etc.. We then start by increasing the simulation time by one day. For each person we now check if the person has died using a bernoulli trial, where the probability of dying is generated at each point in time based on some of the covariates. The simulation time is then increased again and the process is repeated until we reach <code>max_t</code>.
+</p>
+<p>Due to the iterative process it is very easy to simulate arbitrarily complex data. The covariates may change over time in arbitrary ways, the event probability can have any functional relationship with the covariates and so on. If we want to model an event type that is not terminal, such as occurrence of cardiovascular disease, events can easily be simulated to be dependent on the timing and number of previous events. Since Discrete-Time Simulation is a special case of Discrete-Event Simulation, introductory textbooks on the latter can be of great help in getting a better understanding of the former.
+</p>
+<p><strong><em>How it Works</em></strong>:
+</p>
+<p>Internally, this function works by first simulating data using the <code>sim_from_dag</code> function. Alternatively, the user can supply a custom <code>data.table</code> using the <code>t0_data</code> argument. This data defines the state of all entities at <code class="reqn">t = 0</code>. Afterwards, the simulation time is increased by one unit and the data is transformed in place by calling each node function defined by the time-dependent nodes which were added to the <code>dag</code> using the <code>node_td</code> function (either in the order in which they were added to the <code>dag</code> object or by the order defined by the <code>tx_nodes_order</code> argument). Usually, each transformation changes the state of the entities in some way. For example if there is an <code>age</code> variable, we would probably increase the age of each person by one time unit at every step. Once <code>max_t</code> is reached, the resulting <code>data.table</code> will be returned. It contains the state of all entities at the last step with additional information of when they experienced some events (if <code>node_time_to_event</code> was used as time-dependent node). Multiple in-depth examples can be found in the vignettes of this package.
+</p>
+<p><strong><em>Specifying the <code>dag</code> argument</em></strong>:
+</p>
+<p>The <code>dag</code> argument should be specified as described in the <code>node</code> documentation page. More examples specific to discrete-time simulations can be found in the vignettes and the examples. The only difference to specifying a <code>dag</code> for the <code>sim_from_dag</code> function is that the <code>dag</code> here should contain at least one time-dependent node added using the <code>node_td</code> function. Usage of the <code>formula</code> argument with non-linear or interaction terms is discouraged for performance reasons.
+</p>
+<p><strong><em>Speed Considerations</em></strong>:
+</p>
+<p>All functions in this package rely on the <code>data.table</code> backend in order to make them more memory efficient and faster. It is however important to note that the time to simulate a dataset increases non-linearly with an increasing <code>max_t</code> value and additional time-dependent nodes. This is usually not a concern for smaller datasets, but if <code>n_sim</code> is very large (say &gt; 1 million) this function will get rather slow. Note also that using the <code>formula</code> argument is a lot more computationally expensive than using the <code>parents</code>, <code>betas</code> approach to specify certain nodes.
+</p>
+<p><strong><em>What do I do with the output?</em></strong>:
+</p>
+<p>This function outputs a <code>simDT</code> object, not a <code>data.table</code>. To obtain an actual dataset from the output of this function, users should use the <code>sim2data</code> function to transform it into the desired format. Currently, the long-format, the wide-format and the start-stop format are supported. See <code>sim2data</code> for more information.
+</p>
+<p><strong><em>A Few Words of Caution</em></strong>:
+</p>
+<p>In most cases it will be necessary for the user to write their own functions in order to actually use the <code>sim_discrete_time</code> function. Unlike the <code>sim_from_dag</code> function, in which many popular node types can be implemented in a re-usable way, discrete-time simulation will always require some custom input by the user. This is the price users have to pay for the almost unlimited flexibility offered by this simulation methodology.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a <code>simDT</code> object, containing some general information about the simulated data as well as the final state of the simulated dataset (and more states, depending on the specification of the <code>save_states</code> argument). In particular, it includes the following objects:
+</p>
+
+<ul>
+<li>
+<p><code>past_states</code>: A list containing the generated data at the specified points in time.
+</p>
+</li>
+<li>
+<p><code>save_states</code>: The value of the <code>save_states</code> argument supplied by the user.
+</p>
+</li>
+<li>
+<p><code>data</code>: The data at time <code>max_t</code>.
+</p>
+</li>
+<li>
+<p><code>tte_past_events</code>: A list storing the times at which events happened in variables of type <code>"time_to_event"</code>, if specified.
+</p>
+</li>
+<li>
+<p><code>ce_past_events</code>: A list storing the times at which events happened in variables of type <code>"competing_events"</code>, if specified.
+</p>
+</li>
+<li>
+<p><code>ce_past_causes</code>: A list storing the types of events which happened at in variables of type <code>"competing_events"</code>, if specified.
+</p>
+</li>
+<li>
+<p><code>tx_nodes</code>: A list of all time-varying nodes, as specified in the supplied <code>dag</code> object.
+</p>
+</li>
+<li>
+<p><code>max_t</code>: The value of <code>max_t</code>, as supplied by the user.
+</p>
+</li>
+<li>
+<p><code>t0_var_names</code>: A character vector containing the names of all variable names that do not vary over time.
+</p>
+</li>
+</ul>
+<p>To obtain a single dataset from this function that can be processed further, please use the <code>sim2data</code> function.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Robin Denz, Katharina Meiszl
+</p>
+
+
+<h3>References</h3>
+
+<p>Tang, Jiangjun, George Leu, und Hussein A. Abbass. 2020. Simulation and Computational Red Teaming for Problem Solving. Hoboken: IEEE Press.
+</p>
+<p>Banks, Jerry, John S. Carson II, Barry L. Nelson, and David M. Nicol (2014). Discrete-Event System Simulation. Vol. 5. Edinburgh Gate: Pearson Education Limited.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>empty_dag</code>, <code>node</code>, <code>node_td</code>, <code>sim2data</code>, <code>plot.simDT</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(simDAG)
+
+set.seed(454236)
+
+## simulating death dependent on age, sex, bmi
+## NOTE: this example is explained in detail in one of the vignettes
+
+# initializing a DAG with nodes for generating data at t0
+dag &lt;- empty_dag() +
+  node("age", type="rnorm", mean=50, sd=4) +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("bmi", type="gaussian", parents=c("sex", "age"),
+       betas=c(1.1, 0.4), intercept=12, error=2)
+
+# a function that increases age as time goes on
+node_advance_age &lt;- function(data) {
+  return(data$age + 1/365)
+}
+
+# a function to calculate the probability of death as a
+# linear combination of age, sex and bmi on the log scale
+prob_death &lt;- function(data, beta_age, beta_sex, beta_bmi, intercept) {
+  prob &lt;- intercept + data$age*beta_age + data$sex*beta_sex + data$bmi*beta_bmi
+  prob &lt;- 1/(1 + exp(-prob))
+  return(prob)
+}
+
+# adding time-dependent nodes to the dag
+dag &lt;- dag +
+  node_td("age", type="advance_age", parents="age") +
+  node_td("death", type="time_to_event", parents=c("age", "sex", "bmi"),
+          prob_fun=prob_death, beta_age=0.1, beta_bmi=0.3, beta_sex=-0.2,
+          intercept=-20, event_duration=Inf, save_past_events=FALSE)
+
+# run simulation for 100 people, 50 days long
+sim_dt &lt;- sim_discrete_time(n_sim=100,
+                            dag=dag,
+                            max_t=50,
+                            verbose=FALSE)
+</code></pre>
+
+
+</div>

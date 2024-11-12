@@ -1,0 +1,478 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>nlsystemfit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Nonlinear Equation System Estimation</h2>
+
+<h3>Description</h3>
+
+<p>Fits a set of structural nonlinear equations using Ordinary Least
+Squares (OLS), Seemingly Unrelated Regression (SUR),
+Two-Stage Least Squares (2SLS), Three-Stage Least Squares (3SLS).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R"> nlsystemfit( method="OLS", eqns, startvals,
+                     eqnlabels=c(as.character(1:length(eqns))), inst=NULL,
+                     data=list(), solvtol=.Machine$double.eps,
+                     maxiter=1000, ... )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the estimation method, one of "OLS", "SUR", "2SLS",
+"3SLS".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eqns</code></td>
+<td>
+<p>a list of structural equations to be estimated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startvals</code></td>
+<td>
+<p>a list of starting values for the coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eqnlabels</code></td>
+<td>
+<p>an optional list of character vectors of names
+for the equation labels.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inst</code></td>
+<td>
+<p>one-sided model formula specifying instrumental variables
+or a list of one-sided model formulas if different instruments should
+be used for the different equations (only needed for 2SLS, 3SLS and
+GMM estimations).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the model.
+By default the variables are taken from the environment from which
+nlsystemfit is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>solvtol</code></td>
+<td>
+<p>tolerance for detecting linear dependencies in the columns
+of X in the <code>qr</code> function calls.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+<p>the maximum number of iterations for the <code>nlm</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments passed to <code>nlm</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The nlsystemfit function relies on <code>nlm</code> to perform the
+minimization of the objective functions and the <code>qr</code> set
+of functions.
+</p>
+<p>A system of nonlinear equations can be written as:
+</p>
+<p style="text-align: center;"><code class="reqn">\epsilon_{t} = q( y_t, x_t, \theta )</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">z_{t} = Z( x_t )</code>
+</p>
+
+<p>where <code class="reqn">\epsilon_{t}</code> are the residuals from the y observations and
+the function evaluated at the coefficient estimates.
+</p>
+<p>The objective functions for the methods are:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+    
+    Method </td>
+<td style="text-align: center;"> Instruments </td>
+<td style="text-align: center;"> Objective Function </td>
+<td style="text-align: center;"> Covariance of
+    <code class="reqn">\theta</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;"> 
+    OLS </td>
+<td style="text-align: center;"> no </td>
+<td style="text-align: center;"> <code class="reqn">r'r</code> </td>
+<td style="text-align: center;"> <code class="reqn">(X(diag(S)^{-1}\bigotimes
+      I)X)^{-1}</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;"> 
+    SUR </td>
+<td style="text-align: center;"> no </td>
+<td style="text-align: center;"> <code class="reqn">r'(diag(S)_{OLS}^{-1}\bigotimes I)r</code> </td>
+<td style="text-align: center;">
+    <code class="reqn">(X(S^{-1}\bigotimes I)X)^{-1}</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;"> 
+    2SLS </td>
+<td style="text-align: center;"> yes </td>
+<td style="text-align: center;"> <code class="reqn">r'(I \bigotimes W)r</code> </td>
+<td style="text-align: center;">
+    <code class="reqn">(X(diag(S)^{-1}\bigotimes I)X)^{-1}</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;"> 
+    3SLS </td>
+<td style="text-align: center;"> yes </td>
+<td style="text-align: center;"> <code class="reqn">r'(S_{2SLS}^{-1} \bigotimes W)r</code> </td>
+<td style="text-align: center;">
+    <code class="reqn">(X(diag(S)^{-1}\bigotimes W)X)^{-1}</code> 
+  </td>
+</tr>
+</table>
+<p>where, r is a column vector for the residuals for each equation, S is
+variance-covariance matrix between the equations
+(<code class="reqn">\hat{\sigma}_{ij} = (\hat{e}_i' \hat{e}_j) /
+    \sqrt{(T - k_i)*(T - k_j)}</code>), X is matrix of the
+partial derivates with respect to the coefficients, W is a matrix of the
+instrument variables <code class="reqn">Z(Z'Z)^{-1}Z</code>, Z is a matrix of the
+instrument variables, and I is an nxn identity matrix.
+</p>
+<p>The SUR and 3SLS methods requires two solutions. The first solution
+for the SUR is an OLS solution to obtain the variance-covariance
+matrix. The 3SLS uses the variance-covatiance from a 2SLS solution,
+then fits all the equations simultaneously.
+</p>
+<p>The user should be aware that the function is <b>VERY</b> sensative to
+the starting values and the nlm function may not converge. The nlm
+function will be called with the <code>typsize</code> argument set the
+absolute values of the starting values for the OLS and 2SLS
+methods. For the SUR and 3SLS methods, the <code>typsize</code> argument is
+set to the absolute values of the resulting OLS and 2SLS coefficient
+estimates from the nlm result structre. In addition, the starting
+values for the SUR and 3SLS methods are obtained from the OLS and 2SLS
+coefficient estimates to shorten the number of iterations. The number of
+iterations reported in the summary are only those used in the last
+call to nlm, thus the number of iterations in the OLS portion of the
+SUR fit and the 2SLS portion of the 3SLS fit are not included.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>nlsystemfit</code> returns a list of the class <code>nlsystemfit.system</code> and
+contains all results that belong to the whole system.
+This list contains one special object: "eq". It is a list and contains
+one object for each estimated equation. These objects are of the class
+<code>nlsystemfit.equation</code> and contain the results that belong only to the
+regarding equation.
+</p>
+<p>The objects of the class <code>nlsystemfit.system</code> and
+<code>nlsystemfit.equation</code> have the following components (the elements of
+the latter are marked with an asterisk (<code class="reqn">*</code>)):
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>eq</code></td>
+<td>
+<p>a list object that contains a list object for each equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>estimation method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resids</code></td>
+<td>
+<p>an <code class="reqn">n \times g</code> matrix of the residuals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>number of equations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>total number of observations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>total number of coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>vector of all estimated coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>estimated standard errors of <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t</code></td>
+<td>
+<p>t values for <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>p values for <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bcov</code></td>
+<td>
+<p>estimated covariance matrix of <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rcov</code></td>
+<td>
+<p>estimated residual covariance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drcov</code></td>
+<td>
+<p>determinant of <code>rcov</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rcovest</code></td>
+<td>
+<p>residual covariance matrix used for estimation (only SUR and 3SLS).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rcor</code></td>
+<td>
+<p>estimated residual correlation matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlmest</code></td>
+<td>
+<p>results from the nlm function call</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>solvetol</code></td>
+<td>
+<p>tolerance level when inverting a matrix or calculating a determinant.</p>
+</td>
+</tr>
+</table>
+<p>## elements of the class nlsystemfit.eq
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>eq</code></td>
+<td>
+<p>a list that contains the results that belong to the individual equations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eqnlabel*</code></td>
+<td>
+<p>the equation label of the ith equation (from the labels list).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula*</code></td>
+<td>
+<p>model formula of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n*</code></td>
+<td>
+<p>number of observations of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k*</code></td>
+<td>
+<p>number of coefficients/regressors in the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df*</code></td>
+<td>
+<p>degrees of freedom of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b*</code></td>
+<td>
+<p>estimated coefficients of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se*</code></td>
+<td>
+<p>estimated standard errors of <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t*</code></td>
+<td>
+<p>t values for <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p*</code></td>
+<td>
+<p>p values for <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covb*</code></td>
+<td>
+<p>estimated covariance matrix of <code>b</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predicted*</code></td>
+<td>
+<p>vector of predicted values of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residuals*</code></td>
+<td>
+<p>vector of residuals of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ssr*</code></td>
+<td>
+<p>sum of squared residuals of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mse*</code></td>
+<td>
+<p>estimated variance of the residuals (mean of squared errors) of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s2*</code></td>
+<td>
+<p>estimated variance of the residuals (<code class="reqn">\hat{\sigma}^2</code>) of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rmse*</code></td>
+<td>
+<p>estimated standard error of the residulas (square root of mse) of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s*</code></td>
+<td>
+<p>estimated standard error of the residuals (<code class="reqn">\hat{\sigma}</code>) of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r2*</code></td>
+<td>
+<p>R-squared (coefficient of determination).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjr2*</code></td>
+<td>
+<p>adjusted R-squared value.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Jeff D. Hamann <a href="mailto:jeff.hamann@forestinformatics.com">jeff.hamann@forestinformatics.com</a> </p>
+
+
+<h3>References</h3>
+
+<p>Gallant, R. H. (1987)
+<em>Nonlinear Equation Estimation</em>, John Wiley and Sons, 610 pp.
+</p>
+<p>SAS Institute (1999)
+<em>SAS/ETS User's Guide, Version 8</em>, Cary NC: SAS Institute 1546 pp.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>systemfit</code>, <code>nlm</code>, and <code>qr</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library( systemfit )
+data( ppine )
+
+hg.formula &lt;- hg ~ exp( h0 + h1*log(tht) + h2*tht^2 + h3*elev + h4*cr)
+dg.formula &lt;- dg ~ exp( d0 + d1*log(dbh) + d2*hg + d3*cr + d4*ba  )
+labels &lt;- list( "height.growth", "diameter.growth" )
+inst &lt;- ~ tht + dbh + elev + cr + ba
+start.values &lt;- c(h0=-0.5, h1=0.5, h2=-0.001, h3=0.0001, h4=0.08,
+                  d0=-0.5, d1=0.009, d2=0.25, d3=0.005, d4=-0.02 )
+model &lt;- list( hg.formula, dg.formula )
+
+model.ols &lt;- nlsystemfit( "OLS", model, start.values, data=ppine, eqnlabels=labels )
+print( model.ols )
+
+model.sur &lt;- nlsystemfit( "SUR", model, start.values, data=ppine, eqnlabels=labels )
+print( model.sur )
+
+model.2sls &lt;- nlsystemfit( "2SLS", model, start.values, data=ppine,
+   eqnlabels=labels, inst=inst )
+print( model.2sls )
+
+model.3sls &lt;- nlsystemfit( "3SLS", model, start.values, data=ppine,
+                                    eqnlabels=labels, inst=inst )
+print( model.3sls )
+</code></pre>
+
+
+</div>

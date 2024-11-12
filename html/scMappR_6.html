@@ -1,0 +1,204 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>deconvolute_and_contextualize</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate cell weighted Fold-Changes (cwFold-changes)</h2>
+
+<h3>Description</h3>
+
+<p>This function takes a count matrix, signature matrix, and differentially expressed genes (DEGs) before generating cwFold-changes for each cell-type.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">deconvolute_and_contextualize(
+  count_file,
+  signature_matrix,
+  DEG_list,
+  case_grep,
+  control_grep,
+  max_proportion_change = -9,
+  print_plots = TRUE,
+  plot_names = "scMappR",
+  theSpecies = "human",
+  FC_coef = TRUE,
+  sig_matrix_size = 3000,
+  drop_unknown_celltype = TRUE,
+  toSave = FALSE,
+  path = NULL,
+  deconMethod = "DeconRNASeq",
+  rareCT_filter = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>count_file</code></td>
+<td>
+<p>Normalized (e.g. CPM, TPM, RPKM) RNA-seq count matrix where rows are gene symbols and columns are individuals. Either the matrix itself of class "matrix" or data.frame" or a path to a tsv file containing these DEGs. The gene symbols in the count file, signature matrix, and DEG list must match.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>signature_matrix</code></td>
+<td>
+<p>Signature matrix (fold-change ratios) of cell-type specificity of genes. Either the object itself or a pathway to an .RData file containing an object named "wilcoxon_rank_mat_or". We strongly recommend inputting the signature matrix directly.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DEG_list</code></td>
+<td>
+<p>An object with the first column as gene symbols within the bulk dataset (doesn't have to be in signature matrix), second column is the adjusted P-value, and the third the log2FC. Path to a tsv file containing this info is also acceptable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>case_grep</code></td>
+<td>
+<p>Tag in the column name for cases (i.e. samples representing upregulated) OR an index of cases.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control_grep</code></td>
+<td>
+<p>Tag in the column name for control (i.e. samples representing downregulated) OR an index of cases.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_proportion_change</code></td>
+<td>
+<p>Maximum cell-type proportion change. May be useful if a cell-type does not exist in one condition, thus preventing infinite values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print_plots</code></td>
+<td>
+<p>Whether boxplots of the estimated CT proportion for the leave-one-out method of CT deconvolution should be printed (T/F).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot_names</code></td>
+<td>
+<p>If plots are being printed, the pre-fix of their .pdf files.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theSpecies</code></td>
+<td>
+<p>internal species designation to be passed from 'scMappR_and_pathway_analysis'. It only impacts this function if data are taken directly from the PanglaoDB database (i.e. not reprocessed by scMappR or the user).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FC_coef</code></td>
+<td>
+<p>Making cwFold-changes based on fold-change (TRUE) or rank := (-log10(Pval)) (FALSE) rank. After testing, we strongly recommend to keep true (T/F).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig_matrix_size</code></td>
+<td>
+<p>Number of genes in signature matrix for cell-type deconvolution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop_unknown_celltype</code></td>
+<td>
+<p>Whether or not to remove "unknown" cell-types from the signature matrix (T/F).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>toSave</code></td>
+<td>
+<p>Allow scMappR to write files in the current directory (T/F).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+<p>If toSave == TRUE, path to the directory where files will be saved.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>deconMethod</code></td>
+<td>
+<p>Which RNA-seq deconvolution method to use to estimate cell-type proporitons. Options are "WGCNA", "DCQ", or "DeconRNAseq"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rareCT_filter</code></td>
+<td>
+<p>option to keep cell-types rarer than 0.1 percent of the population (T/F). Setting to FALSE may lead to false-positives.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function completes the pre-processing, normalization, and scaling steps in the scMappR algorithm before calculating cwFold-changes. cwFold-changes scales bulk fold-changes by the cell-type specificity of the gene, cell-type gene-normalized cell-type proportions, and the reciprocal ratio of cell-type proportions between the two conditions.
+cwFold-changes are generated for genes that are in both the count matrix and in the list of DEGs. It does not have to also be in the signature matrix.
+First, this function will estimate cell-type proportions with all genes included before estimating changes in cell-type proportion between case/control using a t-test.
+Then, it takes a leave-one-out approach to cell-type deconvolution such that estimated cell-type proportions are computed for every inputted DEG.
+Optionally, the differences between cell-type proportions before and after a gene is removed is plotted in boxplots.
+Then, for every gene, cwFold-changes are computed with the following formula (the example for upreguatled genes)
+val &lt;- cell-preferences * cell-type_proportion * cell-type_proportion_fold-change * sign*2^abs(gene_DE$log2fc).
+A matrix of cwFold-changes for all DEGs are returned.
+</p>
+
+
+<h3>Value</h3>
+
+<p>List with the following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>cellWeighted_Foldchange</code></td>
+<td>
+<p>data frame of cellweightedFold changes for each gene.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cellType_Proportions</code></td>
+<td>
+<p>data frame of cell-type proportions from DeconRNA-seq.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>leave_one_out_proportions</code></td>
+<td>
+<p>data frame of average cell-type proportions for case and control when gene is removed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>processed_signature_matrix</code></td>
+<td>
+<p>signature matrix used in final analysis.</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(PBMC_example)
+bulk_DE_cors &lt;- PBMC_example$bulk_DE_cors
+bulk_normalized &lt;- PBMC_example$bulk_normalized
+odds_ratio_in &lt;- PBMC_example$odds_ratio_in
+case_grep &lt;- "_female"
+control_grep &lt;- "_male"
+max_proportion_change &lt;- 10
+print_plots &lt;- FALSE
+theSpecies &lt;- "human"
+cwFC &lt;- deconvolute_and_contextualize(count_file = bulk_normalized,
+                                    signature_matrix = odds_ratio_in, DEG_list = bulk_DE_cors,
+                                    case_grep = case_grep, control_grep = control_grep,
+                                     max_proportion_change = max_proportion_change,
+                                      print_plots = print_plots, 
+                                     theSpecies = theSpecies, toSave = FALSE)
+
+                                      
+</code></pre>
+
+
+</div>

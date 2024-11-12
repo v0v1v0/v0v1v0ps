@@ -1,0 +1,1263 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Load</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Loads Experimental And Observational Data</h2>
+
+<h3>Description</h3>
+
+<p>This function loads monthly or daily data from a set of specified 
+experimental datasets together with data that date-corresponds from a set 
+of specified observational datasets. See parameters 'storefreq', 
+'sampleperiod', 'exp' and 'obs'.<br><br>
+A set of starting dates is specified through the parameter 'sdates'. Data of 
+each starting date is loaded for each model.
+<code>Load()</code> arranges the data in two arrays with a similar format both 
+with the following dimensions:
+</p>
+
+<ol>
+<li>
+<p>The number of experimental datasets determined by the user through 
+the argument 'exp' (for the experimental data array) or the number of 
+observational datasets available for validation (for the observational 
+array) determined as well by the user through the argument 'obs'.
+</p>
+</li>
+<li>
+<p>The greatest number of members across all experiments (in the 
+experimental data array) or across all observational datasets (in the 
+observational data array).
+</p>
+</li>
+<li>
+<p>The number of starting dates determined by the user through the 
+'sdates' argument.
+</p>
+</li>
+<li>
+<p>The greatest number of lead-times.
+</p>
+</li>
+<li>
+<p>The number of latitudes of the selected zone.
+</p>
+</li>
+<li>
+<p>The number of longitudes of the selected zone.
+</p>
+</li>
+</ol>
+<p>Dimensions 5 and 6 are optional and their presence depends on the type of 
+the specified variable (global mean or 2-dimensional) and on the selected 
+output type (area averaged time series, latitude averaged time series, 
+longitude averaged time series or 2-dimensional time series).<br>
+In the case of loading an area average the dimensions of the arrays will be 
+only the first 4.<br><br>
+Only a specified variable is loaded from each experiment at each starting 
+date. See parameter 'var'.<br>
+Afterwards, observational data that matches every starting date and lead-time 
+of every experimental dataset is fetched in the file system (so, if two 
+predictions at two different start dates overlap, some observational values 
+will be loaded and kept in memory more than once).<br>
+If no data is found in the file system for an experimental or observational 
+array point it is filled with an NA value.<br><br>
+If the specified output is 2-dimensional or latitude- or longitude-averaged 
+time series all the data is interpolated into a common grid. If the 
+specified output type is area averaged time series the data is averaged on 
+the individual grid of each dataset but can also be averaged after 
+interpolating into a common grid. See parameters 'grid' and 'method'.<br>
+Once the two arrays are filled by calling this function, other functions in 
+the s2dv package that receive as inputs data formatted in this 
+data structure can be executed (e.g: <code>Clim()</code> to compute climatologies, 
+<code>Ano()</code> to compute anomalies, ...).<br><br>
+Load() has many additional parameters to disable values and trim dimensions 
+of selected variable, even masks can be applied to 2-dimensional variables. 
+See parameters 'nmember', 'nmemberobs', 'nleadtime', 'leadtimemin', 
+'leadtimemax', 'sampleperiod', 'lonmin', 'lonmax', 'latmin', 'latmax', 
+'maskmod', 'maskobs', 'varmin', 'varmax'.<br><br>
+The parameters 'exp' and 'obs' can take various forms. The most direct form 
+is a list of lists, where each sub-list has the component 'path' associated 
+to a character string with a pattern of the path to the files of a dataset 
+to be loaded. These patterns can contain wildcards and tags that will be 
+replaced automatically by <code>Load()</code> with the specified starting dates, 
+member numbers, variable name, etc.<br>
+See parameter 'exp' or 'obs' for details.<br><br>
+Only NetCDF files are supported. OPeNDAP URLs to NetCDF files are also 
+supported.<br><code>Load()</code> can load 2-dimensional or global mean variables in any of the 
+following formats:
+</p>
+
+<ul>
+<li>
+<p>experiments:
+</p>
+
+<ul>
+<li>
+<p>file per ensemble per starting date 
+(YYYY, MM and DD somewhere in the path)
+</p>
+</li>
+<li>
+<p>file per member per starting date 
+(YYYY, MM, DD and MemberNumber somewhere in the path. Ensemble 
+experiments with different numbers of members can be loaded in 
+a single <code>Load()</code> call.)
+</p>
+</li>
+</ul>
+<p>(YYYY, MM and DD specify the starting dates of the predictions)
+
+</p>
+</li>
+<li>
+<p>observations:
+</p>
+
+<ul>
+<li>
+<p>file per ensemble per month 
+(YYYY and MM somewhere in the path)
+</p>
+</li>
+<li>
+<p>file per member per month 
+(YYYY, MM and MemberNumber somewhere in the path, obs with different 
+numbers of members supported)
+</p>
+</li>
+<li>
+<p>file per dataset (No constraints in the path but the time axes 
+in the file have to be properly defined)
+</p>
+</li>
+</ul>
+<p>(YYYY and MM correspond to the actual month data in the file)
+
+</p>
+</li>
+</ul>
+<p>In all the formats the data can be stored in a daily or monthly frequency, 
+or a multiple of these (see parameters 'storefreq' and 'sampleperiod').<br>
+All the data files must contain the target variable defined over time and 
+potentially over members, latitude and longitude dimensions in any order, 
+time being the record dimension.<br>
+In the case of a two-dimensional variable, the variables longitude and 
+latitude must be defined inside the data file too and must have the same 
+names as the dimension for longitudes and latitudes respectively.<br>
+The names of these dimensions (and longitude and latitude variables) and the 
+name for the members dimension are expected to be 'longitude', 'latitude' 
+and 'ensemble' respectively. However, these names can be adjusted with the 
+parameter 'dimnames' or can be configured in the configuration file (read 
+below in parameters 'exp', 'obs' or see <code>?ConfigFileOpen</code> 
+for more information.<br>
+All the data files are expected to have numeric values representable with 
+32 bits. Be aware when choosing the fill values or infinite values in the 
+datasets to load.<br><br>
+The Load() function returns a named list following a structure similar to 
+the used in the package 'downscaleR'.<br>
+The components are the following:
+</p>
+
+<ul>
+<li>
+<p>'mod' is the array that contains the experimental data. It has the 
+attribute 'dimensions' associated to a vector of strings with the labels 
+of each dimension of the array, in order.
+</p>
+</li>
+<li>
+<p>'obs' is the array that contains the observational data. It has 
+the attribute 'dimensions' associated to a vector of strings with the 
+labels of each dimension of the array, in order.
+</p>
+</li>
+<li>
+<p>'obs' is the array that contains the observational data.
+</p>
+</li>
+<li>
+<p>'lat' and 'lon' are the latitudes and longitudes of the grid into 
+which the data is interpolated (0 if the loaded variable is a global 
+mean or the output is an area average).<br>
+Both have the attribute 'cdo_grid_des' associated with a character
+string with the name of the common grid of the data, following the CDO 
+naming conventions for grids.<br>
+The attribute 'projection' is kept for compatibility with 'downscaleR'.
+
+</p>
+</li>
+<li>
+<p>'Variable' has the following components:
+</p>
+
+<ul>
+<li>
+<p>'varName', with the short name of the loaded variable as 
+specified in the parameter 'var'.
+</p>
+</li>
+<li>
+<p>'level', with information on the pressure level of the variable. 
+Is kept to NULL by now.
+</p>
+</li>
+</ul>
+<p>And the following attributes:
+</p>
+
+<ul>
+<li>
+<p>'is_standard', kept for compatibility with 'downscaleR', 
+tells if a dataset has been homogenized to standards with 
+'downscaleR' catalogs.
+</p>
+</li>
+<li>
+<p>'units', a character string with the units of measure of the 
+variable, as found in the source files.
+</p>
+</li>
+<li>
+<p>'longname', a character string with the long name of the 
+variable, as found in the source files.
+</p>
+</li>
+<li>
+<p>'daily_agg_cellfun', 'monthly_agg_cellfun', 'verification_time', 
+kept for compatibility with 'downscaleR'.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'Datasets' has the following components:
+</p>
+
+<ul>
+<li>
+<p>'exp', a named list where the names are the identifying 
+character strings of each experiment in 'exp', each associated to a 
+list with the following components:
+</p>
+
+<ul>
+<li>
+<p>'members', a list with the names of the members of the 
+dataset.
+</p>
+</li>
+<li>
+<p>'source', a path or URL to the source of the dataset.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'obs', similar to 'exp' but for observational datasets.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'Dates', with the follwing components:
+</p>
+
+<ul>
+<li>
+<p>'start', an array of dimensions (sdate, time) with the POSIX 
+initial date of each forecast time of each starting date. 
+</p>
+</li>
+<li>
+<p>'end', an array of dimensions (sdate, time) with the POSIX 
+final date of each forecast time of each starting date.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'InitializationDates', a vector of starting dates as specified in 
+'sdates', in POSIX format.
+</p>
+</li>
+<li>
+<p>'when', a time stamp of the date the <code>Load()</code> call to obtain 
+the data was issued.
+</p>
+</li>
+<li>
+<p>'source_files', a vector of character strings with complete paths 
+to all the found files involved in the <code>Load()</code> call.
+</p>
+</li>
+<li>
+<p>'not_found_files', a vector of character strings with complete 
+paths to not found files involved in the <code>Load()</code> call.
+</p>
+</li>
+</ul>
+<h3>Usage</h3>
+
+<pre><code class="language-R">Load(
+  var,
+  exp = NULL,
+  obs = NULL,
+  sdates,
+  nmember = NULL,
+  nmemberobs = NULL,
+  nleadtime = NULL,
+  leadtimemin = 1,
+  leadtimemax = NULL,
+  storefreq = "monthly",
+  sampleperiod = 1,
+  lonmin = 0,
+  lonmax = 360,
+  latmin = -90,
+  latmax = 90,
+  output = "areave",
+  method = "conservative",
+  grid = NULL,
+  maskmod = vector("list", 15),
+  maskobs = vector("list", 15),
+  configfile = NULL,
+  varmin = NULL,
+  varmax = NULL,
+  silent = FALSE,
+  nprocs = NULL,
+  dimnames = NULL,
+  remapcells = 2,
+  path_glob_permissive = "partial"
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>var</code></td>
+<td>
+<p>Short name of the variable to load. It should coincide with the 
+variable name inside the data files.<br>
+E.g.: <code>var = 'tos'</code>, <code>var = 'tas'</code>, <code>var = 'prlr'</code>.<br>
+In some cases, though, the path to the files contains twice or more times 
+the short name of the variable but the actual name of the variable inside 
+the data files is different. In these cases it may be convenient to provide 
+<code>var</code> with the name that appears in the file paths (see details on 
+parameters <code>exp</code> and <code>obs</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exp</code></td>
+<td>
+<p>Parameter to specify which experimental datasets to load data 
+from.<br>
+It can take two formats: a list of lists or a vector of character strings. 
+Each format will trigger a different mechanism of locating the requested 
+datasets.<br>
+The first format is adequate when loading data you'll only load once or 
+occasionally. The second format is targeted to avoid providing repeatedly 
+the information on a certain dataset but is more complex to use.<br><br>
+IMPORTANT: Place first the experiment with the largest number of members 
+and, if possible, with the largest number of leadtimes. If not possible, 
+the arguments 'nmember' and/or 'nleadtime' should be filled to not miss 
+any member or leadtime.<br>
+If 'exp' is not specified or set to NULL, observational data is loaded for 
+each start-date as far as 'leadtimemax'. If 'leadtimemax' is not provided, 
+<code>Load()</code> will retrieve data of a period of time as long as the time 
+period between the first specified start date and the current date.<br><br>
+List of lists:<br>
+A list of lists where each sub-list contains information on the location 
+and format of the data files of the dataset to load.<br>
+Each sub-list can have the following components:
+</p>
+
+<ul>
+<li>
+<p>'name': A character string to identify the dataset. Optional.
+</p>
+</li>
+<li>
+<p>'path': A character string with the pattern of the path to the 
+files of the dataset. This pattern can be built up making use of some 
+special tags that <code>Load()</code> will replace with the appropriate 
+values to find the dataset files. The allowed tags are $START_DATE$, 
+$YEAR$, $MONTH$, $DAY$, $MEMBER_NUMBER$, $STORE_FREQ$, $VAR_NAME$, 
+$EXP_NAME$ (only for experimental datasets), $OBS_NAME$ (only for 
+observational datasets) and $SUFFIX$<br>
+Example: /path/to/$EXP_NAME$/postprocessed/$VAR_NAME$/<br>
+$VAR_NAME$_$START_DATE$.nc<br>
+If 'path' is not specified and 'name' is specified, the dataset 
+information will be fetched with the same mechanism as when using 
+the vector of character strings (read below).
+
+</p>
+</li>
+<li>
+<p>'nc_var_name': Character string with the actual variable name 
+to look for inside the dataset files. Optional. Takes, by default, 
+the same value as the parameter 'var'.
+
+</p>
+</li>
+<li>
+<p>'suffix': Wildcard character string that can be used to build 
+the 'path' of the dataset. It can be accessed with the tag $SUFFIX$. 
+Optional. Takes ” by default.
+
+</p>
+</li>
+<li>
+<p>'var_min': Important: Character string. Minimum value beyond 
+which read values will be deactivated to NA. Optional. No deactivation 
+is performed by default.
+
+</p>
+</li>
+<li>
+<p>'var_max': Important: Character string. Maximum value beyond 
+which read values will be deactivated to NA. Optional. No deactivation 
+is performed by default.
+
+</p>
+</li>
+</ul>
+<p>The tag $START_DATES$ will be replaced with all the starting dates 
+specified in 'sdates'. $YEAR$, $MONTH$ and $DAY$ will take a value for each 
+iteration over 'sdates', simply these are the same as $START_DATE$ but 
+split in parts.<br>
+$MEMBER_NUMBER$ will be replaced by a character string with each member 
+number, from 1 to the value specified in the parameter 'nmember' (in 
+experimental datasets) or in 'nmemberobs' (in observational datasets). It 
+will range from '01' to 'N' or '0N' if N &lt; 10.<br>
+$STORE_FREQ$ will take the value specified in the parameter 'storefreq' 
+('monthly' or 'daily').<br>
+$VAR_NAME$ will take the value specified in the parameter 'var'.<br>
+$EXP_NAME$ will take the value specified in each component of the parameter 
+'exp' in the sub-component 'name'.<br>
+$OBS_NAME$ will take the value specified in each component of the parameter 
+'obs' in the sub-component 'obs.<br>
+$SUFFIX$ will take the value specified in each component of the parameters 
+'exp' and 'obs' in the sub-component 'suffix'.<br>
+Example:
+</p>
+<pre>
+list(
+  list(
+    name = 'experimentA',
+    path = file.path('/path/to/$DATASET_NAME$/$STORE_FREQ$',
+                     '$VAR_NAME$$SUFFIX$',
+                     '$VAR_NAME$_$START_DATE$.nc'),
+    nc_var_name = '$VAR_NAME$',
+    suffix = '_3hourly',
+    var_min = '-1e19',
+    var_max = '1e19'
+  )
+)
+</pre>
+<p>This will make <code>Load()</code> look for, for instance, the following paths, 
+if 'sdates' is c('19901101', '19951101', '20001101'):<br>
+/path/to/experimentA/monthly_mean/tas_3hourly/tas_19901101.nc<br>
+/path/to/experimentA/monthly_mean/tas_3hourly/tas_19951101.nc<br>
+/path/to/experimentA/monthly_mean/tas_3hourly/tas_20001101.nc<br><br>
+Vector of character strings:
+To avoid specifying constantly the same information to load the same 
+datasets, a vector with only the names of the datasets to load can be 
+specified.<br><code>Load()</code> will then look for the information in a configuration file 
+whose path must be specified in the parameter 'configfile'.<br>
+Check <code>?ConfigFileCreate</code>, <code>ConfigFileOpen</code>, 
+<code>ConfigEditEntry</code> &amp; co. to learn how to create a new configuration 
+file and how to add the information there.<br>
+Example: c('experimentA', 'experimentB')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs</code></td>
+<td>
+<p>Argument with the same format as parameter 'exp'. See details on 
+parameter 'exp'.<br>
+If 'obs' is not specified or set to NULL, no observational data is loaded.<br></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sdates</code></td>
+<td>
+<p>Vector of starting dates of the experimental runs to be loaded 
+following the pattern 'YYYYMMDD'.<br>
+This argument is mandatory.<br>
+E.g. c('19601101', '19651101', '19701101')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nmember</code></td>
+<td>
+<p>Vector with the numbers of members to load from the specified 
+experimental datasets in 'exp'.<br>
+If not specified, the automatically detected number of members of the 
+first experimental dataset is detected and replied to all the experimental 
+datasets.<br>
+If a single value is specified it is replied to all the experimental 
+datasets.<br>
+Data for each member is fetched in the file system. If not found is 
+filled with NA values.<br>
+An NA value in the 'nmember' list is interpreted as "fetch as many members 
+of each experimental dataset as the number of members of the first 
+experimental dataset".<br>
+Note: It is recommended to specify the number of members of the first 
+experimental dataset if it is stored in file per member format because 
+there are known issues in the automatic detection of members if the path 
+to the dataset in the configuration file contains Shell Globbing wildcards 
+such as '*'.<br>
+E.g., c(4, 9)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nmemberobs</code></td>
+<td>
+<p>Vector with the numbers of members to load from the 
+specified observational datasets in 'obs'.<br>
+If not specified, the automatically detected number of members of the 
+first observational dataset is detected and replied to all the 
+observational datasets.<br>
+If a single value is specified it is replied to all the observational 
+datasets.<br>
+Data for each member is fetched in the file system. If not found is 
+filled with NA values.<br>
+An NA value in the 'nmemberobs' list is interpreted as "fetch as many 
+members of each observational dataset as the number of members of the 
+first observational dataset".<br>
+Note: It is recommended to specify the number of members of the first 
+observational dataset if it is stored in file per member format because 
+there are known issues in the automatic detection of members if the path 
+to the dataset in the configuration file contains Shell Globbing wildcards 
+such as '*'.<br>
+E.g., c(1, 5)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nleadtime</code></td>
+<td>
+<p>Deprecated. See parameter 'leadtimemax'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>leadtimemin</code></td>
+<td>
+<p>Only lead-times higher or equal to 'leadtimemin' are 
+loaded. Takes by default value 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>leadtimemax</code></td>
+<td>
+<p>Only lead-times lower or equal to 'leadtimemax' are loaded. 
+Takes by default the number of lead-times of the first experimental 
+dataset in 'exp'.<br>
+If 'exp' is NULL this argument won't have any effect 
+(see <code>?Load</code> description).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>storefreq</code></td>
+<td>
+<p>Frequency at which the data to be loaded is stored in the 
+file system. Can take values 'monthly' or 'daily'.<br>
+By default it takes 'monthly'.<br>
+Note: Data stored in other frequencies with a period which is divisible by 
+a month can be loaded with a proper use of 'storefreq' and 'sampleperiod' 
+parameters. It can also be loaded if the period is divisible by a day and 
+the observational datasets are stored in a file per dataset format or 
+'obs' is empty.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sampleperiod</code></td>
+<td>
+<p>To load only a subset between 'leadtimemin' and 
+'leadtimemax' with the period of subsampling 'sampleperiod'.<br>
+Takes by default value 1 (all lead-times are loaded).<br>
+See 'storefreq' for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lonmin</code></td>
+<td>
+<p>If a 2-dimensional variable is loaded, values at longitudes 
+lower than 'lonmin' aren't loaded.<br>
+Must take a value in the range [-360, 360] (if negative longitudes are 
+found in the data files these are translated to this range).<br>
+It is set to 0 if not specified.<br>
+If 'lonmin' &gt; 'lonmax', data across Greenwich is loaded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lonmax</code></td>
+<td>
+<p>If a 2-dimensional variable is loaded, values at longitudes 
+higher than 'lonmax' aren't loaded.<br>
+Must take a value in the range [-360, 360] (if negative longitudes are 
+found in the data files these are translated to this range).<br>
+It is set to 360 if not specified.<br>
+If 'lonmin' &gt; 'lonmax', data across Greenwich is loaded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>latmin</code></td>
+<td>
+<p>If a 2-dimensional variable is loaded, values at latitudes 
+lower than 'latmin' aren't loaded.<br>
+Must take a value in the range [-90, 90].<br>
+It is set to -90 if not specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>latmax</code></td>
+<td>
+<p>If a 2-dimensional variable is loaded, values at latitudes 
+higher than 'latmax' aren't loaded.<br>
+Must take a value in the range [-90, 90].<br>
+It is set to 90 if not specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>This parameter determines the format in which the data is 
+arranged in the output arrays.<br>
+Can take values 'areave', 'lon', 'lat', 'lonlat'.<br></p>
+
+<ul>
+<li>
+<p>'areave': Time series of area-averaged variables over the specified domain.
+</p>
+</li>
+<li>
+<p>'lon': Time series of meridional averages as a function of longitudes.
+</p>
+</li>
+<li>
+<p>'lat': Time series of zonal averages as a function of latitudes.
+</p>
+</li>
+<li>
+<p>'lonlat': Time series of 2d fields.
+</p>
+</li>
+</ul>
+<p>Takes by default the value 'areave'. If the variable specified in 'var' is 
+a global mean, this parameter is forced to 'areave'.<br>
+All the loaded data is interpolated into the grid of the first experimental 
+dataset except if 'areave' is selected. In that case the area averages are 
+computed on each dataset original grid. A common grid different than the 
+first experiment's can be specified through the parameter 'grid'. If 'grid' 
+is specified when selecting 'areave' output type, all the loaded data is 
+interpolated into the specified grid before calculating the area averages.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>This parameter determines the interpolation method to be used 
+when regridding data (see 'output'). Can take values 'bilinear', 'bicubic', 
+'conservative', 'distance-weighted'.<br>
+See <code>remapcells</code> for advanced adjustments.<br>
+Takes by default the value 'conservative'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p>A common grid can be specified through the parameter 'grid' when 
+loading 2-dimensional data. Data is then interpolated onto this grid 
+whichever 'output' type is specified. If the selected output type is 
+'areave' and a 'grid' is specified, the area averages are calculated after 
+interpolating to the specified grid.<br>
+If not specified and the selected output type is 'lon', 'lat' or 'lonlat', 
+this parameter takes as default value the grid of the first experimental 
+dataset, which is read automatically from the source files.<br>
+Note that the auto-detected grid type is not guarenteed to be correct, and
+it won't be correct if the netCDF file doesn't contain global domain.
+Please check the warning carefully to ensure the detected grid type is 
+expected, or assign this parameter even regridding is not needed.
+The grid must be supported by 'cdo' tools. Now only supported: rNXxNY 
+or tTRgrid.<br>
+Both rNXxNY and tRESgrid yield rectangular regular grids. rNXxNY yields 
+grids that are evenly spaced in longitudes and latitudes (in degrees). 
+tRESgrid refers to a grid generated with series of spherical harmonics 
+truncated at the RESth harmonic. However these spectral grids are usually 
+associated to a gaussian grid, the latitudes of which are spaced with a 
+Gaussian quadrature (not evenly spaced in degrees). The pattern tRESgrid 
+will yield a gaussian grid.<br>
+E.g., 'r96x72' 
+Advanced: If the output type is 'lon', 'lat' or 'lonlat' and no common 
+grid is specified, the grid of the first experimental or observational 
+dataset is detected and all data is then interpolated onto this grid. 
+If the first experimental or observational dataset's data is found shifted 
+along the longitudes (i.e., there's no value at the longitude 0 but at a 
+longitude close to it), the data is re-interpolated to suppress the shift. 
+This has to be done in order to make sure all the data from all the 
+datasets is properly aligned along longitudes, as there's no option so far 
+in <code>Load</code> to specify grids starting at longitudes other than 0. 
+This issue doesn't affect when loading in 'areave' mode without a common 
+grid, the data is not re-interpolated in that case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maskmod</code></td>
+<td>
+<p>List of masks to be applied to the data of each experimental 
+dataset respectively, if a 2-dimensional variable is specified in 'var'.<br>
+Each mask can be defined in 2 formats:<br>
+a) a matrix with dimensions c(longitudes, latitudes).<br>
+b) a list with the components 'path' and, optionally, 'nc_var_name'.<br>
+In the format a), the matrix must have the same size as the common grid 
+or with the same size as the grid of the corresponding experimental dataset 
+if 'areave' output type is specified and no common 'grid' is specified.<br>
+In the format b), the component 'path' must be a character string with the 
+path to a NetCDF mask file, also in the common grid or in the grid of the 
+corresponding dataset if 'areave' output type is specified and no common 
+'grid' is specified. If the mask file contains only a single variable, 
+there's no need to specify the component 'nc_var_name'. Otherwise it must 
+be a character string with the name of the variable inside the mask file 
+that contains the mask values. This variable must be defined only over 2 
+dimensions with length greater or equal to 1.<br>
+Whichever the mask format, a value of 1 at a point of the mask keeps the 
+original value at that point whereas a value of 0 disables it (replaces 
+by a NA value).<br>
+By default all values are kept (all ones).<br>
+The longitudes and latitudes in the matrix must be in the same order as in 
+the common grid or as in the original grid of the corresponding dataset 
+when loading in 'areave' mode. You can find out the order of the longitudes 
+and latitudes of a file with 'cdo griddes'.<br>
+Note that in a common CDO grid defined with the patterns 't&lt;RES&gt;grid' or 
+'r&lt;NX&gt;x&lt;NY&gt;' the latitudes and latitudes are ordered, by definition, from 
+-90 to 90 and from 0 to 360, respectively.<br>
+If you are loading maps ('lonlat', 'lon' or 'lat' output types) all the 
+data will be interpolated onto the common 'grid'. If you want to specify 
+a mask, you will have to provide it already interpolated onto the common 
+grid (you may use 'cdo' libraries for this purpose). It is not usual to 
+apply different masks on experimental datasets on the same grid, so all 
+the experiment masks are expected to be the same.<br>
+Warning: When loading maps, any masks defined for the observational data 
+will be ignored to make sure the same mask is applied to the experimental 
+and observational data.<br>
+Warning: list() compulsory even if loading 1 experimental dataset only!<br>
+E.g., list(array(1, dim = c(num_lons, num_lats)))</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maskobs</code></td>
+<td>
+<p>See help on parameter 'maskmod'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>configfile</code></td>
+<td>
+<p>Path to the s2dv configuration file from which 
+to retrieve information on location in file system (and other) of datasets.<br>
+If not specified, the configuration file used at BSC-ES will be used 
+(it is included in the package).<br>
+Check the BSC's configuration file or a template of configuration file in 
+the folder 'inst/config' in the package.<br>
+Check further information on the configuration file mechanism in 
+<code>ConfigFileOpen()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varmin</code></td>
+<td>
+<p>Loaded experimental and observational data values smaller 
+than 'varmin' will be disabled (replaced by NA values).<br>
+By default no deactivation is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varmax</code></td>
+<td>
+<p>Loaded experimental and observational data values greater 
+than 'varmax' will be disabled (replaced by NA values).<br>
+By default no deactivation is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Parameter to show (FALSE) or hide (TRUE) information messages.<br>
+Warnings will be displayed even if 'silent' is set to TRUE.<br>
+Takes by default the value 'FALSE'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nprocs</code></td>
+<td>
+<p>Number of parallel processes created to perform the fetch 
+and computation of data.<br>
+These processes will use shared memory in the processor in which Load() 
+is launched.<br>
+By default the number of logical cores in the machine will be detected 
+and as many processes as logical cores there are will be created.<br>
+A value of 1 won't create parallel processes.<br>
+When running in multiple processes, if an error occurs in any of the 
+processes, a crash message appears in the R session of the original 
+process but no detail is given about the error. A value of 1 will display 
+all error messages in the original and only R session.<br>
+Note: the parallel process create other blocking processes each time they 
+need to compute an interpolation via 'cdo'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dimnames</code></td>
+<td>
+<p>Named list where the name of each element is a generic 
+name of the expected dimensions inside the NetCDF files. These generic 
+names are 'lon', 'lat' and 'member'. 'time' is not needed because it's 
+detected automatically by discard.<br>
+The value associated to each name is the actual dimension name in the 
+NetCDF file.<br>
+The variables in the file that contain the longitudes and latitudes of 
+the data (if the data is a 2-dimensional variable) must have the same 
+name as the longitude and latitude dimensions.<br>
+By default, these names are 'longitude', 'latitude' and 'ensemble. If any 
+of those is defined in the 'dimnames' parameter, it takes priority and 
+overwrites the default value.
+E.g., list(lon = 'x', lat = 'y')
+In that example, the dimension 'member' will take the default value 'ensemble'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>remapcells</code></td>
+<td>
+<p>When loading a 2-dimensional variable, spatial subsets can 
+be requested via <code>lonmin</code>, <code>lonmax</code>, <code>latmin</code> and 
+<code>latmax</code>. When <code>Load()</code> obtains the subset it is then 
+interpolated if needed with the method specified in <code>method</code>.<br>
+The result of this interpolation can vary if the values surrounding the 
+spatial subset are not present. To better control this process, the width 
+in number of grid cells of the surrounding area to be taken into account 
+can be specified with <code>remapcells</code>. A value of 0 will take into 
+account no additional cells but will generate less traffic between the 
+storage and the R processes that load data.<br>
+A value beyond the limits in the data files will be automatically runcated 
+to the actual limit.<br>
+The default value is 2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path_glob_permissive</code></td>
+<td>
+<p>In some cases, when specifying a path pattern 
+(either in the parameters 'exp'/'obs' or in a configuration file) one can 
+specify path patterns that contain shell globbing expressions. Too much 
+freedom in putting globbing expressions in the path patterns can be 
+dangerous and make <code>Load()</code> find a file in the file system for a 
+start date for a dataset that really does not belong to that dataset. 
+For example, if the file system contains two directories for two different 
+experiments that share a part of their path and the path pattern contains 
+globbing expressions:
+/experiments/model1/expA/monthly_mean/tos/tos_19901101.nc
+/experiments/model2/expA/monthly_mean/tos/tos_19951101.nc
+And the path pattern is used as in the example right below to load data of 
+only the experiment 'expA' of the model 'model1' for the starting dates 
+'19901101' and '19951101', <code>Load()</code> will undesiredly yield data for 
+both starting dates, even if in fact there is data only for the 
+first one:<br><code>
+expA &lt;- list(path = file.path('/experiments/*/expA/monthly_mean/$VAR_NAME$',
+                              '$VAR_NAME$_$START_DATE$.nc')
+data &lt;- Load('tos', list(expA), NULL, c('19901101', '19951101'))
+    </code>
+To avoid these situations, the parameter <code>path_glob_permissive</code> is 
+set by default to <code>'partial'</code>, which forces <code>Load()</code> to replace 
+all the globbing expressions of a path pattern of a data set by fixed 
+values taken from the path of the first found file for each data set, up 
+to the folder right before the final files (globbing expressions in the 
+file name will not be replaced, only those in the path to the file). 
+Replacement of globbing expressions in the file name can also be triggered 
+by setting <code>path_glob_permissive</code> to <code>FALSE</code> or <code>'no'</code>. If 
+needed to keep all globbing expressions, <code>path_glob_permissive</code> can 
+be set to <code>TRUE</code> or <code>'yes'</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The two output matrices have between 2 and 6 dimensions:<br></p>
+
+<ol>
+<li>
+<p>Number of experimental/observational datasets.
+</p>
+</li>
+<li>
+<p>Number of members.
+</p>
+</li>
+<li>
+<p>Number of startdates.
+</p>
+</li>
+<li>
+<p>Number of leadtimes.
+</p>
+</li>
+<li>
+<p>Number of latitudes (optional).
+</p>
+</li>
+<li>
+<p>Number of longitudes (optional).
+</p>
+</li>
+</ol>
+<p>but the two matrices have the same number of dimensions and only the first 
+two dimensions can have different lengths depending on the input arguments.    
+For a detailed explanation of the process, read the documentation attached 
+to the package or check the comments in the code.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>Load()</code> returns a named list following a structure similar to the 
+used in the package 'downscaleR'.<br>
+The components are the following:
+</p>
+
+<ul>
+<li>
+<p>'mod' is the array that contains the experimental data. It has the 
+attribute 'dimensions' associated to a vector of strings with the 
+labels of each dimension of the array, in order. The order of the 
+latitudes is always forced to be from 90 to -90 whereas the order of 
+the longitudes is kept as in the original files (if possible). The 
+longitude values provided in <code>lon</code> lower than 0 are added 360 
+(but still kept in the original order). In some cases, however, if 
+multiple data sets are loaded in longitude-latitude mode, the 
+longitudes (and also the data arrays in <code>mod</code> and <code>obs</code>) are 
+re-ordered afterwards by <code>Load()</code> to range from 0 to 360; a 
+warning is given in such cases. The longitude and latitude of the 
+center of the grid cell that corresponds to the value [j, i] in 'mod' 
+(along the dimensions latitude and longitude, respectively) can be 
+found in the outputs <code>lon</code>[i] and <code>lat</code>[j]
+
+</p>
+</li>
+<li>
+<p>'obs' is the array that contains the observational data. The 
+same documentation of parameter 'mod' applies to this parameter.
+</p>
+</li>
+<li>
+<p>'lat' and 'lon' are the latitudes and longitudes of the centers of 
+the cells of the grid the data is interpolated into (0 if the loaded 
+variable is a global mean or the output is an area average).<br>
+Both have the attribute 'cdo_grid_des' associated with a character 
+string with the name of the common grid of the data, following the CDO 
+naming conventions for grids.<br>
+'lon' has the attributes 'first_lon' and 'last_lon', with the first 
+and last longitude values found in the region defined by 'lonmin' and 
+'lonmax'. 'lat' has also the equivalent attributes 'first_lat' and 
+'last_lat'.<br>
+'lon' has also the attribute 'data_across_gw' which tells whether the 
+requested region via 'lonmin', 'lonmax', 'latmin', 'latmax' goes across 
+the Greenwich meridian. As explained in the documentation of the 
+parameter 'mod', the loaded data array is kept in the same order as in 
+the original files when possible: this means that, in some cases, even 
+if the data goes across the Greenwich, the data array may not go 
+across the Greenwich. The attribute 'array_across_gw' tells whether 
+the array actually goes across the Greenwich. E.g: The longitudes in 
+the data files are defined to be from 0 to 360. The requested 
+longitudes are from -80 to 40. The original order is kept, hence the 
+longitudes in the array will be ordered as follows: 
+0, ..., 40, 280, ..., 360. In that case, 'data_across_gw' will be TRUE 
+and 'array_across_gw' will be FALSE.<br>
+The attribute 'projection' is kept for compatibility with 'downscaleR'.
+
+</p>
+</li>
+<li>
+<p>'Variable' has the following components:
+</p>
+
+<ul>
+<li>
+<p>'varName', with the short name of the loaded variable as 
+specified in the parameter 'var'.
+
+</p>
+</li>
+<li>
+<p>'level', with information on the pressure level of the 
+variable. Is kept to NULL by now.
+
+</p>
+</li>
+</ul>
+<p>And the following attributes:
+</p>
+
+<ul>
+<li>
+<p>'is_standard', kept for compatibility with 'downscaleR', 
+tells if a dataset has been homogenized to standards with 
+'downscaleR' catalogs.
+
+</p>
+</li>
+<li>
+<p>'units', a character string with the units of measure of the 
+variable, as found in the source files.
+
+</p>
+</li>
+<li>
+<p>'longname', a character string with the long name of the 
+variable, as found in the source files.
+
+</p>
+</li>
+<li>
+<p>'daily_agg_cellfun', 'monthly_agg_cellfun', 
+'verification_time', kept for compatibility with 'downscaleR'.
+
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'Datasets' has the following components:
+</p>
+
+<ul>
+<li>
+<p>'exp', a named list where the names are the identifying 
+character strings of each experiment in 'exp', each associated to 
+a list with the following components:
+</p>
+
+<ul>
+<li>
+<p>'members', a list with the names of the members of the dataset.
+</p>
+</li>
+<li>
+<p>'source', a path or URL to the source of the dataset.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'obs', similar to 'exp' but for observational datasets.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'Dates', with the follwing components:
+</p>
+
+<ul>
+<li>
+<p>'start', an array of dimensions (sdate, time) with the POSIX 
+initial date of each forecast time of each starting date.
+ 
+</p>
+</li>
+<li>
+<p>'end', an array of dimensions (sdate, time) with the POSIX 
+final date of each forecast time of each starting date.
+
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>'InitializationDates', a vector of starting dates as specified in 
+'sdates', in POSIX format.
+
+</p>
+</li>
+<li>
+<p>'when', a time stamp of the date the <code>Load()</code> call to obtain 
+the data was issued.
+
+</p>
+</li>
+<li>
+<p>'source_files', a vector of character strings with complete paths 
+to all the found files involved in the <code>Load()</code> call.
+
+</p>
+</li>
+<li>
+<p>'not_found_files', a vector of character strings with complete 
+paths to not found files involved in the <code>Load()</code> call.
+
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Let's assume we want to perform verification with data of a variable
+# called 'tos' from a model called 'model' and observed data coming from 
+# an observational dataset called 'observation'.
+#
+# The model was run in the context of an experiment named 'experiment'. 
+# It simulated from 1st November in 1985, 1990, 1995, 2000 and 2005 for a 
+# period of 5 years time from each starting date. 5 different sets of 
+# initial conditions were used so an ensemble of 5 members was generated 
+# for each starting date.
+# The model generated values for the variables 'tos' and 'tas' in a 
+# 3-hourly frequency but, after some initial post-processing, it was 
+# averaged over every month.
+# The resulting monthly average series were stored in a file for each 
+# starting date for each variable with the data of the 5 ensemble members.
+# The resulting directory tree was the following:
+#   model
+#    |--&gt; experiment
+#          |--&gt; monthly_mean
+#                |--&gt; tos_3hourly
+#                |     |--&gt; tos_19851101.nc
+#                |     |--&gt; tos_19901101.nc
+#                |               .
+#                |               .
+#                |     |--&gt; tos_20051101.nc 
+#                |--&gt; tas_3hourly
+#                      |--&gt; tas_19851101.nc
+#                      |--&gt; tas_19901101.nc
+#                                .
+#                                .
+#                      |--&gt; tas_20051101.nc
+# 
+# The observation recorded values of 'tos' and 'tas' at each day of the 
+# month over that period but was also averaged over months and stored in 
+# a file per month. The directory tree was the following:
+#   observation
+#    |--&gt; monthly_mean
+#          |--&gt; tos
+#          |     |--&gt; tos_198511.nc
+#          |     |--&gt; tos_198512.nc
+#          |     |--&gt; tos_198601.nc
+#          |               .
+#          |               .
+#          |     |--&gt; tos_201010.nc
+#          |--&gt; tas
+#                |--&gt; tas_198511.nc
+#                |--&gt; tas_198512.nc
+#                |--&gt; tas_198601.nc
+#                          .
+#                          .
+#                |--&gt; tas_201010.nc
+#
+# The model data is stored in a file-per-startdate fashion and the
+# observational data is stored in a file-per-month, and both are stored in 
+# a monthly frequency. The file format is NetCDF.
+# Hence all the data is supported by Load() (see details and other supported 
+# conventions in ?Load) but first we need to configure it properly.
+#
+# These data files are included in the package (in the 'sample_data' folder),
+# only for the variable 'tos'. They have been interpolated to a very low 
+# resolution grid so as to make it on CRAN.
+# The original grid names (following CDO conventions) for experimental and 
+# observational data were 't106grid' and 'r180x89' respectively. The final
+# resolutions are 'r20x10' and 'r16x8' respectively. 
+# The experimental data comes from the decadal climate prediction experiment 
+# run at IC3 in the context of the CMIP5 project. Its name within IC3 local 
+# database is 'i00k'. 
+# The observational dataset used for verification is the 'ERSST' 
+# observational dataset.
+#
+# The next two examples are equivalent and show how to load the variable 
+# 'tos' from these sample datasets, the first providing lists of lists to 
+# the parameters 'exp' and 'obs' (see documentation on these parameters) and 
+# the second providing vectors of character strings, hence using a 
+# configuration file.
+#
+# The code is not run because it dispatches system calls to 'cdo' which is 
+# not allowed in the examples as per CRAN policies. You can run it on your 
+# system though. 
+# Instead, the code in 'dontshow' is run, which loads the equivalent
+# already processed data in R.
+#
+# Example 1: Providing lists of lists to 'exp' and 'obs':
+#
+ ## Not run: 
+data_path &lt;- system.file('sample_data', package = 's2dv')
+exp &lt;- list(
+        name = 'experiment',
+        path = file.path(data_path, 'model/$EXP_NAME$/monthly_mean',
+                         '$VAR_NAME$_3hourly/$VAR_NAME$_$START_DATES$.nc')
+      )
+obs &lt;- list(
+        name = 'observation',
+        path = file.path(data_path, 'observation/$OBS_NAME$/monthly_mean',
+                         '$VAR_NAME$/$VAR_NAME$_$YEAR$$MONTH$.nc')
+      )
+# Now we are ready to use Load().
+startDates &lt;- c('19851101', '19901101', '19951101', '20001101', '20051101')
+sampleData &lt;- Load('tos', list(exp), list(obs), startDates,
+                  output = 'areave', latmin = 27, latmax = 48, 
+                  lonmin = -12, lonmax = 40)
+ 
+## End(Not run)
+#
+# Example 2: Providing vectors of character strings to 'exp' and 'obs'
+#            and using a configuration file.
+#
+# The configuration file 'sample.conf' that we will create in the example 
+# has the proper entries to load these (see ?LoadConfigFile for details on 
+# writing a configuration file). 
+#
+ ## Not run: 
+data_path &lt;- system.file('sample_data', package = 's2dv')
+expA &lt;- list(name = 'experiment', path = file.path(data_path, 
+            'model/$EXP_NAME$/$STORE_FREQ$_mean/$VAR_NAME$_3hourly',
+            '$VAR_NAME$_$START_DATE$.nc'))
+obsX &lt;- list(name = 'observation', path = file.path(data_path,
+            '$OBS_NAME$/$STORE_FREQ$_mean/$VAR_NAME$',
+            '$VAR_NAME$_$YEAR$$MONTH$.nc'))
+
+# Now we are ready to use Load().
+startDates &lt;- c('19851101', '19901101', '19951101', '20001101', '20051101')
+sampleData &lt;- Load('tos', list(expA), list(obsX), startDates,
+                  output = 'areave', latmin = 27, latmax = 48, 
+                  lonmin = -12, lonmax = 40)
+#
+# Example 3: providing character strings in 'exp' and 'obs', and providing
+# a configuration file.
+# The configuration file 'sample.conf' that we will create in the example 
+# has the proper entries to load these (see ?LoadConfigFile for details on 
+# writing a configuration file). 
+#
+configfile &lt;- paste0(tempdir(), '/sample.conf')
+ConfigFileCreate(configfile, confirm = FALSE)
+c &lt;- ConfigFileOpen(configfile)
+c &lt;- ConfigEditDefinition(c, 'DEFAULT_VAR_MIN', '-1e19', confirm = FALSE)
+c &lt;- ConfigEditDefinition(c, 'DEFAULT_VAR_MAX', '1e19', confirm = FALSE)
+data_path &lt;- system.file('sample_data', package = 's2dv')
+exp_data_path &lt;- paste0(data_path, '/model/$EXP_NAME$/')
+obs_data_path &lt;- paste0(data_path, '/$OBS_NAME$/')
+c &lt;- ConfigAddEntry(c, 'experiments', dataset_name = 'experiment', 
+    var_name = 'tos', main_path = exp_data_path,
+    file_path = '$STORE_FREQ$_mean/$VAR_NAME$_3hourly/$VAR_NAME$_$START_DATE$.nc')
+c &lt;- ConfigAddEntry(c, 'observations', dataset_name = 'observation', 
+    var_name = 'tos', main_path = obs_data_path,
+    file_path = '$STORE_FREQ$_mean/$VAR_NAME$/$VAR_NAME$_$YEAR$$MONTH$.nc')
+ConfigFileSave(c, configfile, confirm = FALSE)
+
+# Now we are ready to use Load().
+startDates &lt;- c('19851101', '19901101', '19951101', '20001101', '20051101')
+sampleData &lt;- Load('tos', c('experiment'), c('observation'), startDates, 
+                  output = 'areave', latmin = 27, latmax = 48, 
+                  lonmin = -12, lonmax = 40, configfile = configfile)
+ 
+## End(Not run)
+  
+</code></pre>
+
+
+</div>

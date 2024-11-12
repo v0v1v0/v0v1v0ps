@@ -1,0 +1,175 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smfishHmrf.hmrfem.multi.it</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Perform HMRF for multivariate normal distribution. Accepts R data structures as inputs. Accepts multiple betas.</h2>
+
+<h3>Description</h3>
+
+<p>This function performs HMRF model (Zhu et al. 2018-Dec-01) on inputs which are directly R data structures. Different from smfishHmrf.hmrfem.multi, this function iterates over multiple betas rather than a single beta. Different from smfishHmrf.hmrfem.multi.it.min, this function accepts R data structures (i.e. parameters y, nei, blocks) as inputs to the function rather than accepting file names. This function will save the results of HMRF to the output directory. It will return void.
+</p>
+<p>This function exists for legacy and compatibility reason. User should use <strong>smfishHmrf.hmrfem.multi.it.min</strong> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">smfishHmrf.hmrfem.multi.it(
+  name,
+  outdir,
+  k,
+  y,
+  nei,
+  beta = 0,
+  beta_increment = 1,
+  beta_num_iter = 10,
+  numnei,
+  blocks,
+  mu,
+  sigma,
+  damp
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>name for this run (eg test)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outdir</code></td>
+<td>
+<p>output directory</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>number of clusters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>gene expression matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nei</code></td>
+<td>
+<p>adjacency matrix between cells</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>initial beta</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_increment</code></td>
+<td>
+<p>beta increment</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_num_iter</code></td>
+<td>
+<p>number of betas to try</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numnei</code></td>
+<td>
+<p>a vector containing number of neighbors per cell</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blocks</code></td>
+<td>
+<p>a list of cell colors for deciding the order of cell update</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>a 2D matrix (i,j) of cluster mean (initialization)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>a 3D matrix (i,j,k) where (i,j) is the covariance of cluster k (initialization)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>damp</code></td>
+<td>
+<p>a list of dampening factors (length = k)</p>
+</td>
+</tr>
+</table>
+<h3>More information</h3>
+
+<p>Arguments mu and sigma refer to the cluster centroids from running kmeans algorithm.
+They serve as initialization of HMRF.
+Users should refer to <strong>smfishHmrf.hmrfem.multi.it.min</strong> for more information about function parameters and the requirements.
+</p>
+
+
+<h3>References</h3>
+
+<p>Zhu Q, Shah S, Dries R, Cai L, Yuan G (2018-Dec-01).
+“Identification of spatially associated subpopulations by combining scRNAseq and sequential fluorescence in situ hybridization data.”
+<em>Nature Biotechnology</em>, <b>36</b>, 1183–1190.
+doi: <a href="https://doi.org/10.1038/nbt.4260">10.1038/nbt.4260</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">y&lt;-as.matrix(read.table(system.file("extdata", "ftest.expression.txt", 
+    package="smfishHmrf"), header=FALSE, row.names=1))
+nei&lt;-as.matrix(read.table(system.file("extdata", "ftest.adjacency.txt", 
+    package="smfishHmrf"), header=FALSE, row.names=1))
+colnames(nei)&lt;-NULL; rownames(nei)&lt;-NULL
+blocks&lt;-c(t(read.table(system.file("extdata", "ftest.blocks.txt", 
+    package="smfishHmrf"), header=FALSE, row.names=1)))
+blocks&lt;-lapply(1:max(blocks), function(x) which(blocks == x))
+numnei&lt;-apply(nei, 1, function(x) sum(x!=-1))
+k&lt;-9
+kmeans_results = system.file("extdata", package="smfishHmrf")
+kk = smfishHmrf.generate.centroid.use.exist(name="test", input_dir=kmeans_results, k)
+numcell&lt;-dim(y)[1]; m&lt;-dim(y)[2]
+mu&lt;-t(kk$centers) #should be dimension (m,k)
+lclust&lt;-lapply(1:k, function(x) which(kk$cluster == x))
+damp&lt;-array(0, c(k)); sigma&lt;-array(0, c(m,m,k))
+for(i in 1:k){
+    sigma[, , i] &lt;- cov(y[lclust[[i]], ])
+    di&lt;-findDampFactor(sigma[,,i], factor=1.05, d_cutoff=1e-5, startValue=0.0001)
+    damp[i]&lt;-ifelse(is.null(di), 0, di)
+} 
+smfishHmrf.hmrfem.multi.it(name="test", outdir=tempdir(), k=k, y=y, nei=nei, 
+    beta=28, beta_increment=2, beta_num_iter=1, numnei=numnei, blocks=blocks, 
+    mu=mu, sigma=sigma, damp=damp)
+
+## Not run: 
+# alternatively, to test a larger set of betas:
+smfishHmrf.hmrfem.multi.it(name="test", outdir=tempdir(), k=k, y=y, nei=nei, 
+    beta=0, beta_increment=2, beta_num_iter=20, numnei=numnei, blocks=blocks, 
+    mu=mu, sigma=sigma, damp=damp)
+
+## End(Not run)
+
+
+</code></pre>
+
+
+</div>

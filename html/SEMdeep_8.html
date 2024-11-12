@@ -1,0 +1,130 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.DNN</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SEM-based out-of-sample prediction using layer-wise DNN</h2>
+
+<h3>Description</h3>
+
+<p>Predict method for DNN objects.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'DNN'
+predict(object, newdata, verbose = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A model fitting object from <code>SEMdnn()</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p>A matrix containing new data with rows corresponding to
+subjects, and columns to variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Print predicted out-of-sample MSE values (default = FALSE).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of 2 objects:
+</p>
+
+<ol>
+<li>
+<p> "PE", vector of the prediction error equal to the Mean Squared Error
+(MSE) for each out-of-bag prediction. The first value of PE is the AMSE,
+where we average over all (sink and mediators) graph nodes.
+</p>
+</li>
+<li>
+<p> "Yhat", the matrix of continuous predicted values of graph nodes  
+(excluding source nodes) based on out-of-bag samples. 
+</p>
+</li>
+</ol>
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+if (torch::torch_is_installed()){
+
+# Load Amyotrophic Lateral Sclerosis (ALS)
+data&lt;- alsData$exprs; dim(data)
+data&lt;- transformData(data)$data
+ig&lt;- alsData$graph; gplot(ig)
+group&lt;- alsData$group 
+
+#...with train-test (0.5-0.5) samples
+set.seed(123)
+train&lt;- sample(1:nrow(data), 0.5*nrow(data))
+
+start&lt;- Sys.time()
+dnn0 &lt;- SEMdnn(ig, data, train, cowt = FALSE, thr = NULL,
+			#loss = "mse", hidden = 5*K, link = "selu",
+			loss = "mse", hidden = c(10, 10, 10), link = "selu",
+			validation = 0, bias = TRUE, lr = 0.01,
+			epochs = 32, device = "cpu", verbose = TRUE)
+end&lt;- Sys.time()
+print(end-start)
+mse0 &lt;- predict(dnn0, data[-train, ], verbose=TRUE)
+
+# SEMrun vs. SEMdnn MSE comparison
+sem0 &lt;- SEMrun(ig, data[train, ], SE="none", limit=1000)
+mse0 &lt;- predict(sem0, data[-train,], verbose=TRUE)
+
+#...with a binary outcome (1=case, 0=control)
+
+ig1&lt;- mapGraph(ig, type="outcome"); gplot(ig1)
+outcome&lt;- ifelse(group == 0, -1, 1); table(outcome)
+data1&lt;- cbind(outcome, data); data1[1:5,1:5]
+
+start&lt;- Sys.time()
+dnn1 &lt;- SEMdnn(ig1, data1, train, cowt = TRUE, thr = NULL,
+			#loss = "mse", hidden = 5*K, link = "selu",
+			loss = "mse", hidden = c(10, 10, 10), link = "selu",
+			validation = 0, bias = TRUE, lr = 0.01,
+			epochs = 32, device = "cpu", verbose = TRUE)
+end&lt;- Sys.time()
+print(end-start)
+
+mse1 &lt;- predict(dnn1, data1[-train, ])
+yobs &lt;- group[-train]
+yhat &lt;- mse1$Yhat[ ,"outcome"]
+benchmark(yobs, yhat, thr=0, F1=FALSE)
+}
+
+
+</code></pre>
+
+
+</div>

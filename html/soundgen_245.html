@@ -1,0 +1,213 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>transplantFormants</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Transplant formants</h2>
+
+<h3>Description</h3>
+
+<p>Takes the general spectral envelope of one sound (<code>donor</code>) and
+"transplants" it onto another sound (<code>recipient</code>). For biological sounds
+like speech or animal vocalizations, this has the effect of replacing the
+formants in the recipient sound while preserving the original intonation and
+(to some extent) voice quality. Note that the amount of spectral smoothing
+(specified with <code>freqWindow</code> or <code>blur</code>) is a crucial parameter: too
+little smoothing, and noise between harmonics will be amplified, creasing
+artifacts; too much, and formants may be missed. The default is to set
+<code>freqWindow</code> to the estimated median pitch, but this is time-consuming
+and error-prone, so set it to a reasonable value manually if possible. Also
+ensure that both sounds have the same sampling rate.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">transplantFormants(
+  donor,
+  recipient,
+  samplingRate = NULL,
+  freqWindow = NULL,
+  blur = NULL,
+  dynamicRange = 80,
+  windowLength = 50,
+  step = NULL,
+  overlap = 90,
+  wn = "gaussian",
+  zp = 0
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>donor</code></td>
+<td>
+<p>the sound that provides the formants (vector, Wave, or file) or
+the desired spectral filter (matrix) as returned by
+<code>getSpectralEnvelope</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>recipient</code></td>
+<td>
+<p>the sound that receives the formants (vector, Wave, or file)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>freqWindow</code></td>
+<td>
+<p>the width of smoothing window used to flatten the
+recipient's spectrum per frame. Defaults to median pitch of the donor (or
+of the recipient if donor is a filter matrix). If <code>blur</code> is NULL,
+<code>freqWindow</code> also controls the amount of smoothing applied to the
+donor's spectrogram</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blur</code></td>
+<td>
+<p>the amount of Gaussian blur applied to the donor's spectrogram as
+a faster and more flexible alternative to smoothing it per bin with
+<code>freqWindow</code>. Provide two numbers: frequency (Hz, normally
+approximately equal to freqWindow), time (ms) (NA / NULL / 0 means no
+blurring in that dimension). See examples and <code>spectrogram</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>dynamic range, dB. All values more than one dynamicRange
+under maximum are treated as zero</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength</code></td>
+<td>
+<p>length of FFT window, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step</code></td>
+<td>
+<p>you can override <code>overlap</code> by specifying FFT step, ms (NB:
+because digital audio is sampled at discrete time intervals of
+1/samplingRate, the actual step and thus the time stamps of STFT frames
+may be slightly different, eg 24.98866 instead of 25.0 ms)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>overlap between successive FFT frames, %</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wn</code></td>
+<td>
+<p>window type accepted by <code>ftwindow</code>, currently
+gaussian, hanning, hamming, bartlett, blackman, flattop, rectangle</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zp</code></td>
+<td>
+<p>window length after zero padding, points</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Algorithm: makes spectrograms of both sounds, interpolates and smooths or
+blurs the donor spectrogram, flattens the recipient spectrogram, multiplies
+the spectrograms, and transforms back into time domain with inverse STFT.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>transplantEnv</code> <code>getSpectralEnvelope</code>
+<code>addFormants</code> <code>spectrogram</code> <code>soundgen</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Objective: take formants from the bleating of a sheep and apply them to a
+# synthetic sound with any arbitrary duration, intonation, nonlinearities etc
+data(sheep, package = 'seewave')  # import a recording from seewave
+playme(sheep)
+spectrogram(sheep, osc = TRUE)
+
+recipient = soundgen(
+  sylLen = 1200,
+  pitch = c(100, 300, 250, 200),
+  vibratoFreq = 9, vibratoDep = 1,
+  addSilence = 180,
+  samplingRate = sheep@samp.rate,  # same as donor
+  invalidArgAction = 'ignore')  # force to keep the low samplingRate
+playme(recipient, sheep@samp.rate)
+spectrogram(recipient, sheep@samp.rate, osc = TRUE)
+
+s1 = transplantFormants(
+  donor = sheep,
+  recipient = recipient,
+  samplingRate = sheep@samp.rate)
+playme(s1, sheep@samp.rate)
+spectrogram(s1, sheep@samp.rate, osc = TRUE)
+
+# The spectral envelope of s1 will be similar to sheep's on a frequency scale
+# determined by freqWindow. Compare the spectra:
+par(mfrow = c(1, 2))
+seewave::meanspec(sheep, dB = 'max0', alim = c(-50, 20), main = 'Donor')
+seewave::meanspec(s1, f = sheep@samp.rate, dB = 'max0',
+                  alim = c(-50, 20), main = 'Processed recipient')
+par(mfrow = c(1, 1))
+
+# if needed, transplant amplitude envelopes as well:
+s2 = transplantEnv(donor = sheep, samplingRateD = sheep@samp.rate,
+                   recipient = s1, windowLength = 10)
+playme(s2, sheep@samp.rate)
+spectrogram(s2, sheep@samp.rate, osc = TRUE)
+
+# using "blur" to apply Gaussian blur to the donor's spectrogram instead of
+# smoothing per frame with "freqWindow" (~2.5 times faster)
+spectrogram(sheep, blur = c(150, 0))  # preview to select the amount of blur
+s1b = transplantFormants(
+  donor = sheep,
+  recipient = recipient,
+  samplingRate = sheep@samp.rate,
+  freqWindow = 150,
+  blur = c(150, 0))
+  # blur: 150 = SD of 150 Hz along the frequency axis,
+  #      0 = no smoothing along the time axis
+playme(s1b, sheep@samp.rate)
+spectrogram(s1b, sheep@samp.rate, osc = TRUE)
+
+# Now we use human formants on sheep source: the sheep asks "why?"
+s3 = transplantFormants(
+  donor = getSpectralEnvelope(
+            nr = 512, nc = 100,  # fairly arbitrary dimensions
+            formants = 'uaaai',
+            samplingRate = sheep@samp.rate),
+  recipient = sheep,
+  samplingRate = sheep@samp.rate)
+playme(s3, sheep@samp.rate)
+spectrogram(s3, sheep@samp.rate, osc = TRUE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

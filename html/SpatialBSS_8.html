@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.sbss</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Predict Method for an Object of Class 'sbss'
+</h2>
+
+<h3>Description</h3>
+
+<p><code>predict.sbss</code> predicts the estimated source random field on a grid with Inverse Distance Weighting (IDW) and plots these predictions.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sbss'
+predict(object, p = 2, n_grid = 50, which = 1:ncol(object$s), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+
+<p>object of class <code>'sbss'</code>. Usually result of <code>sbss</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+
+<p>numeric. The positive power parameter for IDW. Default is 2.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_grid</code></td>
+<td>
+
+<p>numeric. Each dimension of the spatial domain is divided by this integer to derive a grid for IDW predictions. Default is 50.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+
+<p>a numeric vector indicating which components of the latent field should be predicted.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>further arguments to the plot method of <code>class(x$s)</code>, which is either <code>spplot</code> or <code>plot</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><a href="https://en.wikipedia.org/wiki/Inverse_distance_weighting">IDW</a> predictions are made on a grid. The side lengths of the rectangular shaped grid cells are derived by the differences of the rounded maximum and minimum values divided by the <code>n_grid</code> argument for each column of <code>object$coords</code>. Hence, the grid contains a total of <code>n_grid ^ 2</code> points. The power parameter of the IDW predictions is given by <code>p</code> (default: 2).
+</p>
+<p>The predictions are plotted with the corresponding plot method of <code>class(x$s)</code>. Either <code>spplot</code> for <code>class(x$s)</code> is <code>SpatialPointsDataFrame</code> or <code>plot.sf</code> for <code>class(x$s)</code> is <code>sf</code>. If <code>x$s</code> is a matrix then it is internally cast to <code>SpatialPointsDataFrame</code> and <code>spplot</code> is used for plotting. Arguments to the corresponding plot functions can be given through <code>...</code> as it is done by the method <code>plot.sbss</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The return is dependent on the class of the latent field in the <code>'sbss'</code> object.
+If <code>class(object$s)</code> is a matrix then a list with the following entries is returned:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>vals_pred_idw</code></td>
+<td>
+<p>a matrix of dimension <code>c(n,p)</code> (when <code>which</code> is default or less than <code>p</code> columns according to the selected components with the <code>which</code> argument) with the IDW predictions of the estimated source random field.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords_pred_idw </code></td>
+<td>
+<p>a matrix of dimension <code>c(n,2)</code> with the grid coordinates for the IDW predictions.</p>
+</td>
+</tr>
+</table>
+<p>If <code>class(object$s)</code> is <code>SpatialPointsDataFrame</code> or <code>sf</code> then the predicted values and their coordinates are returned as an object of the corresponding class.
+</p>
+<p>The return is invisible.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sbss</code>, <code>plot.sbss</code>, <code>spplot</code>, <code>plot.sf</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># simulate coordinates
+coords &lt;- runif(1000 * 2) * 20
+dim(coords) &lt;- c(1000, 2)
+coords_df &lt;- as.data.frame(coords)
+names(coords_df) &lt;- c("x", "y")
+# simulate random field
+if (!requireNamespace('gstat', quietly = TRUE)) {
+  message('Please install the package gstat to run the example code.')
+} else {
+  library(gstat)
+  model_1 &lt;- gstat(formula = z ~ 1, locations = ~ x + y, dummy = TRUE, beta = 0, 
+                   model = vgm(psill = 0.025, range = 1, model = 'Exp'), nmax = 20)
+  model_2 &lt;- gstat(formula = z ~ 1, locations = ~ x + y, dummy = TRUE, beta = 0, 
+                   model = vgm(psill = 0.025, range = 1, kappa = 2, model = 'Mat'), 
+                   nmax = 20)
+  model_3 &lt;- gstat(formula = z ~ 1, locations = ~ x + y, dummy = TRUE, beta = 0, 
+                   model = vgm(psill = 0.025, range = 1, model = 'Gau'), nmax = 20)
+  field_1 &lt;- predict(model_1, newdata = coords_df, nsim = 1)$sim1
+  field_2 &lt;- predict(model_2, newdata = coords_df, nsim = 1)$sim1
+  field_3 &lt;- predict(model_3, newdata = coords_df, nsim = 1)$sim1
+  field &lt;- as.matrix(cbind(field_1, field_2, field_3))
+
+  # apply sbss with three ring kernels
+  kernel_borders &lt;- c(0, 1, 1, 2, 2, 4)
+  res_sbss &lt;-  sbss(field, coords, 'ring', kernel_borders)
+  
+  # predict latent fields on grid with default settings
+  predict(res_sbss)
+  
+  # predict latent fields on grid with custom plotting settings
+  predict(res_sbss, colorkey = TRUE, as.table = TRUE, cex = 1)
+  
+  # predict latent fields on a 60x60 grid
+  predict(res_sbss, n_grid = 60, colorkey = TRUE, as.table = TRUE, cex = 1)
+  
+  # predict latent fields with a higher IDW power parameter
+  predict(res_sbss, p = 10, colorkey = TRUE, as.table = TRUE, cex = 1)
+  
+  # predict latent fields and save the predictions
+  predict_list &lt;- predict(res_sbss, p = 5, colorkey = TRUE, as.table = TRUE, cex = 1)
+}
+</code></pre>
+
+
+</div>

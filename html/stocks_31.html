@@ -1,0 +1,239 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>targetbeta_twofunds</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Backtest a Two-Fund Strategy that Targets a Certain Beta</h2>
+
+<h3>Description</h3>
+
+<p>Implements a two-fund strategy where allocations to each fund are adjusted to 
+maintain some user-specified portfolio beta. For example, you could back-test 
+a zero-beta (i.e. market neutral) UPRO/VBLTX strategy using this function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">targetbeta_twofunds(tickers = NULL, intercepts = NULL, slopes = NULL, ...,
+  benchmark.ticker = NULL, reference.tickers = NULL, tickers.gains = NULL,
+  benchmark.gains = NULL, reference.gains = NULL, target.beta = 0,
+  tol = 0.15, window.units = 50, failure.method = "closer",
+  maxall.tol = tol - 0.05, initial = 10000)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>tickers</code></td>
+<td>
+<p>Character vector specifying 2 ticker symbols that Yahoo! 
+Finance recognizes, if you want to download data on the fly.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercepts</code></td>
+<td>
+<p>Numeric vector of values to add to daily gains for each 
+ticker.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slopes</code></td>
+<td>
+<p>Numeric vector of values to multiply daily gains for each ticker 
+by. Slopes are multiplied prior to adding intercepts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments to pass along with <code>tickers</code> to 
+<code>load_gains</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>benchmark.ticker</code></td>
+<td>
+<p>Character string specifying ticker symbol for 
+benchmark index for calculating beta. If unspecified, the first fund in 
+<code>tickers</code> is used as the benchmark.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reference.tickers</code></td>
+<td>
+<p>Character vector of ticker symbols to include on
+graph as data points for comparative purposes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tickers.gains</code></td>
+<td>
+<p>Numeric matrix of gains, where each column has gains for 
+a particular fund.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>benchmark.gains</code></td>
+<td>
+<p>Numeric vector of gains for the benchmark index for 
+calculating beta. If unspecified, the first fund in <code>tickers.gains</code> is 
+used as the benchmark.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reference.gains</code></td>
+<td>
+<p>Numeric vector or matrix of gains for funds to 
+include on graph as data points for comparative purposes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target.beta</code></td>
+<td>
+<p>Numeric value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>Numeric value specifying how far the effective portfolio beta has 
+to deviate from <code>target.beta</code> to trigger a rebalancing trade.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>window.units</code></td>
+<td>
+<p>Numeric value specifying the width of the trailing moving 
+window used to estimate each fund's beta.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>failure.method</code></td>
+<td>
+<p>Character string or vector specifying method(s) to use 
+when fund betas are such that the target portfolio beta cannot be achieved. 
+Choices are <code>"cash"</code>, <code>"fund1"</code>, <code>"fund2"</code>, 
+<code>"fund1.maxall"</code>, <code>"fund2.maxall"</code>, <code>"inverse1"</code>, 
+<code>"inverse2"</code>, and <code>"closer"</code>. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxall.tol</code></td>
+<td>
+<p>Numeric value specifying tolerance to use when implementing 
+the <code>"fund1.maxall"</code> or <code>"fund2.maxall"</code> failure method. To 
+illustrate, if <code>target.beta = 0</code>, fund 1 has a current beta of 1, fund 2 
+has a current beta of 0.25, <code>failure.method = "fund2.maxall"</code>, and 
+<code>maxall.tol = 0.1</code>, a trade will be triggered that results in 40% fund 
+2 and 60% cash. The portfolio beta is <code>0.4 * 0.25 = 0.1</code>. The reason 
+you might want <code>maxall.tol</code> to be less than <code>tol</code> is to avoid 
+frequently triggering another trade on the very next day, as fund 2's beta 
+changes a little and moves the portfolio beta outside of 
+<code>[target.beta - tol, target.beta + tol]</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initial</code></td>
+<td>
+<p>Numeric value specifying what value to scale initial prices 
+to.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The general implementation is as follows. Beta for each of the two funds is 
+estimated based on the first <code>window.units</code> gains. Initial allocations 
+are selected to achieve portfolio beta of <code>target.beta</code>. If that is not 
+possible - for example, if <code>target.beta = 0</code> and both funds have 
+positive beta - then the action taken depends on what method is selected 
+through the <code>failure.method</code> input (details below).
+</p>
+<p>Assuming the target beta is attainable, the function moves over 1 day, and 
+applies each fund's gains for that day. It then re-calculates each fund's 
+beta based on the <code>window.units</code>-width interval, and determines the 
+effective portfolio beta based on fund allocations and betas. If the 
+effective beta is outside of <code>[target.beta - tol, target.beta + tol]</code>, a 
+rebalancing trade is triggered. As before, if the target beta cannot be 
+achieved, certain actions are taken depending on the selected method.
+</p>
+<p>When outside of a trade because the target beta could not be achieved, the 
+function attempts to rebalance each time it shifts over to a new day, 
+regardless of the effective portfolio beta.
+</p>
+<p>When <code>failure.method = "cash"</code>, the entire portfolio balance is 
+allocated to cash when the target beta cannot be achieved.
+</p>
+<p>When <code>failure.method = "fund1"</code> (or <code>"fund2"</code>), the entire 
+portfolio balance is allocated to the first (or second) fund when the target 
+beta cannot be achieved.
+</p>
+<p>When <code>failure.method = "fund1.maxall"</code> (or <code>"fund2.maxall"</code>), when 
+the target beta cannot be achieved, fund 1 (or fund 2) is combined with cash, 
+with the fund 1 (fund 2) allocation as high as possible while staying within 
+<code>maxall.tol</code> of <code>target.beta</code>.
+</p>
+<p>When <code>failure.method = "inverse1"</code> (or <code>"inverse2"</code>), an inverse 
+version of the first (or second) fund is used when the target beta cannot be 
+achieved. In many cases where the target beta cannot be achieved with the two 
+funds, it can be achieved with an inverse version of one and the other. If 
+the target beta still cannot be achieved, the entire portfolio balance is 
+allocated to cash.
+</p>
+<p>When <code>failure.method = "closer"</code>, the entire portfolio balance is 
+allocated to whichever fund has a beta closer to <code>target.beta</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>For each method, a 4-element list containing: 
+</p>
+
+<ol>
+<li>
+<p> Numeric matrix named <code>fund.balances</code> giving fund balances over 
+time. 
+</p>
+</li>
+<li>
+<p> Numeric matrix named <code>fund.betas</code> giving fund betas over time. 
+</p>
+</li>
+<li>
+<p> Numeric vector named <code>effective.betas</code> giving effective portfolio 
+beta over time. 
+</p>
+</li>
+<li>
+<p> Numeric value named <code>trades</code> giving the total number of trades 
+executed.
+</p>
+</li>
+</ol>
+<h3>References</h3>
+
+<p>Ryan, J.A. and Ulrich, J.M. (2017) quantmod: Quantitative Financial Modelling 
+Framework. R package version 0.4-12, 
+<a href="https://CRAN.R-project.org/package=quantmod">https://CRAN.R-project.org/package=quantmod</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Backtest zero-beta UPRO/VBLTX strategy
+beta0 &lt;- targetbeta_twofunds(tickers = c("UPRO", "VBLTX"), target.beta = 0)
+plot(beta0$fund.balances[, "Portfolio"])
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

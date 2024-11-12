@@ -1,0 +1,192 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim_functional_process</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Simulation of unconditional or conditional functional spatial process.
+</h2>
+
+<h3>Description</h3>
+
+<p>Given a variogram model, this functions simulates several realizations of a functional spatial process. This simulation can be conditioned to observed data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim_functional_process(nsims,variograms,nbasis,coords,data = NULL,
+                      data_coords = NULL,basis = NULL,mu = NULL,L = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>nsims</code></td>
+<td>
+<p>Integer giving the number of curves to simulate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variograms</code></td>
+<td>
+<p><code>gstat::gstatVariogram</code> or <code>list</code> of them giving the variogram model for each score. If only one is provided, it will be recycled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nbasis</code></td>
+<td>
+<p>Integer giving the number of basis functions on which the process is going to be projected.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>Gridded <code>sp::SpatialPoints</code> or <code>sp::SpatialPixels</code>, or array coordinates of the curves that are going to be simulated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p><code>fda::fd</code> object containing the observed curves for conditional simulation. If data is not provided, inconditional simulation is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data_coords</code></td>
+<td>
+<p><code>sp::SpatialPoints</code> or array coordinates of the observed data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>basis</code></td>
+<td>
+<p>Character giving the basis of functions (only for inconditional simulation) (nbasis must be provided).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p><code>fda::fd</code> object of the mean function of the process, default is zero. Only used in unconditional simulation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>L</code></td>
+<td>
+<p>Limits of the symetric interval centered on zero that is the domain of the basis that is going to be created in unconditional simulation case.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>When <code>data</code> is passed, conditional simulation is performed. That means that each simulated realization of the process interpolated the observed curves in <code>data</code>. If <code>data</code> is <code>NULL</code>, the realizations of the process are simulated without imterpolation restrictions.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of <code>nsims</code> <code>SpatFD</code> objects each one with as much curves as points are in <code>coords</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Samuel Sánchez Gutiérrez <a href="mailto:ssanchezgu@unal.edu.co">ssanchezgu@unal.edu.co</a>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Bohorquez, M., Giraldo, R. &amp; Mateu, J. Multivariate functional random fields: prediction and optimal sampling. Stoch Environ Res Risk Assess 31, 53–70 (2017). https://doi.org/10.1007/s00477-016-1266-y
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>generate_basis</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(gstat)
+library(fda)
+library(sp)
+
+data("CanadianWeather")
+canada.CRS &lt;- CRS("+init=epsg:4608")
+coords &lt;- SpatialPoints(CanadianWeather$coordinates,
+                        proj4string = CRS("+init=epsg:4326"))
+coords &lt;- spTransform(coords,canada.CRS)
+obs &lt;- CanadianWeather$dailyAv[,,1] # Temperature
+
+Lfd_obj &lt;- int2Lfd(m = 2)
+create.bspline.basis(rangeval = c(1,365),
+                     nbasis = 40, norder = 4) -&gt; mi.base
+mi.fdPar &lt;- fdPar(mi.base, Lfd_obj, lambda = 7.389)
+mi.fd &lt;- smooth.basis(argvals = 1:365,
+                      y = obs, fdParobj = mi.fdPar)
+
+nbasis &lt;- 5
+canada &lt;- mi.fd$fd
+canada.pca &lt;- pca.fd(canada,nharm = 10)
+base_ort &lt;- canada.pca$harmonics[1:nbasis]
+canada_mean &lt;- canada.pca$meanfd
+
+formula2fd &lt;- function(rango, expresion) {
+  # Generate grid
+  n &lt;- 500  # length of the grid
+  x &lt;- seq(rango[1], rango[2], length.out = n)
+  
+  # evaluate expression on the grid
+  y_vals &lt;- eval(parse(text = expresion))
+  
+  # convert to fd
+  basis &lt;- create.bspline.basis(rangeval = rango, nbasis = 30)
+  fd_obj &lt;- Data2fd(x, y_vals,basisobj = basis)
+  
+  return(fd_obj)
+}
+media &lt;- formula2fd(c(-1,1),"3*sin(x*4)")
+
+# No conditional
+vario &lt;- vgm(.25, "Exp", .5, .05)
+nbasis &lt;- 6
+sims &lt;- sim_functional_process(10,vario,nbasis,coords,basis = 'Legendre',mu = media)
+class(sims)
+length(sims)
+
+class(sims[[1]])
+# plot(sims[[3]][[1]]$data_fd)
+
+sims &lt;- sim_functional_process(10,vario,nbasis,coords,basis = 'Legendre')
+class(sims)
+length(sims)
+class(sims[[1]])
+# plot(sims[[3]][[1]]$data_fd)
+
+# Conditional
+vario &lt;- vgm(100, "Exp", 900, 10)
+new_coords &lt;- spsample(coords,100,type = "regular")
+gridded(new_coords) &lt;- TRUE
+length(new_coords)
+a &lt;- sim_functional_process(10,vario,nbasis,new_coords,canada,coords)
+class(a)
+length(a)
+class(a[[1]])
+#plot(a[[1]][[1]]$data_fd)
+
+vario &lt;- vgm(100, "Wav", 900, 10)
+a &lt;- sim_functional_process(10,vario,nbasis,new_coords,canada,coords)
+class(a)
+length(a)
+class(a[[1]])
+#plot(a[[1]][[1]]$data_fd)
+
+</code></pre>
+
+
+</div>

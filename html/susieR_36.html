@@ -1,0 +1,661 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>susie</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sum of Single Effects (SuSiE) Regression</h2>
+
+<h3>Description</h3>
+
+<p>Performs a sparse Bayesian multiple linear regression
+of y on X, using the "Sum of Single Effects" model from Wang et al
+(2020). In brief, this function fits the regression model <code class="reqn">y =
+  \mu + X b + e</code>, where elements of <code class="reqn">e</code> are <em>i.i.d.</em> normal
+with zero mean and variance <code>residual_variance</code>, <code class="reqn">\mu</code> is
+an intercept term and <code class="reqn">b</code> is a vector of length p representing
+the effects to be estimated. The “susie assumption” is that
+<code class="reqn">b = \sum_{l=1}^L b_l</code> where each <code class="reqn">b_l</code> is a vector of
+length p with exactly one non-zero element. The prior on the
+non-zero element is normal with zero mean and variance <code>var(y)
+  * scaled_prior_variance</code>. The value of <code>L</code> is fixed, and
+should be chosen to provide a reasonable upper bound on the number
+of non-zero effects to be detected. Typically, the hyperparameters
+<code>residual_variance</code> and <code>scaled_prior_variance</code> will be
+estimated during model fitting, although they can also be fixed as
+specified by the user. See functions <code>susie_get_cs</code> and
+other functions of form <code>susie_get_*</code> to extract the most
+commonly-used results from a susie fit.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">susie(
+  X,
+  y,
+  L = min(10, ncol(X)),
+  scaled_prior_variance = 0.2,
+  residual_variance = NULL,
+  prior_weights = NULL,
+  null_weight = 0,
+  standardize = TRUE,
+  intercept = TRUE,
+  estimate_residual_variance = TRUE,
+  estimate_prior_variance = TRUE,
+  estimate_prior_method = c("optim", "EM", "simple"),
+  check_null_threshold = 0,
+  prior_tol = 1e-09,
+  residual_variance_upperbound = Inf,
+  s_init = NULL,
+  coverage = 0.95,
+  min_abs_corr = 0.5,
+  compute_univariate_zscore = FALSE,
+  na.rm = FALSE,
+  max_iter = 100,
+  tol = 0.001,
+  verbose = FALSE,
+  track_fit = FALSE,
+  residual_variance_lowerbound = var(drop(y))/10000,
+  refine = FALSE,
+  n_purity = 100
+)
+
+susie_suff_stat(
+  XtX,
+  Xty,
+  yty,
+  n,
+  X_colmeans = NA,
+  y_mean = NA,
+  maf = NULL,
+  maf_thresh = 0,
+  L = 10,
+  scaled_prior_variance = 0.2,
+  residual_variance = NULL,
+  estimate_residual_variance = TRUE,
+  estimate_prior_variance = TRUE,
+  estimate_prior_method = c("optim", "EM", "simple"),
+  check_null_threshold = 0,
+  prior_tol = 1e-09,
+  r_tol = 1e-08,
+  prior_weights = NULL,
+  null_weight = 0,
+  standardize = TRUE,
+  max_iter = 100,
+  s_init = NULL,
+  coverage = 0.95,
+  min_abs_corr = 0.5,
+  tol = 0.001,
+  verbose = FALSE,
+  track_fit = FALSE,
+  check_input = FALSE,
+  refine = FALSE,
+  check_prior = FALSE,
+  n_purity = 100,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>An n by p matrix of covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>The observed responses, a vector of length n.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>L</code></td>
+<td>
+<p>Maximum number of non-zero effects in the susie
+regression model. If L is larger than the number of covariates, p,
+L is set to p.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaled_prior_variance</code></td>
+<td>
+<p>The prior variance, divided by
+<code>var(y)</code> (or by <code>(1/(n-1))yty</code> for
+<code>susie_suff_stat</code>); that is, the prior variance of each
+non-zero element of b is <code>var(y) * scaled_prior_variance</code>. The
+value provided should be either a scalar or a vector of length
+<code>L</code>. If <code>estimate_prior_variance = TRUE</code>, this provides
+initial estimates of the prior variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residual_variance</code></td>
+<td>
+<p>Variance of the residual. If
+<code>estimate_residual_variance = TRUE</code>, this value provides the
+initial estimate of the residual variance. By default, it is set to
+<code>var(y)</code> in <code>susie</code> and <code>(1/(n-1))yty</code> in
+<code>susie_suff_stat</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_weights</code></td>
+<td>
+<p>A vector of length p, in which each entry
+gives the prior probability that corresponding column of X has a
+nonzero effect on the outcome, y.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>null_weight</code></td>
+<td>
+<p>Prior probability of no effect (a number between
+0 and 1, and cannot be exactly 1).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>standardize</code></td>
+<td>
+<p>If <code>standardize = TRUE</code>, standardize the
+columns of X to unit variance prior to fitting (or equivalently
+standardize XtX and Xty to have the same effect). Note that
+<code>scaled_prior_variance</code> specifies the prior on the
+coefficients of X <em>after</em> standardization (if it is
+performed). If you do not standardize, you may need to think more
+carefully about specifying <code>scaled_prior_variance</code>. Whatever
+your choice, the coefficients returned by <code>coef</code> are given for
+<code>X</code> on the original input scale. Any column of <code>X</code> that
+has zero variance is not standardized.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>If <code>intercept = TRUE</code>, the intercept is
+fitted; it <code>intercept = FALSE</code>, the intercept is set to
+zero. Setting <code>intercept = FALSE</code> is generally not
+recommended.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimate_residual_variance</code></td>
+<td>
+<p>If
+<code>estimate_residual_variance = TRUE</code>, the residual variance is
+estimated, using <code>residual_variance</code> as an initial value. If
+<code>estimate_residual_variance = FALSE</code>, the residual variance is
+fixed to the value supplied by <code>residual_variance</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimate_prior_variance</code></td>
+<td>
+<p>If <code>estimate_prior_variance =
+TRUE</code>, the prior variance is estimated (this is a separate
+parameter for each of the L effects). If provided,
+<code>scaled_prior_variance</code> is then used as an initial value for
+the optimization. When <code>estimate_prior_variance = FALSE</code>, the
+prior variance for each of the L effects is determined by the
+value supplied to <code>scaled_prior_variance</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimate_prior_method</code></td>
+<td>
+<p>The method used for estimating prior
+variance. When <code>estimate_prior_method = "simple"</code> is used, the
+likelihood at the specified prior variance is compared to the
+likelihood at a variance of zero, and the setting with the larger
+likelihood is retained.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_null_threshold</code></td>
+<td>
+<p>When the prior variance is estimated,
+compare the estimate with the null, and set the prior variance to
+zero unless the log-likelihood using the estimate is larger by this
+threshold amount. For example, if you set
+<code>check_null_threshold = 0.1</code>, this will "nudge" the estimate
+towards zero when the difference in log-likelihoods is small. A
+note of caution that setting this to a value greater than zero may
+lead the IBSS fitting procedure to occasionally decrease the ELBO.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_tol</code></td>
+<td>
+<p>When the prior variance is estimated, compare the
+estimated value to <code>prior_tol</code> at the end of the computation,
+and exclude a single effect from PIP computation if the estimated
+prior variance is smaller than this tolerance value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residual_variance_upperbound</code></td>
+<td>
+<p>Upper limit on the estimated
+residual variance. It is only relevant when
+<code>estimate_residual_variance = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s_init</code></td>
+<td>
+<p>A previous susie fit with which to initialize.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coverage</code></td>
+<td>
+<p>A number between 0 and 1 specifying the
+“coverage” of the estimated confidence sets.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_abs_corr</code></td>
+<td>
+<p>Minimum absolute correlation allowed in a
+credible set. The default, 0.5, corresponds to a squared
+correlation of 0.25, which is a commonly used threshold for
+genotype data in genetic studies.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compute_univariate_zscore</code></td>
+<td>
+<p>If <code>compute_univariate_zscore
+= TRUE</code>, the univariate regression z-scores are outputted for each
+variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>Drop any missing values in y from both X and y.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>Maximum number of IBSS iterations to perform.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>A small, non-negative number specifying the convergence
+tolerance for the IBSS fitting procedure. The fitting procedure
+will halt when the difference in the variational lower bound, or
+“ELBO” (the objective function to be maximized), is
+less than <code>tol</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>If <code>verbose = TRUE</code>, the algorithm's progress,
+and a summary of the optimization settings, are printed to the
+console.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>track_fit</code></td>
+<td>
+<p>If <code>track_fit = TRUE</code>, <code>trace</code>
+is also returned containing detailed information about the
+estimates at each iteration of the IBSS fitting procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residual_variance_lowerbound</code></td>
+<td>
+<p>Lower limit on the estimated
+residual variance. It is only relevant when
+<code>estimate_residual_variance = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>refine</code></td>
+<td>
+<p>If <code>refine = TRUE</code>, then an additional
+iterative refinement procedure is used, after the IBSS algorithm,
+to check and escape from local optima (see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_purity</code></td>
+<td>
+<p>Passed as argument <code>n_purity</code> to
+<code>susie_get_cs</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>XtX</code></td>
+<td>
+<p>A p by p matrix <code class="reqn">X'X</code> in which the columns of X
+are centered to have mean zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Xty</code></td>
+<td>
+<p>A p-vector <code class="reqn">X'y</code> in which y and the columns of X are
+centered to have mean zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>yty</code></td>
+<td>
+<p>A scalar <code class="reqn">y'y</code> in which y is centered to have mean
+zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>The sample size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_colmeans</code></td>
+<td>
+<p>A p-vector of column means of <code>X</code>. If both
+<code>X_colmeans</code> and <code>y_mean</code> are provided, the intercept
+is estimated; otherwise, the intercept is NA.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_mean</code></td>
+<td>
+<p>A scalar containing the mean of <code>y</code>. If both
+<code>X_colmeans</code> and <code>y_mean</code> are provided, the intercept
+is estimated; otherwise, the intercept is NA.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maf</code></td>
+<td>
+<p>Minor allele frequency; to be used along with
+<code>maf_thresh</code> to filter input summary statistics.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maf_thresh</code></td>
+<td>
+<p>Variants having a minor allele frequency smaller
+than this threshold are not used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r_tol</code></td>
+<td>
+<p>Tolerance level for eigenvalue check of positive
+semidefinite matrix of R.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_input</code></td>
+<td>
+<p>If <code>check_input = TRUE</code>,
+<code>susie_suff_stat</code> performs additional checks on <code>XtX</code> and
+<code>Xty</code>. The checks are: (1) check that <code>XtX</code> is positive
+semidefinite; (2) check that <code>Xty</code> is in the space spanned by
+the non-zero eigenvectors of <code>XtX</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_prior</code></td>
+<td>
+<p>If <code>check_prior = TRUE</code>, it checks if the
+estimated prior variance becomes unreasonably large (comparing with
+10 * max(abs(z))^2).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments to provide backward compatibility
+with earlier versions of <code>susie_suff_stat</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>susie</code> implements the IBSS algorithm
+from Wang et al (2020). The option <code>refine = TRUE</code> implements
+an additional step to help reduce problems caused by convergence of
+the IBSS algorithm to poor local optima (which is rare in our
+experience, but can provide misleading results when it occurs). The
+refinement step incurs additional computational expense that
+increases with the number of CSs found in the initial run.
+</p>
+<p>The function <code>susie_suff_stat</code> implements essentially the same
+algorithms, but using sufficient statistics. (The statistics are
+sufficient for the regression coefficients <code class="reqn">b</code>, but not for the
+intercept <code class="reqn">\mu</code>; see below for how the intercept is treated.)
+If the sufficient statistics are computed correctly then the
+results from <code>susie_suff_stat</code> should be the same as (or very
+similar to) <code>susie</code>, although runtimes will differ as
+discussed below. The sufficient statistics are the sample
+size <code>n</code>, and then the p by p matrix <code class="reqn">X'X</code>, the p-vector
+<code class="reqn">X'y</code>, and the sum of squared y values <code class="reqn">y'y</code>, all computed
+after centering the columns of <code class="reqn">X</code> and the vector <code class="reqn">y</code> to
+have mean 0; these can be computed using <code>compute_suff_stat</code>.
+</p>
+<p>The handling of the intercept term in <code>susie_suff_stat</code> needs
+some additional explanation. Computing the summary data after
+centering <code>X</code> and <code>y</code> effectively ensures that the
+resulting posterior quantities for <code class="reqn">b</code> allow for an intercept
+in the model; however, the actual value of the intercept cannot be
+estimated from these centered data. To estimate the intercept term
+the user must also provide the column means of <code class="reqn">X</code> and the mean
+of <code class="reqn">y</code> (<code>X_colmeans</code> and <code>y_mean</code>). If these are not
+provided, they are treated as <code>NA</code>, which results in the
+intercept being <code>NA</code>. If for some reason you prefer to have
+the intercept be 0 instead of <code>NA</code> then set
+<code>X_colmeans = 0,y_mean = 0</code>.
+</p>
+<p>For completeness, we note that if <code>susie_suff_stat</code> is run on
+<code class="reqn">X'X, X'y, y'y</code> computed <em>without</em> centering <code class="reqn">X</code> and
+<code class="reqn">y</code>, and with <code>X_colmeans = 0,y_mean = 0</code>, this is
+equivalent to <code>susie</code> applied to <code class="reqn">X, y</code> with
+<code>intercept = FALSE</code> (although results may differ due to
+different initializations of <code>residual_variance</code> and
+<code>scaled_prior_variance</code>). However, this usage is not
+recommended for for most situations.
+</p>
+<p>The computational complexity of <code>susie</code> is <code class="reqn">O(npL)</code> per
+iteration, whereas <code>susie_suff_stat</code> is <code class="reqn">O(p^2L)</code> per
+iteration (not including the cost of computing the sufficient
+statistics, which is dominated by the <code class="reqn">O(np^2)</code> cost of
+computing <code class="reqn">X'X</code>). Because of the cost of computing <code class="reqn">X'X</code>,
+<code>susie</code> will usually be faster. However, if <code class="reqn">n &gt;&gt; p</code>,
+and/or if <code class="reqn">X'X</code> is already computed, then
+<code>susie_suff_stat</code> may be faster.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>"susie"</code> object with some or all of the following
+elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>An L by p matrix of posterior inclusion probabilites.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>An L by p matrix of posterior means, conditional on
+inclusion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu2</code></td>
+<td>
+<p>An L by p matrix of posterior second moments,
+conditional on inclusion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Xr</code></td>
+<td>
+<p>A vector of length n, equal to <code>X %*% colSums(alpha
+  * mu)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lbf</code></td>
+<td>
+<p>log-Bayes Factor for each single effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lbf_variable</code></td>
+<td>
+<p>log-Bayes Factor for each variable and single effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>Intercept (fixed or estimated).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma2</code></td>
+<td>
+<p>Residual variance (fixed or estimated).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>Prior variance of the non-zero elements of b, equal to
+<code>scaled_prior_variance * var(y)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>elbo</code></td>
+<td>
+<p>The value of the variational lower bound, or
+“ELBO” (objective function to be maximized), achieved at
+each iteration of the IBSS fitting procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fitted</code></td>
+<td>
+<p>Vector of length n containing the fitted values of
+the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sets</code></td>
+<td>
+<p>Credible sets estimated from model fit; see
+<code>susie_get_cs</code> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pip</code></td>
+<td>
+<p>A vector of length p giving the (marginal) posterior
+inclusion probabilities for all p covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z</code></td>
+<td>
+<p>A vector of univariate z-scores.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>niter</code></td>
+<td>
+<p>Number of IBSS iterations that were performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>converged</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> indicating whether
+the IBSS converged to a solution within the chosen tolerance
+level.</p>
+</td>
+</tr>
+</table>
+<p><code>susie_suff_stat</code> returns also outputs:
+</p>
+<table><tr style="vertical-align: top;">
+<td><code>XtXr</code></td>
+<td>
+<p>A p-vector of <code>t(X)</code> times the fitted values,
+<code>X %*% colSums(alpha*mu)</code>.</p>
+</td>
+</tr></table>
+<h3>References</h3>
+
+<p>G. Wang, A. Sarkar, P. Carbonetto and M. Stephens (2020). A simple
+new approach to variable selection in regression, with application
+to genetic fine-mapping. <em>Journal of the Royal Statistical
+Society, Series B</em> <b>82</b>, 1273-1300 doi: <a href="https://doi.org/10.1101/501114">10.1101/501114</a>.
+</p>
+<p>Y. Zou, P. Carbonetto, G. Wang, G and M. Stephens
+(2022). Fine-mapping from summary data with the “Sum of
+Single Effects” model. <em>PLoS Genetics</em> <b>18</b>,
+e1010299. doi: <a href="https://doi.org/10.1371/journal.pgen.1010299">10.1371/journal.pgen.1010299</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>susie_get_cs</code> and other <code>susie_get_*</code>
+functions for extracting results; <code>susie_trendfilter</code> for
+applying the SuSiE model to non-parametric regression, particularly
+changepoint problems, and <code>susie_rss</code> for applying the
+SuSiE model when one only has access to limited summary statistics
+related to <code class="reqn">X</code> and <code class="reqn">y</code> (typically in genetic applications).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># susie example
+set.seed(1)
+n = 1000
+p = 1000
+beta = rep(0,p)
+beta[1:4] = 1
+X = matrix(rnorm(n*p),nrow = n,ncol = p)
+X = scale(X,center = TRUE,scale = TRUE)
+y = drop(X %*% beta + rnorm(n))
+res1 = susie(X,y,L = 10)
+susie_get_cs(res1) # extract credible sets from fit
+plot(beta,coef(res1)[-1])
+abline(a = 0,b = 1,col = "skyblue",lty = "dashed")
+plot(y,predict(res1))
+abline(a = 0,b = 1,col = "skyblue",lty = "dashed")
+
+# susie_suff_stat example
+input_ss = compute_suff_stat(X,y)
+res2 = with(input_ss,
+            susie_suff_stat(XtX = XtX,Xty = Xty,yty = yty,n = n,
+                            X_colmeans = X_colmeans,y_mean = y_mean,L = 10))
+plot(coef(res1),coef(res2))
+abline(a = 0,b = 1,col = "skyblue",lty = "dashed")
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SRCSranks</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Computes the ranks of all the algorithms from their (repeated) results measurements after
+grouping them by several factors combined simultaneosly.</h2>
+
+<h3>Description</h3>
+
+<p>Computes the ranks of all the algorithms from their (repeated) results measurements after
+grouping them by several factors combined simultaneosly.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SRCSranks(data, params, target, performance, pairing.col = NULL,
+  test = c("wilcoxon", "t", "tukeyHSD", "custom"), fun = NULL,
+  correction = p.adjust.methods, alpha = 0.05, maximize = TRUE,
+  ncores = 1, paired = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataframe object containing (at least) two columns for the target factor and the performance measure
+Additional columns are aimed at grouping the problem configuration by (at most) 3 different factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>params</code></td>
+<td>
+<p>A vector with the column names in <code>data</code> that define a problem configuration. If not already factor objects, those columns will be converted to
+factors inside the function (note this does not alter the ordering of the levels in case it was explicitly set before the call).
+Although an arbitrary number of columns can be passed, if the user intends to plot the ranks computed by this function, at most three columns should be passed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target</code></td>
+<td>
+<p>Name of the target column of <code>data</code>. For each combination of the values of <code>params</code>, the ranks are obtained by
+comparing the repeated measurements of <code>performance</code> associated to each level of the <code>target</code> column.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>performance</code></td>
+<td>
+<p>Name of the column of <code>data</code> containing the repeated performance measurements. If given a vector of strings,
+then a separate ranking will be computed for each of the elements, and no p-values, mean or stdev columns will be returned, just the rankings together with the factors
+to indicate which problem configuration corresponds to the rank.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pairing.col</code></td>
+<td>
+<p>Name of the column which links together the paired samples, in case we have set <code>paired = TRUE</code>. Otherwise, this argument will be ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test</code></td>
+<td>
+<p>The statistical test to be performed to compare the performance of every level of the target variable at each problem configuration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>Function performing a custom statistical test, if <code>test = "custom"</code>; otherwise, this argument is ignored. The function must receive exactly
+two vectors (the first is a vector of real numbers and the second is a factor with the level to which each real number corresponds)
+and must return a <code>pairwise.htest</code> object with a <code>p.value</code> field. This must be an (N-1)x(N-1) lower-triangular matrix, with exactly the same structure
+as those returned in the <code>p.value</code> field by a call to <code>pairwise.wilcox.test</code> or <code>pairwise.t.test</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>correction</code></td>
+<td>
+<p>The p-value adjust method. Must be one of "holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none" (defaults to "holm").
+This parameter will be ignored if <code>test = "tukeyHSD"</code> as Tukey HSD incorporates its own correction procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Significance threshold for pairwise comparisons. Defaults to 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maximize</code></td>
+<td>
+<p>Boolean indicating whether the higher the performance measure, the better (default), or vice-versa.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>Number of physical CPUs available for computations. If <code>ncores</code> &gt; 1, parallelization is achieved through the <code>parallel</code> package and
+is applied to the computation of ranks for more than one problem configuration at the same time. Defaults to 1 (sequential).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>paired</code></td>
+<td>
+<p>Boolean indicating whether samples in the same problem configuration, which only differ in the target value, and in the same relative position (row) within their
+respective target values are paired or not. Defaults to FALSE. This should be set to TRUE, for instance, in Machine Learning problems in which, for a fixed problem configuration,
+the target variable (usually the algorithms being compared) is associated to a number of samples (results) coming from the Cross Validation process. If a K-fold CV is being done,
+then we would have, for a given problem configuration, K rows for each of the algorithms being compared, all of them identical in all the columns except for the performance column.
+In that case, the performance of the i-th row (1 &lt;= i &lt;= K) of all of those batches (groups of K rows) for that fixed problem configuration would be related,
+hence every pairwise comparison should take into account paired samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further arguments to be passed to the function <code>fun</code> that is called for every pairwise comparison.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>If <code>length(performance)</code> equals 1, an object of classes <code>c("SRCS", "data.frame")</code> with the following columns:
+- A set of columns with the same names as the <code>params</code> and <code>target</code> arguments.
+- Two columns called "mean" and "sd" containing the mean of the repeated peformance measurements for each problem configuration and the standard deviation.
+- One column named "rank" with the actual rank of each level of the <code>target</code> variable within that problem configuration. The lower the rank, the better the algorithm.
+- |target| additional columns containing the p-values resulting of the comparison between the algorithm and the rest for the same problem configuration,
+where |target| is the number of levels of the target variable.
+</p>
+<p>If <code>length(performance)</code> &gt; 1 (let <code>P = length(performance)</code> for the explanation that follows), an object of classes <code>c("SRCS","data.frame")</code>
+with the following columns:
+- A set of columns with the same names as the <code>params</code> and <code>target</code> arguments.
+- One column per element of the <code>performance</code> vector, named "rank1", ..., "rankP", containing, for each performance measure,
+the rank of each level of the <code>target</code> variable within that problem configuration for that performance measure.
+The higher the rank, the better the algorithm.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Although it has no effect on the results of <code>SRCSranks</code>, the user should preferably have set the order
+of the factor levels explicitly by calling function <code>levels</code> before calling this function, specially if he intends to subsequently apply <code>plot</code> to the results,
+because the level order does affect the way graphics are arranged in the plot.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.SRCS</code> for a full working example of <code>SRCSranks</code> and plotting facilities. Also
+<code>pairwise.wilcox.test</code>, <code>t.test</code>, <code>pairwise.t.test</code>, <code>TukeyHSD</code>, <code>p.adjust.methods</code>
+</p>
+
+
+</div>

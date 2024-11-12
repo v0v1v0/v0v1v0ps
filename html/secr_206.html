@@ -1,0 +1,211 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Parallel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Multi-core Processing </h2>
+
+<h3>Description</h3>
+
+<p>From version 4.0 <span class="pkg">secr</span> uses multi-threading in C++ (package <span class="pkg">RcppParallel</span>, Allaire et al. 2021) to speed likelihood evaluation and hence model fitting in <code>secr.fit</code>. Detection histories are distributed over threads. Setting <code>ncores = NULL</code> in functions with multi-threading uses the existing value from the environment variable RCPP_PARALLEL_NUM_THREADS (see <code>setNumThreads</code>).
+</p>
+<p>These functions use multi-threading and call <code>setNumThreads</code> internally:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+  <code>autoini</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>confint.secr</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>derived.secr</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>esa.secr</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>fxi</code> and related functions </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>pdot</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>region.N</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>score.test</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>secr.fit</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>These functions use multi-threading without calling <code>setNumThreads</code>:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+  <code>LLsurface.secr</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>mask.check</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>expected.n</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>secr.test</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  <code>sim.secr</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>Other functions may use multithreading indirectly through a call to one of these functions. Examples are <code>suggest.buffer</code> (<code>autoini</code>), <code>esaPlot</code> (<code>pdot</code>), and <code>bias.D</code> (<code>pdot</code>).
+</p>
+<p>NOTE: The mechanism for setting the number of threads changed between versions 4.1.0 and 4.2.0. The default number of cores is now capped at 2 to meet CRAN requirements. Setting <code>ncores = NULL</code> previously specified one less than the maximum number of cores.
+</p>
+<p>Earlier versions of <span class="pkg">secr</span> made more limited use of multiple cores (CPUs)
+through the package <span class="pkg">parallel</span>. The functions <code>par.secr.fit</code>, <code>par.derived</code>, and   <code>par.region.N</code> are now deprecated because they were too slow. <code>list.secr.fit</code> replaces <code>par.secr.fit</code>
+</p>
+<p>‘Unit’ refers to the unit of work sent to each worker process. As a guide, a ‘large’ benefit means &gt;60% reduction in process time with
+4 CPUs.
+</p>
+<p><span class="pkg">parallel</span> offers several different mechanisms, bringing together
+the functionality of <span class="pkg">multicore</span> and <span class="pkg">snow</span>. The mechanism used
+by <span class="pkg">secr</span> is the simplest available, and is expected to work across all
+operating systems. Technically, it relies on Rscript and communication
+between the master and worker processes is <em>via</em> sockets. As stated
+in the <span class="pkg">parallel</span> documentation "Users of Windows and Mac OS X may
+expect pop-up dialog boxes from the firewall asking if an R process
+should accept incoming connections". You may possibly get warnings from R 
+about closing unused connections. These can safely be ignored.
+</p>
+<p>Use <code>parallel::detectCores()</code> to get
+an idea of how many cores are available on your machine; this may (in
+Windows) include virtual cores over and above the number of physical
+cores. See RShowDoc("parallel", package = "parallel") in core R for
+explanation.
+</p>
+<p>In <code>secr.fit</code> the output component ‘proctime’ misrepresents the
+elapsed processing time when multiple cores are used.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>It appears that multicore operations in <span class="pkg">secr</span> using <span class="pkg">parallel</span> may fail if the packages <span class="pkg">snow</span> and <span class="pkg">snowfall</span> are also loaded. The error message is obscure:
+</p>
+<p>“Error in UseMethod("sendData") : 
+no applicable method for 'sendData' applied to an object of class "SOCK0node"”
+</p>
+
+
+<h3>References</h3>
+
+<p>Allaire, J. J., Francois, R., Ushey, K., Vandenbrouck, G., Geelnard, M. and Intel (2021)
+RcppParallel: Parallel Programming Tools for 'Rcpp'. R package version 5.1.2.
+https://CRAN.R-project.org/package=RcppParallel.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+sessionInfo()
+# R version 4.3.0 (2023-04-21 ucrt)
+# Platform: x86_64-w64-mingw32/x64 (64-bit)
+# Running under: Windows 11 x64 (build 22621)
+# on Dell-XPS 8950 Intel i7-12700K
+# ...
+# see stackoverflow suggestion for microbenchmark list argument
+# https://stackoverflow.com/questions/32950881/how-to-use-list-argument-in-microbenchmark
+
+library(microbenchmark)
+options(digits = 4)
+
+## benefit from multi-threading in secr.fit
+
+jobs &lt;- lapply(seq(2,8,2), function(nc) 
+    bquote(suppressWarnings(secr.fit(captdata, trace = FALSE, ncores = .(nc)))))
+microbenchmark(list = jobs, times = 10, unit = "seconds")
+# [edited output]
+# Unit: seconds
+# expr     min      lq   mean median     uq    max neval
+# ncores = 2 1.75880 2.27978 2.6680 2.7450 3.0960 3.4334    10
+# ncores = 4 1.13549 1.16280 1.6120 1.4431 2.0041 2.4018    10
+# ncores = 6 0.88003 0.98215 1.2333 1.1387 1.5175 1.6966    10
+# ncores = 8 0.78338 0.90033 1.5001 1.0406 1.2319 4.0669    10
+
+## sometimes (surprising) lack of benefit with ncores&gt;2
+
+msk &lt;- make.mask(traps(ovenCH[[1]]), buffer = 300, nx = 25)
+jobs &lt;- lapply(c(1,2,4,8), function(nc) 
+    bquote(secr.fit(ovenCH, trace = FALSE, ncores = .(nc), mask = msk)))
+microbenchmark(list = jobs, times = 10, unit = "seconds")
+# [edited output]
+# Unit: seconds
+# expr     min      lq   mean median     uq    max neval
+# ncores = 1 12.5010 13.4951 15.674 15.304 16.373 21.723    10
+# ncores = 2 10.0363 11.8634 14.407 13.726 16.782 22.966    10
+# ncores = 4  8.6335 10.3422 13.085 12.449 15.729 17.914    10
+# ncores = 8  8.5286  9.9008 10.751 10.736 10.796 14.885    10
+
+## and for simulation...
+
+jobs &lt;- lapply(seq(2,8,2), function(nc)
+    bquote(sim.secr(secrdemo.0, nsim = 20, tracelevel = 0,  ncores = .(nc))))
+microbenchmark(list = jobs, times = 10, unit = "seconds")
+# [edited output]
+# Unit: seconds
+# expr    min     lq   mean median     uq     max neval
+# ncores = 2 48.610 49.932 59.032 52.485 54.730 119.905    10
+# ncores = 4 29.480 29.996 30.524 30.471 31.418  31.612    10
+# ncores = 6 22.583 23.594 24.148 24.354 24.644  25.388    10
+# ncores = 8 19.924 20.651 25.581 21.002 21.696  51.920    10
+
+## and log-likelihood surface
+
+jobs &lt;- lapply(seq(2,8,2), function(nc) 
+    bquote(suppressMessages(LLsurface(secrdemo.0,  ncores = .(nc)))))
+microbenchmark(list = jobs, times = 10, unit = "seconds")
+# [edited output]
+# Unit: seconds
+# expr    min     lq   mean median     uq    max neval
+# ncores = 2 20.941 21.098 21.290 21.349 21.471 21.619    10
+# ncores = 4 14.982 15.125 15.303 15.263 15.449 15.689    10
+# ncores = 6 13.994 14.299 14.529 14.342 14.458 16.515    10
+# ncores = 8 13.597 13.805 13.955 13.921 14.128 14.353    10
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

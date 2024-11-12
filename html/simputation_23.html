@@ -1,0 +1,320 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>impute_hotdeck</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Hot deck imputation</h2>
+
+<h3>Description</h3>
+
+<p>Hot-deck imputation methods include random and sequential hot deck, 
+k-nearest neighbours imputation and predictive mean matching.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">impute_rhd(
+  dat,
+  formula,
+  pool = c("complete", "univariate", "multivariate"),
+  prob,
+  backend = getOption("simputation.hdbackend", default = c("simputation", "VIM")),
+  ...
+)
+
+impute_shd(
+  dat,
+  formula,
+  pool = c("complete", "univariate", "multivariate"),
+  order = c("locf", "nocb"),
+  backend = getOption("simputation.hdbackend", default = c("simputation", "VIM")),
+  ...
+)
+
+impute_pmm(
+  dat,
+  formula,
+  predictor = impute_lm,
+  pool = c("complete", "univariate", "multivariate"),
+  ...
+)
+
+impute_knn(
+  dat,
+  formula,
+  pool = c("complete", "univariate", "multivariate"),
+  k = 5,
+  backend = getOption("simputation.hdbackend", default = c("simputation", "VIM")),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dat</code></td>
+<td>
+<p><code>[data.frame]</code>, with variables to be imputed and their
+predictors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p><code>[formula]</code> imputation model description (see Details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pool</code></td>
+<td>
+<p><code>[character]</code> Specify donor pool when <code>backend="simputation"</code>
+</p>
+
+<ul>
+<li>
+<p><code>"complete"</code>. Only records for which the variables on the
+left-hand-side of the model formula are complete are used as donors. If a
+record has multiple missings, all imputations are taken from a single 
+donor.
+</p>
+</li>
+<li>
+<p><code>"univariate"</code>. Imputed variables are treated one by one and
+independently so the order of variable imputation is unimportant. If a 
+record has multiple missings, separate donors are drawn for each missing 
+value.
+</p>
+</li>
+<li>
+<p><code>"multivariate"</code>. A donor pool is created for each missing data 
+pattern. If a record has multiple missings, all imputations are taken from 
+a single donor.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prob</code></td>
+<td>
+<p><code>[numeric]</code> Sampling probability weights (passed through to
+<code>sample</code>). Must be of length <code>nrow(dat)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>backend</code></td>
+<td>
+<p><code>[character]</code> Choose the backend for imputation. If 
+<code>backend="VIM"</code> the variables used to sort the data (in case of
+sequential hot deck) may not coincide with imputed variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments passed to <code>VIM::hotdeck</code>
+if <code>VIM</code> is chosen as backend, otherwise they are passed to
+</p>
+
+<ul>
+<li>
+<p><code>order</code> for <code>impute_shd</code> and
+<code>backend="simputation"</code> 
+</p>
+</li>
+<li>
+<p><code>VIM::hotdeck</code>
+for <code>impute_shd</code> and <code>impute_rhd</code> when <code>backend="VIM"</code>.
+</p>
+</li>
+<li>
+<p><code>VIM:kNN</code> for <code>impute_knn</code> when 
+<code>backend="VIM"</code>
+</p>
+</li>
+<li>
+<p>The <code>predictor</code> function for <code>impute_pmm</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>order</code></td>
+<td>
+<p><code>[character]</code> Last Observation Carried Forward or Next
+Observarion Carried Backward. Only for <code>backend="simputation"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predictor</code></td>
+<td>
+<p><code>[function]</code> Imputation to use for predictive part in
+predictive mean matching. Any of the <code>impute_</code> functions of this
+package (it makes no sense to use a hot-deck imputation).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p><code>[numeric]</code> Number of nearest neighbours to draw the donor from.</p>
+</td>
+</tr>
+</table>
+<h3>Model specification</h3>
+
+<p>Formulas are of the form
+</p>
+<p><code>IMPUTED_VARIABLES ~ MODEL_SPECIFICATION [ | GROUPING_VARIABLES ] </code>
+</p>
+<p>The left-hand-side of the formula object lists the variable or variables to 
+be imputed. The interpretation of the independent variables on the
+right-hand-side depends on the imputation method.
+</p>
+
+<ul>
+<li>
+<p><code>impute_rhd</code> Variables in <code>MODEL_SPECIFICATION</code> and/or 
+<code>GROUPING_VARIABLES</code> are used to split the data set into groups prior to
+imputation. Use <code>~ 1</code> to specify that no grouping is to be applied.
+</p>
+</li>
+<li>
+<p><code>impute_shd</code> Variables in <code>MODEL_SPECIFICATION</code> are used to 
+sort the data. When multiple variables are specified, each variable after
+the first serves as tie-breaker for the previous one.
+</p>
+</li>
+<li>
+<p><code>impute_knn</code> The predictors are used to determine Gower's distance
+between records (see <code>gower_topn</code>). This may include the
+variables to be imputed..
+</p>
+</li>
+<li>
+<p><code>impute_pmm</code> Predictive mean matching. The
+<code>MODEL_SPECIFICATION</code> is passed through to the <code>predictor</code>
+function.
+</p>
+</li>
+</ul>
+<p>If grouping variables are specified, the data set is split according to the
+values of those variables, and model estimation and imputation occur
+independently for each group.
+</p>
+<p>Grouping using <code>dplyr::group_by</code> is also supported. If groups are 
+defined in both the formula and using <code>dplyr::group_by</code>, the data is 
+grouped by the union of grouping variables. Any missing value in one of the 
+grouping variables results in an error.
+</p>
+
+
+<h3>Methodology</h3>
+
+<p><b>Random hot deck imputation</b> with <code>impute_rhd</code> can be applied to
+numeric, categorical or mixed data. A missing value is copied from a sampled
+record. Optionally samples are taken within a group, or with non-uniform
+sampling probabilities. See Andridge and Little (2010) for an overview
+of hot deck imputation methods.
+</p>
+<p><b>Sequential hot deck imputation</b> with <code>impute_rhd</code> can be applied
+to numeric, categorical, or mixed data. The dataset is sorted using the
+‘predictor variables’. Missing values or combinations thereof are copied
+from the previous record where the value(s) are available in the case
+of LOCF and from the next record in the case of NOCF. 
+</p>
+<p><b>Predictive mean matching</b> with <code>impute_pmm</code> can be applied to
+numeric data. Missing values or combinations thereof are first imputed using
+a predictive model. Next, these predictions are replaced with observed
+(combinations of) values nearest to the prediction. The nearest value is the
+observed value with the smallest absolute deviation from the prediction.
+</p>
+<p><b>K-nearest neighbour imputation</b> with <code>impute_knn</code> can be applied 
+to numeric, categorical, or mixed data. For each record containing missing 
+values, the <code class="reqn">k</code> most similar completed records are determined based on
+Gower's (1977) similarity coefficient. From these records the actual donor is
+sampled.
+</p>
+
+
+<h3>Using the VIM backend</h3>
+
+<p>The <a href="https://CRAN.R-project.org/package=VIM">VIM</a> package has efficient
+implementations of several popular imputation methods. In particular, its 
+random and sequential hotdeck implementation is faster and more
+memory-efficient than that of the current package. Moreover, <span class="pkg">VIM</span> offers
+more fine-grained control over the imputation process then <span class="pkg">simputation</span>.
+</p>
+<p>If you have this package installed, it can be used by setting
+<code>backend="VIM"</code> for functions supporting this option. Alternatively, one
+can set <code>options(simputation.hdbackend="VIM")</code> so it becomes the
+default. 
+</p>
+<p>Simputation will map the simputation call to a function in the
+<span class="pkg">VIM</span> package. In particular:
+</p>
+
+<ul>
+<li>
+<p><code>impute_rhd</code> is mapped to <code>VIM::hotdeck</code> where imputed
+variables are passed to the <code>variable</code> argument and the union of
+predictor and grouping variables are passed to <code>domain_var</code>.
+Extra arguments in <code>...</code> are passed to <code>VIM::hotdeck</code> as well.
+Argument <code>pool</code> is ignored.
+</p>
+</li>
+<li>
+<p><code>impute_shd</code> is mapped to <code>VIM::hotdeck</code> where
+imputed variables are passed to the <code>variable</code> argument, predictor
+variables to <code>ord_var</code> and grouping variables to <code>domain_var</code>.
+Extra arguments in <code>...</code> are passed to <code>VIM::hotdeck</code> as well.
+Arguments <code>pool</code> and <code>order</code> are ignored. In <code>VIM</code> the donor pool
+is determined on a per-variable basis, equivalent to setting <code>pool="univariate"</code>
+with the simputation backend. <span class="pkg">VIM</span> is LOCF-based. Differences between
+<span class="pkg">simputation</span> and <code>VIM</code> likely occurr when the sorting variables contain missings.
+</p>
+</li>
+<li>
+<p><code>impute_knn</code> is mapped to <code>VIM::kNN</code> where imputed variables
+are passed to <code>variable</code>, predictor variables are passed to <code>dist_var</code>
+and grouping variables are ignored with a message. 
+Extra arguments in <code>...</code> are passed to <code>VIM::kNN</code> as well.
+Argument <code>pool</code> is ignored.
+Note that simputation  adheres stricktly to the Gower's original
+definition of the distance measure, while <span class="pkg">VIM</span> uses a generalized variant
+that can take ordered factors into account.
+
+</p>
+</li>
+</ul>
+<p>By default, <span class="pkg">VIM</span>'s imputation functions add indicator variables to the
+original data to trace what values have been imputed. This is switched off by
+default for consistency with the rest of the simputation package, but it may
+be turned on again by setting <code>imp_var=TRUE</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Andridge, R.R. and Little, R.J., 2010. A review of hot deck imputation for
+survey non-response. International statistical review, 78(1), pp.40-64.
+</p>
+<p>Gower, J.C., 1971. A general coefficient of similarity and some of its
+properties. Biometrics, pp.857–871.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other imputation: 
+<code>impute_cart()</code>,
+<code>impute_lm()</code>,
+<code>impute()</code>
+</p>
+
+
+</div>

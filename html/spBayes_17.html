@@ -1,0 +1,400 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spDynLM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for fitting univariate Bayesian dynamic space-time regression models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>spDynLM</code> fits Gaussian univariate Bayesian
+dynamic space-time regression models for settings where space is viewed as continuous but time is taken
+to be discrete.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spDynLM(formula, data = parent.frame(), coords, knots,
+      starting, tuning, priors, cov.model, get.fitted=FALSE, 
+      n.samples, verbose=TRUE, n.report=100, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a list of <code class="reqn">N_t</code> symbolic regression models to be fit. Each model represents a time step. See example below. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the
+model. If not found in data, the variables are taken from
+<code>environment(formula)</code>, typically the environment from which <code>spDynLM</code> is called.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>an <code class="reqn">n \times 2</code> matrix of the observation coordinates
+in <code class="reqn">R^2</code> (e.g., easting and northing). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starting</code></td>
+<td>
+<p>a list with each tag corresponding to a
+parameter name. Valid tags are <code>beta</code>, <code>sigma.sq</code>,
+<code>tau.sq</code>, <code>phi</code>, <code>nu</code>, and <code>sigma.eta</code>.  The value portion of each tag is the parameter's starting value. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>either a <code class="reqn">m \times 2</code> matrix of the
+<em>predictive process</em> knot coordinates in <code class="reqn">R^2</code> (e.g., easting and northing)
+or a vector of length two or three with the first and second elements recording the
+number of columns and rows in the desired knot grid. The third,
+optional, element sets the offset of the outermost knots from the
+extent of the <code>coords</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a
+parameter name. Valid tags are <code>phi</code> and <code>nu</code>. The value portion of each tag defines the variance of the Metropolis sampler Normal proposal distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with tags <code>beta.0.norm</code>, <code>sigma.sq.ig</code>,
+<code>tau.sq.ig</code>, <code>phi.unif</code>, <code>nu.unif</code>, and <code>sigma.eta.iw</code>. Variance parameters, <code>simga.sq</code> and
+<code>tau.sq</code>, are assumed to follow an
+inverse-Gamma distribution, whereas the spatial decay <code>phi</code>
+and smoothness <code>nu</code> parameters are assumed to follow Uniform
+distributions. The <code>beta.0.norm</code> is a multivariate Normal distribution with
+hyperparameters passed as a list of length two with the first
+and second elements corresponding to the mean vector and positive
+definite covariance matrix, respectively. The hyperparameters of the inverse-Wishart, <code>sigma.eta.iw</code>,  are
+passed as a list of length two, with the first and second elements corresponding
+to the <code class="reqn">df</code> and <code class="reqn">p\times p</code> <em>scale</em> matrix,
+respectively. The inverse-Gamma hyperparameters are passed in a list with two vectors that hold the <em>shape</em> and <em>scale</em>, respectively. The Uniform hyperparameters are passed in a list with two vectors that hold the lower and upper support values, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.  See below for details.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>get.fitted</code></td>
+<td>
+<p>if <code>TRUE</code>, posterior predicted and fitted
+values are collected. Note, posterior predicted samples are only
+collected for those <code class="reqn">y_t(s)</code> that are <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>the number of MCMC iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, model specification and progress of the
+sampler is printed to the screen. Otherwise, nothing is printed to
+the screen.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis sampler acceptance and MCMC progress. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments.  </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Suppose, <code class="reqn">y_t(s)</code> denotes the observation at location <code class="reqn">s</code> and time
+<code class="reqn">t</code>. We model <code class="reqn">y_t(s)</code> through a <em>measurement equation</em> that
+provides a regression specification with a space-time varying
+intercept and  serially and spatially
+uncorrelated zero-centered Gaussian disturbances as measurement error
+<code class="reqn">\epsilon_t(s)</code>. Next a <em>transition equation</em>
+introduces a <code class="reqn">p\times 1</code> coefficient vector, say <code class="reqn">\beta_t</code>, which is a purely
+temporal component (i.e., time-varying regression parameters), and a
+spatio-temporal component <code class="reqn">u_t(s)</code>. Both these are generated through
+transition equations, capturing their Markovian dependence in
+time. While the transition equation of the purely temporal component
+is akin to usual state-space modeling, the spatio-temporal component is
+generated using Gaussian spatial processes. The overall model is written
+as
+</p>
+<p style="text-align: center;"><code class="reqn">y_t(s)  = x_t(s)'\beta_t + u_t(s) + \epsilon_t(s), t=1,2,\ldots,N_t</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\epsilon_t(s) \sim N(0,\tau_{t}^2)</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\beta_t  = \beta_{t-1} + \eta_t; \eta_t \sim
+  N(0,\Sigma_{\eta})</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">u_t(s) = u_{t-1}(s) + w_t(s); w_t(s) \sim GP(0, C_t(\cdot,\theta_t))</code>
+</p>
+
+<p>Here <code class="reqn">x_t(s)</code> is a <code class="reqn">p\times 1</code> vector of predictors
+and <code class="reqn">\beta_t</code> is a <code class="reqn">p\times 1</code> vector of
+coefficients. In addition to an intercept, <code class="reqn">x_t(s)</code> can
+include location specific variables useful for explaining the
+variability in <code class="reqn">y_t(s)</code>. The <code class="reqn">GP(0,
+  C_t(\cdot,\theta_t))</code> denotes a spatial
+Gaussian process with covariance function
+<code class="reqn">C_{t}(\cdot;\theta_t)</code>. We specify
+<code class="reqn">C_{t}(s_1,s_2;\theta_t)=\sigma_t^2\rho(s_1,s_2;\phi_t)</code>, where <code class="reqn">\theta_t = \{\sigma_t^2,\phi_t,\nu_t\}</code> and <code class="reqn">\rho(\cdot;\phi)</code> is a
+<em>correlation function</em> with <code class="reqn">\phi</code> controlling the
+correlation decay and <code class="reqn">\sigma_t^2</code> represents the
+spatial variance component. The spatial smoothness parameter,
+<code class="reqn">\nu</code>, is used if the Matern spatial correlation function is chosen. We further assume <code class="reqn">\beta_0 \sim N(m_0, \Sigma_0)</code> and <code class="reqn">u_0(s) \equiv 0</code>, which completes the prior specifications leading to a well-identified Bayesian hierarhical model and also yield reasonable dependence structures. 
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>spDynLM</code>, which is a list with the following
+tags:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>the <code class="reqn">n \times 2</code> matrix specified by
+<code>coords</code>.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+<code class="reqn">\tau^2_t</code>, <code class="reqn">\sigma^2_t</code>, <code class="reqn">\phi_t</code>, <code class="reqn">\nu_t</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.beta.0.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+<code class="reqn">\beta</code> at <code class="reqn">t=0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+<code class="reqn">\beta_t</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.sigma.eta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+<code class="reqn">\Sigma_\eta</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.u.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+spatio-temporal random effects <code class="reqn">u</code>. Samples are over the
+columns and time steps increase in blocks of <code class="reqn">n</code> down the
+columns, e.g., the first <code class="reqn">n</code> rows correspond to locations
+<code class="reqn">1,2, \ldots, n</code> in <code class="reqn">t=1</code> and the last <code class="reqn">n</code> rows correspond to locations
+<code class="reqn">1,2, \ldots, n</code> in <code class="reqn">t=N_t</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.y.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for
+<code class="reqn">y</code>. If <code class="reqn">y_t(s)</code> is specified as <code>NA</code> the
+<code>p.y.samples</code> hold the associated posterior predictive
+samples. Samples are over the
+columns and time steps increase in blocks of <code class="reqn">n</code> down the
+columns, e.g., the first <code class="reqn">n</code> rows correspond to locations
+<code class="reqn">1,2, \ldots, n</code> in <code class="reqn">t=1</code> and the last <code class="reqn">n</code> rows correspond to locations
+<code class="reqn">1,2, \ldots, n</code> in <code class="reqn">t=N_t</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object might include additional data used for subsequent
+prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>, <br>
+Sudipto Banerjee <a href="mailto:baner009@umn.edu">baner009@umn.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Finley, A.O., S. Banerjee, and A.E. Gelfand. (2012) Bayesian dynamic modeling for large space-time datasets using Gaussian predictive processes. <em>Journal of Geographical Systems</em>, 14:29–47.
+</p>
+<p>Finley, A.O., S. Banerjee, and A.E. Gelfand. (2015) spBayes for large
+univariate and multivariate point-referenced spatio-temporal data
+models. <em>Journal of Statistical Software</em>, 63:1–28. <a href="https://www.jstatsoft.org/article/view/v063i13">https://www.jstatsoft.org/article/view/v063i13</a>.
+</p>
+<p>Gelfand, A.E., S. Banerjee, and D. Gamerman (2005) Spatial Process
+Modelling for Univariate and Multivariate Dynamic Spatial Data,
+<em>Environmetrics</em>, 16:465–479. 
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>spLM</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+data("NETemp.dat")
+ne.temp &lt;- NETemp.dat
+
+set.seed(1)
+
+##take a chunk of New England
+ne.temp &lt;- ne.temp[ne.temp[,"UTMX"] &gt; 5500000 &amp; ne.temp[,"UTMY"] &gt; 3000000,]
+
+##subset first 2 years (Jan 2000 - Dec. 2002)
+y.t &lt;- ne.temp[,4:27]
+N.t &lt;- ncol(y.t) ##number of months
+n &lt;- nrow(y.t) ##number of observation per months
+
+##add some missing observations to illistrate prediction
+miss &lt;- sample(1:N.t, 10)
+holdout.station.id &lt;- 5
+y.t.holdout &lt;- y.t[holdout.station.id, miss]
+y.t[holdout.station.id, miss] &lt;- NA
+
+##scale to km
+coords &lt;- as.matrix(ne.temp[,c("UTMX", "UTMY")]/1000)
+max.d &lt;- max(iDist(coords))
+
+##set starting and priors
+p &lt;- 2 #number of regression parameters in each month
+
+starting &lt;- list("beta"=rep(0,N.t*p), "phi"=rep(3/(0.5*max.d), N.t),
+                 "sigma.sq"=rep(2,N.t), "tau.sq"=rep(1, N.t),
+                 "sigma.eta"=diag(rep(0.01, p)))
+
+tuning &lt;- list("phi"=rep(5, N.t)) 
+
+priors &lt;- list("beta.0.Norm"=list(rep(0,p), diag(1000,p)),
+               "phi.Unif"=list(rep(3/(0.9*max.d), N.t), rep(3/(0.05*max.d), N.t)),
+               "sigma.sq.IG"=list(rep(2,N.t), rep(10,N.t)),
+               "tau.sq.IG"=list(rep(2,N.t), rep(5,N.t)),
+               "sigma.eta.IW"=list(2, diag(0.001,p)))
+
+##make symbolic model formula statement for each month
+mods &lt;- lapply(paste(colnames(y.t),'elev',sep='~'), as.formula)
+
+n.samples &lt;- 2000
+
+m.1 &lt;- spDynLM(mods, data=cbind(y.t,ne.temp[,"elev",drop=FALSE]), coords=coords,
+               starting=starting, tuning=tuning, priors=priors, get.fitted =TRUE,
+               cov.model="exponential", n.samples=n.samples, n.report=25) 
+
+burn.in &lt;- floor(0.75*n.samples)
+
+quant &lt;- function(x){quantile(x, prob=c(0.5, 0.025, 0.975))}
+
+beta &lt;- apply(m.1$p.beta.samples[burn.in:n.samples,], 2, quant)
+beta.0 &lt;- beta[,grep("Intercept", colnames(beta))]
+beta.1 &lt;- beta[,grep("elev", colnames(beta))]
+
+plot(m.1$p.beta.0.samples)
+
+par(mfrow=c(2,1))
+plot(1:N.t, beta.0[1,], pch=19, cex=0.5, xlab="months", ylab="beta.0", ylim=range(beta.0))
+arrows(1:N.t, beta.0[1,], 1:N.t, beta.0[3,], length=0.02, angle=90)
+arrows(1:N.t, beta.0[1,], 1:N.t, beta.0[2,], length=0.02, angle=90)
+
+plot(1:N.t, beta.1[1,], pch=19, cex=0.5, xlab="months", ylab="beta.1", ylim=range(beta.1))
+arrows(1:N.t, beta.1[1,], 1:N.t, beta.1[3,], length=0.02, angle=90)
+arrows(1:N.t, beta.1[1,], 1:N.t, beta.1[2,], length=0.02, angle=90)
+
+theta &lt;- apply(m.1$p.theta.samples[burn.in:n.samples,], 2, quant)
+sigma.sq &lt;- theta[,grep("sigma.sq", colnames(theta))]
+tau.sq &lt;- theta[,grep("tau.sq", colnames(theta))]
+phi &lt;- theta[,grep("phi", colnames(theta))]
+
+par(mfrow=c(3,1))
+plot(1:N.t, sigma.sq[1,], pch=19, cex=0.5, xlab="months", ylab="sigma.sq", ylim=range(sigma.sq))
+arrows(1:N.t, sigma.sq[1,], 1:N.t, sigma.sq[3,], length=0.02, angle=90)
+arrows(1:N.t, sigma.sq[1,], 1:N.t, sigma.sq[2,], length=0.02, angle=90)
+
+plot(1:N.t, tau.sq[1,], pch=19, cex=0.5, xlab="months", ylab="tau.sq", ylim=range(tau.sq))
+arrows(1:N.t, tau.sq[1,], 1:N.t, tau.sq[3,], length=0.02, angle=90)
+arrows(1:N.t, tau.sq[1,], 1:N.t, tau.sq[2,], length=0.02, angle=90)
+
+plot(1:N.t, 3/phi[1,], pch=19, cex=0.5, xlab="months", ylab="eff. range (km)", ylim=range(3/phi))
+arrows(1:N.t, 3/phi[1,], 1:N.t, 3/phi[3,], length=0.02, angle=90)
+arrows(1:N.t, 3/phi[1,], 1:N.t, 3/phi[2,], length=0.02, angle=90)
+
+y.hat &lt;- apply(m.1$p.y.samples[,burn.in:n.samples], 1, quant)
+y.hat.med &lt;- matrix(y.hat[1,], ncol=N.t)
+y.hat.up &lt;- matrix(y.hat[3,], ncol=N.t)
+y.hat.low &lt;- matrix(y.hat[2,], ncol=N.t)
+
+y.obs &lt;- as.vector(as.matrix(y.t[-holdout.station.id, -miss]))
+y.obs.hat.med &lt;- as.vector(y.hat.med[-holdout.station.id, -miss])
+y.obs.hat.up &lt;- as.vector(y.hat.up[-holdout.station.id, -miss])
+y.obs.hat.low &lt;- as.vector(y.hat.low[-holdout.station.id, -miss])
+
+y.ho &lt;- as.matrix(y.t.holdout)
+y.ho.hat.med &lt;- as.vector(y.hat.med[holdout.station.id, miss])
+y.ho.hat.up &lt;- as.vector(y.hat.up[holdout.station.id, miss])
+y.ho.hat.low &lt;- as.vector(y.hat.low[holdout.station.id, miss])
+
+par(mfrow=c(2,1))
+plot(y.obs, y.obs.hat.med, pch=19, cex=0.5, xlab="observed",
+ylab="fitted", main="Observed vs. fitted")
+arrows(y.obs, y.obs.hat.med, y.obs, y.obs.hat.up, length=0.02, angle=90)
+arrows(y.obs, y.obs.hat.med, y.obs, y.obs.hat.low, length=0.02, angle=90)
+lines(-50:50, -50:50, col="blue")
+
+plot(y.ho, y.ho.hat.med, pch=19, cex=0.5, xlab="observed",
+ylab="predicted", main="Observed vs. predicted")
+arrows(y.ho, y.ho.hat.med, y.ho, y.ho.hat.up, length=0.02, angle=90)
+arrows(y.ho, y.ho.hat.med, y.ho, y.ho.hat.low, length=0.02, angle=90)
+lines(-50:50, -50:50, col="blue")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

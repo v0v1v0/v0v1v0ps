@@ -1,0 +1,190 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rnet_join</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Join route networks</h2>
+
+<h3>Description</h3>
+
+<p>Join function that adds columns to a
+'target' route network <code>sf</code> object from a 'source' route
+network that contains the base geometry, e.g. from OSM
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rnet_join(
+  rnet_x,
+  rnet_y,
+  dist = 5,
+  length_y = TRUE,
+  key_column = 1,
+  subset_x = FALSE,
+  dist_subset = NULL,
+  segment_length = 0,
+  endCapStyle = "FLAT",
+  contains = TRUE,
+  max_angle_diff = NULL,
+  crs = geo_select_aeq(rnet_x),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>rnet_x</code></td>
+<td>
+<p>Target route network, the output will have the same geometries
+as features in this object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rnet_y</code></td>
+<td>
+<p>Source route network. Columns from this route network object will
+be copied across to the new network.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>The buffer width around rnet_y in meters. 1 m by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>length_y</code></td>
+<td>
+<p>Add a new column called <code>length_y</code>? Useful when joining based on
+length of segments (e.g. weighted mean). <code>TRUE</code> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>key_column</code></td>
+<td>
+<p>The index of the key (unique identifier) column in <code>rnet_x</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset_x</code></td>
+<td>
+<p>Subset the source route network by the target network before
+creating buffers? This can lead to faster and better results. Default:
+<code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist_subset</code></td>
+<td>
+<p>The buffer distance in m to apply when breaking up the
+source object <code>rnet_y</code>. Default: 5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>segment_length</code></td>
+<td>
+<p>Should the source route network be split?
+<code>0</code> by default, meaning no splitting. Values above 0 split the source
+into linestrings with a max distance. Around 5 (m) may be a sensible
+default for many use cases, the smaller the value the slower the process.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endCapStyle</code></td>
+<td>
+<p>Type of buffer. See <code>?sf::st_buffer</code> for details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contains</code></td>
+<td>
+<p>Should the join be based on <code>sf::st_contains</code> or <code>sf::st_intersects</code>?
+<code>TRUE</code> by default. If <code>FALSE</code> the centroid of each segment of <code>rnet_y</code> is
+used for the join. Note: this can result in incorrectly assigning values
+on sideroads, as documented in <a href="https://github.com/ropensci/stplanr/issues/520">#520</a>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_angle_diff</code></td>
+<td>
+<p>The maximum angle difference between x and y nets for a value
+to be returned</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crs</code></td>
+<td>
+<p>The CRS to use for the buffer operation. See <code>?geo_projected</code> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments passed to <code>rnet_subset</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The output is an sf object containing polygons representing
+buffers around the route network in <code>rnet_x</code>.
+The examples below demonstrate how to join attributes from
+a route network object created with the function <code>overline()</code> onto
+OSM geometries.
+</p>
+<p>Note: The main purpose of this function is to join an ID from <code>rnet_x</code>
+onto <code>rnet_y</code>. Subsequent steps, e.g. with <code>dplyr::inner_join()</code>
+are needed to join the attributes back onto <code>rnet_x</code>.
+There are rarely 1-to-1 relationships between spatial network geometries
+so we take care when using this function.
+</p>
+<p>See <a href="https://github.com/ropensci/stplanr/issues/505">#505</a> for details
+and a link to an interactive example of inputs and outputs shown below.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(sf)
+library(dplyr)
+plot(osm_net_example$geometry, lwd = 5, col = "grey", add = TRUE)
+plot(route_network_small["flow"], add = TRUE)
+rnetj &lt;- rnet_join(osm_net_example, route_network_small, dist = 9)
+rnetj2 &lt;- rnet_join(osm_net_example, route_network_small, dist = 9, segment_length = 10)
+# library(mapview)
+# mapview(rnetj, zcol = "flow") +
+#   mapview(rnetj2, zcol = "flow") +
+#   mapview(route_network_small, zcol = "flow")
+plot(sf::st_geometry(rnetj))
+plot(rnetj["flow"], add = TRUE)
+plot(rnetj2["flow"], add = TRUE)
+plot(route_network_small["flow"], add = TRUE)
+summary(rnetj2$length_y)
+rnetj_summary &lt;- rnetj2 %&gt;%
+  filter(!is.na(length_y)) %&gt;%
+  sf::st_drop_geometry() %&gt;%
+  group_by(osm_id) %&gt;%
+  summarise(
+    flow = weighted.mean(flow, length_y, na.rm = TRUE),
+  )
+osm_joined_rnet &lt;- dplyr::left_join(osm_net_example, rnetj_summary)
+plot(sf::st_geometry(route_network_small))
+plot(route_network_small["flow"], lwd = 3, add = TRUE)
+plot(sf::st_geometry(osm_joined_rnet), add = TRUE)
+# plot(osm_joined_rnet[c("flow")], lwd = 9, add = TRUE)
+# Improve fit between geometries and performance by subsetting rnet_x
+osm_subset &lt;- rnet_subset(osm_net_example, route_network_small, dist = 5)
+osm_joined_rnet &lt;- dplyr::left_join(osm_subset, rnetj_summary)
+plot(route_network_small["flow"])
+# plot(osm_joined_rnet[c("flow")])
+# mapview(joined_network) +
+#   mapview(route_network_small)
+</code></pre>
+
+
+</div>

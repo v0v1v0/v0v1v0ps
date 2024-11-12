@@ -1,0 +1,148 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>synthIPbag</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Train a classifier via synthetic observations using inverse-probability weights</h2>
+
+<h3>Description</h3>
+
+<p>This method trains classifiers by correcting them for sample selection bias via stochastic
+inverse-probability oversampling or parametric inverse-probability bagging (Krautenbacher et al 2017). Classifiers are trained from
+differently resampled data whose observations are weighted by inverse-probability weights per stratum to correct for the bias in the original
+sample. The so attained ensemble of predictors is aggregated by averaging.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">synthIPbag(..., learner, list.train.learner, list.predict.learner, n.bs)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>see the parameter genSample() of package sambia.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learner</code></td>
+<td>
+<p>a character indicating which classifier is used to train. Note: set learner='rangerTree'
+if random forest should be applied as in Krautenbacher et al. (2017), i.e. the correction step is incorporated 
+in the inherent random forest resampling procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>list.train.learner</code></td>
+<td>
+<p>a list of parameters specific to the classifier that will be trained. Note that the
+parameter 'data' need not to be provided in this list since the training data which the model will learn
+on is already attained by new sampled data produced by the method genSample().</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>list.predict.learner</code></td>
+<td>
+<p>a list of parameters specifiying how to predict new data given the trained model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.bs</code></td>
+<td>
+<p>number of bootstramp samples. This trained model is uniquely determined by parameters 'learner' and 'list.train.learner'.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Norbert Krautenbacher, Kevin Strauss, Maximilian Mandl, Christiane Fuchs
+</p>
+
+
+<h3>References</h3>
+
+<p>Krautenbacher, N., Theis, F. J., &amp; Fuchs, C. (2017). Correcting Classifiers for Sample Selection Bias in Two-Phase Case-Control Studies. Computational and mathematical methods in medicine, 2017.
+</p>
+<p>Krautenbacher, N., Theis, F. J., &amp; Fuchs, C. (2017). Correcting Classifiers for Sample Selection Bias in Two-Phase Case-Control Studies.
+Computational and mathematical methods in medicine, 2017.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## simulate data for a population
+require(pROC)
+
+set.seed(1342334)
+N = 100000
+x1 &lt;- rnorm(N, mean=0, sd=1) 
+x2 &lt;- rt(N, df=25)
+x3 &lt;- x1 + rnorm(N, mean=0, sd=.6)
+x4 &lt;- x2 + rnorm(N, mean=0, sd=1.3)
+x5 &lt;- rbinom(N, 1, prob=.6)
+x6 &lt;- rnorm(N, 0, sd = 1) # noise not known as variable
+x7 &lt;- x1*x5 # interaction
+x &lt;- cbind(x1, x2, x3, x4, x5, x6, x7)
+
+## stratum variable (covariate)
+xs &lt;- c(rep(1,0.1*N), rep(0,(1-0.1)*N))
+
+## effects
+beta &lt;- c(-1, 0.2, 0.4, 0.4, 0.5, 0.5, 0.6)
+beta0 &lt;- -2
+
+## generate binary outcome
+linpred.slopes &lt;-  log(0.5)*xs + c(x %*% beta)
+eta &lt;-  beta0 + linpred.slopes
+
+p &lt;- 1/(1+exp(-eta)) # this is the probability P(Y=1|X), we want the binary outcome however:
+y&lt;-rbinom(n=N, size=1, prob=p) #
+
+population &lt;- data.frame(y,xs,x)
+
+#### draw "given" data set for training
+sel.prob &lt;- rep(1,N)
+sel.prob[population$xs == 1] &lt;- 9
+sel.prob[population$y == 1] &lt;- 8
+sel.prob[population$y == 1 &amp; population$xs == 1] &lt;- 150
+ind &lt;- sample(1:N, 200, prob = sel.prob)
+
+data = population[ind, ]
+
+## calculate weights from original numbers for xs and y
+w.matrix &lt;- table(population$y, population$xs)/table(data$y, data$xs)
+w &lt;- rep(NA, nrow(data))
+w[data$y==0 &amp; data$xs ==0] &lt;- w.matrix[1,1]
+w[data$y==1 &amp; data$xs ==0] &lt;- w.matrix[2,1]
+w[data$y==0 &amp; data$xs ==1] &lt;- w.matrix[1,2]
+w[data$y==1 &amp; data$xs ==1] &lt;- w.matrix[2,2]
+
+### draw a test data set
+newdata = population[sample(1:N, size=200 ), ]
+
+n.bs = 10
+## glm
+pred_glm &lt;- sambia::synthIPbag(data = data, weights = w, type='parIP',
+                              strata.variables = c('y', 'xs'), learner='glm', 
+                              list.train.learner = list(formula=formula(y~.),family="binomial"),
+                              list.predict.learner = list(newdata=newdata, type="response"),
+                              n.bs = n.bs)
+roc(newdata$y, pred_glm, direction = "&lt;")
+
+## random forest
+pred_rf &lt;- sambia::synthIPbag(data = data, weights = w, type='parIP',
+                             strata.variables = c('y','xs'), learner='rangerTree', 
+                             list.train.learner = list(formula=formula(as.factor(y)~.)),
+                             list.predict.learner = list(data=newdata),
+                             n.bs = n.bs)
+roc(newdata$y, pred_rf, direction = "&lt;")
+</code></pre>
+
+
+</div>

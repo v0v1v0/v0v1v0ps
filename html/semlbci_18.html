@@ -1,0 +1,404 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>loglike_compare</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Log Profile likelihood of a Parameter</h2>
+
+<h3>Description</h3>
+
+<p>These functions compute the log profile likelihood of
+a parameter when it is fixed to a value or a range of values
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">loglike_compare(
+  sem_out,
+  semlbci_out = NULL,
+  par_i,
+  confidence = 0.95,
+  n_points = 21,
+  start = "default",
+  try_k_more = 5,
+  parallel = FALSE,
+  ncpus = parallel::detectCores(logical = FALSE) - 1,
+  use_pbapply = TRUE
+)
+
+loglike_range(
+  sem_out,
+  par_i,
+  confidence = 0.95,
+  n_points = 21,
+  interval = NULL,
+  verbose = FALSE,
+  start = "default",
+  try_k_more = 5,
+  parallel = FALSE,
+  ncpus = parallel::detectCores(logical = FALSE) - 1,
+  use_pbapply = TRUE
+)
+
+loglike_point(
+  theta0,
+  sem_out,
+  par_i,
+  verbose = FALSE,
+  start = "default",
+  try_k_more = 5
+)
+
+loglike_quad_range(
+  sem_out,
+  par_i,
+  confidence = 0.95,
+  n_points = 21,
+  interval = NULL,
+  parallel = FALSE,
+  ncpus = parallel::detectCores(logical = FALSE) - 1,
+  use_pbapply = TRUE,
+  try_k_more = 5,
+  start = "default"
+)
+
+loglike_quad_point(theta0, sem_out, par_i)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sem_out</code></td>
+<td>
+<p>The SEM output. Currently the outputs
+of <code>lavaan::lavaan()</code> or its wrappers, such as <code>lavaan::sem()</code>
+and <code>lavaan::cfa()</code> are supported.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>semlbci_out</code></td>
+<td>
+<p>The output of <code>semlbci()</code>.
+If supplied, it will extract the likelihood-based confidence
+interval from the output. If not, it will call <code>semlbci()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>par_i</code></td>
+<td>
+<p>The row number of the parameter in the output of
+<code>lavaan::parameterTable()</code>. Can also be a lavaan::model.syntax
+specification for a parameter, e.g., <code>"y ~ x"</code> or <code style="white-space: pre;">⁠ab := ⁠</code>.
+It will be converted to the row number by <code>syntax_to_i()</code>. Refer to
+<code>syntax_to_i()</code> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>confidence</code></td>
+<td>
+<p>The level of confidence of the Wald-type
+confidence interval. If <code>interval</code> is <code>NULL</code>, this confidence is
+used to form the interval.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_points</code></td>
+<td>
+<p>The number of points to be evaluated in the
+interval. Default is 21.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>How the start values are set in <code>lavaan::lavaan()</code>.
+See <code>lavaan::lavOptions()</code> on this argument. Default is
+<code>"default"</code>. If the plot is too irregular, try setting it to
+<code>"simple"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>try_k_more</code></td>
+<td>
+<p>How many more times to try finding the p-values,
+by randomizing the starting values. Default is 5. Try increasing
+this number if the plot is too irregular.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>If <code>TRUE</code>, parallel processing will be used. A
+cluster will be created by <code>parallel::makeCluster()</code>, with the
+number of workers equal to <code>ncpus</code>. Parallel processing, though
+not enabled by default, is recommended because it can speed up
+the computation a lot.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncpus</code></td>
+<td>
+<p>The number of workers if <code>parallel</code> is <code>TRUE</code>. Default
+is <code>parallel::detectCores(logical = FALSE) - 1</code>, the number of
+physical cores minus 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_pbapply</code></td>
+<td>
+<p>If <code>TRUE</code> and pbapply::pbapply is installed,
+pbapply::pbapply will be used to display the progress in
+computing the log profile likelihood. Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>A vector of numbers. If provided and has two
+elements, this will be used as the end points of the interval. If
+it has more than two elements, the elements will be used directly
+to form the values in the interval. Default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Whether some diagnostic information will be printed.
+Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta0</code></td>
+<td>
+<p>The value at which the parameter is fixed to.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>It uses the methods presented in Pawitan (2013) to
+compute and visualize the log profile likelihood of a parameter in
+a structural equation model when this parameter is fixed to a value or
+a range
+of values. <code>loglike_range()</code> and <code>loglike_point()</code> compute the
+so-called "true" log profile likelihood, while
+<code>loglike_quad_range()</code> and <code>loglike_quad_point()</code> approximate the log
+profile likelihood by a quadratic function.
+</p>
+<p>These functions are for creating illustrative examples and learning
+only, not for research use. Therefore, they are not as versatile as
+<code>semlbci()</code> in the types of models and parameters supported. They
+can be used for free parameters and user-defined parameters not
+involved in any constraints. Only a model fitted by maximum
+likelihood is supported.
+</p>
+<p>They will not check whether the computation is appropriate for a
+model. It is the responsibility of the users to ensure that the
+computation is appropriate for the model and parameter.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>loglike_compare()</code> calls <code>loglike_range()</code> and
+<code>loglike_quad_range()</code> and returns their results in a
+<code>loglike_compare</code>-class object, a list
+with these elements:
+</p>
+
+<ul>
+<li> <p><code>quadratic</code>: The output of <code>loglike_quad_range()</code>.
+</p>
+</li>
+<li> <p><code>loglikelihood</code>: The output of <code>loglike_range()</code>.
+</p>
+</li>
+<li> <p><code>pvalue_quadratic</code>: The likelihood ratio test <em>p</em>-values at the
+quadratic approximation confidence bounds.
+</p>
+</li>
+<li> <p><code>pvalue_loglikelihood</code>: The likelihood ratio test <em>p</em>-values at
+the likelihood-based confidence bounds.
+</p>
+</li>
+<li> <p><code>est</code>: The point estimate of the parameter in <code>sem_out</code>.
+</p>
+</li>
+</ul>
+<p><code>loglike_compare</code>-class object has a <code>plot</code> method (<code>plot.loglike_compare()</code>)
+that can be used to plot the log profile likelihood.
+</p>
+<p><code>loglike_point()</code> returns a list with these elements:
+</p>
+
+<ul>
+<li> <p><code>loglike</code>: The log profile likelihood of the parameter when it is
+fixed to <code>theta0</code>.
+</p>
+</li>
+<li> <p><code>pvalue</code>: The <em>p</em>-values based on the likelihood ratio difference
+test between the original model and the model with the
+parameter fixed to <code>theta0</code>.
+</p>
+</li>
+<li> <p><code>fit</code>: A lavaan::lavaan object. The original model with
+the parameter fixed to <code>theta0</code>.
+</p>
+</li>
+<li> <p><code>lrt</code>: The output of <code>lavaan::lavTestLRT()</code>, comparing the
+original model to the model with the parameter fixed to
+<code>theta0</code>.
+</p>
+</li>
+</ul>
+<p><code>loglike_quad_range()</code> returns a data frame with these
+columns:
+</p>
+
+<ul>
+<li> <p><code>theta</code>: The values to which the parameter is fixed to.
+</p>
+</li>
+<li> <p><code>loglike</code>: The log profile likelihood values of the parameter
+using quadratic approximation.
+</p>
+</li>
+<li> <p><code>pvalue</code>: The <em>p</em>-values based on the likelihood ratio difference
+test between the original model and the model with the
+parameter fixed to <code>theta</code>.
+</p>
+</li>
+</ul>
+<p><code>loglike_quad_point()</code> returns a single number of the class
+<code>lavaan.vector</code> (because it is the output of
+<code>lavaan::fitMeasures()</code>). This number is the quadratic
+approximation of the log profile likelihood when the parameter is
+fixed to <code>theta0</code>.
+</p>
+<p><code>loglike_range()</code> returns a data frame with these columns:
+</p>
+
+<ul>
+<li> <p><code>theta</code>: The values to which the parameter is fixed to.
+</p>
+</li>
+<li> <p><code>loglike</code>: The log profile likelihood at <code>theta</code>.
+</p>
+</li>
+<li> <p><code>pvalue</code>: The <em>p</em>-values based on the likelihood ratio difference
+test between the original model and model with the
+parameter fixed to <code>theta</code>.
+</p>
+</li>
+</ul>
+<h3>Functions</h3>
+
+
+<ul>
+<li> <p><code>loglike_compare()</code>: Generates points for log profile likelihood and
+quadratic approximation, by calling the helper functions <code>loglike_range()</code>
+and <code>loglike_quad_range()</code>.
+</p>
+</li>
+<li> <p><code>loglike_range()</code>: Find the log profile likelihood for a range of values.
+</p>
+</li>
+<li> <p><code>loglike_point()</code>: Find the log likelihood at a value.
+</p>
+</li>
+<li> <p><code>loglike_quad_range()</code>: Find the approximated log likelihood for a range of values.
+</p>
+</li>
+<li> <p><code>loglike_quad_point()</code>: Find the approximated log likelihood at a value.
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Pawitan, Y. (2013). <em>In all likelihood: Statistical
+modelling and inference using likelihood</em>. Oxford University Press.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.loglike_compare()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## loglike_compare
+
+library(lavaan)
+data(simple_med)
+dat &lt;- simple_med
+mod &lt;-
+"
+m ~ a * x
+y ~ b * m
+ab := a * b
+"
+fit &lt;- lavaan::sem(mod, simple_med, fixed.x = FALSE)
+
+# 4 points are used just for illustration
+# At least 21 points should be used for a smooth plot
+# Remove try_k_more in real applications. It is set
+# to zero such that this example does not take too long to run.
+# use_pbapply can be removed or set to TRUE to show the progress.
+ll_a &lt;- loglike_compare(fit, par_i = "m ~ x", n_points = 4,
+                        try_k_more = 0,
+                        use_pbapply = FALSE)
+plot(ll_a)
+
+# See the vignette "loglike" for an example for the
+# indirect effect.
+
+
+## loglike_range
+
+# Usually not to be used directly.
+# Used by loglike_compare().
+# 3 points are used just for illustration
+ll_1 &lt;- loglike_range(fit, par_i = "y ~ m", n_points = 2)
+head(ll_1)
+
+
+## loglike_point
+
+# Usually not to be used directly.
+# Used by loglike_compare().
+llp_1 &lt;- loglike_point(theta0 = 0.3, sem_out = fit, par_i = "y ~ m")
+llp_1$loglike
+llp_1$pvalue
+llp_1$lrt
+
+
+
+## loglike_quad_range
+
+# Usually not to be used directly.
+# Used by loglike_compare().
+# 2 points are used just for illustration
+lq_1 &lt;- loglike_quad_range(fit, par_i = "y ~ m", n_points = 2)
+head(lq_1)
+
+
+
+## loglike_quad_point
+
+# Usually not to be used directly.
+# Used by loglike_compare().
+lqp_1 &lt;- loglike_quad_point(theta0 = 0.3, sem_out = fit, par_i = "y ~ m")
+lqp_1
+
+
+</code></pre>
+
+
+</div>

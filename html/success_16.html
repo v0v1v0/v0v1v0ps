@@ -1,0 +1,339 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cgr_cusum</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Continuous time Generalized Rapid response CUSUM (CGR-CUSUM)</h2>
+
+<h3>Description</h3>
+
+<p>This function performs the CGR-CUSUM procedure
+described in Gomon et al. (2022). For detection purposes, it suffices
+to determine the value of the chart at the times of failure. This can be
+achieved by leaving <code>ctimes</code> unspecified.
+The function has two vital parameters, at least one of which must be specified:
+</p>
+
+<dl>
+<dt>
+<code>coxphmod</code>: </dt>
+<dd>
+<p>Cox proportional hazards model to be used for
+risk-adjustment. If <code>cbaseh</code> is not specified, it will be determined
+from <code>coxphmod</code> numerically.</p>
+</dd>
+<dt>
+<code>cbaseh</code>: </dt>
+<dd>
+<p>The cumulative baseline hazard rate to use for chart
+construction. If specified with <code>coxphmod</code> missing, no risk-adjustment
+will be performed</p>
+</dd>
+</dl>
+<h3>Usage</h3>
+
+<pre><code class="language-R">cgr_cusum(data, coxphmod, cbaseh, ctimes, h, stoptime, C, pb = FALSE,
+  ncores = 1, cmethod = "memory", dependencies, detection = "upper",
+  assist, maxtheta = log(6))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A <code>data.frame</code> with rows representing subjects and the
+following named columns: </p>
+
+<dl>
+<dt>
+<code>entrytime</code>:</dt>
+<dd>
+<p>time of entry into study (numeric);</p>
+</dd>
+<dt>
+<code>survtime</code>:</dt>
+<dd>
+<p>time from entry until event (numeric);</p>
+</dd>
+<dt>
+<code>censorid</code>:</dt>
+<dd>
+<p>censoring indicator (0 = right censored, 1 = observed),
+(integer).</p>
+</dd>
+</dl>
+<p> and optionally additional covariates used for risk-adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coxphmod</code></td>
+<td>
+<p>A Cox proportional hazards regression model as
+produced by
+the function <code>coxph()</code>. Suggested: <br><code>coxph(Surv(survtime, censorid) ~ covariates, data = data)</code>. <br>
+Alternatively, a list with the following elements:
+</p>
+
+<dl>
+<dt>
+<code>formula</code>:</dt>
+<dd>
+<p>a <code>formula()</code> in the form <code>~ covariates</code>;</p>
+</dd>
+<dt>
+<code>coefficients</code>:</dt>
+<dd>
+<p>a named vector specifying risk adjustment coefficients
+for covariates. Names must be the same as in <code>formula</code> and colnames of <code>data</code>.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cbaseh</code></td>
+<td>
+<p>A function that returns the unadjusted cumulative
+baseline hazard <code class="reqn">H_0(t)</code>. If <code>cbaseh</code> is missing but
+<code>coxphmod</code> has been
+specified as a survival object, this baseline hazard rate will be determined
+using the provided <code>coxphmod</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ctimes</code></td>
+<td>
+<p>(optional): Vector of construction times at which the value of the chart should be
+determined. When not specified, the chart is constructed at all failure times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>(optional): Value of the control limit. The chart will only be
+constructed until the value of the control limit has been reached or
+surpassed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stoptime</code></td>
+<td>
+<p>(optional): Time after which the value of the chart should no
+longer be determined. Default = max(failure time). Useful when ctimes
+has not been specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>C</code></td>
+<td>
+<p>(optional): A numeric value indicating how long after entering the study
+patients should no longer influence the value of the chart. This is
+equivalent to right-censoring every observation at time <code>entrytime</code> + C.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pb</code></td>
+<td>
+<p>(optional): A boolean indicating whether a progress bar should
+be shown. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>number of cores to use to parallelize the computation of the
+CGR-CUSUM chart. If ncores = 1 (default), no parallelization is done. You
+can use <code>detectCores()</code> to check how many
+cores are available on your computer.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cmethod</code></td>
+<td>
+<p>Method to calculate chart values. One of the following:
+</p>
+
+<ul>
+<li> <p><code>"memory"</code> (default): matrix formulation of the problem
+(faster for high volume/long time construction)
+</p>
+</li>
+<li> <p><code>"CPU"</code> calculates the value of the CGR-CUSUM for every
+time point from scratch. Recommended for small data volume
+(lower initialization time).
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dependencies</code></td>
+<td>
+<p>(optional): When <code>ncores &gt; 1</code>, specify a list of
+variables/functions/other dependencies to be exported to the core clusters
+for parallel computation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detection</code></td>
+<td>
+<p>Should an <code>"upper"</code> or <code>"lower"</code> CGR-CUSUM be
+constructed. Upper CUSUMs can be used to monitor for an increase in the
+failure rate, while lower CUSUMs can be used to monitor for a decrease in the
+failure rate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>assist</code></td>
+<td>
+<p>(optional): Output of the function <code>parameter_assist()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxtheta</code></td>
+<td>
+<p>(optional): Maximum value the maximum likelihood estimate for
+parameter <code class="reqn">\theta</code> can take. If <code>detection = "lower"</code>, <code>-abs(theta)</code>
+will be the minimum value the maximum likelihood estimate for
+parameter <code class="reqn">\theta</code> can take.  Default is <code>log(6)</code>, meaning that
+at most a 6 times increase/decrease in the odds/hazard ratio is expected.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The CGR-CUSUM can be used to test for a change of unknown positive fixed size <code class="reqn">\theta</code>
+in the subject-specific hazard rate from <code class="reqn">h_i(t)</code> to <code class="reqn">h_i(t) e^\theta</code>
+starting from some unknown subject <code class="reqn">\nu</code>. The starting time of the first subject
+who had an increase in failure rate as well as the estimated increase in the
+hazard rate are shown in the output.
+The CGR-CUSUM is determined as
+</p>
+<p style="text-align: center;"><code class="reqn">\max_{1 \leq \nu \leq n} \left( \hat{\theta}_{\geq \nu}(t) N_{\geq \nu}(t) - \left( \exp\left( \hat{\theta}_{\geq \nu}(t) \right) - 1 \right) \Lambda_{\geq \nu}(t)\right),</code>
+</p>
+
+<p>where  </p>
+<p style="text-align: center;"><code class="reqn">N(\geq \nu)(t) = \sum_{i \geq \nu} N_i(t),</code>
+</p>
+
+<p>with <code class="reqn">N_i(t)</code> the counting process for the failure at time <code class="reqn">t</code> of subject <code class="reqn">i</code>
+and </p>
+<p style="text-align: center;"><code class="reqn">\Lambda_{\geq \nu}(t) = \sum_{i \geq \nu} \Lambda_i(t),</code>
+</p>
+
+<p>where <code class="reqn">\Lambda_i(t)</code> is the cumulative intensity of subject <code class="reqn">i</code> at time <code class="reqn">t</code>.
+</p>
+<p>When <code>maxtheta</code> is specified, the maximum likelihood estimate of <code class="reqn">\theta</code>
+is restricted to either <code>abs(maxtheta)</code> (upper sided CGR-CUSUM) or
+<code>-abs(maxtheta)</code> (lower sided CGR-CUSUM). Choosing this value smaller leads to smaller
+control limits and therefore quicker detection times, but can cause delays in
+detection if the true increase in failure rate is larger than the cut-off. The
+default of expecting at most a 6 times increase in hazard/odds ratio can therefore
+be the wrong choice for your intended application area. If unsure, the most conservative
+choice is to take <code>maxtheta = Inf</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class "cgrcusum" containing:
+</p>
+
+<ul>
+<li> <p><code>CGR</code>: a <code>data.frame</code> with named columns:
+</p>
+
+<dl>
+<dt>
+<code>time</code>:</dt>
+<dd>
+<p>times at which chart is constructed;</p>
+</dd>
+<dt>
+<code>value</code>:</dt>
+<dd>
+<p>value of the chart at corresponding times;</p>
+</dd>
+<dt>
+<code>exp_theta_t</code>:</dt>
+<dd>
+<p>value of MLE <code class="reqn">e^{\theta_t}</code>;</p>
+</dd>
+<dt><code>S_nu</code></dt>
+<dd>
+<p>time from which patients are considered for constructing the chart.</p>
+</dd>
+</dl>
+</li>
+<li> <p><code>call</code>: the call used to obtain output;
+</p>
+</li>
+<li> <p><code>stopind</code>: indicator for whether the chart was stopped by
+the control limit;
+</p>
+</li>
+<li> <p><code>h</code>: Specified value for the control limit.
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Daniel Gomon
+</p>
+
+
+<h3>References</h3>
+
+<p>Gomon, D. and Putter, H. and Nelissen, R. G. H. H. and van der Pas, S. (2022),
+CGR-CUSUM: A Continuous time Generalized Rapid Response Cumulative Sum chart, Biostatistics
+<a href="https://doi.org/10.1093/biostatistics/kxac041">doi:10.1093/biostatistics/kxac041</a>
+</p>
+<p>Gomon D. and Fiocco M and Putter H and Signorelli M,
+SUrvival Control Chart EStimation Software in R: the success Package,
+The R Journal, vol. 15, no. 4, pp. 270–291, Dec. 2023, <a href="https://doi.org/10.32614/rj-2023-095">doi:10.32614/rj-2023-095</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.cgrcusum</code>, <code>runlength.cgrcusum</code>
+</p>
+<p>Other quality control charts: 
+<code>bk_cusum()</code>,
+<code>funnel_plot()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(survival)
+#Select only the data of the first year of the first hospital in the surgerydat data set
+tdat &lt;- subset(surgerydat, unit == 1 &amp; entrytime &lt; 365)
+
+#We know that the cumulative baseline hazard in the data set is
+#Exponential(0.01). If you don't know the cumulative baseline, we suggest
+#leaving the cbaseh argument empty and determining a coxphmod (see help)
+tcbaseh &lt;- function(t) chaz_exp(t, lambda = 0.01)
+
+#Determine a risk-adjustment model using a Cox proportional hazards model.
+#Outcome (survival) is regressed on the available covariates:
+exprfit &lt;- as.formula("Surv(survtime, censorid) ~ age + sex + BMI")
+tcoxmod &lt;- coxph(exprfit, data= surgerydat)
+
+#Determine the values of the chart
+cgr &lt;- cgr_cusum(data = tdat, coxphmod = tcoxmod, cbaseh = tcbaseh, pb = TRUE)
+#plot the CGR-CUSUM (exact hazard)
+plot(cgr)
+
+#Alternatively, cbaseh can be left empty when specifying coxphmod through coxph()
+cgr_cox &lt;- cgr_cusum(data = tdat, coxphmod = tcoxmod, pb = TRUE)
+#plot the CGR-CUSUM (estimated hazard from coxph)
+plot(cgr_cox)
+
+</code></pre>
+
+
+</div>

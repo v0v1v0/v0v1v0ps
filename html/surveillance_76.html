@@ -1,0 +1,190 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bodaDelay</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bayesian Outbreak Detection in the Presence of Reporting Delays</h2>
+
+<h3>Description</h3>
+
+<p>The function takes <code>range</code> values of the surveillance time
+series <code>sts</code> and for each time point uses a Bayesian model of the negative binomial family with
+log link inspired by the work of Noufaily et al. (2012) and of Manitz and Höhle (2014). It allows delay-corrected aberration detection as explained in Salmon et al. (2015). A <code>reportingTriangle</code> has to be provided in the <code>control</code> slot.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bodaDelay(sts, control = list(
+  range = NULL, b = 5, w = 3, mc.munu = 100, mc.y = 10,
+  pastAberrations = TRUE, verbose = FALSE,
+  alpha = 0.05, trend = TRUE, limit54 = c(5,4), 
+  inferenceMethod = c("asym","INLA"), quantileMethod = c("MC","MM"),
+  noPeriods = 1, pastWeeksNotIncluded = NULL, delay = FALSE))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sts</code></td>
+<td>
+<p>sts-object to be analysed. Needs to have a reporting triangle.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>list of control arguments:
+</p>
+
+<dl>
+<dt><code>b</code></dt>
+<dd>
+<p>How many years back in time to include when forming the base counts.</p>
+</dd>
+<dt><code>w</code></dt>
+<dd>
+<p>Window's half-size, i.e. number of weeks to include before and after the current week in each year.</p>
+</dd>
+<dt><code>range</code></dt>
+<dd>
+<p>Specifies the index of all timepoints which should be tested. If range is <code>NULL</code> all possible timepoints are used.</p>
+</dd>
+<dt><code>pastAberrations</code></dt>
+<dd>
+<p>Boolean indicating whether to include an effect for past outbreaks
+in a second fit of the model. This option only makes sense if <code>inferenceMethod</code> is <code>INLA</code>, as it is not supported by the other inference method.</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>Boolean specifying whether to show extra debugging information.</p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>An approximate (one-sided) <code class="reqn">(1-\alpha)\cdot 100\%</code>
+prediction interval is calculated unlike the original method where it was a two-sided interval. The upper limit of this interval
+i.e. the <code class="reqn">(1-\alpha)\cdot 100\%</code> quantile serves as an upperbound.</p>
+</dd>
+<dt><code>trend</code></dt>
+<dd>
+<p>Boolean indicating whether a trend should be included</p>
+</dd>
+<dt><code>noPeriods</code></dt>
+<dd>
+<p>Number of levels in the factor allowing to use more baseline. If
+equal to 1 no factor variable is created, the set of reference values is defined as in
+Farrington et al (1996).</p>
+</dd>
+<dt><code>inferenceMethod</code></dt>
+<dd>
+<p>Which inference method used, as defined in Salmon et al. (2015). If one chooses <code>"INLA"</code> then inference is performed with INLA. If one chooses <code>"asym"</code> (default) then the asymptotic normal approximation of the posteriori is used.</p>
+</dd>
+<dt><code>pastWeeksNotIncluded</code></dt>
+<dd>
+<p>Number of past weeks to ignore in the calculation.
+The default (<code>NULL</code>) means to use the value of <code>control$w</code>.</p>
+</dd>
+<dt><code>delay</code></dt>
+<dd>
+<p>Boolean indicating whether to take reporting delays into account.</p>
+</dd>
+<dt><code>mc.munu</code></dt>
+<dd>
+<p>Number of samples for the parameters of the negative binomial distribution for calculating a threshold</p>
+</dd>
+<dt><code>mc.y</code></dt>
+<dd>
+<p>Number of samples for observations
+when performing Monte Carlo to calculate a threshold</p>
+</dd>
+<dt><code>limit54</code></dt>
+<dd>
+<p>c(cases,period) is a vector allowing the
+user to change these numbers.</p>
+</dd>
+<dt><code>quantileMethod</code></dt>
+<dd>
+<p>Character, either <code>"MC"</code> (default) or <code>"MM"</code>. Indicates how to compute the quantile based on the posterior distribution (no matter the inference method): either by sampling <code>mc.munu</code> values from the posterior distribution of the parameters and then for each sampled parameters vector sampling <code>mc.y</code> response values so that one gets a vector of response values based on which one computes an empirical quantile (MC method, as explained in Salmon et al. 2015); or by sampling <code>mc.munu</code> from the posterior distribution of the parameters and then compute the quantile of the mixture distribution using bisectioning, which is faster.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Farrington, C.P., Andrews, N.J, Beale A.D. and Catchpole, M.A. (1996):
+A statistical algorithm for the early detection of outbreaks of
+infectious disease. J. R. Statist. Soc. A, 159, 547-563.
+</p>
+<p>Noufaily, A., Enki, D.G., Farrington, C.P., Garthwaite, P.,
+Andrews, N.J., Charlett, A. (2012): An improved algorithm for outbreak
+detection in multiple surveillance systems. Statistics in Medicine,
+32 (7), 1206-1222.
+</p>
+<p>Salmon, M., Schumacher, D., Stark, K., Höhle, M. (2015):
+Bayesian outbreak detection in the presence of reporting delays.
+Biometrical Journal, 57 (6), 1051-1067.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+data("stsNewport")
+salm.Normal &lt;- list()
+salmDelayAsym &lt;- list()
+for (week in 43:45){
+  listWeeks &lt;- as.Date(row.names(stsNewport@control$reportingTriangle$n))
+  dateObs &lt;- listWeeks[isoWeekYear(listWeeks)$ISOYear==2011 &amp;
+                       isoWeekYear(listWeeks)$ISOWeek==week]
+  stsC &lt;- sts_observation(stsNewport,
+                          dateObservation=dateObs,
+                          cut=TRUE)
+  inWeeks &lt;- with(isoWeekYear(epoch(stsC)),
+                  ISOYear == 2011 &amp; ISOWeek &gt;= 40 &amp; ISOWeek &lt;= 48)
+  
+  rangeTest &lt;- which(inWeeks)
+  alpha &lt;- 0.07
+
+  # Control slot for Noufaily method          
+  controlNoufaily &lt;- list(range=rangeTest,noPeriods=10,
+                          b=4,w=3,weightsThreshold=2.58,pastWeeksNotIncluded=26,
+                          pThresholdTrend=1,thresholdMethod="nbPlugin",alpha=alpha*2,
+                          limit54=c(0,50))
+  
+  # Control slot for the Proposed algorithm with D=0 correction
+  controlNormal &lt;- list(range = rangeTest, b = 4, w = 3,
+                        reweight = TRUE, mc.munu=10000, mc.y=100,
+                        verbose = FALSE,
+                        alpha = alpha, trend = TRUE,
+                        limit54=c(0,50), 
+                        noPeriods = 10, pastWeeksNotIncluded = 26,
+                        delay=FALSE)
+  
+  # Control slot for the Proposed algorithm with D=10 correction
+  controlDelayNorm &lt;-  list(range = rangeTest, b = 4, w = 3,
+                            reweight = FALSE, mc.munu=10000, mc.y=100,
+                            verbose = FALSE,
+                            alpha = alpha, trend = TRUE,
+                            limit54=c(0,50), 
+                            noPeriods = 10, pastWeeksNotIncluded = 26,
+                            delay=TRUE,inferenceMethod="asym")
+  
+  set.seed(1)
+  salm.Normal[[week]] &lt;- farringtonFlexible(stsC, controlNoufaily)
+  salmDelayAsym[[week]] &lt;- bodaDelay(stsC, controlDelayNorm)
+}
+
+opar &lt;- par(mfrow=c(2,3))
+lapply(salmDelayAsym[c(43,44,45)],plot, legend=NULL, main="", ylim=c(0,35))
+lapply(salm.Normal[c(43,44,45)],plot, legend=NULL, main="", ylim=c(0,35))
+par(opar)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

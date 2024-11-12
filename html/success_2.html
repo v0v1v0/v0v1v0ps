@@ -1,0 +1,273 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bernoulli_ARL</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Average Run Length for Bernoulli CUSUM</h2>
+
+<h3>Description</h3>
+
+<p>This function allows to estimate the Average Run Length (ARL)
+of the risk-adjusted Bernoulli CUSUM (see <code>bernoulli_cusum()</code>)
+through a Markov Chain Approach (Brook &amp; Evans(1972) &amp; Steiner et al. (2000)) or
+exploiting the relationship with the Sequential Probability Ratio Test (Kemp (1971)).
+The function requires the specification of one of the following combinations of parameters
+as arguments to the function:
+</p>
+
+<ul>
+<li> <p><code>glmmod</code> &amp; <code>theta</code>
+</p>
+</li>
+<li> <p><code>p0</code> &amp; <code>theta</code>
+</p>
+</li>
+<li> <p><code>p0</code> &amp; <code>p1</code>
+</p>
+</li>
+</ul>
+<p> Average run length of lower-sided Bernoulli CUSUM charts can be determined
+by specifying <code>theta</code> &lt; 0.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bernoulli_ARL(h, n_grid, glmmod, theta, theta_true, p0, p1, method = c("MC",
+  "SPRT"), smooth_prob = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>Control limit for the Bernoulli CUSUM</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_grid</code></td>
+<td>
+<p>Number of state spaces used to discretize the outcome space (when <code>method = "MC"</code>)
+or number of grid points used for trapezoidal integration (when <code>method = "SPRT"</code>).
+Increasing this number improves accuracy, but can also significantly increase computation time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glmmod</code></td>
+<td>
+<p>Generalized linear regression model used for risk-adjustment as produced by
+the function <code>glm()</code>. Suggested: <br><code>glm(as.formula("(survtime &lt;= followup) &amp; (censorid == 1) ~ covariates"), data = data)</code>. <br>
+Alternatively, a list containing the following elements:
+</p>
+
+<dl>
+<dt>
+<code>formula</code>:</dt>
+<dd>
+<p>a <code>formula()</code> in the form <code>~ covariates</code>;</p>
+</dd>
+<dt>
+<code>coefficients</code>:</dt>
+<dd>
+<p>a named vector specifying risk adjustment coefficients
+for covariates. Names must be the same as in <code>formula</code> and colnames of <code>data</code>.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+<p>The <code class="reqn">\theta</code> value used to specify the odds ratio
+<code class="reqn">e^\theta</code> under the alternative hypothesis.
+If <code class="reqn">\theta &gt;= 0</code>, the average run length for the upper one-sided
+Bernoulli CUSUM will be determined. If <code class="reqn">\theta &lt; 0</code>,
+the average run length for the lower one-sided CUSUM will be determined.
+Note that </p>
+<p style="text-align: center;"><code class="reqn">p_1 = \frac{p_0 e^\theta}{1-p_0 +p_0 e^\theta}.</code>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta_true</code></td>
+<td>
+<p>The true log odds ratio <code class="reqn">\theta</code>, describing the
+true increase in failure rate from the null-hypothesis. Default = log(1), indicating
+no increase in failure rate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p0</code></td>
+<td>
+<p>The baseline failure probability at <code>entrytime + followup</code> for individuals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p1</code></td>
+<td>
+<p>The alternative hypothesis failure probability at <code>entrytime + followup</code> for individuals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>The method used to obtain the average run length. Either "MC" for Markov Chain
+or "SPRT" for SPRT methodology. Default = "MC".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth_prob</code></td>
+<td>
+<p>Should the probability distribution of failure under the null distribution be smoothed?
+Useful for small samples. Can only be TRUE when <code>glmmod</code> is supplied. Default = FALSE.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The average run length of a CUSUM chart <code class="reqn">S_n</code> is given by
+<code class="reqn">E[\tau_n],</code> where <code class="reqn">\tau_n</code> is defined as:
+</p>
+<p style="text-align: center;"><code class="reqn">\tau_n = \inf\{n \geq 0: S_n \geq h\}.</code>
+</p>
+
+<p>When <code>method = "MC"</code>, the average run length will be determined by
+the Markov Chain approach described
+in Brook &amp; Evans (1972), using the risk-adjustment correction proposed in
+Steiner et al. (2000). The idea is to discretize the domain (0, h) into <code class="reqn">n_{grid} -1</code>
+state spaces, with <code class="reqn">E_0</code> of width <code class="reqn">w/2</code>
+and <code class="reqn">E_1, \ldots, E_{n_{grid}-1}</code> of width <code class="reqn">w</code>, such that
+<code class="reqn">E_{n_{grid}}</code> is an absorbing state.  This is done using the following steps:
+</p>
+
+<ul>
+<li> <p><code class="reqn">w</code> is determined using the relationship <code class="reqn">\frac{2h}{2t-1}</code>.
+</p>
+</li>
+<li>
+<p> Transition probabilities between the states are determined and
+'transition matrix' <code class="reqn">R</code> is constructed.
+</p>
+</li>
+<li>
+<p> The equation <code class="reqn">(\bm{I}-\bm{R}) \bm{ARL} = \bm{1}</code> is
+solved to find the ARL starting from each of the states.
+</p>
+</li>
+</ul>
+<p>When <code>method = "SPRT"</code>, the average run length will be determined by
+the relationship between the SPRT and CUSUM described in Kemp (1971), using the risk-adjustment
+correction proposed in Steiner et al. (2000).
+If N is the run length of a SPRT, P(0) the probability of
+a SPRT terminating on the lower boundary of zero and R the run length of
+a CUSUM, then: </p>
+<p style="text-align: center;"><code class="reqn">E[R] = \frac{E[N]}{1 - P(0)}.</code>
+</p>
+
+<p><code class="reqn">E[N]</code> and <code class="reqn">P(0)</code> are completely determined by
+</p>
+<p style="text-align: center;"><code class="reqn">G_n(z) = \int_0^h F(z-w) dG_{n-1}(w)</code>
+</p>
+
+<p>with <code class="reqn">F(x)</code> the cdf of the singletons <code class="reqn">W_n</code>. The integral can be
+approximated using the generalized trapezoidal quadrature rule:
+</p>
+<p style="text-align: center;"><code class="reqn">G_n(z) = \sum_{i=0}^{n_{grid}-1} \frac{F(z-x_{i+1}) + F(z-x_{i})}{2} \left(G_{n-1}(x_{i+1}) - G_{n-1}(x_{i})  \right)</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>A list containing:
+</p>
+
+<ul>
+<li> <p><code>ARL_0</code>: A numeric value indicating the average run length in
+number of outcomes when starting from state E_0.
+</p>
+</li>
+<li> <p><code>ARL</code>: A <code>data.frame</code> containing the average run length (#outcomes)
+depending on the state in which the process starts <code class="reqn">(E_0, E_1, \ldots, E_{n_{grid}-1})</code>
+</p>
+
+<dl>
+<dt>
+<code>start_val</code>:</dt>
+<dd>
+<p>Starting value of the CUSUM, corresponding to the
+discretized state spaces <code class="reqn">E_{i}</code>;</p>
+</dd>
+<dt>
+<code>#outcomes</code>:</dt>
+<dd>
+<p>ARL for the CUSUM with
+initial value <code>start_val</code>;</p>
+</dd>
+</dl>
+</li>
+<li> <p><code>R</code>: A transition probability <code>matrix</code> containing the transition
+probabilities between states <code class="reqn">E_0, \ldots, E_{t-1}</code>.
+<code class="reqn">R_{i,j}</code> is the transition probability from state i to state j.
+</p>
+</li>
+<li> <p><code>h</code>: Value of the control limit.
+</p>
+</li>
+</ul>
+<p> The value of <code>ARL_0</code> will be printed to the console.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Daniel Gomon
+</p>
+
+
+<h3>References</h3>
+
+<p>Brook, D., &amp; Evans, D. A. (1972). An Approach to the Probability
+Distribution of CUSUM Run Length. Biometrika, 59(3), 539-549.
+<a href="https://doi.org/10.2307/2334805">doi:10.2307/2334805</a>
+</p>
+<p>Steiner, S. H., Cook, R. J., Farewell, V. T., &amp; Treasure, T. (2000).
+Monitoring surgical performance using risk-adjusted cumulative sum charts.
+Biostatistics, 1(4), 441-452. <a href="https://doi.org/10.1093/biostatistics/1.4.441">doi:10.1093/biostatistics/1.4.441</a>
+</p>
+<p>Kemp, K. W. (1971). Formal Expressions which Can Be Applied to Cusum Charts.
+Journal of the Royal Statistical Society. Series B (Methodological), 33(3),
+331-360. <a href="https://doi.org/10.1111/j.2517-6161.1971.tb01521.x">doi:10.1111/j.2517-6161.1971.tb01521.x</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>bernoulli_cusum</code>, <code>bernoulli_control_limit</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Determine a risk-adjustment model using a generalized linear model.
+#Outcome (failure within 100 days) is regressed on the available covariates:
+glmmodber &lt;- glm((survtime &lt;= 100) &amp; (censorid == 1)~ age + sex + BMI,
+                  data = surgerydat, family = binomial(link = "logit"))
+#Determine the Average Run Length in number of outcomes for
+#control limit h = 2.5 with (0, h) divided into n_grid = 200 segments
+ARL &lt;- bernoulli_ARL(h = 2.5, n_grid = 200, glmmod = glmmodber, theta = log(2))
+#Calculate ARL, but now exploiting connection between SPRT and CUSUM:
+#n_grid now decides the accuracy of the Trapezoidal rule for integral approximation
+ARLSPRT &lt;- bernoulli_ARL(h = 2.5, n_grid = 200, glmmod = glmmodber,
+theta = log(2), method = "SPRT")
+
+
+
+</code></pre>
+
+
+</div>

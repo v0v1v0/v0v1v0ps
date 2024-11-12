@@ -1,0 +1,356 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Incremental</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Incremental prediction performance in regression</h2>
+
+<h3>Description</h3>
+
+<p>Computes the prediction performance of regression models where predictors are
+sequentially added by order of decreasing selection proportion. This function
+can be used to evaluate the marginal contribution of each of the selected
+predictors over and above more stable predictors. Performances are evaluated
+as in <code>ExplanatoryPerformance</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Incremental(
+  xdata,
+  ydata,
+  new_xdata = NULL,
+  new_ydata = NULL,
+  stability = NULL,
+  family = NULL,
+  implementation = NULL,
+  prediction = NULL,
+  resampling = "subsampling",
+  n_predictors = NULL,
+  K = 100,
+  tau = 0.8,
+  seed = 1,
+  n_thr = NULL,
+  time = 1000,
+  verbose = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>xdata</code></td>
+<td>
+<p>matrix of predictors with observations as rows and variables as
+columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ydata</code></td>
+<td>
+<p>optional vector or matrix of outcome(s). If <code>family</code> is set
+to <code>"binomial"</code> or <code>"multinomial"</code>, <code>ydata</code> can be a vector
+with character/numeric values or a factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new_xdata</code></td>
+<td>
+<p>optional test set (predictor data).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new_ydata</code></td>
+<td>
+<p>optional test set (outcome data).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stability</code></td>
+<td>
+<p>output of <code>VariableSelection</code>. If
+<code>stability=NULL</code> (the default), a model including all variables in
+<code>xdata</code> as predictors is fitted. Argument <code>family</code> must be
+provided in this case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>type of regression model. Possible values include
+<code>"gaussian"</code> (linear regression), <code>"binomial"</code> (logistic
+regression), and <code>"cox"</code> (survival analysis). If provided, this
+argument must be consistent with input <code>stability</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>implementation</code></td>
+<td>
+<p>optional function to refit the model. If
+<code>implementation=NULL</code> and <code>stability</code> is the output of
+<code>VariableSelection</code>, <code>lm</code> (linear
+regression), <code>coxph</code> (Cox regression),
+<code>glm</code> (logistic regression), or
+<code>multinom</code> (multinomial regression) is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prediction</code></td>
+<td>
+<p>optional function to compute predicted values from the
+model refitted with <code>implementation</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resampling</code></td>
+<td>
+<p>resampling approach to create the training set. The default
+is <code>"subsampling"</code> for sampling without replacement of a proportion
+<code>tau</code> of the observations. Alternatively, this argument can be a
+function to use for resampling. This function must use arguments named
+<code>data</code> and <code>tau</code> and return the IDs of observations to be
+included in the resampled dataset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_predictors</code></td>
+<td>
+<p>number of predictors to consider.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>number of training-test splits. Only used if <code>new_xdata</code> and
+<code>new_ydata</code> are not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>proportion of observations used in the training set. Only used if
+<code>new_xdata</code> and <code>new_ydata</code> are not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>value of the seed to ensure reproducibility of the results. Only
+used if <code>new_xdata</code> and <code>new_ydata</code> are not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_thr</code></td>
+<td>
+<p>number of thresholds to use to construct the ROC curve. If
+<code>n_thr=NULL</code>, all predicted probability values are iteratively used as
+thresholds. For faster computations on large data, less thresholds can be
+used. Only applicable to logistic regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>numeric indicating the time for which the survival probabilities
+are computed. Only applicable to Cox regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical indicating if a loading bar and messages should be
+printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed to the function provided in
+<code>resampling</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>incremental</code>.
+</p>
+<p>For logistic regression, a list with: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>FPR</code></td>
+<td>
+<p>A list with, for each of
+the models (sequentially added predictors), the False Positive Rates for
+different thresholds (columns) and different data splits (rows).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>TPR</code></td>
+<td>
+<p>A list with, for each of the models (sequentially added
+predictors), the True Positive Rates for different thresholds (columns) and
+different data splits (rows).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>AUC</code></td>
+<td>
+<p>A list with, for each of the
+models (sequentially added predictors), a vector of Area Under the Curve
+(AUC) values obtained with different data splits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Beta</code></td>
+<td>
+<p>Estimated
+regression coefficients from visited models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>names</code></td>
+<td>
+<p>Names of the
+predictors by order of inclusion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stable</code></td>
+<td>
+<p>Binary vector indicating
+which predictors are stably selected. Only returned if <code>stability</code> is
+provided.</p>
+</td>
+</tr>
+</table>
+<p>For Cox regression, a list with: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>concordance</code></td>
+<td>
+<p>A list with, for each
+of the models (sequentially added predictors), a vector of concordance
+indices obtained with different data splits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Beta</code></td>
+<td>
+<p>Estimated
+regression coefficients from visited models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>names</code></td>
+<td>
+<p>Names of the
+predictors by order of inclusion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stable</code></td>
+<td>
+<p>Binary vector indicating
+which predictors are stably selected. Only returned if <code>stability</code> is
+provided.</p>
+</td>
+</tr>
+</table>
+<p>For linear regression, a list with: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>Q_squared</code></td>
+<td>
+<p>A list with, for each
+of the models (sequentially added predictors), a vector of Q-squared
+obtained with different data splits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Beta</code></td>
+<td>
+<p>Estimated regression
+coefficients from visited models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>names</code></td>
+<td>
+<p>Names of the predictors by
+order of inclusion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stable</code></td>
+<td>
+<p>Binary vector indicating which
+predictors are stably selected. Only returned if <code>stability</code> is
+provided.</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>VariableSelection</code>, <code>Refit</code>
+</p>
+<p>Other prediction performance functions: 
+<code>ExplanatoryPerformance()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateRegression(
+  n = 1000, pk = 20,
+  family = "binomial", ev_xy = 0.8
+)
+
+# Data split: selection, training and test set
+ids &lt;- Split(
+  data = simul$ydata,
+  family = "binomial",
+  tau = c(0.4, 0.3, 0.3)
+)
+xselect &lt;- simul$xdata[ids[[1]], ]
+yselect &lt;- simul$ydata[ids[[1]], ]
+xtrain &lt;- simul$xdata[ids[[2]], ]
+ytrain &lt;- simul$ydata[ids[[2]], ]
+xtest &lt;- simul$xdata[ids[[3]], ]
+ytest &lt;- simul$ydata[ids[[3]], ]
+
+# Stability selection
+stab &lt;- VariableSelection(
+  xdata = xselect,
+  ydata = yselect,
+  family = "binomial"
+)
+
+# Performances in test set of model refitted in training set
+incr &lt;- Incremental(
+  xdata = xtrain, ydata = ytrain,
+  new_xdata = xtest, new_ydata = ytest,
+  stability = stab, n_predictors = 10
+)
+plot(incr)
+
+# Alternative with multiple training/test splits
+incr &lt;- Incremental(
+  xdata = rbind(xtrain, xtest),
+  ydata = c(ytrain, ytest),
+  stability = stab, K = 10, n_predictors = 10
+)
+plot(incr)
+
+
+</code></pre>
+
+
+</div>

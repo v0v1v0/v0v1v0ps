@@ -1,0 +1,218 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.msDS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for prediction at new locations for multi-species hierarchical distance sampling models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>predict</code> collects posterior predictive samples for a set of new locations given an object of class 'msDS'. Prediction is possible for both the latent abundance state as well as detection.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'msDS'
+predict(object, X.0, ignore.RE = FALSE, type = 'abundance', ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class msDS</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X.0</code></td>
+<td>
+<p>the design matrix of covariates at the prediction locations. This should include a column of 1s for the intercept if an intercept is included in the model. If random effects are included in the abundance (or detection if <code>type = 'detection'</code>) portion of the model, the levels of the random effects at the new locations should be included as a column in the design matrix. The ordering of the levels should match the ordering used to fit the data in <code>msDS</code>. Columns should correspond to the order of how covariates were specified in the corresponding formula argument of <code>msDS</code>. Column names must match the names of the variables used to fit the model (for the intercept, use <code>'(Intercept)'</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ignore.RE</code></td>
+<td>
+<p>a logical value indicating whether to include unstructured random effects for prediction. If TRUE, random effects will be ignored and prediction will only use the fixed effects. If FALSE, random effects will be included in the prediction for both observed and unobserved levels of the random effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>a quoted keyword indicating what type of prediction to produce. Valid keywords are 'abundance' to predict expected abundance and latent abundance values (this is the default), or 'detection' to predict detection probability given new values of detection covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list object of class <code>predict.msDS</code>. When <code>type = 'abundance'</code>, the list consists of:  
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>mu.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the
+expected abundance values, or expected abundance values per unit area (i.e., density)
+values when an offset was used when fitting the model with <code>msDS()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the
+latent abundance values. These will be in the same units as <code>mu.0.samples</code>.</p>
+</td>
+</tr>
+</table>
+<p>When <code>type = 'detection'</code>, the list consists of: 
+</p>
+<table><tr style="vertical-align: top;">
+<td><code>sigma.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for
+sigma (the parameter controlling detection probability).</p>
+</td>
+</tr></table>
+<p>The return object will include additional objects used for standard 
+extractor functions. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>When <code>ignore.RE = FALSE</code>, both sampled levels and non-sampled levels of random effects are supported for prediction. For sampled levels, the posterior distribution for the random effect corresponding to that level of the random effect will be used in the prediction. For non-sampled levels, random values are drawn from a normal distribution using the posterior samples of the random effect variance, which results in fully propagated uncertainty in predictions with models that incorporate random effects.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(210)
+J.x &lt;- 10
+J.y &lt;- 10 
+J &lt;- J.x * J.y
+# Number of distance bins from which to simulate data. 
+n.bins &lt;- 5
+# Length of each bin. This should be of length n.bins
+bin.width &lt;- c(.10, .10, .20, .3, .1)
+# Number of species
+n.sp &lt;- 5
+# Community-level abundance coefficients
+beta.mean &lt;- c(-1, 0.2, 0.3, -0.2)
+p.abund &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.2, 0.3, 0.5, 0.4)
+# Detection coefficients
+alpha.mean &lt;- c(-1.0, -0.3)
+p.det &lt;- length(alpha.mean)
+tau.sq.alpha &lt;- c(0.1, 0.2)
+# Detection decay function
+det.func &lt;- 'halfnormal'
+mu.RE &lt;- list()
+p.RE &lt;- list()
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = n.sp, ncol = p.abund)
+alpha &lt;- matrix(NA, nrow = n.sp, ncol = p.det)
+for (i in 1:p.abund) {
+  beta[, i] &lt;- rnorm(n.sp, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(n.sp, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+sp &lt;- FALSE 
+family &lt;- 'Poisson'
+kappa &lt;- runif(n.sp, 0.3, 3) 
+offset &lt;- pi * .8^2
+transect &lt;- 'line'
+factor.model &lt;- FALSE
+
+dat &lt;- simMsDS(J.x = J.x, J.y = J.y, n.bins = n.bins, bin.width = bin.width,
+               n.sp = n.sp, beta = beta, alpha = alpha, det.func = det.func, kappa = kappa, 
+               mu.RE = mu.RE, p.RE = p.RE, sp = sp, cov.model = cov.model,
+               sigma.sq = sigma.sq, phi = phi, nu = nu, family = family, 
+               offset = offset, transect = transect, factor.model = factor.model)
+
+# Split into fitting and prediction data set
+pred.indx &lt;- sample(1:J, round(J * .25), replace = FALSE)
+y &lt;- dat$y[, -pred.indx, ]
+# Occupancy covariates
+X &lt;- dat$X[-pred.indx, ]
+# Prediction covariates
+X.0 &lt;- dat$X[pred.indx, ]
+# Detection covariates
+X.p &lt;- dat$X.p[-pred.indx, , drop = FALSE]
+X.p.0 &lt;- dat$X.p[pred.indx, , drop = FALSE]
+coords &lt;- as.matrix(dat$coords[-pred.indx, ])
+coords.0 &lt;- as.matrix(dat$coords[pred.indx, ])
+dist.breaks &lt;- dat$dist.breaks
+
+covs &lt;- cbind(X, X.p)
+colnames(covs) &lt;- c('int.abund', 'abund.cov.1', 'abund.cov.2', 'abund.cov.3', 
+                    'int.det', 'det.cov.1')
+
+data.list &lt;- list(y = y, 
+                  covs = covs,
+                  dist.breaks = dist.breaks, 
+                  offset = offset)
+
+# Priors
+prior.list &lt;- list(beta.comm.normal = list(mean = 0, var = 10),
+		   alpha.comm.normal = list(mean = 0,
+			               var = 10), 
+                   kappa.unif = list(0, 100), 
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1),
+                   tau.sq.alpha.ig = list(a = 0.1, b = 0.1)) 
+# Starting values
+inits.list &lt;- list(alpha.comm = 0, beta.comm = 0, beta = 0,
+		   alpha = 0, kappa = 1)
+
+tuning &lt;- list(beta = 0.1, alpha = 0.1, beta.star = 0.3, alpha.star = 0.1, 
+               kappa = 0.8) 
+
+n.batch &lt;- 4 
+batch.length &lt;- 25
+n.burn &lt;- 0
+n.thin &lt;- 1
+n.chains &lt;- 1
+
+out &lt;- msDS(abund.formula = ~ abund.cov.1 + abund.cov.2 + abund.cov.3,
+            det.formula = ~ det.cov.1,
+            data = data.list, 
+            n.batch = n.batch, 
+            batch.length = batch.length, 
+            inits = inits.list, 
+            family = 'Poisson',
+            det.func = 'halfnormal', 
+            transect = transect, 
+            tuning = tuning,
+            priors = prior.list, 
+            accept.rate = 0.43, 
+            n.omp.threads = 1, 
+            verbose = TRUE, 
+            n.report = 10,
+            n.burn = n.burn,
+            n.thin = n.thin,
+            n.chains = n.chains) 
+summary(out, level = 'community')
+
+# Predict at new locations ------------------------------------------------
+colnames(X.0) &lt;- c('intercept', 'abund.cov.1', 'abund.cov.2', 'abund.cov.3')
+out.pred &lt;- predict(out, X.0)
+str(out.pred)
+</code></pre>
+
+
+</div>

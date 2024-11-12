@@ -1,0 +1,214 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>xxirt_createParTable</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Create Item Response Functions and Item Parameter Table
+</h2>
+
+<h3>Description</h3>
+
+<p>Create item response functions and item parameter table
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">xxirt_createDiscItem( name, par, est, P, lower=-Inf, upper=Inf,
+     prior=NULL, prior_par1=NULL, prior_par2=NULL)
+
+xxirt_createParTable(dat, itemtype, customItems=NULL)
+
+xxirt_modifyParTable( partable, parname, item=NULL, value=NULL,
+     est=NULL, parlabel=NULL, parindex=NULL, lower=NULL,
+     upper=NULL, prior=NULL, prior_par1=NULL, prior_par2=NULL )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>Type of item response function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>par</code></td>
+<td>
+<p>Named vector of starting values of item parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est</code></td>
+<td>
+<p>Logical vector indicating which parameters should be estimated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P</code></td>
+<td>
+<p>Item response function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+<p>Lower bounds</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>Upper bounds</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior</code></td>
+<td>
+<p>Prior distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_par1</code></td>
+<td>
+<p>First parameter prior distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_par2</code></td>
+<td>
+<p>Second parameter prior distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dat</code></td>
+<td>
+
+<p>Data frame with item responses
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>itemtype</code></td>
+<td>
+
+<p>Vector of item types
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>customItems</code></td>
+<td>
+
+<p>List with item objects created by <code>xxirt_createDiscItem</code>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>partable</code></td>
+<td>
+<p>Item parameter table</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parname</code></td>
+<td>
+<p>Parameter name</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>item</code></td>
+<td>
+<p>Item</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>value</code></td>
+<td>
+<p>Value of item parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parindex</code></td>
+<td>
+<p>Parameter index</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parlabel</code></td>
+<td>
+<p>Item parameter label</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>xxirt</code>
+</p>
+<p>See <code>mirt::createItem</code> for similar
+functionality.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#############################################################################
+## EXAMPLE 1: Definition of item response functions
+#############################################################################
+
+data(data.read)
+dat &lt;- data.read
+
+#------ Definition of item response functions
+#*** IRF 2PL
+P_2PL &lt;- function( par, Theta, ncat){
+    a &lt;- par[1]
+    b &lt;- par[2]
+    TP &lt;- nrow(Theta)
+    P &lt;- matrix( NA, nrow=TP, ncol=ncat)
+    P[,1] &lt;- 1
+    for (cc in 2:ncat){
+        P[,cc] &lt;- exp( (cc-1) * a * Theta[,1] - b )
+    }
+    P &lt;- P / rowSums(P)
+    return(P)
+}
+
+#*** IRF 1PL
+P_1PL &lt;- function( par, Theta, ncat){
+    b &lt;- par[1]
+    TP &lt;- nrow(Theta)
+    par0 &lt;- c(1,b)
+    P &lt;- P_2PL( par=par0, Theta=Theta, ncat=ncat)
+    return(P)
+}
+
+#** created item classes of 1PL and 2PL models
+par &lt;- c( "a"=1, "b"=0 )
+# define some slightly informative prior of 2PL
+item_2PL &lt;- sirt::xxirt_createDiscItem( name="2PL", par=par, est=c(TRUE,TRUE),
+                P=P_2PL, prior=c( a="dlnorm"), prior_par1=c(a=0),
+                prior_par2=c(a=5) )
+item_1PL &lt;- sirt::xxirt_createDiscItem( name="1PL", par=par[2], est=c(TRUE),
+                P=P_1PL )
+# list of item classes in customItems
+customItems &lt;- list( item_1PL,  item_2PL )
+
+#-- create parameter table
+itemtype &lt;- rep( "1PL", 12 )
+partable &lt;- sirt::xxirt_createParTable(dat, itemtype=itemtype, customItems=customItems)
+# privide starting values
+partable1 &lt;- sirt::xxirt_modifyParTable( partable, parname="b",
+                   value=- stats::qlogis( colMeans(dat) ) )
+# equality constraint of parameters and definition of lower bounds
+partable1 &lt;- sirt::xxirt_modifyParTable( partable1, item=c("A1","A2"),
+                parname="b", parindex=110, lower=-1, value=0)
+print(partable1)
+</code></pre>
+
+
+</div>

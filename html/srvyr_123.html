@@ -1,0 +1,155 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>summarise</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Summarise multiple values to a single value.</h2>
+
+<h3>Description</h3>
+
+<p>Summarise multiple values to a single value.
+</p>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>.data</code></td>
+<td>
+<p>tbl A <code>tbl_svy</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Name-value pairs of summarizing expressions, see details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.groups</code></td>
+<td>
+<p>Defaults to "drop_last" in srvyr meaning that the last group is peeled
+off, but if there are more groups they will be preserved. Other options are "drop", which
+drops all groups, "keep" which keeps all of them and "rowwise" which converts the object
+to a rowwise object (meaning calculations will be performed on each row).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.unpack</code></td>
+<td>
+<p>Whether to "unpack" named <code>data.frame</code> columns. <code>srvyr</code> predates
+<code>dplyr</code>'s support for data.frame columns so it does not treat them the same way by
+default.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Summarise for <code>tbl_svy</code> objects accepts several specialized functions.
+Each of the functions a variable (or two, in the case of
+<code>survey_ratio</code>), from the data.frame and default to providing the measure
+and its standard error.
+</p>
+<p>The argument <code>vartype</code> can choose one or more measures of uncertainty,
+<code>se</code> for standard error, <code>ci</code> for confidence interval, <code>var</code>
+for variance, and <code>cv</code> for coefficient of variation. <code>level</code>
+specifies the level for the confidence interval.
+</p>
+<p>The other arguments correspond to the analogous function arguments from the
+survey package.
+</p>
+<p>The available functions from srvyr are:
+</p>
+
+<dl>
+<dt><code>survey_mean</code></dt>
+<dd>
+<p>Calculate the mean of a numeric variable or the proportion falling into <code>groups</code>
+for the entire population or by <code>groups</code>. Based on <code>svymean</code>
+and <code>svyciprop</code>.</p>
+</dd>
+</dl>
+<p>.
+</p>
+<dl>
+<dt><code>survey_total</code></dt>
+<dd>
+<p>Calculate the survey total of the entire population or by <code>groups</code>.
+Based on <code>svytotal</code>.</p>
+</dd>
+<dt><code>survey_prop</code></dt>
+<dd>
+<p>Calculate the proportion of the entire population or by <code>groups</code>.
+Based on <code>svyciprop</code>.</p>
+</dd>
+<dt><code>survey_ratio</code></dt>
+<dd>
+<p>Calculate the ratio of 2 variables in the entire population or by <code>groups</code>.
+Based on <code>svyratio</code>.</p>
+</dd>
+<dt>
+<code>survey_quantile</code> &amp; <code>survey_median</code>
+</dt>
+<dd>
+<p>Calculate quantiles in the entire population or by <code>groups</code>. Based on
+<code>svyquantile</code>.</p>
+</dd>
+<dt><code>unweighted</code></dt>
+<dd>
+<p>Calculate an unweighted estimate as you would on a regular <code>tbl_df</code>.
+Based on dplyr's <code>summarise</code>.</p>
+</dd>
+</dl>
+<p>You can use expressions both in the <code>...</code> of <code>summarize</code> and also
+in the arguments to the summarizing functions. Though this is valid syntactically
+it can also allow you to calculate incorrect results (for example if you multiply
+the mean by 100, the standard error is also multiplied by 100, but the variance
+is not).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(api, package = "survey")
+
+dstrata &lt;- apistrat %&gt;%
+  as_survey_design(strata = stype, weights = pw)
+
+dstrata %&gt;%
+  summarise(api99_mn = survey_mean(api99),
+            api00_mn = survey_mean(api00),
+            api_diff = survey_mean(api00 - api99))
+
+dstrata_grp &lt;- dstrata %&gt;%
+  group_by(stype)
+
+dstrata_grp %&gt;%
+  summarise(api99_mn = survey_mean(api99),
+            api00_mn = survey_mean(api00),
+            api_diff = survey_mean(api00 - api99))
+
+# `dplyr::across` can be used to programmatically summarize multiple columns
+# See https://dplyr.tidyverse.org/articles/colwise.html for details
+# A basic example of working on 2 columns at once and then calculating the total
+# the mean
+total_vars &lt;- c("enroll", "api.stu")
+dstrata %&gt;%
+  summarize(across(c(all_of(total_vars)), survey_total))
+
+# Expressions are allowed in summarize arguments &amp; inside functions
+# Here we can calculate binary variable on the fly and also multiply by 100 to
+# get percentages
+dstrata %&gt;%
+  summarize(api99_over_700_pct = 100 * survey_mean(api99 &gt; 700))
+
+# But be careful, the variance doesn't scale the same way, so this is wrong!
+dstrata %&gt;%
+  summarize(api99_over_700_pct = 100 * survey_mean(api99 &gt; 700, vartype = "var"))
+# Wrong variance!
+
+</code></pre>
+
+
+</div>

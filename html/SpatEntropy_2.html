@@ -1,0 +1,179 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>altieri</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Altieri's spatial entropy.</h2>
+
+<h3>Description</h3>
+
+<p>This function computes spatial mutual information and spatial residual entropy as in Altieri et al (2017) and following works.
+References can be found at <code>SpatEntropy</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">altieri(data, cell.size = 1, distbreak = "default", verbose = F, plotout = T)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>If data are lattice, a data matrix, which can be numeric, factor, character, ...
+If the dataset is a point pattern, <code>data</code> is a <code>ppp</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cell.size</code></td>
+<td>
+<p>A single number or a vector of length two, only needed if data are lattice. It gives the length of the side of each pixel;
+if the pixel is rectangular, the first number gives the horizontal side and the second number gives the vertical side. Default to 1. Ignored if data are points.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distbreak</code></td>
+<td>
+<p>Numeric. The chosen distance breaks for selecting pairs of pixels/points within the observation area.
+The default option is <code>c(cell.size[1], 2*cell.size[1])</code> for lattice data, and
+<code>c(mindist, 2*mindist)</code> for point data,
+where <code>mindist</code> is the first decile of the nearest neighbour distance distribution.
+Only the internal breaks have to be specified, the first and last break are automatically added as 0 and the maximum distance within the observation area, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Logical. If <code>TRUE</code> an output is printed in order to follow the progress of the work (recommended for large dataset).
+Default set to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plotout</code></td>
+<td>
+<p>Logical. Default to <code>TRUE</code>, produces an informative plot as part of the function output.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The computation of Altieri's entropy starts from a point or areal dataset, for which
+Shannon's entropy of the transformed variable <code class="reqn">Z</code> (for details see <code>shannonZ</code>)
+</p>
+<p style="text-align: center;"><code class="reqn">H(Z)=\sum p(z_r)\log(1/p(z_r))</code>
+</p>
+
+<p>is computed using all
+possible pairs within the observation area. Then, its two components
+spatial mutual information
+</p>
+<p style="text-align: center;"><code class="reqn">SMI(Z,W)=\sum p(w_k) \sum p(z_r|w_k)\log(p(z_r|w_k)/p(z_r))</code>
+</p>
+
+<p>and spatial residual entropy
+</p>
+<p style="text-align: center;"><code class="reqn">H(Z)_W=\sum p(w_k) \sum p(z_r|w_k)\log(1/p(z_r|w_k))</code>
+</p>
+
+<p>are calculated
+in order to account for the overall role of space in determining
+the data heterogeneity. Besides, starting from a partition into distance
+classes, a list of adjacency matrices is
+built, which identifies what pairs of units
+must be considered for each class. Spatial mutual information and spatial residual
+entropy are split into local terms according to the chosen distance breaks, so that the role of space
+can be investigated both in absolute and relative terms. In the function output, the relative partial terms
+are returned so that they sum to 1 for each distance class: e.g. if the relative SPI terms is 0.3 and
+the relative residual term is 0.7, the interpretation is that, at the specific distance class, 30% of
+the entropy is due to the role of space as a source of heterogeneity.
+The function is able to work with lattice data with missing data, as long as they are specified as NAs:
+missing data are ignored in the computations.
+The function is able to work with grids containing missing data, specified as NA values.
+All NAs are ignored in the computation and only couples of non-NA observations are considered.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with elements:
+</p>
+
+<ul>
+<li> <p><code>distance.breaks</code> a two column matrix with the lower and upper extreme of each distance class
+</p>
+</li>
+<li> <p><code>SPI.terms</code> the spatial partial information terms
+</p>
+</li>
+<li> <p><code>rel.SPI.terms</code> the relative version of spatial partial information terms (see the details)
+</p>
+</li>
+<li> <p><code>RES.terms</code> the spatial partial residual entropies
+</p>
+</li>
+<li> <p><code>rel.RES.terms</code> the relative version of spatial partial residual entropies (see the details)
+</p>
+</li>
+<li> <p><code>SMI</code> the spatial mutual information
+</p>
+</li>
+<li> <p><code>RES</code> the global residual entropy
+</p>
+</li>
+<li> <p><code>ShannonZ</code> Shannon's entropy of <code class="reqn">Z</code> in the same format as the output of <code>shannonZ()</code>
+</p>
+</li>
+<li> <p><code>W.distribution</code> the spatial weights for each distance range
+</p>
+</li>
+<li> <p><code>total.pairs</code> the total number of pairs over the area (realizations of <code class="reqn">Z</code>)
+</p>
+</li>
+<li> <p><code>class.pairs</code> the number of pairs for each distance range.
+</p>
+</li>
+<li> <p><code>cond.Z.distribution</code> a list with the conditional absolute and relative frequencies of <code class="reqn">Z</code> for each distance range
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">#lattice data
+data=matrix(sample(1:5, 100, replace=TRUE), nrow=10)
+outp=altieri(data)
+outp=altieri(data, cell.size=2) #same result
+outp=altieri(data, cell.size=2, distbreak=c(2, 5))
+#plot data
+plot(as.im(data, W=square(nrow(data))),
+     col=grDevices::gray(seq(1,0,l=length(unique(c(data))))),
+     main="", ribbon=TRUE)
+
+#lattice data with missing values
+data=matrix(sample(1:5, 100, replace=TRUE), nrow=10)
+data=rbind(rep(NA, ncol(data)), data, rep(NA, ncol(data)))
+outp=altieri(data)
+#plot data
+plot(as.im(data, W=square(nrow(data))),
+     col=topo.colors(length(unique(c(data)[!is.na(c(data))]))),
+     main="", ribbon=TRUE)
+
+#point data
+data=ppp(x=runif(400), y=runif(400), window=square(1),
+         marks=(sample(c("a","b","c"), 400, replace=TRUE)))
+outp=altieri(data)
+outp=altieri(data, verbose=TRUE)
+#plot data
+plot(data, cols=1:length(unique(marks(data))), main="", pch=16)
+#check what happens for badly specified distance breaks
+#outp=altieri(data, distbreak=c(1,1.4))
+#outp=altieri(data, distbreak=c(1,2))
+
+</code></pre>
+
+
+</div>

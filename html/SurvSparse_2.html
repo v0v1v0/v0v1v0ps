@@ -1,0 +1,129 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>trans.haz</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Transformed hazards model with sparse longitudinal covariates</h2>
+
+<h3>Description</h3>
+
+<p>Statistical inference on transformed hazards model with sparse longitudinal covariates. Kernel-weighted log-likelihood and sieve maximum log-likelihood estimation are combined to conduct statistical inference on the hazards function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">trans.haz(data, n, nknots, norder, tau, s, h)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An object of class tibble. The structure of the tibble must be: tibble(id = id, X = failure time, covariates = observation for covariates, obs_times = observation times, delta = censoring indicator).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>An object of class integer. The sample size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nknots</code></td>
+<td>
+<p>An object of class integer. The number of knots for B-spline.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>norder</code></td>
+<td>
+<p>An object of class integer. The order of B-spline.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>An object of class numeric. The maximum follow-up time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s</code></td>
+<td>
+<p>An object of class numeric. The parameter for Box-Cox transformation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>An object of class vector. If use auto bandwidth selection, the structure of the vector must be: h = c(the maximum bandwidth, the minimum bandwidth, the number of bandwidth divided). If use fixed bandwidth, h is the chosen bandwidth.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a list with the following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>est</code></td>
+<td>
+<p>The estimation for the corresponding parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>The estimation for the standard error of the estimated parameters.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Sun, D. et al. (2023) &lt;arXiv:2308.15549&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+library(dplyr)
+library(gaussquad)
+library(nleqslv)
+library(MASS)
+n=200
+lqrule64 &lt;- legendre.quadrature.rules(64)[[64]]
+simdata &lt;- function(  beta ) {
+cen=1
+nstep=20
+Sigmat_z &lt;- exp(-abs(outer(1:nstep, 1:nstep, "-")) / nstep)
+z  &lt;-  2*(pnorm(c(mvrnorm(  1, rep(0,20), Sigmat_z  )))-0.5)
+left_time_points &lt;- (0:(nstep - 1)) / nstep
+z_fun &lt;- stepfun(left_time_points, c(0,z  ))
+h_fun &lt;- function(x) { beta  * z_fun(x)  }
+lam_fun &lt;- function(tt) 2 * exp(h_fun(tt))
+u &lt;- runif(1)
+fail_time &lt;- nleqslv(0, function(ttt)
+legendre.quadrature(lam_fun, lower = 0,upper = ttt, lqrule64) + log(u))$x
+X &lt;- min(fail_time, cen)
+obs=rpois(1,  5)+1
+tt= sort(runif(obs, min = 0, max = 1))
+obs_times &lt;- tt[which(tt&lt;=cen)]
+if (length(obs_times) == 0)
+ obs_times &lt;- cen
+ covariates_obscov &lt;-z_fun(obs_times)
+ return( tibble(X = X,delta = fail_time &lt; cen,
+ covariates = covariates_obscov,obs_times = obs_times, censoring = cen  )  )
+  }
+beta=1
+data &lt;- replicate( n, simdata( beta ), simplify = FALSE ) %&gt;% bind_rows(.id = "id")
+trans.haz(data,n,3,3,1,s=0,n^(-0.35))
+</code></pre>
+
+
+</div>

@@ -1,0 +1,180 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_drought</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get drought characteristics</h2>
+
+<h3>Description</h3>
+
+<p>Extract characteristics of droughts from a time series of values. Drought characteristics
+include the occurrence, intensity, magnitude, and duration of the drought.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">get_drought(
+  x,
+  thresholds = c(1.28, 1.64, 1.96),
+  exceed = TRUE,
+  cluster = 0,
+  lag = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>vector or xts object from which droughts are defined.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thresholds</code></td>
+<td>
+<p>numeric vector containing thresholds to use when defining droughts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exceed</code></td>
+<td>
+<p>logical; <code>TRUE</code> if a drought is defined when <code>x</code> is above the thresholds, <code>FALSE</code> otherwise.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+<p>integer specifying the number of time steps over which droughts should be clustered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lag</code></td>
+<td>
+<p>numeric specifying the value at which the drought should end.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A drought is assumed to be defined as an instance when the vector <code>x</code> exceeds
+(if <code>exceed = TRUE</code>) or falls below (if <code>exceed = FALSE</code>) the specified
+thresholds in <code>thresholds</code>.
+</p>
+<p><code>thresholds</code> can be a single value, or a vector of values. In the latter case,
+each threshold is assumed to be a different level or intensity of the drought.
+If <code>exceed = TRUE</code> then a higher threshold corresponds to a higher intensity,
+and if <code>exceed = FALSE</code> then a lower threshold corresponds to a higher intensity.
+For example, if <code>thresholds = c(1, 1.5, 2)</code>, then a level 1 drought occurs
+whenever <code>x</code> exceeds 1 but is lower than 1.5, a level 2 drought occurs
+whenever <code>x</code> exceeds 1.5 but is lower than 2, and a level 3 drought occurs
+whenever <code>x</code> exceeds 2.
+</p>
+<p>By default, <code>thresholds = c(1.28, 1.64, 1.96)</code>, which corresponds to the
+90th, 95th, and 97.5th percentiles of the standard normal distribution. These
+thresholds are often used alongside standardised indices to define hydrometeorological
+droughts; see references.
+</p>
+<p><code>cluster</code> represents the number
+of time steps between different drought events that should be attributed to the same drought.
+For example, suppose <code class="reqn">x_{i} \geq t, x_{i + 1} &lt; t, x_{i + 2} \geq t</code>,
+where <code class="reqn">x_{i}</code> represents the <code class="reqn">i</code>-th value in <code>x</code>, and <code class="reqn">t</code> is the
+lowest threshold in <code>thresholds</code>. In this case, one drought event will finish
+at time point <code class="reqn">i</code> and a new drought event will begin at time point <code class="reqn">i + 2</code>;
+no drought will occur at time point <code class="reqn">i + 1</code> because the value <code class="reqn">x_{i + 1}</code> is
+below the threshold defining a drought. Since both <code class="reqn">x_{i}</code> and <code class="reqn">x_{i + 2}</code>
+are classed as drought events, it may be desirable to ignore the fluctuation, and
+assume that the drought persists through <code class="reqn">x_{i + 1}</code> despite its value. This can
+be achieved by setting <code>cluster = 1</code>. If there were two time points separating
+different drought events, these can be clustered together by setting <code>cluster = 2</code>,
+and so on. The default is that no clustering should be implemented, i.e. <code>cluster = 0</code>.
+</p>
+<p>Alternatively, we may wish to assume that the drought persists until <code>x</code> falls below
+a value that is not necessarily equal to the threshold defining a drought. For example,
+hydrometeorological droughts based on standardised indices, such as the Standardised
+Precipitation Index (SPI), are often defined to persist until the standardised index changes
+sign, i.e. falls below zero. This can be achieved by setting <code>lag = 0</code>. More generally,
+<code>lag</code> can be any numerical value. If <code>exceed = TRUE</code>, a warning is issued if
+<code>lag</code> is above the lowest threshold, and if <code>exceed = FALSE</code>, a warning is
+issued if <code>lag</code> is below the highest threshold. If <code>lag</code> is <code>NULL</code>
+(the default), then no lagging is performed.
+</p>
+<p><code>get_drought()</code> currently does not use the time series information in
+the xts input, thereby assuming that the time series is complete, without missing
+time periods. If <code>x</code> is a vector, rather than an xts object, then this
+is also implicitly assumed.
+</p>
+<p>The output is a dataframe containing the vector <code>x</code>, a logical vector
+specifying whether each value of <code>x</code> corresponds to a drought event,
+and the magnitude of the drought, defined as the sum of the values of <code>x</code> during
+the drought; see references. The magnitude of the drought is only shown
+on the last day of the drought. This makes it easier to compute statistics about
+the drought magnitude, such as the average drought magnitude.
+If <code>thresholds</code> is a vector, the intensity or level of the drought is also returned.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data frame containing the original values <code>x</code> and the corresponding drought characteristics.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sam Allen, Noelia Otero
+</p>
+
+
+<h3>References</h3>
+
+<p>McKee, T. B., Doesken, N. J., &amp; Kleist, J. (1993):
+‘The relationship of drought frequency and duration to time scales’,
+<em>In Proceedings of the 8th Conference on Applied Climatology</em> 17, 179-183.
+</p>
+<p>Vicente-Serrano, S. M., Beguería, S., &amp; López-Moreno, J. I. (2010):
+‘A multiscalar drought index sensitive to global warming: the standardized precipitation evapotranspiration index’,
+<em>Journal of Climate</em> 23, 1696-1718.
+<a href="https://doi.org/10.1175/2009JCLI2909.1">doi:10.1175/2009JCLI2909.1</a>
+</p>
+<p>Allen, S. &amp; N. Otero (2023):
+‘Standardised indices to monitor energy droughts’,
+<em>Renewable Energy</em> 217, 119206.
+<a href="https://doi.org/10.1016/j.renene.2023.119206">doi:10.1016/j.renene.2023.119206</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(data_supply)
+
+# consider daily German energy supply data in 2019
+supply_de &lt;- subset(data_supply, country == "Germany", select = c("date", "PWS"))
+supply_de &lt;- xts::xts(supply_de$PWS, order.by = supply_de$date)
+supply_de_std &lt;- std_index(supply_de, rescale = "days", timescale = "hours")
+
+# a drought may correspond to when energy supply is low
+drought_df &lt;- get_drought(supply_de_std, thresholds = c(-1.28, -1.64, -1.96), exceed = FALSE)
+head(drought_df)
+mean(drought_df$occ) # droughts occur on roughly 10% of time steps
+
+# cluster droughts two time steps apart
+drought_df &lt;- get_drought(supply_de_std, thresholds = c(-1.28, -1.64, -1.96),
+                          cluster = 2, exceed = FALSE)
+mean(drought_df$occ) # droughts occur on roughly 11% of time steps
+
+# let droughts persist until the standardised index changes sign
+drought_df &lt;- get_drought(supply_de_std, thresholds = c(-1.28, -1.64, -1.96),
+                          lag = 0, exceed = FALSE)
+mean(drought_df$occ) # droughts occur on roughly 17% of time steps
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,150 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>prep_tvinput</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prepare time-varying inputs for estimation of a dynamic survival model</h2>
+
+<h3>Description</h3>
+
+<p>This function pre-processes time-varying inputs in such a way that <code>shrinkDSM</code>
+can work with time-varying inputs. Its main inputs are two data frames, namely
+<code>surv_data</code> and <code>covariate_data</code>. <code>surv_data</code> contains meta data about
+each observation (i.e. survival time and censoring indicator), while <code>covariate_data</code>
+contains the time-varying covariates (one per observation and time interval) and an
+index for which time interval each covariate is observed in. The two are merged
+together via an ID that needs to be unique for each observation and present in both
+<code>surv_data</code> and <code>covariate_data</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">prep_tvinput(
+  surv_data,
+  covariate_data,
+  id_var,
+  surv_var,
+  delta_var,
+  interval_var,
+  covariate_id_var = id_var
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>surv_data</code></td>
+<td>
+<p>data frame containing meta-data for each observation (survival time and
+censoring indicator) as well as an ID for each observation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covariate_data</code></td>
+<td>
+<p>data frame containing the time-varying covariates
+(one per observation and time interval), an index for which time interval each covariate
+is observed in as well as an ID for each observation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id_var</code></td>
+<td>
+<p>character string specifying the column name of the ID variable. If the name
+is different in <code>surv_data</code> and <code>covariate_data</code>, <code>id_var</code> will be used in
+<code>surv_data</code>, whereas <code>covariate_id_var</code> will be used in <code>covariate_data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>surv_var</code></td>
+<td>
+<p>character string specifying the column name of the survival times in
+<code>surv_data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta_var</code></td>
+<td>
+<p>character string specifying the column name of the status indicators in
+<code>surv_data</code>, 0 = censored or 1 = event observed..</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval_var</code></td>
+<td>
+<p>character string specifying the column name of the time interval ID in
+<code>covariate_data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covariate_id_var</code></td>
+<td>
+<p>character string specifying the column name of the ID variable in
+<code>covariate_data</code>. Defaults to <code>id_var</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns an object of class <code>data.frame</code> and <code>tvsurv</code> to be used as an input in
+<code>shrinkDSM</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Daniel Winkler <a href="mailto:daniel.winkler@wu.ac.at">daniel.winkler@wu.ac.at</a>
+</p>
+<p>Peter Knaus <a href="mailto:peter.knaus@wu.ac.at">peter.knaus@wu.ac.at</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># A toy example with 5 observations and 2 covariates, observed over 3 time periods
+set.seed(123)
+n_obs &lt;- 5
+surv_var &lt;- round(rgamma(n_obs, 1, .1)) + 1
+delta_var &lt;- sample(size = n_obs, c(0, 1), prob = c(0.2, 0.8), replace = TRUE)
+
+surv_data &lt;- data.frame(id_var = 1:n_obs, surv_var, delta_var)
+
+# Determine intervals
+S &lt;- c(3, 11)
+
+# Create synthetic observations for each individual
+covariate_list &lt;- list()
+
+for (i in 1:n_obs) {
+  nr_periods_survived &lt;- sum(surv_var[i] &gt; S) + 1
+  covariate_list[[i]] &lt;- data.frame(id_var = i,
+                                    interval_var = 1:nr_periods_survived,
+                                    x1 = rnorm(nr_periods_survived),
+                                    x2 = rnorm(nr_periods_survived))
+}
+
+# Bind all individual covariate data frames together
+# Each observation now has a covariate in each period they
+# were observed in.
+covariate_data &lt;- do.call(rbind, covariate_list)
+
+# Call prep_tvinput to pre-process for shrinkDSM
+merged_data &lt;- prep_tvinput(surv_data,
+                            covariate_data,
+                            id_var = "id_var",
+                            surv_var = "surv_var",
+                            delta_var = "delta_var",
+                            interval_var = "interval_var")
+
+# Can now be used in shrinkDSM
+# Note that delta is now automatically extracted from merged_data,
+# providing it will throw a warning
+mod &lt;- shrinkDSM(surv_var ~ x1 + x2, merged_data, S = S)
+</code></pre>
+
+
+</div>

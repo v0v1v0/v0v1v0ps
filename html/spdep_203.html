@@ -1,0 +1,179 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>nb2listwdist</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Distance-based spatial weights for neighbours lists</h2>
+
+<h3>Description</h3>
+
+<p>The <code>nb2listwdist</code> function supplements a neighbours list with spatial weights for the chosen types of distance modelling and coding scheme. While the offered coding schemes parallel those of the <code>nb2listw</code> function, three distance-based types of weights are available: inverse distance weighting (IDW), double-power distance weights, and exponential distance decay. The <code>can.be.simmed</code> helper function checks whether a spatial weights object is similar to symmetric and can be so transformed to yield real eigenvalues or for Cholesky decomposition.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">nb2listwdist(neighbours, x, type="idw", style="raw", 
+  alpha = 1, dmax = NULL, longlat = NULL, zero.policy=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>neighbours</code></td>
+<td>
+<p>an object of class <code>nb</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an <code>sp</code> <code>sf</code>, or <code>sfc</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>default “idw”; the intended type of distance modelling, can take values “idw”, “exp”, and “dpd”</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>style</code></td>
+<td>
+<p>default “raw”; <code>style</code> can take values “raw”, “W”, “B”, “C”, “U”, “minmax”, and “S”</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>default 0; a parameter for controlling the distance modelling, see “Details”</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dmax</code></td>
+<td>
+<p>default NULL, maximum distance threshold that is required for type “dpd” but optional for all other types</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>longlat</code></td>
+<td>
+<p>default NULL; TRUE if point coordinates are longitude-latitude decimal degrees, in which case distances are measured in metres; if x is a SpatialPoints object, the value is taken from the object itself, and overrides this argument if not NULL; distances are measured in map units if FALSE or NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zero.policy</code></td>
+<td>
+<p>default NULL; use global option value; if FALSE stop with error for any empty neighbour sets, if TRUE permit the weights list to be formed with zero-length weights vectors</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Starting from a binary neighbours list, in which regions are either listed as neighbours or are absent (thus not in the set of neighbours for some definition), the function adds a distance-based weights list. Three types of distance weight calculations based on pairwise distances <code class="reqn">d_{ij}</code> are possible, all of which are controlled by parameter “alpha” (<code class="reqn">\alpha</code> below):
+</p>
+<p style="text-align: center;"><code class="reqn">\textrm{idw: } w_{ij} = d_{ij}^{-\alpha},</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\textrm{exp: } w_{ij} = \exp(-\alpha \cdot d_{ij}),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\textrm{dpd: } w_{ij} = \left[1 - \left(d_{ij}/d_{\textrm{max}}\right)^{\alpha}\right]^{\alpha},</code>
+</p>
+
+<p>the latter of which leads to <code class="reqn">w_{ij} = 0</code> for all <code class="reqn">d_{ij} &gt; d_{\textrm{max}}</code>. Note that IDW weights show extreme behaviour close to 0 and can take on the value infinity. In such cases, the infinite values are replaced by the largest finite weight present in the weights list.
+</p>
+<p>The default coding scheme is “raw”, which outputs the raw distance-based weights without applying any kind of normalisation. In addition, the same coding scheme styles that are also available in the <code>nb2listw</code> function can be chosen. B is the basic binary coding, W is row standardised (sums over all links to n), C is globally standardised (sums over all links to n), U is equal to C divided by the number of neighbours (sums over all links to unity), while S is the variance-stabilising coding scheme proposed by Tiefelsdorf et al. 1999, p. 167-168 (sums over all links to n). The “minmax” style is based on Kelejian and Prucha (2010), and divides the weights by the minimum of the maximum row sums and maximum column sums of the input weights. It is similar to the C and U styles; it is also available in Stata.
+</p>
+<p>If zero.policy is set to TRUE, weights vectors of zero length are inserted for regions without neighbour in the neighbours list. These will in turn generate lag values of zero, equivalent to the sum of products of the zero row <code>t(rep(0, length=length(neighbours))) %*% x</code>, for arbitraty numerical vector <code>x</code> of length <code>length(neighbours)</code>. The spatially lagged value of x for the zero-neighbour region will then be zero, which may (or may not) be a sensible choice.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>listw</code> object with the following members:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>style</code></td>
+<td>
+<p>one of W, B, C, U, S, minmax as above</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>one of idw, exp, dpd as above</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighbours</code></td>
+<td>
+<p>the input neighbours list</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>the weights for the neighbours and chosen style, with attributes set to report the type of relationships (binary or general, if general the form of the glist argument), and style as above</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Rene Westerholt <a href="mailto:rene.westerholt@tu-dortmund.de">rene.westerholt@tu-dortmund.de</a></p>
+
+
+<h3>References</h3>
+
+<p>Tiefelsdorf, M., Griffith, D. A., Boots, B. 1999 A variance-stabilizing coding scheme for spatial link matrices, Environment and Planning A, 31, pp. 165–180; Kelejian, H. H., and I. R. Prucha. 2010. Specification and estimation of spatial autoregressive models with autoregressive and heteroskedastic disturbances. Journal of Econometrics, 157: pp. 53–67.</p>
+
+
+<h3>See Also</h3>
+
+<p><code>nb2listw</code>, <code>summary.nb</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># World examples
+data(world, package="spData")
+# neighbours on distance interval [0, 1000] kilometres
+# suppressWarnings(st_crs(world) &lt;- "+proj=longlat") # for older PROJ
+pts &lt;- st_centroid(st_transform(world, 3857))
+nb_world &lt;- dnearneigh(pts, 0, 1000000)
+# Moran's I (life expectancy) with IDW with alpha = 2, no coding scheme
+world_weights &lt;- nb2listwdist(nb_world, as(pts, "Spatial"), type = "idw",
+  alpha = 2, zero.policy = TRUE)
+moran.test(world$lifeExp, world_weights, zero.policy = TRUE, na.action = na.pass)
+## Not run: 
+# Moran's I (life expectancy) with IDW with alpha = 2, no coding scheme
+world_weights &lt;- nb2listwdist(nb_world, pts, type = "idw",
+  alpha = 2, zero.policy = TRUE)
+moran.test(world$lifeExp, world_weights, zero.policy = TRUE, na.action = na.pass)
+# Moran's I (life expectancy), DPD, alpha = 2, dmax = 1000 km, no coding scheme
+world_weights &lt;- nb2listwdist(nb_world, pts, type = "dpd",
+  dmax = 1000000, alpha = 2, zero.policy = TRUE)
+moran.test(world$lifeExp, world_weights, zero.policy = TRUE, na.action = na.pass)
+# Boston examples
+data(boston, package="spData")
+boston_coords &lt;- data.frame(x = boston.utm[,1], y = boston.utm[,2])
+boston.geoms &lt;- st_as_sf(boston_coords, coords = c("x", "y"), remove = FALSE)
+nb_boston &lt;- dnearneigh(boston.geoms, 0, 3)
+# Moran's I (crime) with exp weights with alpha = 2, no coding scheme
+boston_weights &lt;- nb2listwdist(nb_boston, boston.geoms, type = "exp", alpha = 2,
+  style="raw", zero.policy = TRUE)
+moran.test(boston.c$CRIM, boston_weights, zero.policy = TRUE, na.action = na.pass)
+# Moran's I (crime) with idw weights with alpha = 2, coding scheme = W
+boston_weights &lt;- nb2listwdist(nb_boston, boston.geoms, type = "idw", alpha = 2,
+  style="W", zero.policy = TRUE)
+moran.test(boston.c$CRIM, boston_weights, zero.policy = TRUE, na.action = na.pass)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,303 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>adjustModel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Finds ("estimates") simulation input parameters able to replicate a given (real) trajectory, assuming the given species model</h2>
+
+<h3>Description</h3>
+
+<p>Given a trajectory, a type of movement and the time resolution at which the user wants to simulate, 
+this function approximates the values for the simulation input parameters so that the simulated movement is maximally
+similar to the given trajectory, in terms of general non-spatial patterns. If the user wants to simulate at a higher frequency 
+than real data (which is the norm), the function maximizes the similarity between the real trajectory and 
+the simulated trajectories (at a higher frequency) after downsampled to the same frequency as the real.
+It does so by running a genetic optimization algorithm.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">  adjustModel(realData, species.model, resolution = 10
+    , resistance = NULL, coords = NULL, angles = NULL
+    , nrepetitions = 6
+    , nbins.hist = if(aggregate.obj.hist) c(7, 7, 0) else c(3, 3, 0)
+    , step.hist.log = TRUE, nlags = 100
+    , window.size = dim(reference$stats)[1]%/%nlags
+    , aggregate.obj.hist = TRUE, step.hist.range = c(0, 1)
+    , popsize = 100, generations = seq(5, 1000, by=5), mprob = 0.2
+    , parallel = is.null(resistance), trace = TRUE
+  )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>realData</code></td>
+<td>
+<p>the given trajectory for which the simulation input parameters are to be "estimated", given as a matrix with two columns (coordinates) and assuming that relocations are equally spaced in time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>species.model</code></td>
+<td>
+<p>the species model to adjust, created with <code>speciesModel</code>. This defines the type of movement that is to be adjusted (e.g. how many, and which type of, behavioral states, see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resolution</code></td>
+<td>
+<p>the desired time frequency of the simulations for which parameters will be approximated, as a fraction of the real data, i.e. a value of 20 will simulate movements at a 20-fold higher frequency than real data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resistance</code></td>
+<td>
+<p>the resistance raster to use in simulations during parameter approximation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>the initial coordinates of the simulated individuals (only relevant if <code>resistance</code> is provided because the metrics used in optimization are spatially-agnostic).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>angles</code></td>
+<td>
+<p>the initial angle to which the individual is facing in that start of all simulations (only relevant if <code>resistance</code> is provided because the metrics used in optimization are spatially-agnostic).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nrepetitions</code></td>
+<td>
+<p>the number of simulations conducted for each solution evaluation during optimization. If &gt;1, the quality of the solutions is computed by comparing the averaged histograms across repetitions, with the real histograms.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nbins.hist</code></td>
+<td>
+<p>a vector with three positive integers defining the number of histogram bins for turning angle histograms, step length histograms and turning angle variation histograms. These bins will be used during optimization to compare simulated trajectories with the real trajectory to infer the quality of the "fit".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step.hist.log</code></td>
+<td>
+<p>set to <code>TRUE</code> to use the histogram of the logarithm of the step lengths rather than of the raw values in the comparisons. Setting to <code>TRUE</code> usually results in more detail in the comparisons.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlags</code></td>
+<td>
+<p>the number of time lags within which the standard deviation of the turning angles will be computed during optimization, if <code>nbins.hist[3] &gt; 0</code>. Ignored if <code>nbins.hist[3] == 0</code> or if <code>window.size</code> is provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>window.size</code></td>
+<td>
+<p>the size (in steps of the real sampling frequency) of the time lags within which the standard deviation of the turning angles will be computed during optimization, if <code>nbins.hist[3] &gt; 0</code>. A different way of providing <code>nlags</code>. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>aggregate.obj.hist</code></td>
+<td>
+<p>if <code>FALSE</code>, comparison of histograms is done bin by bin (each bin absolute difference is an objective to minimize), if <code>TRUE</code> the absolute differences of the bins are summed in each histogram to a single number which is the objective being minimized (the overall absolute difference in each of the histograms).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step.hist.range</code></td>
+<td>
+<p>the quantiles used to define the range of the step length histogram computation. Used if the user wants to exclude outliers. The default is not to exclude outliers, thus <code>c(0, 1)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>popsize</code></td>
+<td>
+<p>number of solutions to optimize, to pass to <code>nsga2</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>generations</code></td>
+<td>
+<p>number of algorithm generations to run, to pass to <code>nsga2</code>. The default is a vector, so that convergence of results can be assessed along generations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mprob</code></td>
+<td>
+<p>mutation probability, to pass to <code>nsga2</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>set to <code>TRUE</code> to use multicore processing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p>set to <code>TRUE</code> to print the matrix of optimization objectives (rows) for each solution (columns) in each generation along optimization. These are the values that are being internally minimized. The number of rows is <code>sum(nbins.hist)</code>; the first <code>nbins.hist[1]</code> are the turning angle variation objectives, the last are the step length objectives.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function finds possible parameters for the simulation (solutions), so that the resulting movements are as similar as possible
+to the given real trajectory, in terms of their intrinsic properties measured by step lengths and variation in turning angles. The input parameter
+approximations are found using a multiobjective genetic algorithm (NSGA-II, <cite>Deb et al. 2002</cite>). The algorithm minimizes a vector
+of N objectives (N=sum(nbins.hist) if aggregate.obj.hist == FALSE, N=sum(nbins.hist &gt; 0) otherwise)
+whose values are computed by the absolute differences between each pair of bins (real and simulated) of up to three histograms:
+an histogram of the step lengths, an histogram of turning angles and/or and histogram of the standard deviation in turning angles
+computed in a moving time window along each trajectory. Using either of these histograms (and the respective number of bins) is
+specified in the parameter <code>nbins.hist</code>, which has three elements, one for each histogram. A value of 0 tells the function
+not to use that corresponding histogram.
+</p>
+<p>SiMRiv simulations are intended to reproduce the fine-scale movement steps, unlike what is normally collected in field data.
+Hence, simulations should be conducted with a much higher time frequency than provided by the real data, which poses challenges for parameterization.
+This function incorporates this difference in the time scale during optimization (<code>resolution</code>), allowing the user
+to find the input parameters for simulations at a much higher frequency, which, when downsampled to the real data's time
+frequency, will present similar patterns. The higher the frequency, the more flexibility the model has to adjust to real data,
+but the more possible solutions may exist to achieve the same result.
+</p>
+<p>There are no limits to the number of parameters that can be approximated, but obviously, the higher the number, the larger the solution space, so,
+in theory, the longer the algorithm has to run in order to converge.
+The number of parameters to approximate is defined by the user by providing a <code>speciesModel</code>. This defines how many states and which types of states are to be "fit" to the data.
+See <code>speciesModel</code> for details. Trials have shown that even when the number of parameters to approximate is high (e.g. 12 parameters
+for "fitting" a 3-state movement model), the algorithm converges rapidly if the real movement suits such model.
+However, as in any other method, a compromise should be sought. A good starting point is to provide a two-state species model,
+in which both states are Correlated Random Walks. This model involves the approximation of 6 parameters and is sufficiently flexible for simulating a variety of movements, while not overly complex.
+Note that all complex models can accomodate to simpler ones (i.e. the simpler models are special cases of the complex ones).
+</p>
+<p>To assess the convergence of the algorithm, an utility plotting function is provided, see the example below and <code>generationPlot</code> for details.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The object returned by <code>nsga2</code> (package <code>mco</code>), see details therein. If <code>generations</code> is a vector (which is recommended,
+for assessing convergence), this object contains the approximated input parameter values in each generation given in the vector. See examples
+for easily plotting results.
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function is an experimental feature, here provided only to guide the user on how to parameterize the simulations. Care must be taken
+when interpreting the results, at least by assessing algorithm convergence and visually comparing simulations with the approximated
+parameters to the real data (see examples).
+</p>
+
+
+<h3>References</h3>
+
+
+<ul><li>
+<p>Deb, K., Pratap, A., Agarwal, S., &amp; Meyarivan, T. 2002. A fast and elitist multiobjective genetic algorithm: NSGA-II. IEEE Transactions on Evolutionary Computation, 6(2), 182-197.
+</p>
+</li></ul>
+<h3>See Also</h3>
+
+<p><code>simulate</code>, <code>generationPlot</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+library(SiMRiv)
+library(adehabitatLT)
+
+## simulate "real" data, a Levy walk, for which we want to
+## parameterize our model
+
+real.data &lt;- simm.levy(1:500)[[1]][, 1:2]
+
+## Define a species model to adjust. Let's assume we don't know
+## much about what kind of real data we have, hence define
+## a flexible model: a two-state correlated random walk model
+## with variable step lengths.
+## This model implies "estimating" 6 parameters:
+##   - turning angle correlation of state 1 [0, 1]
+##   - turning angle correlation of state 2 [0, 1]
+##   - switching probability S1 -&gt; S2 [0, 1]
+##   - switching probability S2 -&gt; S1 [0, 1]
+##   - maximum step length of state 1 [0, ?]
+##   - maximum step length of state 2 [0, ?]
+
+## Let's assume we want to simulate at a 20 times higher time frequency
+## than real data.
+## In order to allow our model to adjust to real data, we have
+## to provide a maximum allowable step length to the optimization algorithm
+## that allows to recover real data after downsampling 20 times.
+## Let's make a simple calculation of the step lengths of real data:
+
+tmp &lt;- sampleMovement(real.data)
+
+## and compute a good maximum allowed step length during optimization
+## using the observed maximum divided by 20 (because each real step
+## will comprise 20 simulated steps)
+
+max.step.length &lt;- max(tmp$stat[, "steplengths"]) / 20
+
+## and finally build the species model with it.
+## Note: "CRW.CRW.sl" is the short name for the model we want,
+## as defined above
+
+species.model &lt;- speciesModel("CRW.CRW.sl", steplength = max.step.length)
+
+## now run optimization
+
+sol &lt;- adjustModel(real.data, species.model, resol = 20
+	, nbins.hist = c(3, 3, 0), step.hist.log = TRUE)
+
+## After finishing, we can extract the input parameters of the optimized
+## solutions (100 by default) in the last generation (generation 1000
+## by default):
+
+pars &lt;- sol[[length(sol)]]$par
+
+## now we can take the optimized solutions and reconstruct species
+## based on them:
+
+optimized.species &lt;- apply(pars, 1, species.model)
+
+## and make some simulations with those optimized species.
+## Plot real trajectory
+
+par(mfrow = c(2, 2), mar = c(0, 0, 1, 0))
+plot(real.data, type = "l", asp = 1, axes = F, main = "Real")
+
+## plot three simulated trajectories with optimized species
+
+for(i in 1:3) {
+	# remember we want to simulate at a 20 times higher frequency
+	# so we do 500 (real data) x 20 steps
+	sim &lt;- simulate(optimized.species[[i]], 500 * 20)
+	
+	# now we downsample frequency to match real
+	samp &lt;- sampleMovement(sim, 20)
+	
+	# and plot the simulated trajectory before and after
+	# downsampling 20 times.
+	
+	plot(sim[, 1:2], type = "l", asp = 1, axes = F, col = "gray"
+		, main = "Simulated and downsampled")
+	lines(samp$relocs, col = "black")
+}
+
+## Now plot the evolution of parameters along algorithm's generations.
+## This is good to assess whether the final solutions converged
+## but see ?generationPlot for details
+
+generationPlot(sol, species.model)
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

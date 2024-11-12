@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getSVCSamples</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extract spatially-varying coefficient MCMC samples</h2>
+
+<h3>Description</h3>
+
+<p>Function for extracting the full spatially-varying coefficient MCMC samples
+from an spOccupancy model object. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getSVCSamples(object, pred.object, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class <code>svcPGOcc</code>, <code>svcPGBinom</code>, 
+<code>svcTPGOcc</code>, <code>svcTPGBinom</code>, <code>svcMsPGOcc</code>, <code>svcTMsPGOcc</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred.object</code></td>
+<td>
+<p>a prediction object from a spatially-varying coefficient 
+model fit using spOccupancy. Should be of class <code>predict.svcPGOcc</code>, 
+<code>predict.svcPGBinom</code>, <code>predict.svcTPGOcc</code>, <code>predict.svcTPGBinom</code>, 
+<code>predict.svcMsPGOcc</code>, or <code>predict.svcTMsPGOcc</code>. 
+If specified, SVC samples are extracted at the prediction locations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of <code>coda::mcmc</code> objects of the spatially-varying coefficient MCMC samples
+for all spatially-varying coefficients estimated in the model (including the
+intercept if specified). Note these values correspond to the sum of the estimated
+spatial and non-spatial effect to give the overall effect of the covariate at
+each location. Each element of the list is a two-dimensional matrix 
+where dimensions correspond to MCMC sample and site. If <code>pred.object</code> is specified, 
+values are returned for the prediction locations instead of the sampled locations. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>For multi-species models, the value of the SVC will be returned at all 
+spatial locations for each species even when <code>range.ind</code> is specified
+in the data list when fitting the model. This may not be desirable for complete
+summaries of the SVC for each species, so if specifying <code>range.ind</code> in 
+the data list, you may want to subsequently process the SVC samples for each species
+to be restricted to each species range.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(400)
+# Simulate Data -----------------------------------------------------------
+J.x &lt;- 8
+J.y &lt;- 8
+J &lt;- J.x * J.y
+n.rep &lt;- sample(2:4, J, replace = TRUE)
+beta &lt;- c(0.5, 2)
+p.occ &lt;- length(beta)
+alpha &lt;- c(0, 1)
+p.det &lt;- length(alpha)
+phi &lt;- c(3 / .6, 3 / .8)
+sigma.sq &lt;- c(1.2, 0.7)
+svc.cols &lt;- c(1, 2)
+dat &lt;- simOcc(J.x = J.x, J.y = J.y, n.rep = n.rep, beta = beta, alpha = alpha, 
+              sigma.sq = sigma.sq, phi = phi, sp = TRUE, cov.model = 'exponential', 
+              svc.cols = svc.cols)
+# Detection-nondetection data
+y &lt;- dat$y
+# Occupancy covariates
+X &lt;- dat$X
+# Detection covarites
+X.p &lt;- dat$X.p
+# Spatial coordinates
+coords &lt;- dat$coords
+
+# Package all data into a list
+occ.covs &lt;- X[, -1, drop = FALSE]
+colnames(occ.covs) &lt;- c('occ.cov')
+det.covs &lt;- list(det.cov.1 = X.p[, , 2])
+data.list &lt;- list(y = y, 
+                  occ.covs = occ.covs, 
+                  det.covs = det.covs, 
+                  coords = coords)
+
+# Number of batches
+n.batch &lt;- 10
+# Batch length
+batch.length &lt;- 25
+n.iter &lt;- n.batch * batch.length
+# Priors 
+prior.list &lt;- list(beta.normal = list(mean = 0, var = 2.72), 
+                   alpha.normal = list(mean = 0, var = 2.72),
+                   sigma.sq.ig = list(a = 2, b = 1), 
+                   phi.unif = list(a = 3/1, b = 3/.1)) 
+# Initial values
+inits.list &lt;- list(alpha = 0, beta = 0,
+                   phi = 3 / .5, 
+                   sigma.sq = 2,
+                   w = matrix(0, nrow = length(svc.cols), ncol = nrow(X)),
+                   z = apply(y, 1, max, na.rm = TRUE))
+# Tuning
+tuning.list &lt;- list(phi = 1) 
+
+out &lt;- svcPGOcc(occ.formula = ~ occ.cov, 
+                det.formula = ~ det.cov.1, 
+                data = data.list, 
+                inits = inits.list, 
+                n.batch = n.batch, 
+                batch.length = batch.length, 
+                accept.rate = 0.43, 
+                priors = prior.list,
+                cov.model = 'exponential', 
+                svc.cols = c(1, 2),
+                tuning = tuning.list, 
+                n.omp.threads = 1, 
+                verbose = TRUE, 
+                NNGP = TRUE, 
+                n.neighbors = 5, 
+                search.type = 'cb', 
+                n.report = 10, 
+                n.burn = 50, 
+                n.thin = 1)
+
+svc.samples &lt;- getSVCSamples(out)
+str(svc.samples)
+</code></pre>
+
+
+</div>

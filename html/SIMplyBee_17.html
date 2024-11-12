@@ -1,0 +1,139 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>calcBeeGRMIbs</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate Genomic Relatedness Matrix (GRM) for honeybees from
+Identical By State genomic data</h2>
+
+<h3>Description</h3>
+
+<p>Level 0 function that returns Genomic Relatedness Matrix (GRM)
+for honeybees from Identical By State genomic data (bi-allelic SNP
+represented as allele dosages) following the method for the sex X
+chromosome (Druet and Legarra, 2020)
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">calcBeeGRMIbs(x, sex, alleleFreq = NULL)
+
+calcBeeAlleleFreq(x, sex)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code>matrix</code> of genotypes represented as allele dosage coded
+as 0, 1, or 2 in females (queens or workers) and as 0 or 1 in males
+(fathers or drones); individuals are in rows and sites are in columns; no
+missing values are allowed (this is not checked - you will get NAs!)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sex</code></td>
+<td>
+<p>character vector denoting sex for individuals with genotypes in
+<code>x</code> - <code>"F"</code> for female and <code>"M"</code> for male</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alleleFreq</code></td>
+<td>
+<p>numeric, vector of allele frequencies for the sites in
+<code>x</code>; if <code>NULL</code>, then <code>calcBeeAlleleFreq</code> is used</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>matrix of genomic relatedness coefficients
+</p>
+
+
+<h3>Functions</h3>
+
+
+<ul><li> <p><code>calcBeeAlleleFreq()</code>: Calculate allele frequencies from honeybee genotypes
+</p>
+</li></ul>
+<h3>References</h3>
+
+<p>Druet and Legarra (2020) Theoretical and empirical comparisons of
+expected and realized relationships for the X-chromosome. Genetics
+Selection Evolution, 52:50 <a href="https://doi.org/10.1186/s12711-020-00570-6">doi:10.1186/s12711-020-00570-6</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">founderGenomes &lt;- quickHaplo(nInd = 3, nChr = 1, segSites = 100)
+SP &lt;- SimParamBee$new(founderGenomes)
+
+SP$setTrackRec(TRUE)
+SP$setTrackPed(isTrackPed = TRUE)
+
+basePop &lt;- createVirginQueens(founderGenomes)
+drones &lt;- createDrones(x = basePop[1], nInd = 1000)
+droneGroups &lt;- pullDroneGroupsFromDCA(drones, n = 1, nDrones = nFathersPoisson)
+colony &lt;- createColony(basePop[2])
+colony &lt;- cross(x = colony, drones = droneGroups[[1]])
+colony &lt;- buildUp(x = colony, nWorkers = 6, nDrones = 3)
+
+geno &lt;- getSegSiteGeno(colony, collapse = TRUE)
+sex &lt;- getCasteSex(x = colony, collapse = TRUE)
+
+GRM &lt;- calcBeeGRMIbs(x = geno, sex = sex)
+# You can visualise this matrix with the function image() from the package 'Matrix'
+
+#Look at the diagonal at the relationship matrix
+x &lt;- diag(GRM)
+hist(x)
+summary(x)
+
+#Look at the off-diagonal at the relationship matrix
+x &lt;- GRM[lower.tri(x = GRM, diag = FALSE)]
+hist(x)
+summary(x)
+
+# Compare relationship between castes
+ids &lt;- getCasteId(colony)
+idQueen &lt;- ids$queen
+idWorkers &lt;- ids$workers
+idDrones &lt;- ids$drones
+
+# Queen vs others
+GRM[idQueen, idWorkers]
+GRM[idQueen, idDrones]
+
+# Workers vs worker
+GRM[idWorkers, idWorkers]
+
+# Workers vs drones
+GRM[idWorkers, idDrones]
+
+# Calculating allele frequencies ourselves (say, to "shift" base population)
+aF &lt;- calcBeeAlleleFreq(x = geno, sex = sex)
+hist(aF)
+GRM2 &lt;- calcBeeGRMIbs(x = geno, sex = sex, alleleFreq = aF)
+stopifnot(identical(GRM2, GRM))
+
+# You can also create relationships with pooled genomes
+pooledGenoW &lt;- getPooledGeno(getWorkersSegSiteGeno(colony),
+                             type = "mean",
+                             sex = getCasteSex(colony, caste="workers"))
+queenGeno &lt;- getQueenSegSiteGeno(colony)
+# Compute relationship between pooled workers genotype and the queen
+calcBeeGRMIbs(x = rbind(queenGeno, pooledGenoW), sex = c("F","F"))
+# You can now compare how this compare to relationships between the queen
+# individual workers!
+</code></pre>
+
+
+</div>

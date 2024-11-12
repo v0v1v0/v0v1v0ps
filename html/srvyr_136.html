@@ -1,0 +1,199 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>survey_mean</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate mean/proportion and its variation using survey methods</h2>
+
+<h3>Description</h3>
+
+<p>Calculate means and proportions from complex survey data.
+<code>survey_mean</code> with <code>proportion = FALSE</code> (the default) or <code>survey_prop</code> with <code>proportion = FALSE</code>
+is a wrapper around <code>svymean</code>.
+<code>survey_prop</code> with <code>proportion = TRUE</code> (the default) or <code>survey_mean</code> with <code>proportion = TRUE</code>
+is a wrapper around <code>svyciprop</code>.
+<code>survey_mean</code> and <code>survey_prop</code> should always be called from <code>summarise</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">survey_mean(
+  x,
+  na.rm = FALSE,
+  vartype = c("se", "ci", "var", "cv"),
+  level = 0.95,
+  proportion = FALSE,
+  prop_method = c("logit", "likelihood", "asin", "beta", "mean", "xlogit"),
+  deff = FALSE,
+  df = NULL,
+  ...
+)
+
+survey_prop(
+  vartype = c("se", "ci", "var", "cv"),
+  level = 0.95,
+  proportion = TRUE,
+  prop_method = c("logit", "likelihood", "asin", "beta", "mean", "xlogit"),
+  deff = FALSE,
+  df = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A variable or expression, or empty</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>A logical value to indicate whether missing values should be dropped.
+See the section "Missing Values" later in this help page.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vartype</code></td>
+<td>
+<p>Report variability as one or more of: standard error ("se", default),
+confidence interval ("ci"), variance ("var") or coefficient of variation
+("cv").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>(For vartype = "ci" only) A single number or vector of numbers indicating
+the confidence level</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proportion</code></td>
+<td>
+<p>Use methods to calculate the proportion that may have more accurate
+confidence intervals near 0 and 1. Based on
+<code>svyciprop</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop_method</code></td>
+<td>
+<p>Type of proportion method to use if proportion is <code>TRUE</code>. See
+<code>svyciprop</code> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>deff</code></td>
+<td>
+<p>A logical value to indicate whether the design effect should be returned.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+<p>(For vartype = "ci" only) A numeric value indicating the degrees of freedom
+for t-distribution. The default (NULL) uses <code>degf</code>,
+but Inf is the usual survey package's default (except in
+<code>svyciprop</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Ignored</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Using <code>survey_prop</code> is equivalent to leaving out the <code>x</code> argument in
+<code>survey_mean</code> and setting <code>proportion = TRUE</code> and this calculates the proportion represented within the
+data, with the last grouping variable "unpeeled". <code>interact</code>
+allows for "unpeeling" multiple variables at once.
+</p>
+
+
+<h3>Missing Values</h3>
+
+<p>When calculating proportions for a grouping variable <code>x</code>, <code>NA</code> values
+will affect the estimated proportions unless they are first removed by calling
+<code>filter(!is.na(x))</code>.
+</p>
+<p>When calculating means for a numeric variable, equivalent results are obtained
+by calling <code>filter(!is.na(x))</code> or using <code>survey_mean(x, na.rm = TRUE)</code>.
+However, it is better to use <code>survey_mean(x, na.rm = TRUE)</code> if
+you are simultaneously producing summaries for other variables
+that might not have missing values for the same rows as <code>x</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(api, package = "survey")
+
+dstrata &lt;- apistrat %&gt;%
+  as_survey_design(strata = stype, weights = pw)
+
+dstrata %&gt;%
+  summarise(api99_mn = survey_mean(api99),
+            api_diff = survey_mean(api00 - api99, vartype = c("ci", "cv")))
+
+dstrata %&gt;%
+  group_by(awards) %&gt;%
+  summarise(api00 = survey_mean(api00))
+
+# Use `survey_prop` calculate the proportion in each group
+dstrata %&gt;%
+  group_by(awards) %&gt;%
+  summarise(pct = survey_prop())
+
+# Or you can also leave  out `x` in `survey_mean`, so this is equivalent
+dstrata %&gt;%
+  group_by(awards) %&gt;%
+  summarise(pct = survey_mean())
+
+# When there's more than one group, the last group is "peeled" off and proportions are
+# calculated within that group, each adding up to 100%.
+# So in this example, the sum of prop is 200% (100% for awards=="Yes" &amp;
+# 100% for awards=="No")
+dstrata %&gt;%
+  group_by(stype, awards) %&gt;%
+  summarize(prop = survey_prop())
+
+# The `interact` function can help you calculate the proportion over
+# the interaction of two or more variables
+# So in this example, the sum of prop is 100%
+dstrata %&gt;%
+  group_by(interact(stype, awards)) %&gt;%
+  summarize(prop = survey_prop())
+
+# Setting proportion = TRUE uses a different method for calculating confidence intervals
+dstrata %&gt;%
+  summarise(high_api = survey_mean(api00 &gt; 875, proportion = TRUE, vartype = "ci"))
+
+# level takes a vector for multiple levels of confidence intervals
+dstrata %&gt;%
+  summarise(api99 = survey_mean(api99, vartype = "ci", level = c(0.95, 0.65)))
+
+# Note that the default degrees of freedom in srvyr is different from
+# survey, so your confidence intervals might not be exact matches. To
+# Replicate survey's behavior, use df = Inf
+dstrata %&gt;%
+  summarise(srvyr_default = survey_mean(api99, vartype = "ci"),
+            survey_defualt = survey_mean(api99, vartype = "ci", df = Inf))
+
+comparison &lt;- survey::svymean(~api99, dstrata)
+confint(comparison) # survey's default
+confint(comparison, df = survey::degf(dstrata)) # srvyr's default
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,178 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sentiment_topics</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute time series of topical sentiments</h2>
+
+<h3>Description</h3>
+
+<p>Derive topical time series of sentiment from a <code>LDA()</code> or
+<code>rJST()</code> model. The time series are created by leveraging on estimated
+topic proportions and internal sentiment (for <code>LDA</code> models) or topical
+sentiment (for <code>rJST</code> models).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sentiment_topics(
+  x,
+  period = c("year", "quarter", "month", "day", "identity"),
+  rolling_window = 1,
+  scale = TRUE,
+  scaling_period = c("1900-01-01", "2099-12-31"),
+  plot = c(FALSE, TRUE, "silent"),
+  plot_ridgelines = TRUE,
+  as.xts = TRUE,
+  ...
+)
+
+plot_sentiment_topics(
+  x,
+  period = c("year", "quarter", "month", "day"),
+  rolling_window = 1,
+  scale = TRUE,
+  scaling_period = c("1900-01-01", "2099-12-31"),
+  plot_ridgelines = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a <code>LDA()</code> or <code>rJST()</code> model populated with internal dates and/or
+internal sentiment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>period</code></td>
+<td>
+<p>the sampling period within which the sentiment of documents
+will be averaged. <code>period = "identity"</code> is a special case that will return
+document-level variables before the aggregation happens. Useful to rapidly
+compute topical sentiment at the document level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolling_window</code></td>
+<td>
+<p>if greater than 1, determines the rolling window to
+compute a moving average of sentiment. The rolling window is based on the
+period unit and rely on actual dates (i.e, is not affected by unequally
+spaced data points).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>if <code>TRUE</code>, the resulting time series will be scaled to a mean of
+zero and a standard deviation of 1. This argument also has the side effect
+of attaching scaled sentiment values as <em>docvars</em> to the input object with
+the <code style="white-space: pre;">⁠_scaled⁠</code> suffix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling_period</code></td>
+<td>
+<p>the date range over which the scaling should be
+applied. Particularly useful to normalize only the beginning of the time
+series.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if <code>TRUE</code>, prints a plot of the time series and attaches it as an
+attribute to the returned object. If <code>'silent'</code>, do not print the plot but
+still attaches it as an attribute.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot_ridgelines</code></td>
+<td>
+<p>if <code>TRUE</code>, time series are plotted as ridgelines.
+Requires <code>ggridges</code> package installed. If <code>FALSE</code>, the plot will use only
+standards <code>ggplot2</code> functions. If the argument is missing and the package
+<code>ggridges</code> is not installed, this will quietly switch to a <code>ggplot2</code>
+output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>as.xts</code></td>
+<td>
+<p>if <code>TRUE</code>, returns an xts::xts object. Otherwise, returns a
+data.frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments passed on to <code>zoo::rollapply()</code> or <code>mean()</code> and
+<code>sd()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A topical sentiment is computed at the document level for each
+topic. For an LDA model, the sentiment of each topic is considered equal to
+the document sentiment (i.e. <code class="reqn">s_i = s \forall i \in K</code>). For a rJST
+model, these result from the proportions in the sentiment layer under each
+topic. To compute the topical time series, the topical sentiment of all
+documents in a period are aggregated according to their respective topic
+proportion. For example, for a given topic, the topical sentiment in period
+<code class="reqn">t</code> is computed using: </p>
+<p style="text-align: center;"><code class="reqn">s_t = \frac{\sum_{d = 1}^D s_d \times
+  \theta_d}{\sum_{d = 1}^D \theta_d}</code>
+</p>
+<p>, where <code class="reqn">s_d</code> is the sentiment of
+the topic in document d and <code class="reqn">theta_d</code> the topic proportion in a
+document d.
+</p>
+
+
+<h3>Value</h3>
+
+<p>an xts::xts or data.frame containing the time series of topical
+sentiments.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>sentopics_sentiment sentopics_date
+</p>
+<p>Other series functions: 
+<code>proportion_topics()</code>,
+<code>sentiment_breakdown()</code>,
+<code>sentiment_series()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">lda &lt;- LDA(ECB_press_conferences_tokens)
+lda &lt;- fit(lda, 100)
+sentiment_topics(lda)
+
+# plot shortcut
+plot_sentiment_topics(lda, period = "month", rolling_window = 3)
+# with or without ridgelines
+plot_sentiment_topics(lda, period = "month", plot_ridgelines = FALSE)
+
+# also available for rJST models with internal sentiment computation
+rjst &lt;- rJST(ECB_press_conferences_tokens, lexicon = LoughranMcDonald)
+rjst &lt;- fit(rjst, 100)
+sentopics_sentiment(rjst, override = TRUE)
+sentiment_topics(rjst)
+</code></pre>
+
+
+</div>

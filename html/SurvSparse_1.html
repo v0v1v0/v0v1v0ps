@@ -1,0 +1,119 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>add.haz</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Additive hazards model with sparse longitudinal covariates</h2>
+
+<h3>Description</h3>
+
+<p>Regression analysis of additive hazards model with sparse longitudinal covariates. Three different weighting schemes are provided to impute the missing values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">add.haz(data, n, tau, h, method)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An object of class tibble. The structure of the tibble must be: tibble(id = id, X = failure time, covariates = observation for covariates, obs_times = observation times, delta = censoring indicator).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>An object of class integer. The sample size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>An object of class numeric. The pre-specified time endpoint.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>An object of class vector. If use auto bandwidth selection, the structure of the vector must be: h = c(the maximum bandwidth, the minimum bandwidth, the number of bandwidth divided). If use fixed bandwidth, h is the chosen bandwidth.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>An object of class integer. If use weighted LVCF, method = 1. If use half kernel, method = 2. If use full kernel, method = 3.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a list with the following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>est</code></td>
+<td>
+<p>The estimation for the corresponding parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>The estimation for the standard error of the estimated parameters.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Sun, Z. et al. (2022) &lt;doi:10.1007/s10985-022-09548-6&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(gaussquad)
+library(dplyr)
+library(nleqslv)
+library(MASS)
+n=500
+lqrule64 &lt;- legendre.quadrature.rules(64)[[64]]
+simdata &lt;- function(alpha,beta ) {
+cen=1
+nstep=20
+Sigmat_z &lt;- exp(-abs(outer(1:nstep, 1:nstep, "-")) / nstep)
+z  &lt;-   c(mvrnorm(  1, c(1: nstep)/2, Sigmat_z  ))
+left_time_points &lt;- (0:(nstep - 1)) / nstep
+z_fun &lt;- stepfun(left_time_points, c(0,z  ))
+lam_fun &lt;- function(tt) {  alpha(tt)+beta*z_fun(tt)}
+u &lt;- runif(1)
+fail_time &lt;- nleqslv( 0 , function(ttt)
+ legendre.quadrature(lam_fun,
+                   lower = 0,
+                   upper = ttt,
+                   lqrule64) + log(u))$x
+
+X &lt;- min(fail_time, cen)
+obs=rpois(1,5)+1
+tt= sort(runif(obs, min = 0, max = 1))
+obs_times &lt;- tt[which(tt&lt;=cen)]
+if (length(obs_times) == 0)
+ obs_times &lt;- cen
+ covariates_obscov &lt;-z_fun(obs_times)
+ return( tibble(X = X,delta = fail_time &lt; cen,
+ covariates = covariates_obscov,obs_times = obs_times, censoring = cen  )  ) }
+data &lt;- replicate(n, simdata(alpha = function(tt)  tt, 1  ),
+              simplify = FALSE ) %&gt;% bind_rows(.id = "id")
+
+add.haz(data,n,1,n^(-0.5),3)
+</code></pre>
+
+
+</div>

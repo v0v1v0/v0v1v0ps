@@ -1,0 +1,126 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>compare.saemix</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Model comparison with information criteria (AIC, BIC).</h2>
+
+<h3>Description</h3>
+
+<p>A specific penalty is used for BIC (BIC.cov) when the compared models have in common the
+structural model and the covariance structure for the random effects (see Delattre et al., 2014).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">compare.saemix(..., method = c("is", "lin", "gq"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Two or more objects returned by the <code>saemix</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>The method used for computing the likelihood : "is" (Importance Sampling),
+"lin" (Linearisation) or "gq" (Gaussian quadrature). The default is to use importance sampling "is".
+If the requested likelihood is not available in all model objects, the method stops with a warning.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Note that the comparison between two or more models will only be valid if they are
+fitted to the same dataset.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A matrix of information criteria is returned, with at least two columns containing respectively
+AIC and BIC values for each of the compared models. When the models have in common the structural model
+and the covariance structure for the random effects, the matrix includes an additional column with BIC.cov
+values that are more appropriate when the comparison only concerns the covariates.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Maud Delattre
+</p>
+
+
+<h3>References</h3>
+
+<p>M Delattre, M Lavielle, MA Poursat (2014) A note on BIC in mixed effects models.
+Electronic Journal of Statistics 8(1) p. 456-475
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(theo.saemix)
+
+saemix.data&lt;-saemixData(name.data=theo.saemix,header=TRUE,sep=" ",na=NA,
+  name.group=c("Id"),name.predictors=c("Dose","Time"),
+  name.response=c("Concentration"),name.covariates=c("Weight","Sex"),
+  units=list(x="hr",y="mg/L",covariates=c("kg","-")), name.X="Time")
+
+# Definition of models to be compared
+model1cpt&lt;-function(psi,id,xidep) {
+   dose&lt;-xidep[,1]
+   tim&lt;-xidep[,2]
+   ka&lt;-psi[id,1]
+   V&lt;-psi[id,2]
+   CL&lt;-psi[id,3]
+   k&lt;-CL/V
+   ypred&lt;-dose*ka/(V*(ka-k))*(exp(-k*tim)-exp(-ka*tim))
+   return(ypred)
+}
+# Model with one covariate
+saemix.model1&lt;-saemixModel(model=model1cpt,modeltype="structural",
+  description="One-compartment model, clearance dependent on weight",
+  psi0=matrix(c(1.,20,0.5,0.1,0,-0.01),ncol=3,byrow=TRUE, dimnames=list(NULL, c("ka","V","CL"))),
+  transform.par=c(1,1,1),covariate.model=matrix(c(0,0,1,0,0,0),ncol=3,byrow=TRUE))
+# Model with two covariates
+saemix.model2&lt;-saemixModel(model=model1cpt,modeltype="structural",
+   description="One-compartment model, clearance dependent on weight, volume dependent on sex",
+   psi0=matrix(c(1.,20,0.5,0.1,0,-0.01),ncol=3,byrow=TRUE, dimnames=list(NULL, c("ka","V","CL"))),
+   transform.par=c(1,1,1),covariate.model=matrix(c(0,0,1,0,1,0),ncol=3,byrow=TRUE))
+# Model with three covariates
+saemix.model3&lt;-saemixModel(model=model1cpt,modeltype="structural",
+  description="One-cpt model, clearance, absorption dependent on weight, volume dependent on sex",
+  psi0=matrix(c(1.,20,0.5,0.1,0,-0.01),ncol=3,byrow=TRUE, dimnames=list(NULL, c("ka","V","CL"))),
+  transform.par=c(1,1,1),covariate.model=matrix(c(1,0,1,0,1,0),ncol=3,byrow=TRUE))
+
+
+# Running the main algorithm to estimate the population parameters
+saemix.options&lt;-list(seed=632545,save=FALSE,save.graphs=FALSE)
+saemix.fit1&lt;-saemix(saemix.model1,saemix.data,saemix.options)
+saemix.fit2&lt;-saemix(saemix.model2,saemix.data,saemix.options)
+saemix.fit3&lt;-saemix(saemix.model3,saemix.data,saemix.options)
+
+compare.saemix(saemix.fit1, saemix.fit2, saemix.fit3)
+compare.saemix(saemix.fit1, saemix.fit2, saemix.fit3, method = "lin")
+
+# We need to explicitly run Gaussian Quadrature if we want to use it in
+# the comparisons
+saemix.fit1 &lt;- llgq.saemix(saemix.fit1)
+saemix.fit2 &lt;- llgq.saemix(saemix.fit2)
+saemix.fit3 &lt;- llgq.saemix(saemix.fit3)
+compare.saemix(saemix.fit1, saemix.fit2, saemix.fit3, method = "gq")
+
+
+</code></pre>
+
+
+</div>

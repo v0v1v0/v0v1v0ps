@@ -1,0 +1,245 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>senmw</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Sensitivity analysis in observational studies using weighted Huber-Maritz M-statistics.
+</h2>
+
+<h3>Description</h3>
+
+<p>Computes the large sample approximation to the upper bound on the one sided P-value testing the null hypothesis of no treatment effect in a matched observational study with a fixed number of controls matched to each treated subject.  Uses an unweighted or a weighted version of Huber-Maritz M-statistics as test statistics, with weights proposed by Rosenbaum (2014).  Under many simple models for treatment effects, weighted M-statistics have superior design sensitivity compared to unweighted M-statistics.
+</p>
+<p>For confidence intervals and point estimates, use the senmwCI function rather than senmw.
+</p>
+<p>The senmw function requires every treated subject to have the same number of matched controls, e.g., 2 controls matched to each treated subject.  If your study has variable numbers of controls matched to treated subjects, consider using senmv in the sensitivitymv package.
+</p>
+<p>The senmw function offers a wide choice of test statistics obtained by varying its arguments.  The default is an unweighted M-test using Huber's psi-function, and it is equivalent to method = "h".  The default is safe to use in all contexts, but it is expected to report greater sensitivity to bias than other methods in many contexts: therefore, for matched pairs, method="p" is suggested; and for matched sets with 2 to 4 controls per set, method="w" is suggested.  See below and the references for additional options and discussion.
+The one-sided alternative hypothesis is that treatment increases the level of response.  See the notes for discussion of other situations.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">senmw(y, gamma = 1, method = NULL, inner = 0, trim = 3,
+
+	 lambda = 1/2, tau = 0, m1=1, m2=1, m=1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+
+<p>If y is an n by J matrix, then: (i) the rows are n matched sets, (ii) the first column is the treated response in a set, columns 2 to J contain the responses of controls in the same matched set.  Every set must have J-1 controls, and NAs are not allowed in y.  If y is a vector, then y is the vector of treated-minus-control pair differences in outcomes in n=length(y) matched pairs.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gamma</code></td>
+<td>
+
+<p>gamma is the sensitivity parameter, gamma=1 for a randomization test, gamma&gt;1 for sensitivity bounds.  Use of gamma&lt;1 will generate an error.  This parameter gamma is denoted by the upper case Greek letter gamma in the cited literature, for instance Rosenbaum (2007, 2014).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+
+<p>If method is NULL, then the method is determined by the parameters, namely inner, trim, lambda, m1, m2, and m.
+</p>
+<p>If method is not NULL, then these parameters are set according to the selected method and stated values of the parameters are ignored.
+</p>
+<p>The default values of the parameters are equivalent to method="h"; however, method "h" is unweighted.  One might reasonably regard method "f" as default weights.
+</p>
+<p>(i) method = "h" (Huber, unweighted) is unweighted and sets inner=0, trim=3, lambda = 1/2, m1=m2=m=1.  Method "h" is equivalent to the default settings.  Its psi function levels off at 3 times the median (lambda = 1/2) of the absolute pair differences.  The unweighted method h is often a good choice in small samples with few pairs or sets (say 20 sets).  Unweighted method h is often a reasonable choice when the number of controls in each matched set is 6 or more.  (Method "h" is almost the same as the default method for the senmv function in the sensitivitymv package, except: (a) senmv permits variable numbers of controls, (b) senmv uses trim = 2.5, not trim = 3.)
+</p>
+<p>(ii) method = "w" (weighted).  Method "w" sets inner=0, trim=3, lambda=1/2, m1=12, m2=20, m=20.  These weights are sturdy, all-purpose weights, often better than method="h" with 2-4 controls per matched set.  Method="s" will often perform better for short-tailed Normal errors and method="l" will often perform better for long-tailed errors such as the t with 4 degrees of freedom.
+</p>
+<p>(iii) method = "f" (fixed choice weights).  Method "f" sets inner=0, trim=3, lambda=1/2, m1=14, m2=20, m=20.  Similar to method="w", method="f" uses all-purpose weights that were suggested, based on various calculations, in section 7.2 of Rosenbaum (2014) as the choice of a person who wants a "fixed choice" of weights.
+</p>
+<p>(iv) method = "s" (weighted for short tails) has weights appropriate for short tailed distributions, such as the Normal distribution.  Method "s" sets inner=0, trim=3, lambda=1/2, m1=16, m2=20, m=20.
+</p>
+<p>(v) method = "l" (i.e., lower case letter L, weighted for long tails) has weights appropriate for long tailed distributions, such as the t-distribution with 4 degrees of freedom.  It sets inner=0, trim=3, lambda=1/2, m1=12, m2=19, m=20.  These weights redescend.  The senmwCI function does not permit weights that redescend, and in particular does not permit method = "l".
+</p>
+<p>(vi) method = "q" (Quade) ranks sets using ordinary ranks (1, 2, ..., n) applied to ranges of M-scores within sets, in parallel with Quade (1979) and Tardiff (1987).  It sets inner=0, trim=3, lambda=1/2, m1=2, m2=2, m=2.
+</p>
+<p>(vii) method = "t" (permutational t-test) is unweighted and permutes the observations themselves without ranking or scoring.  It sets inner=0, trim=Inf, lambda=1/2, m1=m2=m=1.  The history of the permutational t-test is discussed in the help file for the senmv function in the sensitivitymv package.  Method "t" is the permutation test that uses the treated-minus-control difference in means as a test statistic.
+</p>
+<p>(viii) method = "p" (pairs) is primarily intended for matched pairs, with just one matched control.  It is unweighted but uses inner trimming, and it sets inner = 1/2, trim =2, lambda = 1/2, m1=m2=m=1.  This method performs well for matched pairs, as seen in the evaluations in Tables 3, 4 and 5 of Rosenbaum (2013) where it is psi_in with K=2 for pairs.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inner</code></td>
+<td>
+
+<p>Inner trimming to increase design sensitivity.  See the discussion of lambda.  Use of inner&lt;0 or inner&gt;trim will generate an error.  Inner trimming is discussed in Rosenbaum (2013).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trim</code></td>
+<td>
+
+<p>Outer trimming for resistance to outliers.  Setting trim = Inf does no trimming.  See the discussion of lambda.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+
+<p>Observations are scaled by the lambda quantile of the absolute pair differences, defaulting to the median of all paired absolute differences; see Rosenbaum (2007, section 4.2) for a precise definition in the case of multiple controls.  If the lambda quantile of the absolute pair differences is 0, then scaling by 0 is impossible and an error may result; the solution is to increase lambda.  If qu is the lambda quantile, absolute pair differences smaller than inner*qu receive weight 0, absolute pair differences larger than qu*trim receive weight 1, and between inner*qu and trim*qu weights increase linearly from 0 to 1.  Use of lambda&lt;=0 or lambda&gt;=1 will generate an error.  If inner=0 and trim=Inf, then this results in the permutational t-test in which the observations themselves are permuted, and in this case lambda is not used.  Taking lambda = .95 and trim = 1 is similar to trimming 5 percent of the pair differences.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+
+<p>If tau=0, senmw tests the null hypothesis of no treatment effect.  If tau is not 0, senmw tests the null hypothesis that the treatment effect is an additive shift of tau against the alternative that the effect is larger than tau.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m1</code></td>
+<td>
+<p>One of three parameters that determine the weights.  See the discussion of m below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m2</code></td>
+<td>
+<p>One of three parameters that determine the weights.  See the discussion of m below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>One of three parameters that determine the weights.  If in doubt about (m1,m2,m), then sensible sturdy choices are method="p" for matched pairs and method="w" for sets with 2 to 4 controls.  Properties of different weights (m,m1,m2) are discussed in Rosenbaum (2014, sections 4 and 5).  Details follow.
+</p>
+<p>The triple (m,m1,m2) determines the weights, essentially as in expression (5) in Rosenbaum (2014) or expression (8) in Rosenbaum (2011) where they are called m (for m), underline(m) for m1, and overline(m) for m2. In particular, (m,m1,m2)=(1,1,1) is unweighted.  (m,m1,m2)=(2,2,2) are (essentially) conventional ranks, as in method="q".  Method="w" has (m,m1,m2)=(20,12,20) for increasing rank scores that ignore sets with little dispersion.  If m&gt;m2, as in (m,m1,m2)=(20,12,19) for method="l", the scores are redescending.  The function semwCI for confidence intervals and estimates does not permit redescending weights, m2&lt;m.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>pval</code></td>
+<td>
+<p>Approximate upper bound on the one-sided P-value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>deviate</code></td>
+<td>
+<p>Deviate that is compared to the upper tail of the standard Normal distribution to obtain the P-value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>statistic</code></td>
+<td>
+<p>Value of the test statistic.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expectation</code></td>
+<td>
+<p>Maximum null expectation of the test statistic for the given value of gamma.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variance</code></td>
+<td>
+<p>Among null distributions that yield the maximum expectation, variance is the maximum possible variance for the given value of gamma.  See Gastwirth, Krieger and Rosenbaum (2000), Rosenbaum (2007, Section 4; 2014), and Rosenbaum (2018). </p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>The one-sided alternative hypothesis is that treatment increases the level of response.  Apply senmw to -y to test against the alternative that the treatment decreases the level of response.  One way to perform a two sided test is to perform both tests and double the smaller P-value bound.
+</p>
+<p>When a study has a fixed number of controls, the senmw function may be used in place of the senmv function in the sensitivitymv package, and senmw will be faster (because separable1k in sensitivitymw for fixed controls is faster than separable1v in sensitivitymv for variable controls).  The senmw function may be used in conjunction with the following functions from the sensivitymv package: amplify, truncatedP and truncatedPbg.
+</p>
+<p>The example mercury is from Rosenbaum (2014) and compares the mercury levels in the blood of individuals who ate 15 or more servings of fish or shellfish in the previous month to people who ate at most one serving.  Data are from NHANES.
+</p>
+<p>Consistent with theory, in the example, the weighted M-statistics report greater insensitivity to unmeasured biases than do unweighted M-statistics.  For example, unweighted method="h" and unweighted m1=1,m2=1,m=1 yield p-values above 0.05 for gamma=15, but weighted method="w" yields a p-value below 0.05 for gamma=19.
+Row gamma=15 in Table 2 of Rosenbaum (2014) is reproduced by the example below with various values of m1&lt;=m2&lt;=m.
+</p>
+<p>For numerical stability in large problems, senmw function uses approximate weights (expression (9) in Rosenbaum (2011)) rather than exact weights (expression (8) in Rosenbaum (2011) and expression (5) in Rosenbaum (2014)), so senmw produces ever so slightly different p-value bounds than reported in Table 2 of Rosenbaum (2014).  If you are interested in this distinction between approximate and exact rank scores (it isn't really very interesting), the calculation occurs in the multrnks function, so type help(multrnks).
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Paul R. Rosenbaum
+</p>
+
+
+<h3>References</h3>
+
+<p>Huber, P. (1981) Robust Statistics.  New York: Wiley,
+1981.&lt;doi:10.1002/9780470434697&gt;
+</p>
+<p>Maritz, J. S. (1979) Exact robust confidence intervals for location.  Biometrika 1979, 66, 163-166. &lt;doi:10.1093/biomet/66.1.163&gt;
+</p>
+<p>Gastwirth, J. L., Krieger, A. M., and Rosenbaum, P. R. (2000) Asymptotic separability in sensitivity analysis.  Journal of the Royal Statistical Society B 2000, 62, 545-556.&lt;doi:10.1111/1467-9868.00249&gt;
+</p>
+<p>Quade, D. (1979). Using weighted rankings in the analysis of complete blocks with additive block effects. Journal of the American Statistical Association, 74(367), 680-683.
+</p>
+<p>Rosenbaum, P. R. (2007) Sensitivity analysis for m-estimates, tests and confidence intervals in matched observational studies.  Biometrics, 2007, 63, 456-464. &lt;doi:10.1111/j.1541-0420.2006.00717.x&gt;
+</p>
+<p>Rosenbaum, P. R. (2013) Impact of multiple matched controls on design sensitivity in observational studies.  Biometrics, 2013, 69, 118-127.
+&lt;doi:10.1111/j.1541-0420.2012.01821.x&gt;
+</p>
+<p>Rosenbaum, P. R. (2014) Weighted M-statistics with superior design sensitivity in matched observational studies with multiple controls.  Journal of the American Statistical Association, 109(507), 1145-1158
+&lt;doi:10.1080/01621459.2013.879261&gt;
+</p>
+<p>Rosenbaum, P. R. (2015). Two R packages for sensitivity analysis in observational studies. Observational Studies, 1(2), 1-17.  The Observational Studies journal is available free on-line.
+&lt;10.1353/obs.2015.0000&gt;  This article discusses and illustrates the use of the current package.
+</p>
+<p>Rosenbaum, P. R. (2018). Sensitivity analysis for stratified comparisons in an observational study of the effect of smoking on homocysteine
+levels. The Annals of Applied Statistics, 12(4), 2312-2334.
+&lt;doi:10.1214/18-AOAS1153&gt;
+</p>
+<p>Tardif, S. (1987). Efficiency and optimality results for tests based on weighted rankings. Journal of the American Statistical Association, 82(398), 637-644.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Illustrates greater insensitivity reported when weights are use.
+data(mercury)
+senmw(mercury,gamma=15)
+senmw(mercury,method="h",gamma=15)
+senmw(mercury,method="w",gamma=15)
+senmw(mercury,method="w",gamma=19)
+senmw(mercury,method="l",gamma=20)
+
+#Reproduces Table 2, row gamma=15 of Rosenbaum (2014).
+senmw(mercury,gamma=15,m1=1,m2=1,m=1)
+senmw(mercury,gamma=15,m1=2,m2=2,m=2)
+senmw(mercury,gamma=15,m1=12,m2=20,m=20)
+senmw(mercury,gamma=15,m1=14,m2=20,m=20)
+senmw(mercury,gamma=15,m1=16,m2=20,m=20)
+senmw(mercury,gamma=15,m1=12,m2=19,m=20)
+senmw(mercury,gamma=15,m1=14,m2=19,m=20)
+senmw(mercury,gamma=15,m1=16,m2=19,m=20)
+
+#Reproduces part of Table 1 in Rosenbaum (2007).  For other parts of this table, see help(senmwCI).
+data(erpcp)
+senmw(erpcp,gamma=2,trim=1,inner=0,m1=1,m2=1,m=1)
+senmw(erpcp,gamma=3,trim=1,inner=0,m1=1,m2=1,m=1)
+senmw(erpcp,gamma=4,trim=1,inner=0,m1=1,m2=1,m=1)
+</code></pre>
+
+
+</div>

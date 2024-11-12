@@ -1,0 +1,209 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.lfMsPGOcc</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for prediction at new locations for latent factor multi-species occupancy models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>predict</code> collects posterior predictive samples for a set of new locations given an object of class 'lfMsPGOcc'. Prediction is possible for both the latent occupancy state as well as detection.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'lfMsPGOcc'
+predict(object, X.0, coords.0, 
+        ignore.RE = FALSE, type = 'occupancy', ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class lfMsPGOcc</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X.0</code></td>
+<td>
+<p>the design matrix of covariates at the prediction locations. This should include a column of 1s for the intercept if an intercept is included in the model. If random effects are included in the occupancy (or detection if <code>type = 'detection'</code>) portion of the model, the levels of the random effects at the new locations should be included as a column in the design matrix. The ordering of the levels should match the ordering used to fit the data in <code>lfMsPGOcc</code>. Columns should correspond to the order of how covariates were specified in the corresponding formula argument of <code>lfMsPGOcc</code>. Column names of the random effects must match the name of the random effects, if specified in the corresponding formula argument of <code>lfMsPGOcc</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords.0</code></td>
+<td>
+<p>the spatial coordinates corresponding to <code>X.0</code>. Note that <code>spOccupancy</code> assumes coordinates are specified 
+in a projected coordinate system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ignore.RE</code></td>
+<td>
+<p>a logical value indicating whether to include unstructured random effects for prediction. If TRUE, random effects will be ignored and prediction will only use the fixed effects. If FALSE, random effects will be included in the prediction for both observed and unobserved levels of the random effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>a quoted keyword indicating what type of prediction to produce. Valid keywords are 'occupancy' to predict latent occupancy probability and latent occupancy values (this is the default), or 'detection' to predict detection probability given new values of detection covariates.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list object of class <code>predict.lfMsPGOcc</code>. When <code>type = 'occupancy'</code>, the list consists of:  
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>psi.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the
+latent occurrence probability values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the
+latent occurrence values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples
+for the latent factors.</p>
+</td>
+</tr>
+</table>
+<p>When <code>type = 'detection'</code>, the list consists of: 
+</p>
+<table><tr style="vertical-align: top;">
+<td><code>p.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the 
+detection probability values.</p>
+</td>
+</tr></table>
+<p>The return object will include additional objects used for standard 
+extractor functions. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>When <code>ignore.RE = FALSE</code>, both sampled levels and non-sampled levels of random effects are supported for prediction. For sampled levels, the posterior distribution for the random intercept corresponding to that level of the random effect will be used in the prediction. For non-sampled levels, random values are drawn from a normal distribution using the posterior samples of the random effect variance, which results in fully propagated uncertainty in predictions with models that incorporate random effects.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(400)
+J.x &lt;- 8
+J.y &lt;- 8
+J &lt;- J.x * J.y
+n.rep&lt;- sample(2:4, size = J, replace = TRUE)
+N &lt;- 6
+# Community-level covariate effects
+# Occurrence
+beta.mean &lt;- c(0.2, 0.5)
+p.occ &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.6, 0.3)
+# Detection
+alpha.mean &lt;- c(0.5, 0.2, -0.1)
+tau.sq.alpha &lt;- c(0.2, 0.3, 1)
+p.det &lt;- length(alpha.mean)
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = N, ncol = p.occ)
+alpha &lt;- matrix(NA, nrow = N, ncol = p.det)
+for (i in 1:p.occ) {
+  beta[, i] &lt;- rnorm(N, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(N, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+
+n.factors &lt;- 3
+dat &lt;- simMsOcc(J.x = J.x, J.y = J.y, n.rep = n.rep, N = N, beta = beta, alpha = alpha,
+                sp = FALSE, factor.model = TRUE, n.factors = n.factors)
+n.samples &lt;- 5000
+# Split into fitting and prediction data set
+pred.indx &lt;- sample(1:J, round(J * .25), replace = FALSE)
+y &lt;- dat$y[, -pred.indx, ]
+# Occupancy covariates
+X &lt;- dat$X[-pred.indx, ]
+# Spatial coordinates
+coords &lt;- dat$coords[-pred.indx, ]
+# Detection covariates
+X.p &lt;- dat$X.p[-pred.indx, , ]
+# Prediction values
+X.0 &lt;- dat$X[pred.indx, ]
+psi.0 &lt;- dat$psi[, pred.indx]
+coords.0 &lt;- dat$coords[pred.indx, ]
+# Package all data into a list
+occ.covs &lt;- X[, 2, drop = FALSE]
+colnames(occ.covs) &lt;- c('occ.cov')
+det.covs &lt;- list(det.cov.1 = X.p[, , 2], 
+                 det.cov.2 = X.p[, , 3])
+data.list &lt;- list(y = y, 
+                  occ.covs = occ.covs,
+                  det.covs = det.covs, 
+                  coords = coords)
+
+# Occupancy initial values
+prior.list &lt;- list(beta.comm.normal = list(mean = 0, var = 2.72), 
+                   alpha.comm.normal = list(mean = 0, var = 2.72), 
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1), 
+                   tau.sq.alpha.ig = list(a = 0.1, b = 0.1))
+# Initial values
+lambda.inits &lt;- matrix(0, N, n.factors)
+diag(lambda.inits) &lt;- 1
+lambda.inits[lower.tri(lambda.inits)] &lt;- rnorm(sum(lower.tri(lambda.inits)))
+inits.list &lt;- list(alpha.comm = 0, 
+                   beta.comm = 0, 
+                   beta = 0, 
+                   alpha = 0,
+                   tau.sq.beta = 1, 
+                   tau.sq.alpha = 1, 
+                   lambda = lambda.inits, 
+                   z = apply(y, c(1, 2), max, na.rm = TRUE))
+
+out &lt;- lfMsPGOcc(occ.formula = ~ occ.cov, 
+                 det.formula = ~ det.cov.1 + det.cov.2, 
+                 data = data.list, 
+                 inits = inits.list, 
+                 n.samples = n.samples, 
+                 n.factors = 3, 
+                 priors = prior.list, 
+                 n.omp.threads = 1, 
+                 verbose = TRUE, 
+                 n.report = 1000, 
+                 n.burn = 4000)
+
+summary(out, level = 'community')
+
+# Predict at new locations ------------------------------------------------
+out.pred &lt;- predict(out, X.0, coords.0)
+</code></pre>
+
+
+</div>

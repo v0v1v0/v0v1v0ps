@@ -1,0 +1,710 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>soundgen</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate a sound</h2>
+
+<h3>Description</h3>
+
+<p>Generates a bout of one or more syllables with pauses between them. Two basic
+components are synthesized: the harmonic component (the sum of sine waves
+with frequencies that are multiples of the fundamental frequency) and the
+noise component. Both components can be filtered with independently specified
+formants. Intonation and amplitude contours can be applied both within each
+syllable and across multiple syllables. Suggested application: synthesis of
+animal or human non-linguistic vocalizations. For more information, see
+<a href="http://cogsci.se/soundgen.html">http://cogsci.se/soundgen.html</a> and vignette('sound_generation', package
+= 'soundgen').
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">soundgen(
+  repeatBout = 1,
+  nSyl = 1,
+  sylLen = 300,
+  pauseLen = 200,
+  pitch = list(time = c(0, 0.1, 0.9, 1), value = c(100, 150, 135, 100)),
+  pitchGlobal = NA,
+  glottis = 0,
+  temperature = 0.025,
+  tempEffects = list(),
+  maleFemale = 0,
+  creakyBreathy = 0,
+  nonlinBalance = 100,
+  nonlinRandomWalk = NULL,
+  subRatio = 2,
+  subFreq = 0,
+  subDep = 0,
+  subWidth = 10000,
+  shortestEpoch = 300,
+  jitterLen = 1,
+  jitterDep = 0,
+  vibratoFreq = 5,
+  vibratoDep = 0,
+  shimmerDep = 0,
+  shimmerLen = 1,
+  attackLen = 50,
+  rolloff = -9,
+  rolloffOct = 0,
+  rolloffKHz = -3,
+  rolloffParab = 0,
+  rolloffParabHarm = 3,
+  rolloffExact = NULL,
+  lipRad = 6,
+  noseRad = 4,
+  mouthOpenThres = 0,
+  formants = c(860, 1430, 2900),
+  formantDep = 1,
+  formantDepStoch = 1,
+  formantWidth = 1,
+  formantCeiling = 2,
+  formantLocking = 0,
+  vocalTract = NA,
+  amDep = 0,
+  amFreq = 30,
+  amType = c("logistic", "sine")[1],
+  amShape = 0,
+  noise = NULL,
+  formantsNoise = NA,
+  rolloffNoise = -4,
+  noiseFlatSpec = 1200,
+  rolloffNoiseExp = 0,
+  noiseAmpRef = c("f0", "source", "filtered")[3],
+  mouth = list(time = c(0, 1), value = c(0.5, 0.5)),
+  ampl = NA,
+  amplGlobal = NA,
+  smoothing = list(interpol = c("approx", "spline", "loess")[3], loessSpan = NULL,
+    discontThres = 0.05, jumpThres = 0.01),
+  samplingRate = 16000,
+  windowLength = 50,
+  overlap = 75,
+  addSilence = 100,
+  pitchFloor = 1,
+  pitchCeiling = 3500,
+  pitchSamplingRate = 16000,
+  dynamicRange = 80,
+  invalidArgAction = c("adjust", "abort", "ignore")[1],
+  plot = FALSE,
+  play = FALSE,
+  saveAudio = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>repeatBout</code></td>
+<td>
+<p>number of times the whole bout should be repeated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nSyl</code></td>
+<td>
+<p>number of syllables in the bout. 'pitchGlobal', 'amplGlobal', and
+'formants' span multiple syllables, but not multiple bouts</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sylLen</code></td>
+<td>
+<p>average duration of each syllable, ms (vectorized)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pauseLen</code></td>
+<td>
+<p>average duration of pauses between syllables, ms (can be
+negative between bouts: force with invalidArgAction = 'ignore')
+(vectorized)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitch</code></td>
+<td>
+<p>a numeric vector of f0 values in Hz or a dataframe
+specifying the time (ms or 0 to 1) and value (Hz) of each anchor, hereafter
+"anchor format". These anchors are used to create a smooth contour of
+fundamental frequency f0 (pitch) within one syllable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchGlobal</code></td>
+<td>
+<p>unlike <code>pitch</code>, these anchors are
+used to create a smooth contour of average f0 across multiple syllables.
+The values are in semitones relative to the existing pitch, i.e. 0 = no
+change (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glottis</code></td>
+<td>
+<p>anchors for specifying the proportion of a
+glottal cycle with closed glottis, % (0 = no modification, 100 = closed
+phase as long as open phase); numeric vector or dataframe specifying time
+and value (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>temperature</code></td>
+<td>
+<p>hyperparameter for regulating the amount of stochasticity
+in sound generation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tempEffects</code></td>
+<td>
+<p>a list of scaling coefficients regulating the effect of
+temperature on particular parameters. To change, specify just those pars
+that you want to modify (1 = default, 0 = no stochastic behavior).
+<code>amplDep, pitchDep, noiseDep</code>: random fluctuations of user-specified
+amplitude / pitch / noise anchors; <code>amplDriftDep</code>: drift of amplitude
+mirroring pitch drift; <code>formDisp</code>: dispersion of stochastic formants;
+<code>formDrift</code>: formant frequencies; <code>glottisDep</code>: proportion of
+glottal cycle with closed glottis; <code>pitchDriftDep</code>: amount of slow
+random drift of f0; <code>pitchDriftFreq</code>: frequency of slow random drift
+of f0; <code>rolloffDriftDep</code>: drift of rolloff mirroring pitch drift;
+<code>specDep</code>: rolloff, rolloffNoise, nonlinear effects, attack;
+<code>subDriftDep</code>: drift of subharmonic frequency and bandwidth mirroring
+pitch drift; <code>sylLenDep</code>: duration of syllables and pauses</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maleFemale</code></td>
+<td>
+<p>hyperparameter for shifting f0 contour, formants, and
+vocalTract to make the speaker appear more male (-1...0) or more female
+(0...+1); 0 = no change</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>creakyBreathy</code></td>
+<td>
+<p>hyperparameter for a rough adjustment of voice quality
+from creaky (-1) to breathy (+1); 0 = no change</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nonlinBalance</code></td>
+<td>
+<p>hyperparameter for regulating the (approximate)
+proportion of sound with different regimes of pitch effects (none /
+subharmonics only / subharmonics and jitter). 0% = no noise; 100% = the
+entire sound has jitter + subharmonics. Ignored if temperature = 0</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nonlinRandomWalk</code></td>
+<td>
+<p>a numeric vector specifying the timing of nonliner
+regimes: 0 = none, 1 = subharmonics, 2 = subharmonics + jitter + shimmer</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subRatio</code></td>
+<td>
+<p>a positive integer giving the ratio of f0 (the main
+fundamental) to g0 (a lower frequency): 1 = no subharmonics, 2 = period
+doubling regardless of pitch changes, 3 = period tripling, etc; subRatio
+overrides subFreq (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subFreq</code></td>
+<td>
+<p>instead of a specific number of subharmonics (subRatio), we
+can specify the approximate g0 frequency (Hz), which is used only if
+subRatio = 1 and is adjusted to f0 so f0/g0 is always an integer (anchor
+format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subDep</code></td>
+<td>
+<p>the depth of subharmonics relative to the main frequency
+component (f0), %. 0: no subharmonics; 100: g0 harmonics are as strong as
+the nearest f0 harmonic (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subWidth</code></td>
+<td>
+<p>Width of subharmonic sidebands - regulates how rapidly
+g-harmonics weaken away from f-harmonics: large values like the default
+10000 means that all g0 harmonics are equally strong (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shortestEpoch</code></td>
+<td>
+<p>minimum duration of each epoch with unchanging
+subharmonics regime or formant locking, in ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jitterLen</code></td>
+<td>
+<p>duration of stable periods between pitch jumps, ms. Use a
+low value for harsh noise, a high value for irregular vibrato or shaky
+voice (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jitterDep</code></td>
+<td>
+<p>cycle-to-cycle random pitch variation, semitones (anchor
+format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vibratoFreq</code></td>
+<td>
+<p>the rate of regular pitch modulation, or vibrato, Hz
+(anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vibratoDep</code></td>
+<td>
+<p>the depth of vibrato, semitones (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shimmerDep</code></td>
+<td>
+<p>random variation in amplitude between individual glottal
+cycles (0 to 100% of original amplitude of each cycle) (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shimmerLen</code></td>
+<td>
+<p>duration of stable periods between amplitude jumps, ms. Use
+a low value for harsh noise, a high value for shaky voice (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>attackLen</code></td>
+<td>
+<p>duration of fade-in / fade-out at each end of syllables and
+noise (ms): a vector of length 1 (symmetric) or 2 (separately for fade-in
+and fade-out)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloff</code></td>
+<td>
+<p>basic rolloff from lower to upper harmonics, db/octave
+(exponential decay). All rolloff parameters are in anchor format. See
+<code>getRolloff</code> for more details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffOct</code></td>
+<td>
+<p>basic rolloff changes from lower to upper harmonics
+(regardless of f0) by <code>rolloffOct</code> dB/oct. For example, we can get
+steeper rolloff in the upper part of the spectrum</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffKHz</code></td>
+<td>
+<p>rolloff changes linearly with f0 by <code>rolloffKHz</code>
+dB/kHz. For ex., -6 dB/kHz gives a 6 dB steeper basic rolloff as f0 goes up
+by 1000 Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParab</code></td>
+<td>
+<p>an optional quadratic term affecting only the first
+<code>rolloffParabHarm</code> harmonics. The middle harmonic of the first
+<code>rolloffParabHarm</code> harmonics is amplified or dampened by
+<code>rolloffParab</code> dB relative to the basic exponential decay</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParabHarm</code></td>
+<td>
+<p>the number of harmonics affected by
+<code>rolloffParab</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffExact</code></td>
+<td>
+<p>user-specified exact strength of harmonics: a vector or
+matrix with one row per harmonic, scale 0 to 1 (overrides all other rolloff
+parameters)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lipRad</code></td>
+<td>
+<p>the effect of lip radiation on source spectrum, dB/oct (the
+default of +6 dB/oct produces a high-frequency boost when the mouth is
+open)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noseRad</code></td>
+<td>
+<p>the effect of radiation through the nose on source spectrum,
+dB/oct (the alternative to <code>lipRad</code> when the mouth is closed)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mouthOpenThres</code></td>
+<td>
+<p>open the lips (switch from nose radiation to lip
+radiation) when the mouth is open <code>&gt;mouthOpenThres</code>, 0 to 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formants</code></td>
+<td>
+<p>either a character string like "aaui" referring to default
+presets for speaker "M1" or a list of formant times, frequencies,
+amplitudes, and bandwidths (see ex. below). <code>formants = NA</code> defaults
+to schwa. Time stamps for formants and mouthOpening can be specified in ms
+or an any other arbitrary scale. See <code>getSpectralEnvelope</code> for
+more details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantDep</code></td>
+<td>
+<p>scale factor of formant amplitude (1 = no change relative
+to amplitudes in <code>formants</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantDepStoch</code></td>
+<td>
+<p>the amplitude of additional stochastic formants added
+above the highest specified formant, dB (only if temperature &gt; 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantWidth</code></td>
+<td>
+<p>scale factor of formant bandwidth (1 = no change)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantCeiling</code></td>
+<td>
+<p>frequency to which stochastic formants are calculated,
+in multiples of the Nyquist frequency; increase up to ~10 for long vocal
+tracts to avoid losing energy in the upper part of the spectrum</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantLocking</code></td>
+<td>
+<p>the approximate proportion of sound in which one of the
+harmonics is locked to the nearest formant, 0 = none, 1 = the entire sound
+(anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vocalTract</code></td>
+<td>
+<p>the length of vocal tract, cm. Used for calculating formant
+dispersion (for adding extra formants) and formant transitions as the mouth
+opens and closes. If <code>NULL</code> or <code>NA</code>, the length is estimated
+based on specified formant frequencies, if any (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amDep</code></td>
+<td>
+<p>amplitude modulation (AM) depth, %. 0: no change; 100: AM with
+amplitude range equal to the dynamic range of the sound (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amFreq</code></td>
+<td>
+<p>AM frequency, Hz (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amType</code></td>
+<td>
+<p>"sine" = sinusoidal, "logistic" = logistic (default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amShape</code></td>
+<td>
+<p>ignore if amType = "sine", otherwise determines the shape of
+non-sinusoidal AM: 0 = ~sine, -1 = notches, +1 = clicks (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise</code></td>
+<td>
+<p>loudness of turbulent noise (0 dB = as loud as
+voiced component, negative values = quieter) such as aspiration, hissing,
+etc (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantsNoise</code></td>
+<td>
+<p>the same as <code>formants</code>, but for unvoiced instead of
+voiced component. If NA (default), the unvoiced component will be filtered
+through the same formants as the voiced component, approximating aspiration
+noise [h]</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffNoise, noiseFlatSpec</code></td>
+<td>
+<p>linear rolloff of the excitation source for
+the unvoiced component, <code>rolloffNoise</code> dB/kHz (anchor format) applied
+above <code>noiseFlatSpec</code> Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffNoiseExp</code></td>
+<td>
+<p>exponential rolloff of the excitation source for the
+unvoiced component, dB/oct (anchor format) applied above 0 Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noiseAmpRef</code></td>
+<td>
+<p>noise amplitude is defined relative to: "f0" = the
+amplitude of the first partial (fundamental frequency), "source" = the
+amplitude of the harmonic component prior to applying formants, "filtered"
+=  the amplitude of the harmonic component after applying formants</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mouth</code></td>
+<td>
+<p>mouth opening (0 to 1, 0.5 = neutral, i.e. no
+modification) (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ampl</code></td>
+<td>
+<p>amplitude envelope (dB, 0 = max amplitude) (anchor
+format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amplGlobal</code></td>
+<td>
+<p>global amplitude envelope spanning
+multiple syllables (dB, 0 = no change) (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothing</code></td>
+<td>
+<p>a list of parameters passed to
+<code>getSmoothContour</code> to control the interpolation and smoothing
+of contours: interpol (approx / spline / loess), loessSpan, discontThres,
+jumpThres</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling frequency, Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength</code></td>
+<td>
+<p>length of FFT window, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>FFT window overlap, %. For allowed values, see
+<code>istft</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>addSilence</code></td>
+<td>
+<p>silence before and after the bout, ms: a vector of length 1
+(symmetric) or 2 (different duration of silence before/after the sound)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchFloor, pitchCeiling</code></td>
+<td>
+<p>lower &amp; upper bounds of f0</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchSamplingRate</code></td>
+<td>
+<p>sampling frequency of the pitch contour only, Hz.
+Low values reduce processing time. Set to <code>pitchCeiling</code> for optimal
+speed or to <code>samplingRate</code> for optimal quality</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>dynamic range, dB. Harmonics and noise more than
+dynamicRange under maximum amplitude are discarded to save computational
+resources</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>invalidArgAction</code></td>
+<td>
+<p>what to do if an argument is invalid or outside the
+range in <code>permittedValues</code>: 'adjust' = reset to default value, 'abort'
+= stop execution, 'ignore' = throw a warning and continue (may crash)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, plots a spectrogram</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>play</code></td>
+<td>
+<p>if TRUE, plays the synthesized sound using the default player on
+your system. If character, passed to <code>play</code> as the name
+of player to use, eg "aplay", "play", "vlc", etc. In case of errors, try
+setting another default player for <code>play</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveAudio</code></td>
+<td>
+<p>path + filename for saving the output, e.g.
+'~/Downloads/temp.wav'. If NULL = doesn't save</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other plotting parameters passed to <code>spectrogram</code></p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns the synthesized waveform as a numeric vector.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>generateNoise</code> <code>beat</code> <code>fart</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># NB: GUI for soundgen is available as a Shiny app.
+# Type "soundgen_app()" to open it in default browser
+
+# Set "playback" to TRUE for default system player or the name of preferred
+# player (eg "aplay") to play back the audio from examples
+playback = FALSE # or TRUE 'aplay', 'vlc', ...
+
+sound = soundgen(play = playback)
+# spectrogram(sound, 16000, osc = TRUE)
+# playme(sound)
+
+# Control of intonation, amplitude envelope, formants
+s0 = soundgen(
+  pitch = c(300, 390, 250),
+  ampl = data.frame(time = c(0, 50, 300), value = c(-5, -10, 0)),
+  attack = c(10, 50),
+  formants = c(600, 900, 2200),
+  play = playback
+)
+
+# Use the in-built collection of presets:
+# names(presets)  # speakers
+# names(presets$Chimpanzee)  # calls per speaker
+s1 = eval(parse(text = presets$Chimpanzee$Scream_conflict))  # screaming chimp
+# playme(s1)
+s2 = eval(parse(text = presets$F1$Scream))  # screaming woman
+# playme(s2, 18320)
+## Not run: 
+# unless temperature is 0, the sound is different every time
+for (i in 1:3) sound = soundgen(play = playback, temperature = .2)
+
+# Bouts versus syllables. Compare:
+sound = soundgen(formants = 'uai', repeatBout = 3, play = playback)
+sound = soundgen(formants = 'uai', nSyl = 3, play = playback)
+
+# Intonation contours per syllable and globally:
+sound = soundgen(nSyl = 5, sylLen = 200, pauseLen = 140,
+  pitch = list(
+    time = c(0, 0.65, 1),
+    value = c(977, 1540, 826)),
+  pitchGlobal = list(time = c(0, .5, 1), value = c(-6, 7, 0)),
+  play = playback, plot = TRUE)
+
+# Subharmonics / sidebands (noisy scream)
+sound = soundgen(subFreq = 75, subDep = runif(10, 0, 60), subWidth = 130,
+  pitch = list(
+    time = c(0, .3, .9, 1), value = c(1200, 1547, 1487, 1154)),
+  sylLen = 800,
+  play = playback, plot = TRUE)
+
+# Jitter and mouth opening (bark, dog-like)
+sound = soundgen(repeatBout = 2, sylLen = 160, pauseLen = 100,
+  subFreq = 100, subDep = 100, subWidth = 60, jitterDep = 1,
+  pitch = c(559, 785, 557),
+  mouth = c(0, 0.5, 0),
+  vocalTract = 5, formants = NULL,
+  play = playback, plot = TRUE)
+
+# Ultrasound - need to adjust some defaults:
+ soundgen(
+   sylLen = 10,  # just 10 ms
+   attackLen = 1,  # should be very short for short vocalizations
+   addSilence = 2,
+   pitch = c(45000, 35000, 65000, 60000),  # 35-60 kHz
+   rolloff = -12,
+   rolloffKHz = 0,  # NB: the default is -3 dB/kHz, which we do NOT want here!
+   formants = NA,  # no formants (or set vocal tract length)
+   samplingRate = 350000,  # at least ~10 times the max f0
+   pitchSamplingRate = 350000,  # the same as samplingRate
+   windowLength = .25,  # need very short window lengths for USV
+   pitchCeiling = 90000, # max allowed pitch
+   invalidArgAction = 'ignore', # override the ranges allowed by default
+   temperature = 1e-4,
+   plot = TRUE
+ )
+
+# See the vignette on sound generation for more examples and in-depth
+# explanation of the arguments to soundgen()
+# Examples of code for creating human and animal vocalizations are available
+# on project's homepage: http://cogsci.se/soundgen.html
+
+## End(Not run)
+</code></pre>
+
+
+</div>

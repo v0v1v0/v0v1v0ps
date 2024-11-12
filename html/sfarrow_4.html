@@ -1,0 +1,99 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>read_sf_dataset</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Read an Arrow multi-file dataset and create <code>sf</code> object</h2>
+
+<h3>Description</h3>
+
+<p>Read an Arrow multi-file dataset and create <code>sf</code> object
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">read_sf_dataset(dataset, find_geom = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dataset</code></td>
+<td>
+<p>a <code>Dataset</code> object created by <code>arrow::open_dataset</code>
+or an <code>arrow_dplyr_query</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>find_geom</code></td>
+<td>
+<p>logical. Only needed when returning a subset of columns.
+Should all available geometry columns be selected and added to to the
+dataset query without being named? Default is <code>FALSE</code> to require
+geometry column(s) to be selected specifically.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is primarily for use after opening a dataset with
+<code>arrow::open_dataset</code>. Users can then query the <code>arrow Dataset</code>
+using <code>dplyr</code> methods such as <code>filter</code> or
+<code>select</code>. Passing the resulting query to this function
+will parse the datasets and create an <code>sf</code> object. The function
+expects consistent geographic metadata to be stored with the dataset in
+order to create <code>sf</code> objects.
+</p>
+
+
+<h3>Value</h3>
+
+<p>object of class <code>sf</code>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>open_dataset</code>, <code>st_read</code>, <code>st_read_parquet</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># read spatial object
+nc &lt;- sf::st_read(system.file("shape/nc.shp", package="sf"), quiet = TRUE)
+
+# create random grouping
+nc$group &lt;- sample(1:3, nrow(nc), replace = TRUE)
+
+# use dplyr to group the dataset. %&gt;% also allowed
+nc_g &lt;- dplyr::group_by(nc, group)
+
+# write out to parquet datasets
+tf &lt;- tempfile()  # create temporary location
+on.exit(unlink(tf))
+# partitioning determined by dplyr 'group_vars'
+write_sf_dataset(nc_g, path = tf)
+
+list.files(tf, recursive = TRUE)
+
+# open parquet files from dataset
+ds &lt;- arrow::open_dataset(tf)
+
+# create a query. %&gt;% also allowed
+q &lt;- dplyr::filter(ds, group == 1)
+
+# read the dataset (piping syntax also works)
+nc_d &lt;- read_sf_dataset(dataset = q)
+
+nc_d
+plot(sf::st_geometry(nc_d))
+
+</code></pre>
+
+
+</div>

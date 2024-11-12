@@ -1,0 +1,204 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>as_survey_design</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create a tbl_svy survey object using sampling design</h2>
+
+<h3>Description</h3>
+
+<p>Create a survey object with a survey design.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">as_survey_design(.data, ...)
+
+## S3 method for class 'data.frame'
+as_survey_design(
+  .data,
+  ids = NULL,
+  probs = NULL,
+  strata = NULL,
+  variables = NULL,
+  fpc = NULL,
+  nest = FALSE,
+  check_strata = !nest,
+  weights = NULL,
+  pps = FALSE,
+  variance = c("HT", "YG"),
+  ...
+)
+
+## S3 method for class 'survey.design2'
+as_survey_design(.data, ...)
+
+## S3 method for class 'tbl_lazy'
+as_survey_design(
+  .data,
+  ids = NULL,
+  probs = NULL,
+  strata = NULL,
+  variables = NULL,
+  fpc = NULL,
+  nest = FALSE,
+  check_strata = !nest,
+  weights = NULL,
+  pps = FALSE,
+  variance = c("HT", "YG"),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>.data</code></td>
+<td>
+<p>A data frame (which contains the variables specified below)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>ignored</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>Variables specifying cluster ids from largest level to smallest level
+(leaving the argument empty, NULL, 1, or 0 indicate no clusters).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probs</code></td>
+<td>
+<p>Variables specifying cluster sampling probabilities.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata</code></td>
+<td>
+<p>Variables specifying strata.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variables</code></td>
+<td>
+<p>Variables specifying variables to be included in survey.
+Defaults to all variables in .data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpc</code></td>
+<td>
+<p>Variables specifying a finite population correct, see
+<code>svydesign</code> for more details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nest</code></td>
+<td>
+<p>If <code>TRUE</code>, relabel cluster ids to enforce nesting within strata.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_strata</code></td>
+<td>
+<p>If <code>TRUE</code>, check that clusters are nested in strata.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>Variables specifying weights (inverse of probability).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pps</code></td>
+<td>
+<p>"brewer" to use Brewer's approximation for PPS sampling without replacement.
+"overton" to use Overton's approximation. An object of class HR to use the Hartley-Rao
+approximation. An object of class ppsmat to use the Horvitz-Thompson estimator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variance</code></td>
+<td>
+<p>For pps without replacement, use variance="YG" for the Yates-Grundy estimator
+instead of the Horvitz-Thompson estimator</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If provided a data.frame, it is a wrapper
+around <code>svydesign</code>. All survey variables must be included
+in the data.frame itself. Variables are selected by using bare column names, or
+convenience functions described in <code>select</code>.
+</p>
+<p>If provided a <code>survey.design2</code> object from the survey package,
+it will turn it into a srvyr object, so that srvyr functions will work with it
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>tbl_svy</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Examples from ?survey::svydesign
+library(survey)
+data(api)
+
+# stratified sample
+dstrata &lt;- apistrat %&gt;%
+  as_survey_design(strata = stype, weights = pw)
+
+# one-stage cluster sample
+dclus1 &lt;- apiclus1 %&gt;%
+  as_survey_design(dnum, weights = pw, fpc = fpc)
+
+# two-stage cluster sample: weights computed from population sizes.
+dclus2 &lt;- apiclus2 %&gt;%
+  as_survey_design(c(dnum, snum), fpc = c(fpc1, fpc2))
+
+## multistage sampling has no effect when fpc is not given, so
+## these are equivalent.
+dclus2wr &lt;- apiclus2 %&gt;%
+  dplyr::mutate(weights = weights(dclus2)) %&gt;%
+  as_survey_design(c(dnum, snum), weights = weights)
+
+dclus2wr2 &lt;- apiclus2 %&gt;%
+  dplyr::mutate(weights = weights(dclus2)) %&gt;%
+  as_survey_design(c(dnum), weights = weights)
+
+## syntax for stratified cluster sample
+## (though the data weren't really sampled this way)
+apistrat %&gt;% as_survey_design(dnum, strata = stype, weights = pw,
+                           nest = TRUE)
+
+## PPS sampling without replacement
+data(election)
+dpps &lt;- election_pps %&gt;%
+  as_survey_design(fpc = p, pps = "brewer")
+
+# dplyr 0.7 introduced new style of NSE called quosures
+# See `vignette("programming", package = "dplyr")` for details
+st &lt;- quo(stype)
+wt &lt;- quo(pw)
+dstrata &lt;- apistrat %&gt;%
+  as_survey_design(strata = !!st, weights = !!wt)
+
+</code></pre>
+
+
+</div>

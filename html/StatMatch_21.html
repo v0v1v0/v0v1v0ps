@@ -1,0 +1,296 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>RANDwNND.hotdeck</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Random Distance hot deck.</h2>
+
+<h3>Description</h3>
+
+<p>This function implements a variant of the distance hot deck method.  For each recipient record a subset of of the closest donors is retained and then a donor is selected at random.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">RANDwNND.hotdeck(data.rec, data.don, match.vars=NULL, 
+                 don.class=NULL, dist.fun="Manhattan", 
+                 cut.don="rot", k=NULL, weight.don=NULL, 
+                 keep.t=FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data.rec</code></td>
+<td>
+
+<p>A numeric matrix or data frame that plays the role of <em>recipient</em>.  This data frame must contain the variables (columns), specified via <code>match.vars</code> and <code>don.class</code>, that should be used in the matching. 
+</p>
+<p>Missing values (<code>NA</code>) are allowed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data.don</code></td>
+<td>
+
+<p>A matrix or data frame that plays the role of <em>donor</em>.  This data frame must contain the variables (columns), specified via <code>match.vars</code> and <code>don.class</code>, that should be used in the matching. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>match.vars</code></td>
+<td>
+
+<p>A character vector with the names of the variables (the columns in both the data frames) that have to be used to compute distances between records (rows) in <code>data.rec</code> and those in <code>data.don</code>.  When no matching variables are considered (<code>match.vars=NULL</code>) then all the units in the same donation class are considered as possible donors.  Hence one of them is selected at random or with probability proportional to its weight (see argument <code>weight.don</code>).  When <code>match.vars=NULL</code> and the donation classes are not created <br>
+(<code>don.class=NULL</code>) then all the available records in the <code>data.don</code> are considered as potential donors.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>don.class</code></td>
+<td>
+
+<p>A character vector with the names of the variables (columns in both the data frames) that have to be used to identify donation classes.  In this case the computation of distances is limited to those units in <code>data.rec</code> and <code>data.doc</code> that belong to the same donation class.  The case of empty donation classes should be avoided.  It would be preferable that variables used to form donation classes are defined as <code>factor</code>.
+</p>
+<p>When not specified (default), no donation classes are used.  This may result in a heavy computational effort.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist.fun</code></td>
+<td>
+
+<p>A string with the name of the distance function that has to be used.  The following distances can be used: “Manhattan” (aka “City block”; default), “Euclidean”, “Mahalanobis”,“exact” or “exact matching”, “Gower”, “minimax”, “difference”, or one of the distance functions available in the package <span class="pkg">proxy</span>.  Note that the distances are computed using the function  <code>dist</code> of the package <span class="pkg">proxy</span> with the exception of the “Gower” (see function <code>gower.dist</code> for details), “Mahalanobis” (function <code>mahalanobis.dist</code>), “minimax” (see <code>maximum.dist</code>) “difference” case.  Note that <code>dist.fun="difference"</code> computes just the difference between the values of the unique numeric matching variable considered; in practice, it should be used when the subset of the donation classes should be formed by comparing the values of the unique matching variable (for further details see the argument <code>cut.don</code>.
+</p>
+<p>By setting <code>dist.fun="ANN"</code> or <code>dist.fun="RANN"</code> it is possible to search for the <code>k</code> nearest neighbours for each recipient record by using the the Approximate Nearest Neighbor (ANN) search as implemented in the  function <code>nn2</code> provided by the package <span class="pkg">RANN</span>.
+</p>
+<p>When <code>dist.fun="Manhattan"</code>, <code>"Euclidean"</code>, <code>"Mahalanobis"</code> or <code>"minimax"</code> all the variables in <code>data.rec</code> and <code>data.don</code> must be numeric.  On the contrary, when <code>dist.fun="exact"</code> or <br><code>dist.fun="exact matching"</code>, all the variables in <code>data.rec</code> and <code>data.don</code> will be converted to character and, as far as the distance computation is concerned, they will be treated as categorical nominal variables, i.e. distance is 0 if a couple of units shows the same response category and 1 otherwise. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cut.don</code></td>
+<td>
+
+<p>A character string that, jointly with the argument <code>k</code>, identifies the rule to be used to form the subset of the closest donor records. 
+</p>
+
+<ul>
+<li> <p><code>cut.don="rot"</code>: (default) then the number of the closest donors to retain is given by <code class="reqn"> \left[ \sqrt{n_{D}} \right]+1</code>; being <code class="reqn"> n_{D} </code> the total number of available donors.  In this case <code>k</code> must not to be specified.
+</p>
+</li>
+<li> <p><code>cut.don="span"</code>: the number of closest donors is determined as the proportion <code>k</code> of all the available donors, i.e. <code class="reqn"> \left[ n_{D} \times k \right] </code>.  Note that, in this case, <code class="reqn"> 0&lt; \code{k} \leq 1 </code>.
+</p>
+</li>
+<li> <p><code>cut.don="exact"</code>: the <code>k</code>th closest donors out of the <code class="reqn">n_{D}</code> are retained.  In this case, <code class="reqn"> 0&lt; \code{k} \leq{ n_{D} } </code>.
+</p>
+</li>
+<li> <p><code>cut.don="min"</code>: the donors at the minimum distance from the recipient are retained.
+</p>
+</li>
+<li> <p><code>cut.don="k.dist"</code>: only the donors whose distance from the recipient is less or equal to the value specified with the argument <code>k</code>.  Note that in this case it is not possible to use <code>dist.fun="ANN"</code>.
+</p>
+</li>
+<li> <p><code>cut.don="lt"</code> or <code>cut.don="&lt;"</code>: only the donors whose value of the matching variable is smaller than the value of the recipient are retained. Note that in this case it is has to be set <code>dist.fun="difference"</code>.
+</p>
+</li>
+<li> <p><code>cut.don="le"</code> or <code>cut.don="&lt;="</code>: only the donors whose value of the matching variable is smaller or equal to the value of the recipient are retained.  Note that in this case it is has to be set <code>dist.fun="difference"</code>.
+</p>
+</li>
+<li> <p><code>cut.don="ge"</code> or <code>cut.don="&gt;="</code>: only the donors whose value of the matching variable is greater or equal to the value of the recipient are retained.  Note that in this case it is has to be set <code>dist.fun="difference"</code>.
+</p>
+</li>
+<li> <p><code>cut.don="gt"</code> or <code>cut.don="&gt;"</code>: only the donors whose value of the matching variable is greater than the value of the recipient are retained. Note that in this case it is has to be set <code>dist.fun="difference"</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+
+<p>Depends on the <code>cut.don</code> argument. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight.don</code></td>
+<td>
+ 
+<p>A character string providing the name of the variable with the weights associated to the  donor units in <code>data.don</code>.  When this variable is specified, then the selection of a donor among those in the subset of the closest donors is done with probability proportional to its weight (units with larger weight will have a higher chance of being selected).  When <code>weight.don=NULL</code> (default) all the units in the subset of the closest donors will have the same probability of being selected.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.t</code></td>
+<td>
+
+<p>Logical, when donation classes are used by setting  <code>keep.t=TRUE</code> prints information on the donation classes being processed (by default <code>keep.t=FALSE</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+ 
+<p>Additional arguments that may be required by <code>gower.dist</code>, by <br><code>maximum.dist</code>, by <code>dist</code> or by <code>nn2</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function finds a donor record for each record in the recipient data set.  The donor is chosen at random in the subset of available donors.  This procedure is known as <em>random hot deck</em> (cf. Andridge and Little, 2010).  In <code>RANDwNND.hotdeck</code>, the number of closest donors retained to form the subset is determined according to criterion specified with the argument <code>cut.don</code>.
+The selection of the donor among those in the subset is carried out with equal probability (<code>weight.don=NULL</code>) or with probability proportional to a weight associated to the donors, specified via the <code>weight.don</code> argument.  This procedure is is known as <em>weighted random hot deck</em> (cf. Andridge and Little, 2010).
+</p>
+<p>The search for the subset of the closest donors can be speed up by using the Approximate Nearest Neighbor search as implemented in the  function <code>nn2</code> provided by the package <span class="pkg">RANN</span>.  Note that this search can be used in all the cases with the exception of <code>cut.don="k.dist"</code>.
+</p>
+<p>Note that the same donor can be used more than once.
+</p>
+<p>This function can also be used to impute missing values in a data set.  In this case <code>data.rec</code> is the part of the initial data set that contains missing values; on the contrary, <code>data.don</code> is the part of the data set without missing values. See <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> code in the Examples for details.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> list with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>mtc.ids</code></td>
+<td>
+
+<p>A matrix with the same number of rows of <code>data.rec</code> and two columns.  The first column contains the row names of the <code>data.rec</code> and the second column contains the row names of the corresponding donors selected from the <code>data.don</code>.  When the input matrices do not contain row names, then a numeric matrix with the indexes of the rows is provided.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sum.dist</code></td>
+<td>
+
+<p>A matrix with summary statistics concerning the subset of the closest donors.  The first three columns report the minimum, the maximum and the standard deviation of the distances among the recipient record and the donors in the subset of the closest donors, respectively.  The 4th column reports the cutting distance, i.e. the value of the distance such that donors at a higher distance are discarded.  The 5th column reports the distance between the recipient and the donor chosen at random in the subset of the donors.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noad</code></td>
+<td>
+
+<p>For each recipient unit, reports the number of donor records in the subset of closest donors. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+
+<p>How the function has been called.
+</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Marcello D'Orazio <a href="mailto:mdo.statmatch@gmail.com">mdo.statmatch@gmail.com</a> 
+</p>
+
+
+<h3>References</h3>
+
+<p>Andridge, R.R., and Little, R.J.A. (2010) “A Review of Hot Deck Imputation for Survey Non-response”. <em>International Statistical Review</em>, <b>78</b>, 40–64. 
+</p>
+<p>D'Orazio, M., Di Zio, M. and Scanu, M. (2006). <em>Statistical Matching: Theory and Practice.</em> Wiley, Chichester.
+</p>
+<p>Rodgers, W.L. (1984). “An evaluation of statistical matching”. <em>Journal of Business and Economic Statistics</em>, <b>2</b>, 91–102.
+</p>
+<p>Singh, A.C., Mantel, H., Kinack, M. and Rowe, G. (1993). “Statistical matching: use of auxiliary information as an alternative to the conditional independence assumption”. <em>Survey Methodology</em>, <b>19</b>, 59–79.
+</p>
+
+
+<h3>See Also</h3>
+
+ 
+<p><code>NND.hotdeck</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(samp.A, samp.B, package="StatMatch") #loads data sets
+?samp.A
+?samp.B
+
+
+# samp.A plays the role of recipient
+# samp.B plays the role of donor
+# find a donor in the in the same region ("area5") and with the same
+# gender ("sex"), then only the closest k=20 donors in terms of 
+# "age" are cnsidered and one of them is picked up at random
+
+out.RND.1 &lt;- RANDwNND.hotdeck(data.rec=samp.A, data.don=samp.B,
+                              don.class=c("area5", "sex"), dist.fun="ANN",
+                              match.vars="age", cut.don="exact", k=20)
+
+# create the synthetic (or fused) data.frame:
+# fill in "labour5" in A
+fused.1 &lt;- create.fused(data.rec=samp.A, data.don=samp.B,
+                        mtc.ids=out.RND.1$mtc.ids, z.vars="labour5")
+head(fused.1)
+
+# weights ("ww") are used in selecting the donor in the final step
+
+out.RND.2 &lt;- RANDwNND.hotdeck(data.rec=samp.A, data.don=samp.B,
+                              don.class=c("area5", "sex"), dist.fun="ANN",
+                              match.vars="age", cut.don="exact", 
+                              k=20, weight.don="ww")
+fused.2 &lt;- create.fused(data.rec=samp.A, data.don=samp.B,
+                        mtc.ids=out.RND.2$mtc.ids, z.vars="labour5")
+head(fused.2)
+
+# find a donor in the in the same region ("area5") and with the same
+# gender ("sex"), then only the donors with "age" &lt;= to the age of the
+# recipient are considered,
+# then one of them is picked up at random
+
+out.RND.3 &lt;- RANDwNND.hotdeck(data.rec=samp.A, data.don=samp.B,
+                              don.class=c("area5", "sex"), dist.fun="diff",
+                              match.vars="age", cut.don="&lt;=")
+
+# create the synthetic (or fused) data.frame:
+# fill in "labour5" in A
+fused.3 &lt;- create.fused(data.rec=samp.A, data.don=samp.B,
+                        mtc.ids=out.RND.3$mtc.ids, z.vars="labour5")
+head(fused.3)
+
+# Example of Imputation of missing values
+# introducing missing vales in iris
+ir.mat &lt;- iris
+miss &lt;- rbinom(nrow(iris), 1, 0.3)
+ir.mat[miss==1,"Sepal.Length"] &lt;- NA
+iris.rec &lt;- ir.mat[miss==1,-1]
+iris.don &lt;- ir.mat[miss==0,]
+
+#search for NND donors
+imp.RND &lt;- RANDwNND.hotdeck(data.rec=iris.rec, data.don=iris.don,
+                            match.vars=c("Sepal.Width","Petal.Length", "Petal.Width"),
+                            don.class="Species")
+
+# imputing missing values
+iris.rec.imp &lt;- create.fused(data.rec=iris.rec, data.don=iris.don,
+                             mtc.ids=imp.RND$mtc.ids, z.vars="Sepal.Length")
+
+# rebuild the imputed data.frame
+final &lt;- rbind(iris.rec.imp, iris.don)
+head(final)
+
+</code></pre>
+
+
+</div>

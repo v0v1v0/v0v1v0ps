@@ -1,0 +1,399 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>anchor.seed</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Identify seed cells</h2>
+
+<h3>Description</h3>
+
+<p>Returns a vector of cell numbers at the locations of seed cells and growth
+buffers.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">anchor.seed(
+  attTbl,
+  ngbList,
+  rNumb = FALSE,
+  class = NULL,
+  cond.filter = NULL,
+  cond.seed,
+  cond.growth = NULL,
+  lag.growth = Inf,
+  cond.isol = NULL,
+  lag.isol = 1,
+  sort.col = NULL,
+  sort.seed = "max",
+  saveRDS = NULL,
+  overWrite = FALSE,
+  isol.buff = FALSE,
+  silent = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>attTbl</code></td>
+<td>
+<p>data.frame, the attribute table returned by the function
+<code>attTbl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngbList</code></td>
+<td>
+<p>list, the list of neighborhoods returned by the function
+<code>ngbList</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rNumb</code></td>
+<td>
+<p>logic, the neighborhoods of the argument <code>ngbList</code> are
+identified by cell numbers (<code>rNumb=FALSE</code>) or by row numbers
+(<code>rNumb=TRUE</code>) (see <code>ngbList</code>). It is advised to use row
+numbers for large rasters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>class</code></td>
+<td>
+<p>numeric, the classification number to assign to all cells that
+meet the function conditions. If <code>NULL</code>, a new class number is
+assigned every time a new seed cell is identified. Growth buffers have the
+same classification number as the seed cell to which they refer.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond.filter</code></td>
+<td>
+<p>character string, defines for what cells the arguments
+<code>cond.seed</code>, <code>cond.growth</code> and <code>cond.isol</code> have to be
+evaluated. It can be <code>NULL</code>. Absolute conditions can be used (see
+<code>conditions</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond.seed</code></td>
+<td>
+<p>character string, the conditions to identify seed cells.
+Absolute conditions can be used (see <code>conditions</code>). It cannot
+be <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond.growth</code></td>
+<td>
+<p>character string, the conditions to define a growth buffer
+around seed cells. It can be <code>NULL</code>. Absolute and focal cell
+conditions can be used (see <code>conditions</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lag.growth</code></td>
+<td>
+<p>0 or Inf, defines the evaluation lag of <em>focal cell
+conditions</em> in <code>cond.growth</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond.isol</code></td>
+<td>
+<p>character string, the conditions to define an isolation
+buffer around seed cells and growth buffers. It can be <code>NULL</code>.
+Absolute and focal cell conditions can be used (see
+<code>conditions</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lag.isol</code></td>
+<td>
+<p>0 or Inf, defines the evaluation lag of <em>focal cell
+conditions</em> in <code>cond.isol</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sort.col</code></td>
+<td>
+<p>character, the column name in the <code>attTbl</code> on which the
+<code>sort.seed</code> is based on. It determines in what order seed buffers are
+computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sort.seed</code></td>
+<td>
+<p>character, the order seed buffers are computed is based on
+the value seed cells have in the column of attribute table column named
+<code>sort.col</code>. If <code>sort.seed="max"</code>, buffers are computed from the
+seed cell having the maximum value to the seed cell having the minimum
+value. If <code>sort.seed="min"</code>, buffers are computed in the opposite
+order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveRDS</code></td>
+<td>
+<p>filename, if a file name is provided save the class vector as
+an RDS file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overWrite</code></td>
+<td>
+<p>logic, if the RDS names already exist, existing files are
+overwritten.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>isol.buff</code></td>
+<td>
+<p>logic, return the isolation buffer (class = -999).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>logic, progress is not printed on the console.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function implements an algorithm to identify seed cells, growth
+buffers and isolation buffers.<br></p>
+<p><strong>Condition arguments</strong>
+</p>
+<p>The function takes as inputs four sets of conditions with
+<code>cond.growth</code> and <code>cond.isol</code> taking into account class
+contiguity and continuity (see <code>conditions</code>):
+</p>
+
+<ol>
+<li> <p><strong><code>cond.filter</code></strong>, the conditions to define what cells have to be
+evaluated by the function.
+</p>
+</li>
+<li> <p><strong><code>cond.seed</code></strong>, the conditions to identify, at each iteration, the
+seed cell. The seed cell is the cell around which growth and isolation
+conditions are applied.
+</p>
+</li>
+<li> <p><strong><code>cond.growth</code></strong>, the conditions to define a buffer around the
+seed cell.
+</p>
+</li>
+<li> <p><strong><code>cond.isol</code></strong>, the conditions to isolate one seed cell (and its
+growth buffer) from another.<br></p>
+</li>
+</ol>
+<p><strong>Iterations</strong>
+</p>
+<p>The argument <code>cond.filter</code> defines the set of cells to be considered
+by the function.
+</p>
+
+<ol>
+<li>
+<p> A seed cell is identified based on <code>cond.seed</code> and receives a
+classification number as specified by the argument <code>class</code>. If
+<code>class=NULL</code>, then a new class is assigned to every new seed cell.
+</p>
+</li>
+<li>
+<p> Cells connected with the seed cell meeting the conditions of
+<code>cond.growth</code> are assigned to the same class of the seed cell (growth
+buffer). The rule evaluation take into account class continuity (see
+<code>conditions</code>).
+</p>
+</li>
+<li>
+<p> Cells connected with the seed cell (or with its growth buffer) meeting
+the conditions of <code>cond.isol</code> are assigned to the isolation buffer
+(<code>class = -999</code>). The rule evaluation take into account class
+continuity (see <code>conditions</code>).
+</p>
+</li>
+<li>
+<p> A new seed cell is identified based on <code>cond.seed</code> which is now
+only evaluated for cells that were not identified as seed, growth or
+isolation cells in previous iterations.
+</p>
+</li>
+<li>
+<p> A new iteration starts. Seed, growth and isolation cells identified in
+previous iteration are ignored in successive iterations.
+</p>
+</li>
+<li>
+<p> The function stops when it cannot identify any new seed cell.<br></p>
+</li>
+</ol>
+<p><strong>Relative focal cell conditions and evaluation lag</strong>
+</p>
+
+<ul>
+<li>
+<p> The arguments <code>lag.growth</code> and <code>lag.isol</code> control the
+evaluation lag of <em>relative focal cell conditions</em> (see
+<code>conditions</code>).
+</p>
+</li>
+<li>
+<p> When <code>lag.*</code> are set to <code>0</code>, <em>relative focal cell conditions</em>
+have a standard behavior and compare the values of the <code>test cells</code>
+against the value of the <code>focal cell</code>.
+</p>
+</li>
+<li>
+<p> When <code>lag.*</code> are set to <code>Inf</code>, <em>relative focal cell conditions</em>
+compare the values of the <code>test cells</code> against the value of the
+<code>seed cell</code> identified at the start of the iteration.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Class vector. See <code>conditions</code> for more details about
+class vectors.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>conditions()</code>, <code>attTbl()</code>, <code>ngbList()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># DUMMY DATA
+############################################################################
+# LOAD LIBRARIES
+library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r)
+
+############################################################################
+# EXAMPLE PLOTS
+############################################################################
+oldpar &lt;- par(mfrow = c(1,2))
+m &lt;- c(4.5, 0.5, 2, 3.2)
+
+# 1a. Do not show isol.buff
+as &lt;- anchor.seed(attTbl = at, ngbList = nbs, rNumb = FALSE, class = NULL, silent = TRUE,
+                  cond.filter = "dummy_var &gt; 1", cond.seed = "dummy_var == max(dummy_var)",
+                  cond.growth = "dummy_var&lt;dummy_var[] &amp; dummy_var&gt;2",
+                  cond.isol = "dummy_var&lt;dummy_var[]")
+
+plot(cv.2.rast(r,classVector=as), type="classes", mar=m, col=c("#00A600", "#E6E600"),
+     axes=FALSE, plg=list(x=1, y=1, cex=.80, title="Classes"))
+text(r); lines(r)
+mtext(side=3, line=0, cex=1, font=2, adj=0, "1a. Do not show 'isol.buff'")
+mtext(side=1, line=0, cex=1, font=2, adj=1, "cond.filter:")
+mtext(side=1, line=1, cex=1, font=2, adj=1, "cond.seed:")
+mtext(side=1, line=2, cex=1, font=2, adj=1, "cond.growth:")
+mtext(side=1, line=3, cex=1, font=2, adj=1, "cond.isol:")
+text(xFromCell(r,c(20,43)),yFromCell(r,c(20,43))-0.05,"SEED",col="red",cex=0.80)
+
+# 1b. Show isol.buff
+as &lt;- anchor.seed(attTbl = at, ngbList = nbs, rNumb = FALSE, class = NULL, silent = TRUE,
+                  cond.filter = "dummy_var &gt; 1", cond.seed = "dummy_var == max(dummy_var)",
+                  cond.growth = "dummy_var&lt;dummy_var[] &amp; dummy_var&gt;2",
+                  cond.isol = "dummy_var&lt;dummy_var[]", isol.buff = TRUE)
+
+plot(cv.2.rast(r,classVector=as), type="classes", col=c("#00000040", "#00A600", "#E6E600"),
+     mar=m, axes=FALSE, plg=list(x=1, y=1, cex=.80, title="Classes"))
+text(r); lines(r)
+mtext(side=3, line=0, cex=1, font=2, adj=0, "1b. Show 'isol.buff' (class=-999)")
+mtext(side=1, line=0, cex=1, adj=0, "dummy_var &gt; 1")
+mtext(side=1, line=1, cex=1, adj=0, "dummy_var == max(dummy_var)")
+mtext(side=1, line=2, cex=1, adj=0, "dummy_var&lt;dummy_var[] &amp; dummy_var&gt;2")
+mtext(side=1, line=3, cex=1, adj=0, "dummy_var&lt;dummy_var[]")
+text(xFromCell(r,c(20,43)),yFromCell(r,c(20,43))-0.05,"SEED",col="red",cex=0.80)
+
+# 2a. Lag.growth = Inf
+as &lt;- anchor.seed(attTbl = at, ngbList = nbs, rNumb = FALSE, class = NULL, silent = TRUE,
+                 cond.filter = "dummy_var &gt; 1", cond.seed = "dummy_var == max(dummy_var)",
+                  cond.growth = "dummy_var&lt;dummy_var[]", lag.growth = Inf)
+
+plot(cv.2.rast(r,classVector=as), type="classes", mar=m, col=c("#00A600"),
+     axes=FALSE, plg=list(x=1, y=1, cex=.80, title="Classes"))
+text(r); lines(r)
+mtext(side=3, line=0, cex=1, font=2, adj=0, "2a. Lag.growth* = Inf")
+mtext(side=1, line=0, cex=1, font=2, adj=1, "cond.filter:")
+mtext(side=1, line=1, cex=1, font=2, adj=1, "cond.seed:")
+mtext(side=1, line=2, cex=1, font=2, adj=1, "cond.growth*:")
+mtext(side=1, line=3, cex=1, font=2, adj=1, "cond.isol:")
+text(xFromCell(r,c(20)),yFromCell(r,c(20))-0.05,"SEED",col="red",cex=0.80)
+
+# 2b. Lag.growth = 0
+as &lt;- anchor.seed(attTbl = at, ngbList = nbs, rNumb = FALSE, class = NULL, silent = TRUE,
+                  cond.filter = "dummy_var &gt; 1", cond.seed = "dummy_var == max(dummy_var)",
+                  cond.growth = "dummy_var&lt;dummy_var[]", lag.growth = 0)
+
+plot(cv.2.rast(r,classVector=as), type="classes", mar=m, col=c("#00A600", "#E6E600"),
+     axes=FALSE, plg=list(x=1, y=1, cex=.80, title="Classes"))
+text(r); lines(r)
+mtext(side=3, line=0, cex=1, font=2, adj=0, "2b. Lag.growth* = 0")
+mtext(side=1, line=0, cex=1, adj=0, "dummy_var &gt; 1")
+mtext(side=1, line=1, cex=1, adj=0, "dummy_var == max(dummy_var)")
+mtext(side=1, line=2, cex=1, adj=0, "dummy_var &lt; dummy_var[]")
+mtext(side=1, line=3, cex=1, adj=0, "NULL")
+text(xFromCell(r,c(20,43)),yFromCell(r,c(20,43))-0.05,"SEED",col="red",cex=0.80)
+
+# 3a. Without sorting
+as &lt;- anchor.seed(attTbl = at, ngbList = nbs, rNumb = FALSE, class = NULL, silent = TRUE,
+                  cond.filter = "dummy_var &gt; 1", cond.seed = "dummy_var &gt;= 5",
+                  cond.isol = "dummy_var&lt;dummy_var[]", isol.buff = TRUE)
+
+seeds &lt;- which(!is.na(as) &amp; as !=-999)
+cc    &lt;- c("#00000040", terrain.colors(8)[8:1])
+plot(cv.2.rast(r,classVector=as), type="classes", mar=m, col=cc,
+     axes=FALSE, plg=list(x=1, y=1, cex=.80, title="Classes"))
+text(r); lines(r)
+mtext(side=3, line=0, cex=1, font=2, adj=0, "3a. Without sorting")
+mtext(side=1, line=0, cex=1, font=2, adj=1, "cond.filter:")
+mtext(side=1, line=1, cex=1, font=2, adj=1, "cond.seed:")
+mtext(side=1, line=2, cex=1, font=2, adj=1, "cond.growth:")
+mtext(side=1, line=3, cex=1, font=2, adj=1, "cond.isol:")
+text(xFromCell(r,seeds),yFromCell(r,seeds)-0.05,"SEED",col="red",cex=0.80)
+
+# 3b. Sort buffer evaluation based on 'dummy_var' values
+as &lt;- anchor.seed(attTbl = at, ngbList = nbs, rNumb = FALSE, class = NULL, silent = TRUE,
+                  cond.filter = "dummy_var &gt; 1", cond.seed = "dummy_var &gt;= 5",
+                  cond.isol = "dummy_var&lt;dummy_var[]", isol.buff = TRUE,
+                  sort.col = "dummy_var", sort.seed = "max")
+
+seeds &lt;- which(!is.na(as) &amp; as !=-999)
+plot(cv.2.rast(r,classVector=as), type="classes",col=c("#00000040", "#00A600", "#E6E600"),
+     mar=m, axes=FALSE, plg=list(x=1, y=1, cex=.80, title="Classes"))
+text(r); lines(r)
+mtext(side=3, line=0, cex=1, font=2, adj=0, "3b. Sort.col='dummy_var'; Sort.seed='max'")
+mtext(side=1, line=0, cex=1, adj=0, "dummy_var &gt; 1")
+mtext(side=1, line=1, cex=1, adj=0, "dummy_var &gt;= 5")
+mtext(side=1, line=2, cex=1, adj=0, "NULL")
+mtext(side=1, line=3, cex=1, adj=0, "dummy_var &lt; dummy_var[]; isol.buff = -999")
+text(xFromCell(r,seeds),yFromCell(r,seeds)-0.05,"SEED",col="red",cex=0.80)
+par(oldpar)
+</code></pre>
+
+
+</div>

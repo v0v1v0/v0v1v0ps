@@ -1,0 +1,152 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simulate.sdmTMB</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate from a fitted sdmTMB model</h2>
+
+<h3>Description</h3>
+
+<p><code>simulate.sdmTMB</code> is an S3 method for producing a matrix of simulations from
+a fitted model. This is similar to <code>lme4::simulate.merMod()</code> and
+<code>glmmTMB::simulate.glmmTMB()</code>. It can be used with the <span class="pkg">DHARMa</span> package
+among other uses.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sdmTMB'
+simulate(
+  object,
+  nsim = 1L,
+  seed = sample.int(1e+06, 1L),
+  type = c("mle-eb", "mle-mvn"),
+  model = c(NA, 1, 2),
+  re_form = NULL,
+  mcmc_samples = NULL,
+  silent = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>sdmTMB model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>Number of response lists to simulate. Defaults to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Random number seed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>How parameters should be treated. <code>"mle-eb"</code>: fixed effects
+are at their maximum likelihood (MLE) estimates  and random effects are at
+their empirical Bayes (EB) estimates. <code>"mle-mvn"</code>: fixed effects are at
+their MLEs but random effects are taken from a single approximate sample.
+This latter option is a suggested approach if these simulations will be
+used for goodness of fit testing (e.g., with the DHARMa package).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>If a delta/hurdle model, which model to simulate from?
+<code>NA</code> = combined, <code>1</code> = first model, <code>2</code> = second mdoel.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>re_form</code></td>
+<td>
+<p><code>NULL</code> to specify a simulation conditional on fitted random
+effects (this only simulates observation error). <code>~0</code> or <code>NA</code> to simulate
+new random affects (smoothers, which internally are random effects, will
+not be simulated as new).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc_samples</code></td>
+<td>
+<p>An optional matrix of MCMC samples. See <code>extract_mcmc()</code>
+in the <a href="https://github.com/pbs-assess/sdmTMBextra">sdmTMBextra</a>
+package.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Logical. Silent?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Extra arguments (not used)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a matrix; number of columns is <code>nsim</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sdmTMB_simulate()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# start with some data simulated from scratch:
+set.seed(1)
+predictor_dat &lt;- data.frame(X = runif(300), Y = runif(300), a1 = rnorm(300))
+mesh &lt;- make_mesh(predictor_dat, xy_cols = c("X", "Y"), cutoff = 0.1)
+dat &lt;- sdmTMB_simulate(
+  formula = ~ 1 + a1,
+  data = predictor_dat,
+  mesh = mesh,
+  family = poisson(),
+  range = 0.5,
+  sigma_O = 0.2,
+  seed = 42,
+  B = c(0.2, -0.4) # B0 = intercept, B1 = a1 slope
+)
+fit &lt;- sdmTMB(observed ~ 1 + a1, data = dat, family = poisson(), mesh = mesh)
+
+# simulate from the model:
+s1 &lt;- simulate(fit, nsim = 300)
+dim(s1)
+
+# test whether fitted models are consistent with the observed number of zeros:
+sum(s1 == 0)/length(s1)
+sum(dat$observed == 0) / length(dat$observed)
+
+# simulate with random effects sampled from their approximate posterior
+s2 &lt;- simulate(fit, nsim = 1, params = "mle-mvn")
+# these may be useful in conjunction with DHARMa simulation-based residuals
+
+# simulate with new random fields:
+s3 &lt;- simulate(fit, nsim = 1, re_form = ~ 0)
+</code></pre>
+
+
+</div>

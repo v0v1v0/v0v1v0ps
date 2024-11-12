@@ -1,0 +1,233 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>isolationForest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit an Isolation Forest</h2>
+
+<h3>Description</h3>
+
+<p>'solitude' class implements the isolation forest method
+introduced by paper Isolation based Anomaly Detection (Liu, Ting and Zhou
+&lt;doi:10.1145/2133360.2133363&gt;). The extremely randomized trees (extratrees)
+required to build the isolation forest is grown using
+<code>ranger</code> function from <span class="pkg">ranger</span> package.
+</p>
+
+
+<h3>Design</h3>
+
+<p><code>$new()</code> initiates a new 'solitude' object. The
+possible arguments are:
+</p>
+
+<ul>
+<li> <p><code>sample_size</code>: (positive integer, default = 256) Number of
+observations in the dataset to used to build a tree in  the forest
+</p>
+</li>
+<li> <p><code>num_trees</code>: (positive integer, default = 100) Number of trees
+to be built in the forest
+</p>
+</li>
+<li> <p><code>replace</code>: (boolean, default = FALSE) Whether the sample of
+observations should be chosen with replacement when sample_size is less
+than the number of observations in the dataset
+</p>
+</li>
+<li> <p><code>seed</code>: (positive integer, default = 101) Random seed for the
+forest
+</p>
+</li>
+<li> <p><code>nproc</code>: (NULL or a positive integer, default: NULL, means use
+all resources) Number of parallel threads to be used by ranger
+</p>
+</li>
+<li> <p><code>respect_unordered_factors</code>: (string, default: "partition")See
+respect.unordered.factors argument in <code>ranger</code>
+</p>
+</li>
+<li> <p><code>max_depth</code>: (positive number, default:
+ceiling(log2(sample_size))) See max.depth argument in
+<code>ranger</code>
+</p>
+</li>
+</ul>
+<p><code>$fit()</code> fits a isolation forest for the given dataframe or sparse matrix, computes
+depths of terminal nodes of each tree and stores the anomaly scores and
+average depth values in <code>$scores</code> object as a data.table
+</p>
+<p><code>$predict()</code> returns anomaly scores for a new data as a data.table
+</p>
+
+
+<h3>Details</h3>
+
+
+<ul><li>
+<p> Parallelization: <code>ranger</code> is parallelized and by
+default uses all the resources. This is supported when nproc is set to
+NULL. The process of obtaining depths of terminal nodes (which is excuted
+with <code>$fit()</code> is called) may be parallelized separately by setting up
+a <span class="pkg">future</span> backend.
+</p>
+</li></ul>
+<h3>Methods</h3>
+
+
+
+<h4>Public methods</h4>
+
+
+<ul>
+<li> <p><a href="#method-new"><code>isolationForest$new()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-fit"><code>isolationForest$fit()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-predict"><code>isolationForest$predict()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-clone"><code>isolationForest$clone()</code></a>
+</p>
+</li>
+</ul>
+<hr>
+<a id="method-new"></a>
+
+
+
+<h4>Method <code>new()</code>
+</h4>
+
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>isolationForest$new(
+  sample_size = 256,
+  num_trees = 100,
+  replace = FALSE,
+  seed = 101,
+  nproc = NULL,
+  respect_unordered_factors = NULL,
+  max_depth = ceiling(log2(sample_size))
+)</pre></div>
+
+
+<hr>
+<a id="method-fit"></a>
+
+
+
+<h4>Method <code>fit()</code>
+</h4>
+
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>isolationForest$fit(dataset)</pre></div>
+
+
+<hr>
+<a id="method-predict"></a>
+
+
+
+<h4>Method <code>predict()</code>
+</h4>
+
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>isolationForest$predict(data)</pre></div>
+
+
+<hr>
+<a id="method-clone"></a>
+
+
+
+<h4>Method <code>clone()</code>
+</h4>
+
+<p>The objects of this class are cloneable with this method.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>isolationForest$clone(deep = FALSE)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>deep</code></dt>
+<dd>
+<p>Whether to make a deep clone.</p>
+</dd>
+</dl>
+</div>
+
+
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+library("solitude")
+library("tidyverse")
+library("mlbench")
+
+data(PimaIndiansDiabetes)
+PimaIndiansDiabetes = as_tibble(PimaIndiansDiabetes)
+PimaIndiansDiabetes
+
+splitter   = PimaIndiansDiabetes %&gt;%
+  select(-diabetes) %&gt;%
+  rsample::initial_split(prop = 0.5)
+pima_train = rsample::training(splitter)
+pima_test  = rsample::testing(splitter)
+
+iso = isolationForest$new()
+iso$fit(pima_train)
+
+scores_train = pima_train %&gt;%
+  iso$predict() %&gt;%
+  arrange(desc(anomaly_score))
+
+scores_train
+
+umap_train = pima_train %&gt;%
+  scale() %&gt;%
+  uwot::umap() %&gt;%
+  setNames(c("V1", "V2")) %&gt;%
+  as_tibble() %&gt;%
+  rowid_to_column() %&gt;%
+  left_join(scores_train, by = c("rowid" = "id"))
+
+umap_train
+
+umap_train %&gt;%
+  ggplot(aes(V1, V2)) +
+  geom_point(aes(size = anomaly_score))
+
+scores_test = pima_test %&gt;%
+  iso$predict() %&gt;%
+  arrange(desc(anomaly_score))
+
+scores_test
+
+## End(Not run)
+</code></pre>
+
+
+</div>

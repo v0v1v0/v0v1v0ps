@@ -1,0 +1,177 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>scalpelStep3</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Perform Step 3 of SCALPEL.</h2>
+
+<h3>Description</h3>
+
+<p>This step involves spatial component selection and temporal component estimation. We estimate the temporal
+components corresponding to the dictionary elements from Step 2 by solving a sparse group lasso problem
+with a non-negativity constraint.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">scalpelStep3(
+  step2Output,
+  lambdaMethod = "trainval",
+  lambda = NULL,
+  minClusterSize = 1,
+  alpha = 0.9,
+  removeBorder = FALSE,
+  excludeReps = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>step2Output</code></td>
+<td>
+<p>An object of class <code>scalpel</code> or <code>scalpelStep2</code>, which result from running the
+<code>scalpel</code> or <code>scalpelStep2</code> functions, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambdaMethod</code></td>
+<td>
+<p>A description of how lambda should be chosen: either <code>"trainval"</code> (default),
+<code>"distn"</code>, or <code>"user"</code>. A value of <code>"trainval"</code> means lambda will be chosen using a training/validation
+set approach. A value of <code>"distn"</code> means lambda will be chosen as the negative of the 0.1% quantile
+of elements of active pixels (i.e., those contained in at least one dictionary element) of Y.
+Using <code>"distn"</code> is computationally faster than <code>"trainval"</code>. Alternatively with <code>"user"</code>,
+the value of lambda can be directly specified using <code>lambda</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>The value of lambda to use when fitting the sparse group lasso. By default, the value is automatically
+chosen using the approach specified by <code>lambdaMethod</code>. If a value is provided for <code>lambda</code>, then <code>lambdaMethod</code>
+will be ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minClusterSize</code></td>
+<td>
+<p>The minimum number of preliminary dictionary elements that a cluster must contain in order to be included
+in the sparse group lasso. The default value is 1 (i.e., all possible dictionary elements are included).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>The value of alpha to use when fitting the sparse group lasso. The default value is 0.9.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>removeBorder</code></td>
+<td>
+<p>A logical scalar indicating whether the dictionary elements containing pixels in the 10-pixel
+border of the video should be removed prior to fitting the sparse group lasso. The default value is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>excludeReps</code></td>
+<td>
+<p>A vector giving the indices of which dictionary elements to exclude, where the indices refer
+to the columns of <code>step2Output$A</code>. The default value is <code>NULL</code> and no dictionary elements are excluded.
+Users may also specify <code>"discarded"</code>, which will exclude all dictionary elements discarded
+using a previous call to <code>reviewNeurons</code> or <code>reviewNeuronsInteractive</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>To solve the sparse group lasso problem in this step, we minimize the following over <code>Z</code> with all non-negative elements:
+</p>
+<p><code>0.5*sum((Y - AfilterTilde %*% Z)^2) + lambda*alpha*sum(Z)</code> <br><code> + lambda*(1-alpha)*sum(sqrt(rowSums(Z^2)))</code>
+</p>
+<p>where <code>AfilterTilde</code> is a scaled version of <code>Afilter</code>.
+</p>
+<p>Several files containing data from this step and a summary of the step are saved in the folder
+"outputFolder/Step1_version/Step2_omega_omega_cutoff_cutoff/Step3_lambdaMethod_lambdaMethod_
+minClusterSize_minClusterSize_alpha_alpha_removeBorder_removeBorder" where <code>version</code> is a 5-digit unique
+identifier that is automatically generated in Step 1, <code>omega</code> and <code>cutoff</code> are the user-supplied parameters
+from Step 2, and <code>lambdaMethod</code>, <code>minClusterSize</code>, <code>alpha</code>, and <code>removeBorder</code> are
+the user-supplied parameters from this step. If dictionary elements were manually excluded using <code>excludeReps</code>,
+this is appended to the folder name.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>scalpelStep3</code>, which can be summarized using <code>summary</code> and used with the plotting functions
+<code>plotResults</code>, <code>plotResultsAllLambda</code>, <code>plotSpatial</code>, <code>plotTemporal</code>, and <code>plotBrightest</code>.
+</p>
+
+<ul>
+<li>
+<p><code>Afilter</code>: A matrix containing the filtered dictionary elements, where the ith column of <code>Afilter</code>
+is a vector of 1's and 0's, indicating whether each pixel is contained in the ith filtered dictionary element.
+Note that <code>Afilter</code> is equivalent to <code>A</code> after removing the components excluded due to being on the border
+(if <code>removeBorder=TRUE</code>) or having fewer preliminary dictionary elements in their cluster than <code>minClusterSize</code>.
+</p>
+</li>
+<li>
+<p><code>Zhat</code>: A matrix containing the estimated temporal components, where the ith row of <code>Zhat</code>
+is the estimated calcium trace corresponding to the ith spatial component (i.e., the ith column of <code>Afilter</code>).
+</p>
+</li>
+<li>
+<p><code>lambda</code>: The value of lambda used in fitting the sparse group lasso.
+</p>
+</li>
+<li>
+<p><code>ZhatList</code>: A list of matrices containing the estimated temporal components for alternative values of <code>lambda</code>
+specified in <code>lambdaSeq</code>. These can be plotted using <code>plotResultsAllLambda</code>.
+</p>
+</li>
+<li>
+<p><code>lambdaSeq</code>: A vector with length equaling the length of <code>ZhatList</code>, where the ith element indicates the value of lambda
+corresponding to the temporal components in <code>ZhatList[[i]]</code>.
+</p>
+</li>
+<li>
+<p><code>clustersUse</code>: A vector with length equaling the number of columns of <code>Afilter</code>, where the ith element indicates which column of
+<code>step2Output$A</code> the ith column of <code>Afilter</code> equals.
+</p>
+</li>
+<li>
+<p>Other elements: As specified by the user or returned from a previous step.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p>The entire SCALPEL pipeline can be implemented using the <code>scalpel</code> function. The
+other steps in the pipeline can be run using the <code>scalpelStep0</code>, <code>scalpelStep1</code>, <code>scalpelStep2</code> functions.
+Results from this step can be summarized using <code>summary</code>, loaded at a later time using <code>getScalpelStep3</code>, and plotted using
+<code>plotSpatial</code>, <code>plotTemporal</code>, <code>plotResults</code>, and <code>plotBrightest</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+### many of the functions in this package are interconnected so the
+### easiest way to learn to use the package is by working through the vignette,
+### which is available at ajpete.com/software
+
+#assumes you have run the example for the "scalpelStep2" function
+
+#run Step 3 of SCALPEL
+Step3Out = scalpelStep3(step2Output = Step2Out)
+summary(Step3Out)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

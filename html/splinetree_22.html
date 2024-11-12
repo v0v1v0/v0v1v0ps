@@ -1,0 +1,161 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>splineForest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build a spline random forest.</h2>
+
+<h3>Description</h3>
+
+<p>Builds an ensemble of regression trees for longitudinal or functional data using the spline projection method. The resulting model
+contains a list of spline trees along with some additional information. All parameters are used in the same way that they are used in
+the splineTree() function. The additional parameter ntree specifies how many trees should be in the ensemble, and prob controls the
+probability of selecting a given variable for split consideration at a node. This method may take several minutes to run- saving the forest after
+building it is recommended.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">splineForest(splitFormula, tformula, idvar, data, knots = NULL,
+  df = NULL, degree = 3, intercept = FALSE, nGrid = 7,
+  gridPoints = NULL, ntree = 50, prob = 0.3, cp = 0.001,
+  minNodeSize = 1, bootstrap = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>splitFormula</code></td>
+<td>
+<p>Formula specifying the longitudinal response variable and the time-constant variables that will be used for splitting in the tree.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tformula</code></td>
+<td>
+<p>Formula specifying the longitudinal response variable and the variable that acts as the time variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>idvar</code></td>
+<td>
+<p>The name of the variable that serves as the ID variable for grouping observations. Must be in quotes</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>dataframe that contains all variables specified in the formulas- in long format.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>Specified locations for internal knots in the spline basis. Defaults to NULL, which corresponds to no internal knots.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+<p>Degrees of freedom of the spline basis. If this is specified but the knots parameter is NULL, then the appropriate number of internal knots
+will be added at quantiles of the training data. If both df and knots are unspecified, the spline basis will have no internal knots.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>degree</code></td>
+<td>
+<p>Specifies degree of spline basis used in the tree.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>Specifies whether or not the splitting process will consider the intercept coefficient of the spline projections.
+Defaults to FALSE, which means that the tree will split based on trajectory shape, ignoring response level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nGrid</code></td>
+<td>
+<p>Number of grid points to evaluate projection sum of squares at. If gridPoints is not supplied, then this is the
+number of grid points that will be automatically placed at quantiles of the time variable. The default is 7.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gridPoints</code></td>
+<td>
+<p>Optional. A vector of numbers that will be used as the grid on which to evaluate the projection
+sum of squares. Should fall roughly within the range of the time variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ntree</code></td>
+<td>
+<p>Number of trees in the forest.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prob</code></td>
+<td>
+<p>Probability of selecting a variable to included as a candidate for each split.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cp</code></td>
+<td>
+<p>Complexity parameter passed to the rpart building process. Default is the rpart default of 0.01</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minNodeSize</code></td>
+<td>
+<p>Minimum number of observational units that can be in a terminal node. Controls tree size and helps avoid overfitting.
+Default is 10.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bootstrap</code></td>
+<td>
+<p>Boolean specifying whether bootstrap sampling should be used when choosing data to
+use for each tree. When set to FALSE (the default), sampling without replacement is used and 63.5
+is used for each tree. When set to TRUE, a bootstrap sample is used for each tree.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The ensemble method is highly similar to the random forest methodology of Breiman (2001). Each tree in the ensemble is fit to a random sample
+of 63.5
+the subset of variables considered at each node is determined by a random process. The prob parameter specifies the probability that a given variable
+will be selected at a certain node. Because the method is based on probability, the same number of variables are not considered for splitting at each node
+(as in the randomForest package). Note that if prob is small and the number of variables in the splitFormula is also small, there is a high probability that
+no variables will be considered for splitting at a certain node, which is problematic. The fewer total variables there are, the larger prob should be to
+ensure good results.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A spline forest model, which is a named list with 15 components.
+The list stores a list of trees (in model$Trees), along with information about the
+spline basis used (model$intercept, model$innerKnots, model$boundaryKnots, etc.), and information about which datapoints were
+used to build each tree (model$oob_indices and model$index). Note that each element in model$Trees is an rpart object but
+it is not the same as a model returned from splineTree() because it does not store all relevant information in model$parms.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+nlsySubset &lt;- nlsySample[nlsySample$ID %in% sample(unique(nlsySample$ID), 400),]
+splitForm &lt;-~HISP+WHITE+BLACK+HGC_MOTHER+HGC_FATHER+SEX+Num_sibs
+sampleForest &lt;- splineForest(splitForm, BMI~AGE, 'ID', nlsySubset, degree=1, cp=0.005, ntree=10)
+
+</code></pre>
+
+
+</div>

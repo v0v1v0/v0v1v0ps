@@ -1,0 +1,466 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>BayesSurv_HReg</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+The function to implement Bayesian parametric and semi-parametric regression analyses for univariate time-to-event data in the context of hazard regression (HReg) models.
+</h2>
+
+<h3>Description</h3>
+
+<p>Independent/cluster-correlated univariate right-censored survival data can be analyzed using hierarchical models. The prior for the baseline hazard function can be specified by either parametric (Weibull) model or non-parametric mixture of piecewise exponential models (PEM).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">BayesSurv_HReg(Formula, data, id=NULL, model="Weibull", hyperParams,
+        startValues, mcmcParams, na.action = "na.fail", subset=NULL, path=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Formula</code></td>
+<td>
+
+<p>a <code>Formula</code> object, with the outcome on the left of a <code class="reqn">\sim</code>, and covariates on the right. It is of the form, time to event + censoring indicator <code class="reqn">\sim</code> covariates: i.e., <code class="reqn">y</code>+<code class="reqn">\delta</code> ~ <code class="reqn">x</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>a data.frame in which to interpret the variables named in <code>Formula</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+
+<p>a vector of cluster information for <code>n</code> subjects. The cluster membership must be consecutive positive integers, <code class="reqn">1:J</code>.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+
+<p>a character vector that specifies the type of components in a model. 
+The first element is for the specification of baseline hazard functions: "Weibull" or "PEM". 
+The second element needs to be set only for clustered data and is for the specification of cluster-specific random effects distribution: "Normal" or "DPM".
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperParams</code></td>
+<td>
+
+<p>a list containing lists or vectors for hyperparameter values in hierarchical models. Components include, 
+<code>WB</code> (a list containing a numeric vector for Weibull hyperparameters: <code>WB.ab</code>, <code>WB.cd</code>), 
+<code>PEM</code> (a list containing numeric vectors for PEM hyperparameters: <code>PEM.ab</code>, <code>PEM.alpha</code>).
+Models for clustered data require additional components,
+<code>Normal</code> (a list containing a numeric vector for hyperparameters in a Normal prior: <code>Normal.ab</code>), 
+<code>DPM</code> (a list containing numeric vectors for DPM hyperparameters: <code>DPM.ab</code>, <code>aTau</code>, <code>bTau</code>).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startValues</code></td>
+<td>
+
+<p>a list containing vectors of starting values for model parameters. It can be specified as the object returned by the function <code>initiate.startValues_HReg</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmcParams</code></td>
+<td>
+
+<p>a list containing variables required for MCMC sampling. Components include,
+<code>run</code> (a list containing numeric values for setting for the overall run: 
+<code>numReps</code>, total number of scans; <code>thin</code>, extent of thinning; <code>burninPerc</code>, the proportion of burn-in).
+<code>storage</code> (a list containing numeric values for storing posterior samples for cluster-specific random effects: 
+<code>storeV</code>, a logical value to determine whether all the posterior samples of <code class="reqn">V</code> are to be stored.)
+<code>tuning</code> (a list containing numeric values relevant to tuning parameters for specific updates in Metropolis-Hastings-Green (MHG) algorithm: 
+<code>mhProp_V_var</code>, the variance of proposal density for <code class="reqn">V</code> in DPM models; 
+<code>mhProp_alpha_var</code>, the variance of proposal density for <code class="reqn">\alpha</code> in Weibull models; 
+<code>C</code>, a numeric value for the proportion that determines the sum of probabilities of choosing the birth and the death moves in PEM models. 
+The value should not exceed 0.8;
+<code>delPert</code>, the perturbation parameter in the birth update in PEM models. The values must be between 0 and 0.5;
+If <code>rj.scheme</code>=1, the birth update will draw the proposal time split from <code class="reqn">1:s_{max}</code>.
+If <code>rj.scheme</code>=2, the birth update will draw the proposal time split from uniquely ordered failure times in the data. Only required for PEM models;
+<code>K_max</code>, the maximum number of splits allowed at each iteration in MHG algorithm for PEM models;
+<code>time_lambda</code> - time points at which the log-hazard function is calculated for <code>predict.Bayes_HReg</code>, Only required for PEM models).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+
+<p>how NAs are treated. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+
+<p>a specification of the rows to be used: defaults to all rows. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+
+<p>the name of directory where the results are saved.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>BayesSurv_HReg</code> implements Bayesian semi-parametric (piecewise exponential mixture) and parametric (Weibull) models to univariate time-to-event data. Let <code class="reqn">t_{ji}</code> denote time to event of interest from subject <code class="reqn">i=1,...,n_j</code> in cluster <code class="reqn">j=1,...,J</code>. The covariates <code class="reqn">x_{ji}</code> are incorporated via Cox proportional hazards model:
+</p>
+<p style="text-align: center;"><code class="reqn">h(t_{ji} | x_{ji}) = h_{0}(t_{ji})\exp(x_{ji}^{\top}\beta + V_{j}), t_{ji}&gt;0,</code>
+</p>
+
+<p>where <code class="reqn">h_0</code> is an unspecified baseline hazard function and <code class="reqn">\beta</code> is a vector of <code class="reqn">p</code> log-hazard ratio regression parameters. <code class="reqn">V_j</code>'s are cluster-specific random effects.
+For parametric Normal prior specification for a vector of cluster-specific random effects, we assume <code class="reqn">V</code> arise as i.i.d. draws from a mean 0 Normal distribution with variance <code class="reqn">\sigma^2</code>. Specifically, the priors can be written as follows:
+</p>
+<p style="text-align: center;"><code class="reqn">V_j \sim Normal(0, \sigma^2),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\zeta=1/\sigma^2 \sim Gamma(a_{N}, b_{N}).</code>
+</p>
+
+<p>For DPM prior specification for <code class="reqn">V_j</code>, we consider non-parametric Dirichlet process mixture of Normal distributions: the <code class="reqn">V_j</code>'s' are draws from a finite mixture of M Normal distributions, each with their own mean and variance, (<code class="reqn">\mu_m</code>, <code class="reqn">\sigma_m^2</code>) for <code class="reqn">m=1,...,M</code>. Let <code class="reqn">m_j\in\{1,...,M\}</code> denote the specific component to which the <code class="reqn">j</code>th cluster belongs. Since the class-specific (<code class="reqn">\mu_m</code>, <code class="reqn">\sigma_m^2</code>) are not known they are taken to be draws from some distribution, <code class="reqn">G_0</code>, often referred to as the centering distribution. Furthermore, since the true class memberships are unknown, we denote the probability that the <code class="reqn">j</code>th cluster belongs to any given class by the vector <code class="reqn">p=(p_1,..., p_M)</code> whose components add up to 1.0. In the absence of prior knowledge regarding the distribution of class memberships for the <code class="reqn">J</code> clusters across the <code class="reqn">M</code> classes, a natural prior for <code class="reqn">p</code> is the conjugate symmetric <code class="reqn">Dirichlet(\tau/M,...,\tau/M)</code> distribution; the hyperparameter, <code class="reqn">\tau</code>, is often referred to as a the precision parameter. The prior can be represented as follows (<code class="reqn">M</code> goes to infinity):
+</p>
+<p style="text-align: center;"><code class="reqn">V_j | m_j \sim Normal(\mu_{m_j}, \sigma_{m_j}^2),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">(\mu_m, \sigma_m^2) \sim G_{0},~~ for ~m=1,...,M,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">m_j | p \sim Discrete(m_j| p_1,...,p_M),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">p \sim Dirichlet(\tau/M,...,\tau/M),</code>
+</p>
+
+<p>where <code class="reqn">G_0</code> is taken to be a multivariate Normal/inverse-Gamma (NIG) distribution for which the probability density function is the following product:
+</p>
+<p style="text-align: center;"><code class="reqn">f_{NIG}(\mu, \sigma^2 | \mu_0, \zeta_0, a_0, b_0) = f_{Normal}(\mu | 0, 1/\zeta_0^2) \times f_{Gamma}(\zeta=1/\sigma^2 | a_0, b_0).</code>
+</p>
+
+<p>In addition, we use <code class="reqn">Gamma(a_{\tau}, b_{\tau})</code> as the hyperprior for <code class="reqn">\tau</code>.
+</p>
+<p>For non-parametric prior specification (PEM) for baseline hazard function, let <code class="reqn">s_{\max}</code> denote the largest observed event time. Then, consider the finite partition of the relevant time axis into <code class="reqn">K + 1</code> disjoint intervals: <code class="reqn">0&lt;s_1&lt;s_2&lt;...&lt;s_{K+1} = s_{\max}</code>. For notational convenience, let <code class="reqn">I_k=(s_{k-1}, s_k]</code> denote the <code class="reqn">k^{th}</code> partition. For given a partition, <code class="reqn">s = (s_1, \dots, s_{K + 1})</code>, we assume the log-baseline hazard functions is piecewise constant:
+</p>
+<p style="text-align: center;"><code class="reqn">\lambda_{0}(t)=\log h_{0}(t) = \sum_{k=1}^{K + 1} \lambda_{k} I(t\in I_{k}),</code>
+</p>
+
+<p>where <code class="reqn">I(\cdot)</code> is the indicator function and <code class="reqn">s_0 \equiv 0</code>. In our proposed Bayesian framework, our prior choices are:
+</p>
+<p style="text-align: center;"><code class="reqn">\pi(\beta) \propto 1,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\lambda | K, \mu_{\lambda}, \sigma_{\lambda}^2 \sim MVN_{K+1}(\mu_{\lambda}1, \sigma_{\lambda}^2\Sigma_{\lambda}),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">K \sim Poisson(\alpha),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(s | K) \propto \frac{(2K+1)! \prod_{k=1}^{K+1}(s_k-s_{k-1})}{(s_{K+1})^{(2K+1)}},</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(\mu_{\lambda}) \propto 1,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\sigma_{\lambda}^{-2} \sim Gamma(a, b).</code>
+</p>
+
+<p>Note that <code class="reqn">K</code> and <code class="reqn">s</code> are treated as random and the priors for <code class="reqn">K</code> and <code class="reqn">s</code> jointly form a time-homogeneous Poisson process prior for the partition. The number of time splits and their positions are therefore updated within our computational scheme using reversible jump MCMC.
+</p>
+<p>For parametric Weibull prior specification for baseline hazard function, <code class="reqn">h_{0}(t) = \alpha \kappa t^{\alpha-1}</code>.
+In our Bayesian framework, our prior choices are:	
+</p>
+<p style="text-align: center;"><code class="reqn">\pi(\beta) \propto 1,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(\alpha) \sim Gamma(a, b),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(\kappa) \sim Gamma(c, d).</code>
+</p>
+
+<p>We provide a detailed description of the hierarchical models for cluster-correlated univariate survival data. The models for independent data can be obtained by removing cluster-specific random effects, <code class="reqn">V_j</code>, and its corresponding prior specification from the description given above. 	
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>BayesSurv_HReg</code> returns an object of class <code>Bayes_HReg</code>. <br></p>
+
+
+<h3>Note</h3>
+
+<p>The posterior samples of <code class="reqn">V_g</code> are saved separately in <code>working directory/path</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Kyu Ha Lee and Sebastien Haneuse <br>
+Maintainer: Kyu Ha Lee &lt;klee15239@gmail.com&gt;
+</p>
+
+
+<h3>References</h3>
+
+<p>Lee, K. H., Haneuse, S., Schrag, D., and Dominici, F. (2015), 
+Bayesian semiparametric analysis of semicompeting risks data: 
+investigating hospital readmission after a pancreatic cancer diagnosis, <em>Journal of the Royal Statistical Society: Series C</em>, 64, 2, 253-273.<br><br>
+Lee, K. H., Dominici, F., Schrag, D., and Haneuse, S. (2016),
+Hierarchical models for semicompeting risks data with application to quality of end-of-life care for pancreatic cancer, <em>Journal of the American Statistical Association</em>, 111, 515, 1075-1095. <br><br>
+Alvares, D., Haneuse, S., Lee, C., Lee, K. H. (2019),
+SemiCompRisks: An R package for the analysis of independent and cluster-correlated semi-competing risks data, <em>The R Journal</em>, 11, 1, 376-400. <br></p>
+
+
+<h3>See Also</h3>
+
+<p><code>initiate.startValues_HReg</code>, <code>print.Bayes_HReg</code>, <code>summary.Bayes_HReg</code>, <code>predict.Bayes_HReg</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">	
+## Not run: 		
+# loading a data set	
+data(survData)
+id=survData$cluster
+
+form &lt;- Formula(time + event ~ cov1 + cov2)
+
+#####################
+## Hyperparameters ##
+#####################
+
+## Weibull baseline hazard function: alpha1, kappa1
+##
+WB.ab &lt;- c(0.5, 0.01) # prior parameters for alpha
+##
+WB.cd &lt;- c(0.5, 0.05) # prior parameters for kappa
+
+## PEM baseline hazard function: 
+##
+PEM.ab &lt;- c(0.7, 0.7) # prior parameters for 1/sigma^2
+##
+PEM.alpha &lt;- 10 # prior parameters for K
+
+## Normal cluster-specific random effects
+##
+Normal.ab 	&lt;- c(0.5, 0.01) 		# prior for zeta
+
+## DPM cluster-specific random effects
+##
+DPM.ab &lt;- c(0.5, 0.01)
+aTau  &lt;- 1.5
+bTau  &lt;- 0.0125
+
+##
+hyperParams &lt;- list(WB=list(WB.ab=WB.ab, WB.cd=WB.cd),
+                    PEM=list(PEM.ab=PEM.ab, PEM.alpha=PEM.alpha),
+                    Normal=list(Normal.ab=Normal.ab),
+                    DPM=list(DPM.ab=DPM.ab, aTau=aTau, bTau=bTau))
+                    
+###################
+## MCMC SETTINGS ##
+###################
+
+## Setting for the overall run
+##
+numReps    &lt;- 2000
+thin       &lt;- 10
+burninPerc &lt;- 0.5
+
+## Settings for storage
+##
+storeV    &lt;- TRUE
+
+## Tuning parameters for specific updates
+##
+##  - those common to all models
+mhProp_V_var     &lt;- 0.05
+##
+## - those specific to the Weibull specification of the baseline hazard functions
+mhProp_alpha_var &lt;- 0.01
+##
+## - those specific to the PEM specification of the baseline hazard functions
+C        &lt;- 0.2
+delPert  &lt;- 0.5
+rj.scheme &lt;- 1
+K_max    &lt;- 50
+s_max    &lt;- max(survData$time[survData$event == 1])
+time_lambda &lt;- seq(1, s_max, 1)
+
+##
+mcmc.WB  &lt;- list(run=list(numReps=numReps, thin=thin, burninPerc=burninPerc),
+                    storage=list(storeV=storeV),
+                    tuning=list(mhProp_alpha_var=mhProp_alpha_var, mhProp_V_var=mhProp_V_var))
+##
+mcmc.PEM &lt;- list(run=list(numReps=numReps, thin=thin, burninPerc=burninPerc),
+                    storage=list(storeV=storeV),
+                    tuning=list(mhProp_V_var=mhProp_V_var, C=C, delPert=delPert,
+                    rj.scheme=rj.scheme, K_max=K_max, time_lambda=time_lambda))
+
+################################################################
+## Analysis of Independent Univariate Survival Data ############
+################################################################
+
+#############
+## WEIBULL ##
+#############
+
+##
+myModel &lt;- "Weibull"
+myPath  &lt;- "Output/01-Results-WB/"
+
+startValues      &lt;- initiate.startValues_HReg(form, survData, model=myModel, nChain=2)
+
+##
+fit_WB &lt;- BayesSurv_HReg(form, survData, id=NULL, model=myModel, 
+                  hyperParams, startValues, mcmc.WB, path=myPath)
+                  
+fit_WB
+summ.fit_WB &lt;- summary(fit_WB); names(summ.fit_WB)
+summ.fit_WB
+pred_WB &lt;- predict(fit_WB, tseq=seq(from=0, to=30, by=5))
+plot(pred_WB, plot.est="Haz")
+plot(pred_WB, plot.est="Surv")
+
+#########
+## PEM ##
+#########
+                
+##
+myModel &lt;- "PEM"
+myPath  &lt;- "Output/02-Results-PEM/"
+
+startValues      &lt;- initiate.startValues_HReg(form, survData, model=myModel, nChain=2)
+
+##
+fit_PEM &lt;- BayesSurv_HReg(form, survData, id=NULL, model=myModel,
+                   hyperParams, startValues, mcmc.PEM, path=myPath)
+                   
+fit_PEM
+summ.fit_PEM &lt;- summary(fit_PEM); names(summ.fit_PEM)
+summ.fit_PEM
+pred_PEM &lt;- predict(fit_PEM)
+plot(pred_PEM, plot.est="Haz")
+plot(pred_PEM, plot.est="Surv")
+
+###############################################################
+## Analysis of Correlated Univariate Survival Data ############
+###############################################################
+
+####################
+## WEIBULL-NORMAL ##
+####################
+
+##
+myModel &lt;- c("Weibull", "Normal")
+myPath  &lt;- "Output/03-Results-WB_Normal/"
+
+startValues      &lt;- initiate.startValues_HReg(form, survData, model=myModel, id, nChain=2)
+
+##
+fit_WB_N &lt;- BayesSurv_HReg(form, survData, id, model=myModel,
+                        hyperParams, startValues, mcmc.WB, path=myPath)
+                        
+fit_WB_N
+summ.fit_WB_N &lt;- summary(fit_WB_N); names(summ.fit_WB_N)
+summ.fit_WB_N
+pred_WB_N &lt;- predict(fit_WB_N, tseq=seq(from=0, to=30, by=5))
+plot(pred_WB_N, plot.est="Haz")
+plot(pred_WB_N, plot.est="Surv")
+
+#################
+## WEIBULL-DPM ##
+#################
+
+##
+myModel &lt;- c("Weibull", "DPM")
+myPath  &lt;- "Output/04-Results-WB_DPM/"
+
+startValues      &lt;- initiate.startValues_HReg(form, survData, model=myModel, id, nChain=2)
+
+##
+fit_WB_DPM &lt;- BayesSurv_HReg(form, survData, id, model=myModel,
+                        hyperParams, startValues, mcmc.WB, path=myPath)
+
+fit_WB_DPM
+summ.fit_WB_DPM &lt;- summary(fit_WB_DPM); names(summ.fit_WB_DPM)
+summ.fit_WB_DPM
+pred_WB_DPM &lt;- predict(fit_WB_DPM, tseq=seq(from=0, to=30, by=5))
+plot(pred_WB_DPM, plot.est="Haz")
+plot(pred_WB_DPM, plot.est="Surv")
+
+################
+## PEM-NORMAL ##
+################
+
+##
+myModel &lt;- c("PEM", "Normal")
+myPath  &lt;- "Output/05-Results-PEM_Normal/"
+
+startValues      &lt;- initiate.startValues_HReg(form, survData, model=myModel, id, nChain=2)
+
+##
+fit_PEM_N &lt;- BayesSurv_HReg(form, survData, id, model=myModel,
+                            hyperParams, startValues, mcmc.PEM, path=myPath)
+
+fit_PEM_N
+summ.fit_PEM_N &lt;- summary(fit_PEM_N); names(summ.fit_PEM_N)
+summ.fit_PEM_N
+pred_PEM_N &lt;- predict(fit_PEM_N)
+plot(pred_PEM_N, plot.est="Haz")
+plot(pred_PEM_N, plot.est="Surv")
+
+#############
+## PEM-DPM ##
+#############
+
+##
+myModel &lt;- c("PEM", "DPM")
+myPath  &lt;- "Output/06-Results-PEM_DPM/"
+
+startValues      &lt;- initiate.startValues_HReg(form, survData, model=myModel, id, nChain=2)
+
+##
+fit_PEM_DPM &lt;- BayesSurv_HReg(form, survData, id, model=myModel,
+                        hyperParams, startValues, mcmc.PEM, path=myPath)
+                        
+fit_PEM_DPM
+summ.fit_PEM_DPM &lt;- summary(fit_PEM_DPM); names(summ.fit_PEM_DPM)
+summ.fit_PEM_DPM
+pred_PEM_DPM &lt;- predict(fit_PEM_DPM)
+plot(pred_PEM_DPM, plot.est="Haz")
+plot(pred_PEM_DPM, plot.est="Surv")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,170 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>buildFrameSpatial</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Builds the "sampling frame" dataframe from a dataset containing information all the units in the population of reference including spatial
+</h2>
+
+<h3>Description</h3>
+
+<p>This function allows to build the information regarding the sampling frame of the population of reference.
+Mandatory variables are:
+(i) the name of the dataset containing the sampling frame of the population of reference
+(ii) an identifier (Id)
+(iii) a set of auxiliary variables 'X'
+(iv) a set of target variables 'Y'
+(v) a set of prediction errors variables 'variance'
+(vi) longitude
+(vii) latitude
+(viii) the indicator of the domain to which the unit belongs
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">buildFrameSpatial(df, id, X, Y, variance, lon, lat, domainvalue)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+
+<p>This is the name of the dataframe containing the information
+on all the units in population of reference. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+
+<p>This is the name of the identifier in the sampling frame. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+
+<p>A character vector containing the names of the auxiliary variables
+in the frame dataset
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+
+<p>A character vector containing the names of the target variables
+in the frame dataset
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variance</code></td>
+<td>
+
+<p>A character vector containing the names of the prediction error variables
+in the frame dataset
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lon</code></td>
+<td>
+
+<p>Longitude of the unit
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lat</code></td>
+<td>
+
+<p>Latitude of the unit
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>domainvalue</code></td>
+<td>
+
+<p>The name of the variable in the frame dataset that contains the 
+indication of the domains to which the units belong.
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A dataframe
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Giulio Barcaroli
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+library(sp)
+library(gstat)
+library(automap)
+library(SamplingStrata)
+data("meuse")
+data("meuse.grid")
+meuse.grid$id &lt;- c(1:nrow(meuse.grid))
+coordinates(meuse)&lt;-c("x","y")
+coordinates(meuse.grid)&lt;-c("x","y")
+#################
+# kriging
+#################
+v &lt;- variogram(lead ~ dist + soil, data=meuse)
+fit.vgm &lt;- autofitVariogram(lead ~ elev + soil, meuse, model = "Exp")
+plot(v, fit.vgm$var_model)
+fit.vgm$var_model
+g &lt;- NULL
+g &lt;- gstat(g, "Pb", lead ~ dist + soil, meuse)
+g
+vm &lt;- variogram(g)
+vm.fit &lt;- fit.lmc(vm, g, vgm(psill=fit.vgm$var_model$psill[2], 
+                             model="Exp", range=fit.vgm$var_model$range[2], 
+                             nugget=fit.vgm$var_model$psill[1]))
+# Prediction on the whole grid
+preds &lt;- predict(vm.fit, meuse.grid)
+names(preds)
+# [1] "Pb.pred" "Pb.var"
+preds$Pb.pred &lt;- ifelse(preds$Pb.pred &lt; 0,0,preds$Pb.pred)
+df &lt;- NULL
+df$id &lt;- meuse.grid$id
+df$Pb.pred &lt;- preds@data$Pb.pred
+df$Pb.var &lt;- preds@data$Pb.var
+df$lon &lt;- meuse.grid$x
+df$lat &lt;- meuse.grid$y
+df$dom1 &lt;- 1
+df &lt;- as.data.frame(df)
+frame &lt;- buildFrameSpatial(df=df,
+                      id="id",
+                      X=c("Pb.pred"),
+                      Y=c("Pb.pred"),
+                      variance=c("Pb.var"),
+                      lon="lon",
+                      lat="lat",
+                      domainvalue = "dom1")
+head(frame)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

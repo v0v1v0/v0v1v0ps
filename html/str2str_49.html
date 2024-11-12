@@ -1,0 +1,174 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>lv2d</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>List of (atomic) vectors to Data-Frame</h2>
+
+<h3>Description</h3>
+
+<p><code>lv2d</code> converts a list of (atomic) vectors to a data.frame. This function
+is similar to <code>as.data.frame.list</code>, but allows for more flexibility in how
+the data.frame will be structured (e.g., rowwise), while simplifying the dimension
+naming process.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">lv2d(
+  lv,
+  along,
+  fill = FALSE,
+  risky = FALSE,
+  stringsAsFactors = FALSE,
+  check = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>lv</code></td>
+<td>
+<p>list of (atomic) vectors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>along</code></td>
+<td>
+<p>numeric vector of length 1 specifying either 1 for binding along rows
+(i.e., each list element is a row) or 2 for binding along columns (i.e., each
+list element in a column).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fill</code></td>
+<td>
+<p>logical vector of length 1 specifying whether 1) to allow the vectors
+in <code>lv</code> to have different lengths, names, or both, 2) to bind by the names
+of the vectors within <code>lv</code> rather than by their positions (unless no names
+are present in which case positions are used), and 3) fill in any missing values
+in the return object with NA.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>risky</code></td>
+<td>
+<p>logical vector of length 1 specifying whether to use <code>list2DF</code>
+rather than <code>data.frame</code> when <code>along</code> = 2 and <code>fill</code> = TRUE.
+If either <code>along</code> = 1 or <code>fill</code> = FALSE, this argument is not used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stringsAsFactors</code></td>
+<td>
+<p>logical vector of length 1 specifying whether character
+vectors should be coerced to factors. See <code>default.stringsAsFactors</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check</code></td>
+<td>
+<p>logical vector of length 1 specifying whether to check the structure
+of the input arguments. For example, check whether <code>lv</code> is a list of atomic
+vectors. This argument is available to allow flexibility in whether the user values
+informative error messages (TRUE) vs. computational efficiency (FALSE).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If fill = FALSE, <code>lv2d</code> uses a combination of <code>do.call</code> and <code>rbind</code>
+if <code>along</code> = 1 or <code>do.call</code> and <code>cbind</code> if <code>along</code> = 2.
+rownames and colnames of the returned data.frame are determined by the names of
+<code>lv</code> and the names of the first vector within <code>lv</code>. If either are NULL,
+then the positions are used as the dimension names. If fill = FALSE, then an
+error is returned ff the vectors in <code>lv</code> do not all have the same length.
+If fill = FALSE, there is no check to ensure the elements within each <code>lv</code>
+vector have the same names in the same order. The names are taken from the first
+vector in <code>lv</code>, and it is assumed those names and their order apply to each
+vector in <code>lv</code>. Essentially, if fill = FALSE, <code>lv</code> binds the vectors
+by positions and not names.
+</p>
+<p>If fill = TRUE, <code>lv2d</code> uses <code>plyr::rbind.fill</code> if <code>along</code> = 1 or
+<code>plyr::join_all</code> by the vector names if <code>along</code> = 2. If fill = TRUE,
+<code>lv2d</code> binds the vectors by by names (and by positions if no names are present).
+Depending on what the user wants, fill = FALSE or TRUE could be safer. If the user
+wants an error returned when any vectors within <code>lv</code> have different lengths,
+then fill = FALSE should be used. If the user wants to bind by names rather than
+position, then fill = TRUE should be used.
+</p>
+
+
+<h3>Value</h3>
+
+<p>data.frame with the elements of 'lv' either as rows or columns and dimnames
+determined along the names of 'lv' and 'lv'[[1]].
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# 1) `lv` has names; vectors have names
+lv &lt;- setNames(object = lapply(X = letters, FUN = setNames, nm = "alphabet"), nm = LETTERS)
+lv2d(lv, along = 1)
+lv2d(lv, along = 2)
+lv2d(lv, along = 2, stringsAsFactors = TRUE)
+
+# 2) `lv` has names; no vector names
+lv &lt;- setNames(object = as.list(letters), nm = LETTERS)
+lv2d(lv, along = 1)
+lv2d(lv, along = 2)
+
+# 3) no `lv` names; vector have names
+lv &lt;- lapply(X = letters, FUN = setNames, nm = "alphabet")
+lv2d(lv, along = 1)
+lv2d(lv, along = 2)
+
+# 4) no `lv` names; no vector names
+lv &lt;- as.list.default(letters)
+lv2d(lv, along = 1)
+lv2d(lv, along = 2)
+
+# we want vectors combined along rows
+lv &lt;- lapply(X = unclass(mtcars), FUN = `names&lt;-`, value = row.names(mtcars))
+rbind(lv) # not what we want (array list)
+rbind.data.frame(lv) # also not what we want (combined along cols)
+do.call(what = rbind.data.frame, args = lv) # doesn't have useful dimnames
+lv2d(lv, along = 1) # finally what we want
+
+# fill = TRUE
+tmp &lt;- lapply(X = unclass(mtcars), FUN = `names&lt;-`, value = row.names(mtcars))
+lv &lt;- lapply(X = tmp, FUN = function(v) v[-(sample(x = seq_along(v), size = 9))])
+lv2d(lv, along = 1L, fill = TRUE) # NA for missing values in any given row
+tmp &lt;- lapply(X = unclass(as.data.frame(t(mtcars))), FUN = `names&lt;-`, value = names(mtcars))
+lv &lt;- lapply(X = tmp, FUN = function(v) v[-(sample(x = seq_along(v), size = 3))])
+lv2d(lv, along = 2L, fill = TRUE) # NA for missing values in any given column
+
+# actual use case
+lv &lt;- lapply(X = sn(1:30), FUN = function(i)
+   coef(lm(v2frm(names(attitude)), data = attitude[-i, ])))
+lv2d(lv, along = 2) # coefs in a data.frame
+
+# when vectors have named elements in different positions use fill = TRUE
+lv &lt;- list("row_1" = c("col_A" = "col_A1", "col_B" = "col_B1", "col_C" = "col_C1"),
+"row_2" = c("col_B" = "col_B2", "col_C" = "col_C2", "col_A" = "col_A2"),
+"row_3" = c("col_C" = "col_C3", "col_A" = "col_A3", "col_B" = "col_B3"))
+lv2d(lv, along = 1, fill = FALSE) # probably not what you want (See details)
+lv2d(lv, along = 1, fill = TRUE) # what we want
+
+# when you have a list with only one vector
+lv &lt;- list("A" = c("one" = 1, "two" = 2, "three" = 3))
+x &lt;- lv2m(lv, along = 1, fill = FALSE)
+y &lt;- lv2m(lv, along = 1, fill = TRUE)
+identical(x, y)
+
+</code></pre>
+
+
+</div>

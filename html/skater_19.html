@@ -1,0 +1,161 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>read_map</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Read genetic map file</h2>
+
+<h3>Description</h3>
+
+<p>This function reads in the content from a genetic map file to translate physical distance to genetic units (i.e. cM). Regardless of the source, the input file must be sex-averaged and in a tab-separated "Plink" format (<a href="https://www.cog-genomics.org/plink/1.9/formats#map">documentation</a>) with the following four columns and no header (i.e. no column names):
+</p>
+
+<ol>
+<li>
+<p> Chromosome
+</p>
+</li>
+<li>
+<p> Identifier (ignored in <code>read_map()</code>)
+</p>
+</li>
+<li>
+<p> Length (genetic length within the physical position boundary)
+</p>
+</li>
+<li>
+<p> Position (physical position boundary)
+</p>
+</li>
+</ol>
+<p>The columns must be in the order above. Note that only the first, third, and fourth columns are used in the function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">read_map(file)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>file</code></td>
+<td>
+<p>Input file path</p>
+</td>
+</tr></table>
+<h3>Details</h3>
+
+<p>The genetic map could come from different sources. One source is the HapMap map distributed by the Browning Lab (<a href="https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/">documentation</a>). If this map file is used, the non-sex chromosomes can be downloaded and concatenated to a single file as follows:
+</p>
+<div class="sourceCode"><pre>wget https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/plink.GRCh37.map.zip
+unzip plink.GRCh37.map.zip
+cat *chr[0-9]*GRCh37.map | sort -k1,1 -k4,4 --numeric-sort &gt; plink.allchr.GRCh37.map
+</pre></div>
+<p>Another source is a sex-specific map ("bherer") originally published by Bherer et al and recommended by the developers of <code>ped-sim</code> for simulating IBD segments (<a href="https://github.com/williamslab/ped-sim#map-file">documentation</a>). To retrieve and prep this map file for simulation:
+</p>
+<div class="sourceCode"><pre># Get the refined genetic map and extract
+wget --no-check-certificate https://github.com/cbherer/Bherer_etal_SexualDimorphismRecombination/raw/master/Refined_genetic_map_b37.tar.gz
+tar xvfpz Refined_genetic_map_b37.tar.gz
+
+# Format for ped-sim as per https://github.com/williamslab/ped-sim#map-file-
+printf "#chr\tpos\tmale_cM\tfemale_cM\n" &gt; sexspec.pedsim.map
+for chr in {1..22}; do
+  paste Refined_genetic_map_b37/male_chr$chr.txt Refined_genetic_map_b37/female_chr$chr.txt \
+    | awk -v OFS="\t" 'NR &gt; 1 &amp;&amp; $2 == $6 {print $1,$2,$4,$8}' \
+    | sed 's/^chr//' &gt;&gt; sexspec.pedsim.map;
+done
+
+# Clean up
+rm -rf Refined_genetic_map_b37*
+</pre></div>
+<p>After this, the <code>sexspec.pedsim.map</code> file is ready for use in simulation. However, it must be averaged and reformatted to "Plink format" to use here:
+</p>
+<div class="sourceCode"><pre>cat sexspec.pedsim.map | grep -v "^#" | awk -v OFS="\t" '{print $1,".",($3+$4)/2,$2}' &gt; sexspec-avg.plink.map
+</pre></div>
+<p>#' The genetic maps created above are in the tens of megabytes size range. This is trivial to store for most systems but a reduced version would increase portability and ease testing. This "minimum viable genetic map" could be used for testing and as installed package data in an R package for example analysis. Read more about minimum viable genetic maps at:
+</p>
+
+<ul>
+<li>
+<p> Blog post: <a href="https://hapi-dna.org/2020/11/minimal-viable-genetic-maps/">https://hapi-dna.org/2020/11/minimal-viable-genetic-maps/</a>
+</p>
+</li>
+<li>
+<p> Github repo with python code: <a href="https://github.com/williamslab/min_map">https://github.com/williamslab/min_map</a>
+</p>
+</li>
+</ul>
+<p>The code as written below reduces the averaged sex-specific genetic map from 833776 to 28726 positions (~30X reduction!).
+</p>
+<div class="sourceCode"><pre># Get minmap script from github
+wget https://raw.githubusercontent.com/williamslab/min_map/main/min_map.py
+
+# Create empty minmap
+echo -n &gt; sexspec-avg-min.plink.map
+
+# For each autosome...
+for chr in {1..22}; do
+  echo "Working on chromosome $chr..."
+  # First pull out just one chromosome
+  grep "^${chr}[[:space:]]" sexspec-avg.plink.map &gt; tmp.${chr}
+  # Run the python script on that chromosome.
+  # The genetic map column is 3rd column (2nd in 0-start). Physical position is last column (3 in 0-based)
+  python3 min_map.py -mapfile tmp.${chr} -chr ${chr} -genetcol 2 -physcol 3 -noheader -error 0.05
+  # Strip out the header and reformat back to plink format, and append to minmap file
+  cat min_viable_map${chr}.txt | grep -v "^#" | awk -v OFS="\t" '{print $1,".",$4,$2}' &gt;&gt; sexspec-avg-min.plink.map
+  # Clean up
+  rm -f min_viable_map${chr}.txt tmp.${chr}
+done
+</pre></div>
+<p>This averaged version of the Bherer sex-specific map, reduced to a minimum viable genetic map with at most 5% error, in Plink format, is available as installed package data (see examples). This is useful for testing code, but the full genetic map should be used for most analysis operations.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A tibble containing 3 columns:
+</p>
+
+<ol>
+<li>
+<p> chr (chromosome)
+</p>
+</li>
+<li>
+<p> value (genetic length within the physical position boundary)
+</p>
+</li>
+<li>
+<p> bp (physical position boundary)
+</p>
+</li>
+</ol>
+<h3>References</h3>
+
+<p><a href="https://www.cog-genomics.org/plink/1.9/formats#map">https://www.cog-genomics.org/plink/1.9/formats#map</a>
+</p>
+<p><a href="https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/">https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/</a>
+</p>
+<p><a href="https://github.com/williamslab/ped-sim#map-file">https://github.com/williamslab/ped-sim#map-file</a>
+</p>
+<p><a href="https://www.nature.com/articles/ncomms14994">https://www.nature.com/articles/ncomms14994</a>
+</p>
+<p><a href="https://www.nature.com/articles/ncomms14994">https://www.nature.com/articles/ncomms14994</a>
+</p>
+<p><a href="https://github.com/cbherer/Bherer_etal_SexualDimorphismRecombination">https://github.com/cbherer/Bherer_etal_SexualDimorphismRecombination</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">gmapfile &lt;- system.file("extdata", "sexspec-avg-min.plink.map", package="skater", mustWork=TRUE)
+gmap &lt;- read_map(gmapfile)
+
+</code></pre>
+
+
+</div>

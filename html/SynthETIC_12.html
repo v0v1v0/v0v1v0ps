@@ -1,0 +1,174 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>claim_payment_size</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Size of Partial Payments (Without Inflation)</h2>
+
+<h3>Description</h3>
+
+<p>Simulates and returns the constant dollar amount of each partial payment
+(i.e.<strong>without inflation</strong>) for each of the claims occurring in each of
+the periods.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">claim_payment_size(
+  frequency_vector,
+  claim_size_list,
+  no_payments_list,
+  rfun,
+  paramfun,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>frequency_vector</code></td>
+<td>
+<p>a vector of claim frequencies for all the periods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>claim_size_list</code></td>
+<td>
+<p>list of claim sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>no_payments_list</code></td>
+<td>
+<p>list of number of partial payments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rfun</code></td>
+<td>
+<p>optional alternative random sampling function; see Details for
+default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>paramfun</code></td>
+<td>
+<p>parameters for the random sampling function, as a function of
+<code>claim_size</code>; see Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments/parameters to be passed onto <code>paramfun</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Returns a compound list structure such that the <code class="reqn">j</code>th component
+of the <code class="reqn">i</code>th sub-list gives the payment pattern (as a vector) for the
+<code class="reqn">j</code>th claim of occurrence period <code class="reqn">i</code>.
+</p>
+<p>The default <code>rfun</code> is set up in three steps. First
+we sample the <strong>complement</strong> of the proportion of total claim size
+represented by the last two payments, from a Beta distribution with mean
+</p>
+<p style="text-align: center;"><code class="reqn">1 - min(0.95, 0.75 + 0.04log[claim_size/(0.10 * ref_claim)])</code>
+</p>
+<p> where
+<code>ref_claim</code> is a package-wise global variable that we ask the user to define
+at the top of their code using <code>set_parameters</code>. CoV is assumed
+constant at 20%.
+</p>
+<p>Next we simulate the proportion of last_two_pmts paid in the second last
+payment (<em>settlement of the claim</em>) from a Beta distribution with
+mean = 0.90 and CoV = 3%.
+</p>
+<p>Lastly we sample the remaining payment proportions from a Beta distribution
+with mean </p>
+<p style="text-align: center;"><code class="reqn">(1 - last_two_payments)/(no_pmt - 2)</code>
+</p>
+<p> and CoV = 10%, which
+is followed by a normalisation such that the proportions add up to 1.
+</p>
+<p>In the cases where there are only 2 or 3 partial payments, proceed as if
+there were 4 or 5 payments respectively with last_two_payments = 0. The
+trivial case is when the claim is settled with a single payment, which must
+be of the same amount as the total claim size.
+</p>
+<p>Alternative sampling distributions are supported through <code>rfun</code> (the random
+generation function) and <code>paramfun</code> (which returns the parameters of <code>rfun</code>
+as a function of <code>claim_size</code>). The <code>paramfun</code> should return the distribution
+parameters in a <strong>vector</strong>, e.g. for gamma distribution <code>paramfun</code> should
+return a value in the format of <code>c(shape = , scale = )</code>. If a <code>rfun</code> is
+specified without a <code>paramfun</code>, <code>SynthETIC</code> will try to proceed without
+parameterisation (i.e. directly calling <code>rfun</code> with <code>claim_size</code>), and if it
+fails, then return an error message.
+</p>
+
+
+<h3>Explanation</h3>
+
+<p>Why did we set up a payment pattern as above?
+</p>
+<p>The payment pattern is set up to reflect the typical pattern of a claim from
+an Auto liability line of business, which usually consists of:
+</p>
+
+<ol>
+<li>
+<p> (possibly) some small payments such as police reports, medical
+consultations and reports;
+</p>
+</li>
+<li>
+<p> some more substantial payments such as hospitalisation, specialist
+medical procedures, equipment (e.g. prosthetics);
+</p>
+</li>
+<li>
+<p> a final settlement with the claimant (usually the second last payment);
+</p>
+</li>
+<li>
+<p> a smaller final payment, usually covering legal costs.
+</p>
+</li>
+</ol>
+<p>Claims in a number of other lines of business exhibit a similar structure,
+albeit with possible differences in the types of payment made.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># set up
+n_vector &lt;- claim_frequency(I = 10)
+claim_sizes &lt;- claim_size(n_vector)
+no_payments &lt;- claim_payment_no(n_vector, claim_sizes)
+
+# with default rfun
+payments &lt;- claim_payment_size(n_vector, claim_sizes, no_payments)
+# partial payment sizes for claim 1 of occurrence period 1
+payments[[1]][[1]]
+
+# with some custom rfun
+# simplistic case: (stochastically) equal amounts
+my_func &lt;- function(n, claim_size) {
+  prop &lt;- runif(n)
+  prop &lt;- prop / sum(prop)
+  claim_size * prop
+}
+mypayments &lt;- claim_payment_size(n_vector, claim_sizes, no_payments, my_func)
+# partial payment sizes for claim 1 of occurrence period 1
+mypayments[[1]][[1]]
+</code></pre>
+
+
+</div>

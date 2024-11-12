@@ -1,0 +1,427 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>GMMParametersEstim</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Estimate parameters of stable laws using a GMM method
+</h2>
+
+<h3>Description</h3>
+
+<p>Estimate parameters of stable laws using generalised method of
+moments (GMM) with finite number of moment conditions. It uses a
+regularisation technique to make the method more robust (when the
+number of moment condition is large) and allows different schemes
+to select where the moment conditions are computed.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">GMMParametersEstim(x, algo = c("2SGMM", "ITGMM", "CueGMM"),
+                   alphaReg = 0.01,
+                   regularization = c("Tikhonov", "LF", "cut-off"),
+                   WeightingMatrix = c("OptAsym", "DataVar", "Id"),
+                   t_scheme = c("equally", "NonOptAr", "uniformOpt",
+                                "ArithOpt", "VarOpt", "free"),
+                   theta0 = NULL,
+                   IterationControl = list(),
+                   pm = 0, PrintTime = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+
+<p>data used to perform the estimation: vector of length n.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>algo</code></td>
+<td>
+
+<p>GMM algorithm: <code>"2SGMM"</code> is the two step GMM proposed by
+Hansen(1982). <code>"CueGMM"</code> and <code>"ITGMM"</code> are respectively
+the continuous updated and the iterative GMM proposed by Hansen,
+Eaton et Yaron (1996) and adapted to the continuum case.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alphaReg</code></td>
+<td>
+
+<p>value of the regularisation parameter; numeric, default = 0.01.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>regularization</code></td>
+<td>
+
+<p>regularization scheme to be used, one of <code>"Tikhonov"</code>
+(Tikhonov), <code>"LF"</code> (Landweber-Fridmann) and <code>"cut-off"</code>
+(spectral cut-off). See <code>RegularisedSol</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>WeightingMatrix</code></td>
+<td>
+
+<p>type of weighting matrix used to compute the objective function, one
+of <code>"OptAsym"</code> (the optimal asymptotic), <code>"DataVar"</code> (the
+data driven) and <code>"Id"</code> (the identity matrix). See Details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t_scheme</code></td>
+<td>
+
+<p>scheme used to select the points where the moment conditions are
+evaluated, one of <code>"equally"</code> (equally placed),
+<code>"NonOptAr"</code> (non optimal arithmetic placement),
+<code>"uniformOpt"</code> (uniform optimal placement), <code>"ArithOpt"</code>
+(arithmetic optimal placement), <code>"Var Opt"</code> (optimal variance
+placement) and <code>"free"</code> (users need to pass their own set of
+points in <code>...</code>). See Details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta0</code></td>
+<td>
+
+<p>initial guess for the 4 parameters values: if <code>NULL</code>, the
+Kogon-McCulloch method is called, see
+<code>IGParametersEstim</code>; vector of length 4.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>IterationControl</code></td>
+<td>
+
+<p>only used if <code>type = "IT"</code> or <code>type = "Cue"</code> to control the
+iterations. See Details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pm</code></td>
+<td>
+
+<p>parametrisation, an integer (0 or 1); default: <code>pm = 0</code>
+(Nolan's ‘S0’ parametrisation).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PrintTime</code></td>
+<td>
+
+<p>logical flag; if set to TRUE, the estimation duration is printed out
+to the screen in a readable format (h/min/sec).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>other arguments to pass to the regularisation function,
+the optimisation function or the selection scheme (including the
+function that finds the first zero of the eCF). See Details.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><b>The moment conditions</b>
+</p>
+<p>The moment conditions are given by:
+</p>
+<p style="text-align: center;"><code class="reqn">g_t(X,\theta) = g(t,X;\theta)= e^{itX} - \phi_{\theta}(t)</code>
+</p>
+
+<p>If one has a sample <code class="reqn">x_1,\dots,x_n</code> of i.i.d realisations of the
+same random variable <code class="reqn">X</code>, then: 
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{g}_n(t,\theta)  = \frac{1}{n}\sum_{i=1}^n g(t,x_i;\theta) =
+    \phi_n(t) -\phi_\theta(t),</code>
+</p>
+ 
+<p>where <code class="reqn">\phi_n(t)</code> is the eCF associated to the sample
+<code class="reqn">x_1,\dots,x_n</code>, and defined by
+<code class="reqn">\phi_n(t)= \frac{1}{n} \sum_{j=1}^n e^{itX_j}</code>. 
+</p>
+<p><b>Objective function</b>
+</p>
+<p style="text-align: center;"><code class="reqn">obj{\theta} =
+    &lt; K^{-1/2} \hat{g}_n(.;\theta),K^{-1/2}\hat{g}_n(.;\theta)&gt;,</code>
+</p>
+ 
+<p>where <code class="reqn">K^{-1}f</code> denotes the solution <code class="reqn">\varphi</code> (when it
+exists) of the equation <code class="reqn">K \varphi=f</code> and
+<code class="reqn">K^{-1/2}=(K^{-1})^{1/2}</code>.  The optimal choice of the Weighting
+operator K (a matrix in the GMM case) and its estimation are discussed
+in Hansen (1982).
+</p>
+<p><b>Weighting operator (Matrix)</b>
+</p>
+
+<dl>
+<dt>
+<code>OptAsym</code>:</dt>
+<dd>
+<p>the optimal asymptotic choice as described by Hansen. The
+expression of the components of this matrix could be found for
+example in Feuerverger and McDunnough (1981b).
+</p>
+</dd>
+<dt>
+<code>DataVar</code>:</dt>
+<dd>
+<p>the covariance matrix of the data provided.
+</p>
+</dd>
+<dt>
+<code>Id</code>:</dt>
+<dd>
+<p>the identity matrix.
+</p>
+</dd>
+</dl>
+<p><b>the t-scheme</b>
+</p>
+<p>One of the most important features of this method is that it allows
+the user to choose how to place the points where the moment conditions
+are evaluated. The general rule is that users can provide their own
+set of points (option <code>"free"</code>) or choose one of the other
+schemes. In the latter case they <em>need to specify the number of
+points</em> <code>nb_t</code> in argument <code>"\dots"</code> and eventually the
+lower and upper limit (by setting <code>Constrained</code> to FALSE and
+providing <code>min_t</code> and <code>max_t</code>) in the non-optimised case. If
+one of the optimised cases is selected, setting <code>Constrained</code> to
+FALSE will not constrain the choice of <code class="reqn">\tau</code>, see below.  We mean
+by optimised set of point, the set that minimises the (determinant) of
+the asymptotic covariance matrix as suggested by Schmidt (1982) and
+Besbeas and Morgan (2008).
+</p>
+<p>6 options have been implemented:
+</p>
+
+<dl>
+<dt>
+<code>"equally"</code>:</dt>
+<dd>
+<p>equally placed points in [<code>min_t</code>,<code>max_t</code>]. When
+provided, user's <code>min_t</code> and <code>max_t</code> will be used (when
+<code>Coinstrained = FALSE</code>).  Otherwise, <code>eps</code> and <code>An</code>
+will be used instead (where <code>An</code> is the first zero of the
+eCF).
+</p>
+</dd>
+<dt>
+<code>"NonOptAr"</code>:</dt>
+<dd>
+<p>non optimal arithmetic placement: <code class="reqn">t_j =
+      \frac{j(j+1)}{nbt(nbt+1)}(max-eps); j=1,\dots,nbt</code>, where
+<code class="reqn">max</code> is the upper band of the set of points selected as
+discussed before.
+</p>
+</dd>
+<dt>
+<code>"uniformOpt"</code>:</dt>
+<dd>
+<p>uniform optimal placement: <code class="reqn">t_j=j \tau, j=1,\dots, nbt</code>
+</p>
+</dd>
+<dt>
+<code>"ArithOpt"</code>:</dt>
+<dd>
+<p>arithmetic optimal placement: <code class="reqn">t_j=j(j+1) \tau, j=1,\dots nbt</code>
+</p>
+</dd>
+<dt>
+<code>"Var Opt"</code>:</dt>
+<dd>
+<p>optimal variance placement as explained above.
+</p>
+</dd>
+<dt>
+<code>"free"</code>:</dt>
+<dd>
+<p>user needs to pass his own set of points in <code>"\dots"</code>.
+</p>
+</dd>
+</dl>
+<p>For the <code>"ArithOpt"</code> and <code>"uniformOpt"</code> schemes, the
+function to minimise is seen as a function of the real parameter
+<code class="reqn">\tau</code> instead of doing a vectorial optimisition as in the
+<code>"Var Opt"</code> case. In the latter case, one can choose between a
+fast (but less accurate) optimisation routine or a slow (but more
+accurate) one by setting the <code>FastOptim</code> flag to the desired
+value.
+</p>
+<p><b>The IterationControl</b>
+</p>
+<p>If <code>type = "IT"</code> or <code>type = "Cue"</code> the user can control each
+iteration by setting up the <code>list</code> <code>IterationControl</code> which
+contains the following elements:
+</p>
+
+<dl>
+<dt>
+<code>NbIter</code>:</dt>
+<dd>
+<p>maximum number of iteration. The loop stops when <code>NBIter</code> is
+reached; default = 10.
+</p>
+</dd>
+<dt>
+<code>PrintIterlogical</code>:</dt>
+<dd>
+<p>if set to TRUE, the value of the current parameter estimation is
+printed to the screen at each iteration; default = TRUE.
+</p>
+</dd>
+<dt>
+<code>RelativeErrMax</code>:</dt>
+<dd>
+<p>the loop stops if the relative error between two consecutive
+estimation steps is smaller than <code>RelativeErrMax</code>; default =
+1e-3.
+</p>
+</dd>
+</dl>
+<h3>Value</h3>
+
+<p>a list with the following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>Estim</code></td>
+<td>
+<p>output of the optimisation function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>duration</code></td>
+<td>
+<p>estimation duration in a numerical format.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p><code>character</code> describing the method used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tEstim</code></td>
+<td>
+
+<p>final set of points selected for the estimation. Only relevant when
+one of the optimisation scheme is selected.
+</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p><code>nlminb</code> was used for the minimisation of the GMM objective
+funcion and to compute <code class="reqn">tau</code> in the <code>"uniformOpt"</code> and
+<code>"ArithOpt"</code> schemes. In the <code>"Var Opt"</code> scheme,
+<code>optim</code> was preferred. All those routines have been selected
+after running different tests using the summary table produced by
+package <span class="pkg">optimx</span> for comparing the performance of different
+optimisation methods.
+</p>
+
+
+<h3>References</h3>
+
+
+<p>Hansen LP (1982).
+“Large sample properties of generalized method of moments estimators.”
+<em>Econometrica: Journal of the Econometric Society</em>, pp. 1029–1054.
+
+</p>
+
+<p>Hansen LP, Heaton J and Yaron A (1996).
+“Finite-sample properties of some alternative GMM estimators.”
+<em>Journal of Business &amp; Economic Statistics</em>, <b>14</b>(3), pp. 262–280.
+
+</p>
+
+<p>Feuerverger A and McDunnough P (1981).
+“On efficient inference in symmetric stable laws and processes.”
+<em>Statistics and Related Topics</em>, <b>99</b>, pp. 109–112.
+
+</p>
+
+<p>Feuerverger A and McDunnough P (1981).
+“On some Fourier methods for inference.”
+<em>Journal of the American Statistical Association</em>, <b>76</b>(374), pp. 379–387.
+
+</p>
+
+<p>Schmidt P (1982).
+“An improved version of the Quandt-Ramsey MGF estimator for mixtures of normal distributions and switching regressions.”
+<em>Econometrica: Journal of the Econometric Society</em>, pp. 501–516.
+
+</p>
+
+<p>Besbeas P and Morgan B (2008).
+“Improved estimation of the stable laws.”
+<em>Statistics and Computing</em>, <b>18</b>(2), pp. 219–231.
+
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>Estim</code>,
+<code>CgmmParametersEstim</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## General data
+theta &lt;- c(1.5, 0.5, 1, 0)
+pm &lt;- 0
+set.seed(345);
+x &lt;- rstable(100, theta[1], theta[2], theta[3], theta[4], pm)
+##---------------- 2S free ----------------
+## method specific arguments
+regularization &lt;- "cut-off"
+WeightingMatrix &lt;- "OptAsym"
+alphaReg &lt;- 0.005
+t_seq &lt;- seq(0.1, 2, length.out = 12)
+
+## If you are just interested by the value
+## of the 4 estimated parameters
+t_scheme = "free"
+algo = "2SGMM"
+     
+suppressWarnings(GMMParametersEstim(
+    x = x, algo = algo, alphaReg = alphaReg, 
+    regularization = regularization, 
+    WeightingMatrix = WeightingMatrix, 
+    t_scheme = t_scheme, 
+    pm = pm, PrintTime = TRUE, t_free = t_seq))
+</code></pre>
+
+
+</div>

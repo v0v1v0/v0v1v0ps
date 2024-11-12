@@ -1,0 +1,469 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>thin_diff</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Binomial thinning for differential expression analysis.</h2>
+
+<h3>Description</h3>
+
+<p>Given a matrix of real RNA-seq counts, this function will add a known
+amount of signal to the count matrix. This signal is given in the form
+of a Poisson / negative binomial / mixture of negative binomials
+generalized linear model with a log (base 2) link. The user may
+specify any arbitrary design matrix and coefficient matrix. The user
+may also control for the amount of correlation between the observed
+covariates and any unobserved surrogate variables. The method is
+described in detail in Gerard (2020).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">thin_diff(
+  mat,
+  design_fixed = NULL,
+  coef_fixed = NULL,
+  design_perm = NULL,
+  coef_perm = NULL,
+  target_cor = NULL,
+  use_sva = FALSE,
+  design_obs = NULL,
+  relative = TRUE,
+  change_colnames = TRUE,
+  permute_method = c("hungarian", "marriage"),
+  type = c("thin", "mult")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mat</code></td>
+<td>
+<p>A numeric matrix of RNA-seq counts. The rows index the genes and
+the columns index the samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design_fixed</code></td>
+<td>
+<p>A numeric design matrix whose rows are fixed and not
+to be permuted. The rows index the samples and the columns index the
+variables. The intercept should <em>not</em> be included
+(though see Section "Unestimable Components").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef_fixed</code></td>
+<td>
+<p>A numeric matrix. The coefficients corresponding to
+<code>design_fixed</code>. The rows index the genes and the columns index
+the variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design_perm</code></td>
+<td>
+<p>A numeric design matrix whose rows are to be permuted
+(thus controlling the amount by which they are correlated with the
+surrogate variables). The rows index the samples and the columns index
+the variables. The intercept should <em>not</em> be included
+(though see Section "Unestimable Components").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef_perm</code></td>
+<td>
+<p>A numeric matrix. The coefficients corresponding to
+<code>design_perm</code>. The rows index the genes and the columns index
+the variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target_cor</code></td>
+<td>
+<p>A numeric matrix of target correlations between the
+variables in <code>design_perm</code> and the surrogate variables. The
+rows index the observed covariates and the columns index the surrogate
+variables. That is, <code>target_cor[i, j]</code> specifies the target
+correlation between the <code>i</code>th column of <code>design_perm</code> and the
+<code>j</code>th surrogate variable. The surrogate variables are estimated
+either using factor analysis or surrogate variable analysis (see the
+parameter <code>use_sva</code>).
+The number of columns in <code>target_cor</code> specifies the number of
+surrogate variables. Set <code>target_cor</code> to <code>NULL</code> to indicate
+that <code>design_perm</code> and the surrogate variables are independent.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_sva</code></td>
+<td>
+<p>A logical. Should we use surrogate variable analysis
+(Leek and Storey, 2008) using <code>design_obs</code>
+to estimate the hidden covariates (<code>TRUE</code>)
+or should we just do an SVD on <code>log2(mat + 0.5)</code> after
+regressing out <code>design_obs</code> (<code>FALSE</code>)? Setting this to
+<code>TRUE</code> allows the surrogate variables to be correlated with the
+observed covariates, while setting this to <code>FALSE</code> assumes that
+the surrogate variables are orthogonal to the observed covariates. This
+option only matters if <code>design_obs</code> is not <code>NULL</code>.
+Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design_obs</code></td>
+<td>
+<p>A numeric matrix of observed covariates that are NOT to
+be a part of the signal generating process. Only used in estimating the
+surrogate variables (if <code>target_cor</code> is not <code>NULL</code>).
+The intercept should <em>not</em> be included (it will sometimes
+produce an error if it is included).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>relative</code></td>
+<td>
+<p>A logical. Should we apply relative thinning (<code>TRUE</code>)
+or absolute thinning (<code>FALSE</code>). Only experts should change
+the default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>change_colnames</code></td>
+<td>
+<p>A logical. Should we change the column-names
+of the design matrices (<code>TRUE</code>) or not (<code>FALSE</code>)?
+Each new column name begins with either "O" (observed), "P" (permuted),
+or "F" (fixed), followed by a number. The letters correspond to
+whether the variables come from <code>design_obs</code>, <code>design_perm</code>,
+or <code>design_fixed</code>. Setting this to <code>TRUE</code>
+also changes the column-names of the corresponding coefficient matrices.
+Defaults to <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>permute_method</code></td>
+<td>
+<p>Should we use the Gale-Shapley algorithm
+for stable marriages (<code>"marriage"</code>) (Gale and Shapley, 1962)
+as implemented in the matchingR package, or the Hungarian algorithm
+(Papadimitriou and Steiglitz, 1982) (<code>"hungarian"</code>)
+as implemented in the clue package (Hornik, 2005)? The
+Hungarian method almost always works better, so is the default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Should we apply binomial thinning (<code>type = "thin"</code>) or
+just naive multiplication of the counts (<code>type = "mult"</code>).
+You should always have this set to <code>"thin"</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list-like S3 object of class <code>ThinData</code>.
+Components include some or all of the following:
+</p>
+
+<dl>
+<dt><code>mat</code></dt>
+<dd>
+<p>The modified matrix of counts.</p>
+</dd>
+<dt><code>designmat</code></dt>
+<dd>
+<p>The design matrix of variables used to simulate
+signal. This is made by column-binding <code>design_fixed</code> and the
+permuted version of <code>design_perm</code>.</p>
+</dd>
+<dt><code>coefmat</code></dt>
+<dd>
+<p>A matrix of coefficients corresponding to
+<code>designmat</code>.</p>
+</dd>
+<dt><code>design_obs</code></dt>
+<dd>
+<p>Additional variables that should be included in
+your design matrix in downstream fittings. This is made by
+column-binding the vector of 1's with <code>design_obs</code>.</p>
+</dd>
+<dt><code>sv</code></dt>
+<dd>
+<p>A matrix of estimated surrogate variables. In simulation
+studies you would probably leave this out and estimate your own
+surrogate variables.</p>
+</dd>
+<dt><code>cormat</code></dt>
+<dd>
+<p>A matrix of target correlations between the
+surrogate variables and the permuted variables in the design matrix.
+This might be different from the <code>target_cor</code> you input because
+we pass it through <code>fix_cor</code> to ensure
+positive semi-definiteness of the resulting covariance matrix.</p>
+</dd>
+<dt><code>matching_var</code></dt>
+<dd>
+<p>A matrix of simulated variables used to
+permute <code>design_perm</code> if the <code>target_cor</code> is not
+<code>NULL</code>.</p>
+</dd>
+</dl>
+<h3>Mathematical Formulation</h3>
+
+<p>Let
+</p>
+
+<dl>
+<dt><code class="reqn">N</code></dt>
+<dd>
+<p>Be the number of samples.</p>
+</dd>
+<dt><code class="reqn">G</code></dt>
+<dd>
+<p>Be the number of genes.</p>
+</dd>
+<dt><code class="reqn">Y</code></dt>
+<dd>
+<p>Be an <code class="reqn">G</code> by <code class="reqn">N</code> matrix of real RNA-seq counts.
+This is <code>mat</code>.</p>
+</dd>
+<dt><code class="reqn">X_1</code></dt>
+<dd>
+<p>Be an <code class="reqn">N</code> by <code class="reqn">P_1</code> user-provided design matrix.
+This is <code>design_fixed</code>.</p>
+</dd>
+<dt><code class="reqn">X_2</code></dt>
+<dd>
+<p>Be an <code class="reqn">N</code> by <code class="reqn">P_2</code> user-provided design matrix.
+This is <code>design_perm</code>.</p>
+</dd>
+<dt><code class="reqn">X_3</code></dt>
+<dd>
+<p>Be an <code class="reqn">N</code> by <code class="reqn">P_3</code> matrix of known covariates.
+This is <code>design_obs</code>.</p>
+</dd>
+<dt><code class="reqn">Z</code></dt>
+<dd>
+<p>Be an <code class="reqn">N</code> by <code class="reqn">K</code> matrix of unobserved surrogate
+variables. This is estimated when <code>target_cor</code> is not
+<code>NULL</code>.</p>
+</dd>
+<dt><code class="reqn">M</code></dt>
+<dd>
+<p>Be a <code class="reqn">G</code> by <code class="reqn">N</code> of additional (unknown)
+unwanted variation.</p>
+</dd>
+</dl>
+<p>We assume that <code class="reqn">Y</code> is Poisson distributed given <code class="reqn">X_3</code> and
+<code class="reqn">Z</code> such that
+</p>
+<p style="text-align: center;"><code class="reqn">\log_2(EY) = \mu 1_N' + B_3X_3' + AZ' + M.</code>
+</p>
+
+<p><code>thin_diff()</code> will take as input <code class="reqn">X_1</code>, <code class="reqn">X_2</code>, <code class="reqn">B_1</code>,
+<code class="reqn">B_2</code>, and will output a <code class="reqn">\tilde{Y}</code> and <code class="reqn">W</code> such that
+<code class="reqn">\tilde{Y}</code> is Poisson distributed given <code class="reqn">X_1</code>, <code class="reqn">X_2</code>, <code class="reqn">X_3</code>,
+<code class="reqn">W</code>, <code class="reqn">Z</code>, and <code class="reqn">M</code> such that
+</p>
+<p style="text-align: center;"><code class="reqn">\log_2(E\tilde{Y}) \approx \tilde{\mu}1_N' + B_1X_1' + B_2X_2'W' + B_3X_3' + AZ' + M,</code>
+</p>
+
+<p>where <code class="reqn">W</code> is an <code class="reqn">N</code> by <code class="reqn">N</code> permutation matrix. <code class="reqn">W</code> is randomly
+drawn so that <code class="reqn">WX_2</code> and <code class="reqn">Z</code> are correlated approximately according
+to the target correlation matrix.
+</p>
+<p>The Poisson assumption may be generalized to a mixture of negative binomials.
+</p>
+
+
+<h3>Unestimable Components</h3>
+
+<p>It is possible to include an intercept term or a column from
+<code>design_obs</code> into either <code>design_fixed</code> or <code>design_perm</code>.
+This will not produce an error and the specified thinning will be applied.
+However, If any column of <code>design_fixed</code> or
+<code>design_perm</code> is a vector of ones or contains a column from
+<code>design_obs</code>, then the corresponding columns in <code>coef_fixed</code>
+or <code>coef_perm</code> cannot be estimated by <em>any</em> method. This is
+represented in the output by having duplicate columns in
+<code>designmat</code> and <code>design_obs</code>.
+</p>
+<p>Including duplicate columns in <code>design_fixed</code> and <code>design_perm</code>
+is also allowed but, again, will produce unestimable coefficients.
+</p>
+<p>Including an intercept term in <code>design_obs</code> will produce an error if
+you are specifying correlated surrogate variables.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>David Gerard
+</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p>Gale, David, and Lloyd S. Shapley. "College admissions and the stability of marriage." <em>The American Mathematical Monthly</em> 69, no. 1 (1962): 9-15. <a href="https://doi.org/10.1080/00029890.1962.11989827">doi:10.1080/00029890.1962.11989827</a>.
+</p>
+</li>
+<li>
+<p>Gerard, D (2020). "Data-based RNA-seq simulations by binomial thinning." <em>BMC Bioinformatics</em>. 21(1), 206. <a href="https://doi.org/10.1186/s12859-020-3450-9">doi:10.1186/s12859-020-3450-9</a>.
+</p>
+</li>
+<li>
+<p>Hornik K (2005). "A CLUE for CLUster Ensembles." <em>Journal of Statistical Software</em>, 14(12). <a href="https://doi.org/10.18637/jss.v014.i12">doi:10.18637/jss.v014.i12</a>.
+</p>
+</li>
+<li>
+<p>Leek, Jeffrey T., and John D. Storey. "A general framework for multiple testing dependence." <em>Proceedings of the National Academy of Sciences</em> 105, no. 48 (2008): 18718-18723. <a href="https://doi.org/10.1073/pnas.0808709105">doi:10.1073/pnas.0808709105</a>.
+</p>
+</li>
+<li>
+<p>C. Papadimitriou and K. Steiglitz (1982), Combinatorial Optimization: Algorithms and Complexity. Englewood Cliffs: Prentice Hall.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+
+<dl>
+<dt><code>select_counts</code></dt>
+<dd>
+<p>For subsampling the rows and columns
+of your real RNA-seq count matrix prior to applying binomial thinning.</p>
+</dd>
+<dt><code>thin_2group</code></dt>
+<dd>
+<p>For the specific application of
+<code>thin_diff</code> to the two-group model.</p>
+</dd>
+<dt><code>thin_lib</code></dt>
+<dd>
+<p>For the specific application of
+<code>thin_diff</code> to library size thinning.</p>
+</dd>
+<dt><code>thin_gene</code></dt>
+<dd>
+<p>For the specific application of
+<code>thin_diff</code> to total gene expression thinning.</p>
+</dd>
+<dt><code>thin_all</code></dt>
+<dd>
+<p>For the specific application of
+<code>thin_diff</code> to thinning all counts uniformly.</p>
+</dd>
+<dt><code>thin_base</code></dt>
+<dd>
+<p>For the underlying thinning function
+used in <code>thin_diff</code>.</p>
+</dd>
+<dt><code>sva</code></dt>
+<dd>
+<p>For the implementation of surrogate
+variable analysis.</p>
+</dd>
+<dt><code>ThinDataToSummarizedExperiment</code></dt>
+<dd>
+<p>For converting a
+ThinData object to a SummarizedExperiment object.</p>
+</dd>
+<dt><code>ThinDataToDESeqDataSet</code></dt>
+<dd>
+<p>For converting a
+ThinData object to a DESeqDataSet object.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Generate simulated data with surrogate variables
+## In practice, you would obtain mat from a real dataset, not simulate it.
+set.seed(1)
+n &lt;- 10
+p &lt;- 1000
+Z &lt;- matrix(abs(rnorm(n, sd = 4)))
+alpha &lt;- matrix(abs(rnorm(p, sd = 1)))
+mat &lt;- round(2^(alpha %*% t(Z) + abs(matrix(rnorm(n * p, sd = 5),
+                                            nrow = p,
+                                            ncol = n))))
+
+## Choose simulation parameters
+design_perm &lt;- cbind(rep(c(0, 1), length.out = n), runif(n))
+coef_perm &lt;- matrix(rnorm(p * ncol(design_perm), sd = 6), nrow = p)
+
+## Specify one surrogate variable (number of columns in taget_cor),
+## highly correlated with first observed covariate and uncorrelated
+## with second observed covariate
+target_cor &lt;- matrix(c(0.9, 0))
+
+## Thin
+thout &lt;- thin_diff(mat = mat,
+                   design_perm = design_perm,
+                   coef_perm = coef_perm,
+                   target_cor = target_cor)
+
+## target_cor approximates correlation between estimated surrogate variable
+## and matching variable.
+cor(thout$matching_var, thout$sv)
+
+## Estimated surrogate variable is associated with true surrogate variable
+## (because the signal is strong in this case)
+plot(Z, thout$sv, xlab = "True SV", ylab = "Estimated SV")
+
+## So target_cor approximates correlation between surrogate variable and
+## matching variables
+cor(thout$matching_var, Z)
+
+## Correlation between permuted covariates and surrogate variables are less
+## close to target_cor
+cor(thout$designmat, Z)
+
+## Estimated signal is correlated to true single. First variable is slightly
+## biased because the surrogate variable is not included.
+Ynew &lt;- log2(t(thout$mat) + 0.5)
+X &lt;- thout$designmat
+coef_est &lt;- t(coef(lm(Ynew ~ X))[2:3, ])
+
+plot(thout$coefmat[, 1], coef_est[, 1],
+     main = "First Variable",
+     xlab = "Coefficient",
+     ylab = "Estimated Coefficient")
+abline(0, 1, col = 2, lwd = 2)
+
+plot(thout$coefmat[, 2], coef_est[, 2],
+     main = "Second Variable",
+     xlab = "Coefficient",
+     ylab = "Estimated Coefficient")
+abline(0, 1, col = 2, lwd = 2)
+
+## But estimated coefficient of the first variable is slightly closer when
+## the surrogate variable is included.
+Ynew &lt;- log2(t(thout$mat) + 0.5)
+X &lt;- cbind(thout$designmat, thout$sv)
+coef_est &lt;- t(coef(lm(Ynew ~ X))[2:3, ])
+
+plot(thout$coefmat[, 1], coef_est[, 1],
+     main = "First Variable",
+     xlab = "Coefficient",
+     ylab = "Estimated Coefficient")
+abline(0, 1, col = 2, lwd = 2)
+
+plot(thout$coefmat[, 2], coef_est[, 2],
+     main = "Second Variable",
+     xlab = "Coefficient",
+     ylab = "Estimated Coefficient")
+abline(0, 1, col = 2, lwd = 2)
+
+</code></pre>
+
+
+</div>

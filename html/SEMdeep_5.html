@@ -1,0 +1,169 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getShapleyR2</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute variable importance using Shapley (R2) values</h2>
+
+<h3>Description</h3>
+
+<p>This function computes variable contributions for individual
+predictions using the Shapley values, a method from cooperative game
+theory where the variable values of an observation work together to achieve
+the prediction. In addition, to make variable contributions easily explainable, 
+the function decomposes the entire model R-Squared (R2 or the coefficient
+of determination) into variable-level attributions of the variance
+(Redell, 2019).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getShapleyR2(object, newdata, thr = NULL, verbose = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A model fitting object from <code>SEMml()</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p>A matrix containing new data with rows corresponding to
+subjects, and columns to variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thr</code></td>
+<td>
+<p>A threshold value to apply to signed Shapley (R2) values. If
+thr=NULL (default), the threshold is set to thr=mean(Shapley(R2) values)).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>A logical value. If FALSE (default), the processed
+graph will not be plotted to screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Lundberg &amp; Lee (2017) proposed a unified approach to both
+local explainability (the variable contribution of a single variable within
+a single sample) and global explainability (the variable contribution of the
+entire model) by applying the fair distribution of payoffs principles from
+game theory put forth by Shapley (1953). Now called SHAP (SHapley Additive
+exPlanations), this suggested framework explains predictions of ML models,
+where input variables take the place of players, and their contribution to
+a particular prediction is measured using Shapley values. 
+Successively, Redell (2019) presented a metric that combines the additive 
+property of Shapley values with the robustness of the R2 of Gelman (2018) 
+to produce an R2 variance decomposition that accurately captures the 
+contribution of each variable to the explanatory power of the model. 
+Additionally, we use the signed R2, in order to denote the regulation
+of connections in line with a linear SEM, since the edges in the DAG
+indicate node regulation (activation, if positive; inhibition, if
+negative). This has been recovered for each edge using sign(beta), i.e.,
+the sign of the coefficient estimates from a linear model (lm) fitting
+of the output node on the input nodes, as suggested by Joseph (2019).
+It should be noted that in order to ascertain the local significance
+of node regulation with respect to the DAG, the Shapley decomposition
+of the R-squared (R2) value can be employed for each outcome node
+(r=1,...,R) by averaging the R2 indices of their input nodes.
+</p>
+<p>The Shapley values are computed using the <span class="pkg">shapr</span> package that implements
+an extended version of the Kernel SHAP method for approximating Shapley values
+in which dependence between the features is taken into account. 
+The operations necessary to compute kernel SHAP values are inherently
+time-consuming, with the computational time increasing in proportion to
+the number of predictor variables and the number of observations.
+Therefore, the function uses a progress bar to check the progress
+of the kernel SHAP evaluation per observation.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list od three object: (i) data.frame including the connections
+together with their signed Shapley R-squred values; (ii) the dag with
+colored edges, if abs(sign_R2) &gt; thr will be highlighted in red (sign_R2 &gt; 0)
+or blue (sign_R2 &lt; 0); and (ii) the list of individual Shapley values of
+predictors variables per each response variable.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Shapley, L. (1953) A Value for n-Person Games. In: Kuhn, H. and Tucker, A., 
+Eds., Contributions to the Theory of Games II, Princeton University Press,
+Princeton, 307-317. 
+</p>
+<p>Scott M. Lundberg, Su-In Lee. (2017). A unified approach to interpreting 
+model predictions. In Proceedings of the 31st International Conference on 
+Neural Information Processing Systems (NIPS'17). Curran Associates Inc., 
+Red Hook, NY, USA, 4768–4777.
+</p>
+<p>Redell, N. (2019). Shapley Decomposition of R-Squared in Machine Learning 
+Models. arXiv: Methodology.
+</p>
+<p>Gelman, A., Goodrich, B., Gabry, J., &amp; Vehtari, A. (2019). R-squared for 
+Bayesian Regression Models. The American Statistician, 73(3), 307–309.
+</p>
+<p>Joseph, A. Parametric inference with universal function approximators (2019).
+Bank of England working papers 784, Bank of England, revised 22 Jul 2020.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+# load ALS data
+ig&lt;- alsData$graph
+data&lt;- alsData$exprs
+data&lt;- transformData(data)$data
+
+#...with train-test (0.5-0.5) samples
+set.seed(123)
+train&lt;- sample(1:nrow(data), 0.5*nrow(data))
+
+rf0&lt;- SEMml(ig, data, train=train, algo="rf", vimp=FALSE)
+
+res&lt;- getShapleyR2(rf0, data[-train, ], thr=NULL, verbose=TRUE)
+table(E(res$dag)$color)
+
+# average shapley R2 across response variables
+R2&lt;- abs(res$est[,4])
+Y&lt;- res$est[,1]
+R2Y&lt;- aggregate(R2~Y,data=data.frame(R2,Y),FUN="mean")
+PE&lt;- predict(rf0, data[-train, ])$PE
+cbind(R2Y=R2Y[,2],PEY=PE[-1])
+mean(R2) # total average R2
+PE[1]    # total MSE
+
+
+</code></pre>
+
+
+</div>

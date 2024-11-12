@@ -1,0 +1,416 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sperrorest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Perform spatial error estimation and variable importance assessment</h2>
+
+<h3>Description</h3>
+
+<p>sperrorest is a flexible interface for multiple types of
+parallelized spatial and non-spatial cross-validation and bootstrap error
+estimation and parallelized permutation-based assessment of spatial variable
+importance.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sperrorest(
+  formula,
+  data,
+  coords = c("x", "y"),
+  model_fun,
+  model_args = list(),
+  pred_fun = NULL,
+  pred_args = list(),
+  smp_fun = partition_cv,
+  smp_args = list(),
+  train_fun = NULL,
+  train_param = NULL,
+  test_fun = NULL,
+  test_param = NULL,
+  err_fun = err_default,
+  imp_variables = NULL,
+  imp_permutations = 1000,
+  imp_sample_from = c("test", "train", "all"),
+  importance = !is.null(imp_variables),
+  distance = FALSE,
+  do_gc = 1,
+  progress = "all",
+  benchmark = FALSE,
+  mode_rep = c("future", "sequential", "loop"),
+  mode_fold = c("sequential", "future", "loop"),
+  verbose = 0
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>A formula specifying the variables used by the <code>model</code>. Only
+simple formulas without interactions or nonlinear terms should be used,
+e.g. <code>y~x1+x2+x3</code> but not <code>y~x1*x2+log(x3)</code>. Formulas involving interaction
+and nonlinear terms may possibly work for error estimation but not for
+variable importance assessment, but should be used with caution.
+The formula <code>y~...</code> is not supported, but <code>y~1</code> (i.e. no predictors) is.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a <code>data.frame</code> with predictor and response variables. Training
+and test samples will be drawn from this data set by <code>train_fun</code> and
+<code>test_fun</code>, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>vector of length 2 defining the variables in <code>data</code> that
+contain the x and y coordinates of sample locations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model_fun</code></td>
+<td>
+<p>Function that fits a predictive model, such as <code>glm</code> or
+<code>rpart</code>. The function must accept at least two arguments, the first one
+being a formula and the second a data.frame with the learning sample.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model_args</code></td>
+<td>
+<p>Arguments to be passed to <code>model_fun</code> (in addition to the
+<code>formula</code> and <code>data</code> argument, which are provided by sperrorest)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred_fun</code></td>
+<td>
+<p>Prediction function for a fitted model object created by
+<code>model</code>. Must accept at least two arguments: the fitted <code>object</code> and a
+<code>data.frame</code> <code>newdata</code> with data on which to predict the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred_args</code></td>
+<td>
+<p>(optional) Arguments to <code>pred_fun</code> (in addition to the
+fitted model object and the <code>newdata</code> argument, which are provided by
+sperrorest).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smp_fun</code></td>
+<td>
+<p>A function for sampling training and test sets from <code>data</code>.
+E.g. partition_kmeans for spatial cross-validation using spatial
+<em>k</em>-means clustering.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smp_args</code></td>
+<td>
+<p>(optional) Arguments to be passed to <code>smp_fun</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>train_fun</code></td>
+<td>
+<p>(optional) A function for resampling or subsampling the
+training sample in order to achieve, e.g., uniform sample sizes on all
+training sets, or maintaining a certain ratio of positives and negatives in
+training sets. E.g. resample_uniform or resample_strat_uniform.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>train_param</code></td>
+<td>
+<p>(optional) Arguments to be passed to <code>resample_fun</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_fun</code></td>
+<td>
+<p>(optional) Like <code>train_fun</code> but for the test set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_param</code></td>
+<td>
+<p>(optional) Arguments to be passed to <code>test_fun</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>err_fun</code></td>
+<td>
+<p>A function that calculates selected error measures from the
+known responses in <code>data</code> and the model predictions delivered by
+<code>pred_fun</code>. E.g. err_default (the default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>imp_variables</code></td>
+<td>
+<p>(optional; used if <code>importance = TRUE</code>). Variables for
+which permutation-based variable importance assessment is performed. If
+<code>importance = TRUE</code> and <code>imp_variables</code> == <code>NULL</code>, all variables in
+<code>formula</code> will be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>imp_permutations</code></td>
+<td>
+<p>(optional; used if <code>importance = TRUE</code>). Number of
+permutations used for variable importance assessment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>imp_sample_from</code></td>
+<td>
+<p>(default: <code>"test"</code>): specified if the permuted feature
+values should be taken from the test set, the training set (a rather unlikely
+choice), or the entire sample (<code>"all"</code>). The latter is useful in
+leave-one-out resampling situations where the test set is simply too small
+to perform any kind of resampling. In any case importances are
+always estimates on the test set. (Note that resampling with replacement is
+used if the test set is larger than the set from which the permuted values
+are to be taken.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>importance</code></td>
+<td>
+<p>logical (default: <code>FALSE</code>): perform permutation-based
+variable importance assessment?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance</code></td>
+<td>
+<p>logical (default: <code>FALSE</code>): if <code>TRUE</code>, calculate mean
+nearest-neighbour distances from test samples to training samples using
+add.distance.represampling.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do_gc</code></td>
+<td>
+<p>numeric (default: 1): defines frequency of memory garbage
+collection by calling gc; if <code style="white-space: pre;">⁠&lt; 1⁠</code>, no garbage collection; if <code style="white-space: pre;">⁠&gt;= 1⁠</code>, run
+a gc after each repetition; if <code style="white-space: pre;">⁠&gt;= 2⁠</code>, after each fold.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>character (default: <code>all</code>): Whether to show progress
+information (if possible). Default shows repetition, fold and (if enabled)
+variable importance progress. Set to <code>"rep"</code> for repetition information
+only or <code>FALSE</code> for no progress information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>benchmark</code></td>
+<td>
+<p>(optional) logical (default: <code>FALSE</code>): if <code>TRUE</code>, perform
+benchmarking and return <code>sperrorestbenchmark</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mode_rep, mode_fold</code></td>
+<td>
+<p>character (default: <code>"future"</code> and <code>"sequential"</code>,
+respectively): specifies whether to parallelize the execution at the repetition
+level, at the fold level, or not at all.
+Parallel execution uses <code>future.apply::future_lapply()</code> (see details below).
+It is only possible to parallelize at the repetition level or at
+the fold level.
+The <code>"loop"</code> option uses a <code>for</code> loop instead of an <code>lappy</code>
+function; this option is for debugging purposes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Controls the amount of information printed while processing.
+Defaults to 0 (no output).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Custom predict functions passed to <code>pred_fun</code>, which consist of
+multiple child functions, must be defined in one function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list (object of class sperrorest) with (up to) six components:
+</p>
+
+<ul>
+<li>
+<p> error_rep: <code>sperrorestreperror</code> containing
+predictive performances at the repetition level
+</p>
+</li>
+<li>
+<p> error_fold: <code>sperroresterror</code> object containing predictive
+performances at the fold level
+</p>
+</li>
+<li>
+<p> represampling: represampling object
+</p>
+</li>
+<li>
+<p> importance: <code>sperrorestimportance</code> object containing
+permutation-based variable importances at the fold level
+</p>
+</li>
+<li>
+<p> benchmark: <code>sperrorestbenchmark</code> object containing
+information on the system the code is running on, starting and
+finishing times, number of available CPU cores and runtime performance
+</p>
+</li>
+<li>
+<p> package_version: <code>sperrorestpackageversion</code> object containing
+information about the sperrorest package version
+</p>
+</li>
+</ul>
+<h3>Parallelization</h3>
+
+<p>Running in parallel is supported via package <a href="https://CRAN.R-project.org/package=future"><span class="pkg">future</span></a>.
+Have a look at <code>vignette("future-1-overview", package = "future")</code>.
+In short: Choose a backend and specify the number of workers, then call
+<code>sperrorest()</code> as usual. Example:
+</p>
+<div class="sourceCode r"><pre>future::plan(future.callr::callr, workers = 2)
+sperrorest()
+</pre></div>
+<p>Parallelization at the repetition is recommended when using
+repeated cross-validation. If the 'granularity' of parallelized
+function calls is too fine, the overall runtime will be very
+poor since the overhead for passing arguments and handling
+environments becomes too large. Use fold-level parallelization
+only when the processing time of individual folds is very
+large and the number of repetitions is small or equals 1.
+</p>
+<p>Note that nested calls to <code>future</code> are not possible.
+Therefore a sequential <code>sperrorest</code> call should be used for
+hyperparameter tuning in a nested cross-validation.
+</p>
+
+
+<h3>References</h3>
+
+<p>Brenning, A. 2012. Spatial cross-validation and bootstrap for
+the assessment of prediction rules in remote sensing: the R package
+'sperrorest'.
+2012 IEEE International Geoscience and Remote Sensing Symposium (IGARSS),
+23-27 July 2012, p. 5372-5375.
+<a href="https://ieeexplore.ieee.org/document/6352393">https://ieeexplore.ieee.org/document/6352393</a>
+</p>
+<p>Brenning, A. 2005. Spatial prediction models for landslide hazards: review,
+comparison and evaluation. Natural Hazards and Earth System Sciences,
+5(6), 853-862. <a href="https://doi.org/10.5194/nhess-5-853-2005">doi:10.5194/nhess-5-853-2005</a>
+</p>
+<p>Brenning, A., S. Long &amp; P. Fieguth. 2012. Detecting rock glacier
+flow structures using Gabor filters and IKONOS imagery.
+Remote Sensing of Environment, 125, 227-237.
+<a href="https://doi.org/10.1016/j.rse.2012.07.005">doi:10.1016/j.rse.2012.07.005</a>
+</p>
+<p>Russ, G. &amp; A. Brenning. 2010a. Data mining in precision agriculture:
+Management of spatial information. In 13th International Conference on
+Information Processing and Management of Uncertainty, IPMU 2010; Dortmund;
+28 June - 2 July 2010. Lecture Notes in Computer Science, 6178 LNAI: 350-359.
+</p>
+<p>Russ, G. &amp; A. Brenning. 2010b. Spatial variable importance assessment for
+yield prediction in Precision Agriculture. In Advances in Intelligent
+Data Analysis IX, Proceedings, 9th International Symposium,
+IDA 2010, Tucson, AZ, USA, 19-21 May 2010.
+Lecture Notes in Computer Science, 6065 LNCS: 184-195.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## ------------------------------------------------------------
+## Classification tree example using non-spatial partitioning
+## ------------------------------------------------------------
+
+# Muenchow et al. (2012), see ?ecuador
+fo &lt;- slides ~ dem + slope + hcurv + vcurv + log.carea + cslope
+
+library(rpart)
+mypred_part &lt;- function(object, newdata) predict(object, newdata)[, 2]
+ctrl &lt;- rpart.control(cp = 0.005) # show the effects of overfitting
+# show the effects of overfitting
+fit &lt;- rpart(fo, data = ecuador, control = ctrl)
+
+### Non-spatial cross-validation:
+mypred_part &lt;- function(object, newdata) predict(object, newdata)[, 2]
+nsp_res &lt;- sperrorest(
+  data = ecuador, formula = fo,
+  model_fun = rpart,
+  model_args = list(control = ctrl),
+  pred_fun = mypred_part,
+  progress = TRUE,
+  smp_fun = partition_cv,
+  smp_args = list(repetition = 1:2, nfold = 3)
+)
+summary(nsp_res$error_rep)
+summary(nsp_res$error_fold)
+summary(nsp_res$represampling)
+# plot(nsp_res$represampling, ecuador)
+
+### Spatial cross-validation:
+sp_res &lt;- sperrorest(
+  data = ecuador, formula = fo,
+  model_fun = rpart,
+  model_args = list(control = ctrl),
+  pred_fun = mypred_part,
+  progress = TRUE,
+  smp_fun = partition_kmeans,
+  smp_args = list(repetition = 1:2, nfold = 3)
+)
+summary(sp_res$error_rep)
+summary(sp_res$error_fold)
+summary(sp_res$represampling)
+# plot(sp_res$represampling, ecuador)
+
+smry &lt;- data.frame(
+  nonspat_training = unlist(summary(nsp_res$error_rep,
+    level = 1
+  )$train_auroc),
+  nonspat_test = unlist(summary(nsp_res$error_rep,
+    level = 1
+  )$test_auroc),
+  spatial_training = unlist(summary(sp_res$error_rep,
+    level = 1
+  )$train_auroc),
+  spatial_test = unlist(summary(sp_res$error_rep,
+    level = 1
+  )$test_auroc)
+)
+boxplot(smry,
+  col = c("red", "red", "red", "green"),
+  main = "Training vs. test, nonspatial vs. spatial",
+  ylab = "Area under the ROC curve"
+)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,89 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>destroyModule</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Destroy Shiny Module</h2>
+
+<h3>Description</h3>
+
+<p>Given the namespace of a shiny module, remove all references
+to the inputs, outputs and observers that are called within
+the module.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">destroyModule(id = NULL, session = getDefaultReactiveDomain())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+<p>The module namespace ID. Use 'NULL' to destroy the module the call
+is being executed in.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>session</code></td>
+<td>
+<p>The shiny session, by default it is 'shiny::getDefaultReactiveDomain()'</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>No return value, called to remove the relevant module UI and server-side
+observers.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(shiny)
+
+basicModuleUI &lt;- function(id) {
+  ns &lt;- NS(id)
+  actionButton(ns("click"), "Click Button")
+}
+
+basicModuleServer &lt;- function(id) {
+  moduleServer(id, function(input, output, session) {
+    rv &lt;- reactiveVal(0L)
+    observeEvent(input$click, rv(rv() + 1L))
+    rv
+  })
+}
+
+destroyableModuleUI &lt;- makeModuleUIDestroyable(basicModuleUI)
+destroyableModuleServer &lt;- makeModuleServerDestroyable(basicModuleServer)
+
+ui &lt;- fluidPage(
+  destroyableModuleUI(id = "test"),
+  actionButton("destroy", "Destroy module"),
+  textOutput("reactive_value")
+)
+
+server &lt;- function(input, output, session) {
+  top_rv &lt;- reactiveVal()
+  reactive_value &lt;- destroyableModuleServer("test")
+  observeEvent(reactive_value(), top_rv(reactive_value()))
+
+  output$reactive_value &lt;- renderText(top_rv())
+
+  observeEvent(input$destroy, destroyModule("test"))
+}
+
+shinyApp(ui, server)
+
+</code></pre>
+
+
+</div>

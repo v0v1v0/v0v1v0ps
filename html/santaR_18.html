@@ -1,0 +1,197 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>santaR_auto_fit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Automate all steps of santaR fitting, Confidence bands estimation and p-values calculation for one or multiple variables</h2>
+
+<h3>Description</h3>
+
+<p><code>santaR_auto_fit</code> encompasses all the analytical steps for the detection of significantly altered time trajectories (<em>input data preparation: <code>get_ind_time_matrix</code>, establishing group membership: <code>get_grouping</code>, spline modelling of individual and group time evolutions: <code>santaR_fit</code>, computation of group mean curve confidence bands: <code>santaR_CBand</code>, identification of significantly altered time trajectories: <code>santaR_pvalue_dist</code> and/or <code>santaR_pvalue_fit</code></em>). As <em>santaR</em> is an univariate approach, multiple variables can be processed independently, which <code>santaR_auto_fit</code> can execute in parallel over multiple CPU cores.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">santaR_auto_fit(
+  inputData,
+  ind,
+  time,
+  group = NA,
+  df,
+  ncores = 0,
+  CBand = TRUE,
+  pval.dist = TRUE,
+  pval.fit = FALSE,
+  nBoot = 1000,
+  alpha = 0.05,
+  nPerm = 1000,
+  nStep = 5000,
+  alphaPval = 0.05,
+  forceParIndTimeMat = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>inputData</code></td>
+<td>
+<p><code>data.frame</code> of measurements with observations as rows and variables as columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ind</code></td>
+<td>
+<p>Vector of subject identifier (individual) corresponding to each measurement.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>Vector of the time corresponding to each measurement.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p>NA or vector of group membership for each measurement. Default is NA for no groups.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+<p>(float) Degree of freedom to employ for fitting the individual and group mean <code>smooth.spline</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>(int) Number of cores to use for parallelisation. Default 0 for no parallelisation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CBand</code></td>
+<td>
+<p>If TRUE calculate confidence bands for group mean curves. Default is TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pval.dist</code></td>
+<td>
+<p>If TRUE calculate <em>p</em>-value based on inter-group mean curve distance. Default is TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pval.fit</code></td>
+<td>
+<p>If TRUE calculate <em>p</em>-value based on group mean curve improvement in fit. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nBoot</code></td>
+<td>
+<p>(int) Number of bootstrapping rounds for confidence band calculation. Default 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>(float) Confidence <em>(0.05 for 95% Confidence Bands)</em>. Default 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nPerm</code></td>
+<td>
+<p>(int) Number of permutations for <em>p</em>-value calculation. Default 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nStep</code></td>
+<td>
+<p>(int) Number of steps (granularity) employed for the calculation of the area between group mean curves (<em>p-value dist</em>). Default is 5000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alphaPval</code></td>
+<td>
+<p>(float) Confidence Interval on the permuted <em>p</em>-value <em>(0.05 for 95% Confidence Interval)</em>. Default 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>forceParIndTimeMat</code></td>
+<td>
+<p>If TRUE parallelise the preparation of input data by <code>get_ind_time_matrix</code>. Default is FALSE.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+
+<h4>Note</h4>
+
+
+<ul>
+<li>
+<p> The calculation of confidence bands accounts for approximately a third of the time taken by <code>santaR_auto_fit</code>, while the identification of significantly altered time trajectories (either <code>santaR_pvalue_dist</code> or <code>santaR_pvalue_fit</code>) accounts for two third of the total time. The time taken by these steps increases linearly with the increase of their respective parameters: <code>nBoot</code> for confidence bands, <code>nPerm</code> and <code>nStep</code> for identification of significantly altered trajectories using <code>santaR_pvalue_dist</code>, <code>nPerm</code> for <code>santaR_pvalue_fit</code>. Default values of these parameters are optimised to balance the time taken with the precision of the value estimation; increasing <code>nPerm</code> can tighten the <em>p</em>-value confidence intervals.
+</p>
+</li>
+<li>
+<p> If the parallelisation is activated (<em><code>ncores&gt;0</code></em>), the fit of spline models, the calculation of confidence bands on the group mean curves and the identification of altered trajectories are executed for multiple variables simultaneously. However the preparation of input data (<code>get_ind_time_matrix</code>) is not parallelised by default as the parallelisation overhead cost is superior to the time potentially gained for all but the most complex datasets. The parallelisation overhead (<em>instantiating worker nodes, duplicating and transferring inputs to the worker nodes, concatenating results</em>) typically equals around 2 seconds, while executing <code>get_ind_time_matrix</code> is usually a matter of millisecond for a single variable (<em>ex: 7 time-points, 24 individuals, 1 variable)</em>; the parallelisation overhead far exceeding the time needed to process all variables sequentially. If the number of individual trajectories (subjects), of time-points, or of variables is very large, <code>forceParIndTimeMat</code> enables the parallelisation of <code>get_ind_time_matrix</code>.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>A list of <em>SANTAObj</em> corresponding to each variable's analysis result.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other AutoProcess: 
+<code>santaR_auto_summary()</code>,
+<code>santaR_plot()</code>,
+<code>santaR_start_GUI()</code>
+</p>
+<p>Other Analysis: 
+<code>get_grouping()</code>,
+<code>get_ind_time_matrix()</code>,
+<code>santaR_CBand()</code>,
+<code>santaR_auto_summary()</code>,
+<code>santaR_fit()</code>,
+<code>santaR_plot()</code>,
+<code>santaR_pvalue_dist()</code>,
+<code>santaR_pvalue_fit()</code>,
+<code>santaR_start_GUI()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## 2 variables, 56 measurements, 8 subjects, 7 unique time-points
+## Default parameter values decreased to ensure an execution &lt; 2 seconds
+inputData     &lt;- acuteInflammation$data[,1:2]
+ind           &lt;- acuteInflammation$meta$ind
+time          &lt;- acuteInflammation$meta$time
+group         &lt;- acuteInflammation$meta$group
+SANTAObjList  &lt;- santaR_auto_fit(inputData, ind, time, group, df=5, ncores=0, CBand=TRUE,
+                                pval.dist=TRUE, nBoot=100, nPerm=100)
+# Input data generated: 0.02 secs
+# Spline fitted: 0.03 secs
+# ConfBands done: 0.53 secs
+# p-val dist done: 0.79 secs
+# total time: 1.37 secs
+length(SANTAObjList)
+# [1] 2
+names(SANTAObjList)
+# [1] "var_1" "var_2"
+
+</code></pre>
+
+
+</div>

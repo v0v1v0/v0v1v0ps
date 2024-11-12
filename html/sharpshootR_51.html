@@ -1,0 +1,251 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>plotTransect</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Arrange Profiles along a Transect</h2>
+
+<h3>Description</h3>
+
+<p>Plot a collection of Soil Profiles linked to their position along some gradient (e.g. transect).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">plotTransect(
+  s,
+  xy,
+  grad.var.name,
+  grad.var.order = order(site(s)[[grad.var.name]]),
+  transect.col = "RoyalBlue",
+  tick.number = 7,
+  y.offset = 100,
+  scaling.factor = 0.5,
+  distance.axis.title = "Distance Along Transect (km)",
+  grad.axis.title = NULL,
+  dist.scaling.factor = 1000,
+  spacing = c("regular", "relative"),
+  fix.relative.pos = list(thresh = 0.6, maxIter = 5000),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>s</code></td>
+<td>
+<p><code>SoilProfileCollection</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xy</code></td>
+<td>
+<p><code>sf</code> object, defining point coordinates of soil profiles, must be in same order as <code>s</code>, must be a projected coordinate reference system (UTM, AEA, etc.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grad.var.name</code></td>
+<td>
+<p>the name of a site-level attribute containing gradient values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grad.var.order</code></td>
+<td>
+<p>optional indexing vector used to override sorting along <code>grad.var.name</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>transect.col</code></td>
+<td>
+<p>color used to plot gradient (transect) values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tick.number</code></td>
+<td>
+<p>number of desired ticks and labels on the gradient axis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.offset</code></td>
+<td>
+<p>vertical offset used to position profile sketches</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling.factor</code></td>
+<td>
+<p>scaling factor applied to profile sketches</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.axis.title</code></td>
+<td>
+<p>a title for the along-transect distances</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grad.axis.title</code></td>
+<td>
+<p>a title for the gradient axis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist.scaling.factor</code></td>
+<td>
+<p>scaling factor (divisor) applied to linear distance units, default is conversion from m to km (1000)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spacing</code></td>
+<td>
+<p>profile sketch spacing style: "regular" (profiles aligned to an integer grid) or "relative" (relative distance along transect)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix.relative.pos</code></td>
+<td>
+<p>adjust relative positions in the presence of overlap, <code>FALSE</code> to suppress, otherwise list of arguments to <code>aqp::fixOverlap</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments passed to <code>aqp::plotSPC</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Depending on the nature of your <code>SoilProfileCollection</code> and associated gradient values, it may be necessary to tinker with figure margins, <code>y.offset</code> and <code>scaling.factor</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An invisibly-returned <code>data.frame</code> object:
+</p>
+
+<ul>
+<li>
+<p> scaled.grad: scaled gradient values
+</p>
+</li>
+<li>
+<p> scaled.distance: cumulative distance, scaled to the interval of <code style="white-space: pre;">⁠0.5, nrow(coords) + 0.5⁠</code>
+</p>
+</li>
+<li>
+<p> distance: cumulative distance computed along gradient, e.g. transect distance
+</p>
+</li>
+<li>
+<p> variable: sorted gradient values
+</p>
+</li>
+<li>
+<p> x: x coordinates, ordered by gradient values
+</p>
+</li>
+<li>
+<p> y: y coordinate, ordered by gradient values
+</p>
+</li>
+<li>
+<p> grad.order: a vector index describing the sort order defined by gradient values
+</p>
+</li>
+</ul>
+<h3>Note</h3>
+
+<p>This function is very much a work in progress, ideas welcome!
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>D.E. Beaudette
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+
+if(require(aqp) &amp; 
+require(sf) &amp;
+  require(soilDB)
+) {
+   
+library(aqp)
+library(soilDB)
+library(sf)
+
+
+# sample data
+data("mineralKing", package = "soilDB")
+
+# device options are modified locally, reset when done
+op &lt;- par(no.readonly = TRUE)
+
+# quick overview
+par(mar=c(1,1,2,1))
+groupedProfilePlot(mineralKing, groups='taxonname', print.id=FALSE)
+
+# setup point locations
+s &lt;- site(mineralKing)
+xy &lt;- st_as_sf(s, coords = c('x_std', 'y_std'))
+st_crs(xy) &lt;- 4326
+
+# convert to suitable projected cRS
+# projected CRS, UTM z11 NAD83 (https://epsg.io/26911)
+xy &lt;- st_transform(xy, 26911) 
+
+# adjust margins
+par(mar = c(4.5, 4, 4, 1))
+
+# standard transect plot, profile sketches arranged along integer sequence
+plotTransect(mineralKing, xy, grad.var.name = 'elev_field',
+             grad.axis.title = 'Elevation (m)', label = 'pedon_id', name = 'hzname')
+
+# default behavior, attempt adjustments to prevent over-plot and preserve relative spacing
+# use set.seed() to fix outcome
+plotTransect(mineralKing, xy, grad.var.name = 'elev_field',
+             grad.axis.title = 'Elevation (m)', label = 'pedon_id',
+             name = 'hzname', width = 0.15, spacing = 'relative')
+
+# attempt relative positioning based on scaled distances, no corrections for overlap
+# profiles are clustered in space and therefore over-plot
+plotTransect(mineralKing, xy, grad.var.name = 'elev_field',
+             grad.axis.title = 'Elevation (m)', label = 'pedon_id', name = 'hzname',
+             width = 0.15, spacing = 'relative', fix.relative.pos = FALSE)
+
+# customize arguments to aqp::fixOverlap()
+plotTransect(mineralKing, xy, grad.var.name = 'elev_field', crs = crs.utm,
+             grad.axis.title = 'Elevation (m)', label = 'pedon_id', name = 'hzname',
+             width = 0.15, spacing = 'relative',
+             fix.relative.pos = list(maxIter=6000, adj=0.2, thresh=0.7))
+
+plotTransect(mineralKing, xy, grad.var.name = 'elev_field', crs = crs.utm,
+             grad.axis.title = 'Elevation (m)', label = 'pedon_id', name = 'hzname',
+             width = 0.2, spacing = 'relative',
+             fix.relative.pos = list(maxIter = 6000, adj = 0.2, thresh = 0.6),
+             name.style = 'center-center')
+
+par(op)
+  
+}
+
+
+
+</code></pre>
+
+
+</div>

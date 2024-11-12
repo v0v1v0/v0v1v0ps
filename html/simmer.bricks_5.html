@@ -1,0 +1,103 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>interleave</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Interleaved Resources</h2>
+
+<h3>Description</h3>
+
+<p>This brick encapsulates a chain of interleaved resources, i.e., the current
+resource is not released until the next one in the chain is available. An
+interesting property of such a pattern is that, if one resource is blocked for
+some reason, the whole chain stops.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">interleave(.trj, resources, task, amount = 1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>.trj</code></td>
+<td>
+<p>the trajectory object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resources</code></td>
+<td>
+<p>character vector of resource names.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>task</code></td>
+<td>
+<p>the timeout duration supplied by either passing a numeric or a
+callable object (a function) which must return a numeric (negative values are
+automatically coerced to positive).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amount</code></td>
+<td>
+<p>the amount to seize/release, accepts either a numeric or a
+callable object (a function) which must return a numeric.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Both <code>task</code> and <code>amount</code> accept a list of values/functions,
+instead of a single one, that should be of the same length as <code>resources</code>,
+so that each value/function is applied to the resource of the same index.
+</p>
+<p>The transition to the second and subsequent resources is guarded by a token,
+an auxiliary resource whose capacity must be equal to the capacity + queue
+size of the guarded resource, and its queue size must be infinite. For example,
+if two resources are provided, <code>c("A", "B")</code>, the auxiliary resource will
+be named <code>"B_token"</code>. If <code>capacity=2</code> and <code>queue_size=1</code> for B,
+then <code>capacity=3</code> and <code>queue_size=Inf</code> must be the values for
+B_token. But note that the user is responsible for adding such an auxiliary
+resource to the simulation environment with the appropriate parameters.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns the following chain of activities: <code>seize</code>
+(1) &gt; <code>timeout</code> &gt; [<code>seize</code> (token to 2)
+&gt; <code>release</code> (1) &gt; <code>seize</code> (2) &gt;
+<code>timeout</code> &gt; <code>release</code> (2) &gt;
+<code>release</code> (token to 2) &gt; ... (repeat) ]
+(see examples below). Thus, the total number of activities appended is
+<code>length(resources) * 3 + (length(resources)-1) * 2</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## These are equivalent:
+trajectory() %&gt;%
+  interleave(c("A", "B"), c(2, 10), 1)
+
+trajectory() %&gt;%
+  seize("A", 1) %&gt;%
+  timeout(2) %&gt;%
+  seize("B_token", 1) %&gt;%
+  release("A", 1) %&gt;%
+  seize("B", 1) %&gt;%
+  timeout(10) %&gt;%
+  release("B", 1) %&gt;%
+  release("B_token", 1)
+
+</code></pre>
+
+
+</div>

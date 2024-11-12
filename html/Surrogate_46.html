@@ -1,0 +1,198 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ICA.ContCont.MultS.MPC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Assess surrogacy in the causal-inference single-trial setting (Individual Causal Association, ICA) using a continuous univariate T and multiple continuous S, by simulating correlation matrices using a modified algorithm based on partial correlations</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>ICA.ContCont.MultS.MPC</code> quantifies surragacy in the single-trial causal-inference framework in which the true endpoint (T) and multiple surrogates (S) are continuous. This function is a modification of the <code>ICA.ContCont.MultS.PC</code> algorithm based on partial correlations. it mitigates the effect of non-informative surrogates and effectively explores the PD space to capture the ICA range (Florez, et al. 2021).</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ICA.ContCont.MultS.MPC(M=1000,N,Sigma,prob = NULL,Seed=123,
+Save.Corr=F, Show.Progress=FALSE)</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>M</code></td>
+<td>
+<p>The number of multivariate ICA values (<code class="reqn">R^2_{H}</code>) that should be sampled. Default <code>M=1000</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>The sample size of the dataset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma</code></td>
+<td>
+<p>A matrix that specifies the variance-covariance matrix between <code class="reqn">T_0</code>, <code class="reqn">T_1</code>, <code class="reqn">S_{10}</code>, <code class="reqn">S_{11}</code>, <code class="reqn">S_{20}</code>, <code class="reqn">S_{21}</code>, ..., <code class="reqn">S_{k0}</code>, and <code class="reqn">S_{k1}</code> (in this order, the <code class="reqn">T_0</code> and <code class="reqn">T_1</code> data should be in <code>Sigma[c(1,2), c(1,2)]</code>, the <code class="reqn">S_{10}</code> and <code class="reqn">S_{11}</code> data should be in <code>Sigma[c(3,4), c(3,4)]</code>, and so on). The unidentifiable covariances should be defined as <code>NA</code> (see example below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prob</code></td>
+<td>
+<p>vector of probabilities to choose the number of surrogates (r) with their non-identifiable correlations equal to zero. The default (<code>prob=NULL</code>) vector of probabilities is:
+</p>
+<p style="text-align: center;"><code class="reqn">
+\pi_{r} = \frac{{p \choose r}}{\sum_{i=1}^{p}{p \choose i}}, \mbox{ for }r=0,\ldots,p.
+</code>
+</p>
+
+<p>In this way, each possible combination of $r$ surrogates has the same probability of being selected.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Save.Corr</code></td>
+<td>
+<p>If true, the lower diagonal elements of the correlation matrix (identifiable and unidientifiable elements) are stored. If false, these results are not saved.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Seed</code></td>
+<td>
+<p>The seed that is used. Default <code>Seed=123</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Show.Progress</code></td>
+<td>
+<p>Should progress of runs be graphically shown? (i.e., 1% done..., 2% done..., etc). Mainly useful when a large number of S have to be considered (to follow progress and estimate total run time).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The multivariate ICA (<code class="reqn">R^2_{H}</code>) is not identifiable because the individual causal treatment effects on <code class="reqn">T</code>, <code class="reqn">S_1</code>, ..., <code class="reqn">S_k</code> cannot be observed. A simulation-based sensitivity analysis is therefore conducted in which the multivariate ICA (<code class="reqn">R^2_{H}</code>) is estimated across a set of plausible values for the unidentifiable correlations. To this end, consider the variance covariance matrix of the potential outcomes <code class="reqn">\boldsymbol{\Sigma}</code> (0 and 1 subscripts refer to the control and experimental treatments, respectively): 
+</p>
+<p style="text-align: center;"><code class="reqn">\boldsymbol{\Sigma} = \left(\begin{array}{ccccccccc}
+                                       \sigma_{T_{0}T_{0}}\\
+                                       \sigma_{T_{0}T_{1}} &amp; \sigma_{T_{1}T_{1}}\\
+                                       \sigma_{T_{0}S1_{0}} &amp; \sigma_{T_{1}S1_{0}} &amp; \sigma_{S1_{0}S1_{0}}\\
+                                       \sigma_{T_{0}S1_{1}} &amp; \sigma_{T_{1}S1_{1}} &amp; \sigma_{S1_{0}S1_{1}} &amp; \sigma_{S1_{1}S1_{1}}\\
+                                       \sigma_{T_{0}S2_{0}} &amp; \sigma_{T_{1}S2_{0}} &amp; \sigma_{S1_{0}S2_{0}} &amp; \sigma_{S1_{1}S2_{0}} &amp; \sigma_{S2_{0}S2_{0}}\\
+                                       \sigma_{T_{0}S2_{1}} &amp; \sigma_{T_{1}S2_{1}} &amp; \sigma_{S1_{0}S2_{1}} &amp; \sigma_{S1_{1}S2_{1}} &amp; \sigma_{S2_{0}S2_{1}} &amp; \sigma_{S2_{1}S2_{1}}\\
+                                       ... &amp; ... &amp; ... &amp; ... &amp; ... &amp; ... &amp; \ddots\\
+                                       \sigma_{T_{0}Sk_{0}} &amp; \sigma_{T_{1}Sk_{0}} &amp; \sigma_{S1_{0}Sk_{0}} &amp; \sigma_{S1_{1}Sk_{0}} &amp; \sigma_{S2_{0}Sk_{0}} &amp; \sigma_{S2_{1}Sk_{0}} &amp; ... &amp; \sigma_{Sk_{0}Sk_{0}}\\
+                                       \sigma_{T_{0}Sk_{1}} &amp; \sigma_{T_{1}Sk_{1}} &amp; \sigma_{S1_{0}Sk_{1}} &amp; \sigma_{S1_{1}Sk_{1}} &amp; \sigma_{S2_{0}Sk_{1}} &amp; \sigma_{S2_{1}Sk_{1}} &amp; ... &amp; \sigma_{Sk_{0}Sk_{1}} &amp; \sigma_{Sk_{1}Sk_{1}}.
+                                       \end{array}\right)</code>
+</p>
+
+<p>The identifiable correlations are fixed at their estimated values and the unidentifiable correlations are independently and randomly sampled using a modification of an algorithm based on partial correlations (PC), called modified partial correlation (MPC) algorithm. In the function call, the unidentifiable correlations are marked by specifying <code>NA</code> in the <code>Sigma</code> matrix (see example section below). 
+</p>
+<p>The PC algorithm generate each correlation matrix progressively based on parameterization of terms of the correlations <code class="reqn">\rho_{i,i+1}</code>, for <code class="reqn">i=1,\ldots,d-1</code>, and the partial correlations <code class="reqn">\rho_{i,j|i+1,\ldots,j-1}</code>, for <code class="reqn">j-i&gt;2</code> (for details, see Joe, 2006 and Florez et al., 2018). The MPC algorithm randomly fixed some of the unidentifiable correlations to zero in order to explore the PD, which is coherent with the estimable entries of the correlation matrix, to capture the ICA range more efficiently.
+</p>
+<p>Based on the identifiable variances, these correlation matrices are converted to covariance matrices <code class="reqn">\boldsymbol{\Sigma}</code> and the multiple-surrogate ICA are estimated (for details, see Van der Elst et al., 2017).
+</p>
+<p>This approach to simulate the unidentifiable parameters of <code class="reqn">\boldsymbol{\Sigma}</code> is computationally more efficient than the one used in the function <code>ICA.ContCont.MultS</code>. 
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>ICA.ContCont.MultS.PC</code> with components,
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>R2_H</code></td>
+<td>
+<p>The multiple-surrogate individual causal association value(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Corr.R2_H</code></td>
+<td>
+<p>The corrected multiple-surrogate individual causal association value(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Lower.Dig.Corrs.All</code></td>
+<td>
+<p>A <code>data.frame</code> that contains the matrix that contains the identifiable and unidentifiable correlations (lower diagonal elements) that were used to compute (<code class="reqn">R^2_{H}</code>) in the run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>surr.eval.r</code></td>
+<td>
+<p>Matrix indicating the surrogates of which their unidentifiable correlations are fixed to zero in each simulation.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Wim Van der Elst, Ariel Alonso, Geert Molenberghs &amp; Alvaro Florez
+</p>
+
+
+<h3>References</h3>
+
+<p>Florez, A., Molenberghs, G., Van der Elst, W., Alonso, A. A. (2021). An efficient algorithm for causally assessing surrogacy in a multivariate setting.
+</p>
+<p>Florez, A., Alonso, A. A., Molenberghs, G. &amp; Van der Elst, W. (2020). Generating random correlation matrices with fixed values: An application to the evaluation of multivariate surrogate endpoints. <em>Computational Statistics &amp; Data Analysis 142</em>.
+</p>
+<p>Joe, H. (2006). Generating random correlation matrices based on partial correlations. <em>Journal of Multivariate Analysis, 97(10)</em>:2177-2189.
+</p>
+<p>Van der Elst, W., Alonso, A. A., &amp; Molenberghs, G. (2017). Univariate versus multivariate surrogate endpoints.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>MICA.ContCont</code>, <code>ICA.ContCont</code>, <code>Single.Trial.RE.AA</code>, 
+<code>plot Causal-Inference ContCont</code>, <code>ICA.ContCont.MultS</code>, <code>ICA.ContCont.MultS_alt</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run:  
+# Specify matrix Sigma (var-cavar matrix T_0, T_1, S1_0, S1_1, ...)
+# here we have 1 true endpoint and 10 surrogates (8 of these are non-informative)
+
+Sigma = ks::invvech(
+  c(25, NA, 17.8, NA, -10.6, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 
+    4, NA, -0.32, NA, -1.32, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, 16, 
+    NA, -4, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 1, NA, 0.48, NA, 
+    0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, 16, NA, 0, NA, 0, NA, 0, NA, 0, 
+    NA, 0, NA, 0, NA, 0, NA, 0, NA, 1, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, NA, 0, 
+    NA, 0, 16, NA, 8, NA, 8, NA, 8, NA, 8, NA, 8, NA, 8, NA, 8, NA, 1, NA, 0.5, NA, 0.5, 
+    NA, 0.5, NA, 0.5, NA, 0.5, NA, 0.5, NA, 0.5, 16, NA, 8, NA, 8, NA, 8, NA, 8, NA, 8, 
+    NA, 8, NA, 1, NA, 0.5, NA, 0.5, NA, 0.5, NA, 0.5, NA, 0.5, NA, 0.5, 16, NA, 8, NA, 
+    8, NA, 8, NA, 8, NA, 8, NA, 1,NA,0.5,NA,0.5,NA,0.5,NA,0.5,NA,0.5, 16, NA, 8, NA, 8, 
+    NA, 8, NA, 8, NA, 1, NA, 0.5, NA, 0.5, NA, 0.5, NA, 0.5, 16, NA, 8, NA, 8, NA, 8, NA,
+    1, NA, 0.5, NA, 0.5, NA, 0.5, 16, NA, 8, NA, 8, NA, 1, NA, 0.5, NA, 0.5, 16, NA, 8, NA,
+    1, NA, 0.5, 16, NA, 1)) 
+
+# Conduct analysis using the PC and MPC algorithm 
+## first evaluating two surrogates
+ICA.PC.2 = ICA.ContCont.MultS.PC(M = 30000, N=200, Sigma[1:6,1:6], Seed = 123) 
+ICA.MPC.2 = ICA.ContCont.MultS.MPC(M = 30000, N=200, Sigma[1:6,1:6],prob=NULL, 
+Seed = 123, Save.Corr=T, Show.Progress = TRUE) 
+
+## later evaluating two surrogates
+ICA.PC.10 = ICA.ContCont.MultS.PC(M = 150000, N=200, Sigma, Seed = 123) 
+ICA.MPC.10 = ICA.ContCont.MultS.MPC(M = 150000, N=200, Sigma,prob=NULL, 
+Seed = 123, Save.Corr=T, Show.Progress = TRUE) 
+
+# Explore results
+range(ICA.PC.2$R2_H)
+range(ICA.PC.10$R2_H)
+
+range(ICA.MPC.2$R2_H)
+range(ICA.MPC.10$R2_H)
+## as we observe, the MPC algorithm displays a wider interval of possible values for the ICA
+
+## End(Not run)
+</code></pre>
+
+
+</div>

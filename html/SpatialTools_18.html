@@ -1,0 +1,167 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spLMPredictJoint</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Returns posterior predictive sample from spLM object
+</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>spLMPredictJoint</code> collects posterior predictive samples
+for a set of new locations given a <code>spLM</code> object from the <code>spBayes</code> package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">  spLMPredictJoint(sp.obj, pred.coords, pred.covars, start = 1, 
+    end = nrow(sp.obj$p.theta.samples), thin = 1, verbose = TRUE, n.report = 100, 
+    noisy = FALSE, method = "eigen")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sp.obj</code></td>
+<td>
+<p>An <code>spLM</code> object returned by the <code>spLM</code> function in the <code>spBayes</code> package.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred.coords</code></td>
+<td>
+<p>An <code class="reqn">np \times 2</code> matrix of <code class="reqn">np</code> prediction
+location coordinates in <code class="reqn">R^2</code> (e.g., easting and northing).
+The first column is assumed to be easting coordinates and the second column
+northing coordinates.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred.covars</code></td>
+<td>
+<p>An <code class="reqn">n \times p</code> matrix of covariates matrix associated with the new locations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Specifies the first sample included in the composition sampling.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>end</code></td>
+<td>
+<p>Specifies the last sample included in the composition.
+The default is to use all posterior samples in <code>sp.obj</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thin</code></td>
+<td>
+<p>A sample thinning factor.  The default of 1 considers all
+samples between <code>start</code> and <code>end</code>.  For example, if <code>thin = 10</code> then 1 in 10 samples are considered between <code>start</code> and
+<code>end</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>If <code>TRUE</code>, model specification and progress of the
+sampler is printed to the screen. Otherwise, nothing is printed to
+the screen.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>The interval to report sampling progress. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noisy</code></td>
+<td>
+<p>If <code>TRUE</code>, then the posterior sample for the response is for the signal + error noise.  The default, <code>FALSE</code>, assumes the user wants the error-free process.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Method used to decompose covariance matrix.  Options are "chol", "eigen", and "svd" for the Cholesky, Eigen, and singular value decomposition approaches, respectively.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function samples from the joint posterior predictive distribution of a Bayesian spatial linear model. Specifically, it is intended to be similar to the <code>spPredict</code> function in the <code>spBayes</code> except that it samples from the joint distribution instead of the marginal distribution.  However, it will only work for <code>spLM</code> objects and should have the same limitations as the <code>spLM</code> and <code>spPredict</code> functions.  Note that the <code>spRecover</code> function is called internally to recover the posterior samples form the posterior distribution of the spatial model.  
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function returns a <code class="reqn">np \times B</code> matrix of posterior predictive samples, where <code>B</code> is the number of posterior samples.  The class is <code>jointPredicitveSample</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Joshua French</p>
+
+
+<h3>See Also</h3>
+
+<p>spLM, spPredict, spRecover</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Set parameters
+n &lt;- 100
+np &lt;- 12
+n.samples &lt;- 10
+burnin.start &lt;- .5 * n.samples + 1
+sigmasq &lt;- 1
+tausq &lt;- 0.0
+phi &lt;- 1
+cov.model &lt;- "exponential"
+n.report &lt;- 5
+
+# Generate coordinates
+coords &lt;- matrix(runif(2 * n), ncol = 2); 
+pcoords &lt;- as.matrix(expand.grid(seq(0, 1, len = 12), seq(0, 1, len = 12)))
+  
+# Construct design matrices
+X &lt;- as.matrix(cbind(1, coords))
+Xp &lt;- cbind(1, pcoords)
+
+# Specify priors
+starting &lt;- list("phi" = phi, "sigma.sq"= sigmasq, "tau.sq" = tausq)
+tuning &lt;- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1)
+priors.1 &lt;- list("beta.Norm"=list(c(1, 2, 1), diag(100, 3)),
+                     "phi.Unif"=c(0.00001, 10), "sigma.sq.IG"=c(1, 1))
+
+# Generate data
+B &lt;- rnorm(3, c(1, 2, 1), sd = 10)
+phi &lt;- runif(1, 0, 10)
+sigmasq &lt;- 1/rgamma(1, 1, 1)
+V &lt;- simple.cov.sp(D = dist1(coords), cov.model, c(sigmasq, 1/phi), error.var = tausq, 
+	smoothness = nu, finescale.var = 0)
+y &lt;- X %*% B + rmvnorm(1, rep(0, n), V) + rnorm(n, 0, sqrt(tausq))
+
+# Create spLM object
+library(spBayes)
+m1 &lt;- spBayes::spLM(y ~ X - 1, coords = coords, starting = starting,
+	tuning = tuning, priors = priors.1, cov.model = cov.model,
+	n.samples = n.samples, verbose = FALSE, n.report = n.report)
+
+# Sample from joint posterior predictive distribution
+y1 &lt;- spLMPredictJoint(m1, pred.coords = pcoords, pred.covars = Xp, 
+	start = burnin.start, verbose = FALSE, method = "chol")
+</code></pre>
+
+
+</div>

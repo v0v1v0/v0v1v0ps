@@ -1,0 +1,294 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Prediction from a model fit
+</h2>
+
+<h3>Description</h3>
+
+<p>The following functions can be used to compute point predictions and/or various measures of uncertainty associated to such predictions:<br><code style="white-space: pre;">⁠ * ⁠</code><code>predict</code> can be used for prediction of the response variable by its expected value obtained as (the inverse link transformation of) the linear predictor (<code class="reqn">\eta</code>) and more generally for terms of the form <b>X</b>_n<code class="reqn">\beta</code>+<b>Z</b>_n<b>L</b><b>v</b>, for new design matrices <b>X</b>_n and <b>Z</b>_n.<br><code style="white-space: pre;">⁠ * ⁠</code>Various components of prediction variances and predictions intervals can also be computed using <code>predict</code>. 
+The <code>get_</code>... functions are convenient extractors for such components;<br><code style="white-space: pre;">⁠ * ⁠</code><code>get_predCov_var_fix</code> extracts a block of a prediction covariance matrix. It was conceived for the specific purpose of computing the spatial prediction covariances between two “new” sets of geographic locations, without computing the full covariance matrix for both the new locations and the original (fitted) locations. When one of the two sets of new locations is fixed while the other varies, some expensive computations can be performed once for all sets of new locations, and be provided as the <code>fix_X_ZAC.object</code> argument. The <code>preprocess_fix_corr</code> extractor is designed to compute this argument. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'HLfit'
+predict(object, newdata = newX, newX = NULL, re.form = NULL,
+                        variances=list(), binding = FALSE, intervals = NULL,
+                        level = 0.95, blockSize = 2000L, type = "response", 
+                        verbose=c(showpbar=eval(spaMM.getOption("barstyle"))), 
+                        control=list(), na.action=na.omit, cluster_args=list(), ...)
+get_predCov_var_fix(object, newdata = NULL, fix_X_ZAC.object, fixdata, re.form = NULL,
+                    variances=list(disp=TRUE,residVar=FALSE,cov=FALSE), 
+                    control=list(),  ...)    
+preprocess_fix_corr(object, fixdata, re.form = NULL,
+                   variances=list(residVar=FALSE, cov=FALSE), control=list())
+get_fixefVar(...)
+get_predVar(..., variances=list(), which="predVar")
+get_residVar(...)
+get_respVar(...)
+get_intervals(..., intervals="predVar")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+
+<p>The return object of fitting functions <code>HLfit,corrHLfit,HLCor</code>... returning an object inheriting from <code>HLfit</code> class.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+
+<p><b>Either</b> NULL, a matrix or data frame, or a numeric vector. 
+</p>
+<p>If <code>NULL</code>, the original data are reused. Otherwise, all variables required to evaluate model formulas must be included. Which variables are required may depend on other arguments: see “prediction with given phi's” example, also illustrating the syntax when formulas include an offset.  
+</p>
+<p>If <code>newdata</code> is a numeric vector, its names (if any) are ignored. This makes it easier to use <code>predict</code> as an objective function for an 
+optimization procedure such as <code>optim</code>, which calls the objective function on unnamed vectors. However, one must make sure that the order of elements in the vector is the order of first occurrence of the variables in the model formula. This order can be checked in the error message returned when calling <code>predict</code> on a <code>newX</code> vector of clearly wrong size, e.g. <code>predict(&lt;object&gt;,newdata=numeric(0))</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newX</code></td>
+<td>
+<p>equivalent to newdata, available for back-compatibility</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>re.form</code></td>
+<td>
+
+<p>formula for random effects to include.  By default, it is NULL, in which case all random effects are included. If it is NA, no random effect is included. If it is a formula, only the random effects it contains are retained. The other variance components are removed from both point prediction and <code>variances</code> calculations. If you want to retain only the spatial effects in the point prediction, but all variances, either use re.form  and add missing variances (on linear predictor scale) manually, or ignore this argument and see Details and Examples for different ways of controlling variances.     
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variances</code></td>
+<td>
+
+<p>A list whose elements control the computation of different estimated variances. 
+<code>predict</code> can return four components of prediction variance: <code>fixefVar</code>, <code>predVar</code>, <code>residVar</code> and <code>respVar</code>, whose definitions is detailed in <code>predVar</code>. They are all returned as attributes of the point predictions. 
+</p>
+<p>In particular, <code>variances=list(predVar=TRUE)</code> is suitable for uncertainty in point prediction, distinguished from the response variance given by <code>list(respVar=TRUE)</code>. See the <code>predVar</code> help page for further explanations and other options. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intervals</code></td>
+<td>
+
+<p>NULL or character string or vector of strings. Provides prediction intervals with nominal level <code>level</code>, deduced from the given prediction variance term, e.g. <code>intervals="predVar"</code>. Currently only intervals from <code>fixefVar</code> and <code>predVar</code> (and for LMMs <code>respVar</code> including the residual variance) may have a probabilistic meaning. Intervals returned in other cases are (currently) meaningless. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+<p>any of <code>"predVar"</code>,<code>"respVar"</code>,<code>"residVar"</code>, <code>"fixefVar"</code>, <code>"intervals"</code>, or <code>"naive"</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>Coverage of the intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binding</code></td>
+<td>
+
+<p>If <code>binding</code> is a character string, the predicted values are bound with the <code>newdata</code> and the result is returned as a data frame. The predicted values column name is the given <code>binding</code>, or a name based on it if the <code>newdata</code> already include a variable with this name. 
+If <code>binding</code> is <code>FALSE</code>, The predicted values are returned as a one-column matrix and the data frame used for prediction is returned as an attribute
+(unless it was <code>NULL</code>). If <code>binding</code> is <code>NA</code>, a vector is returned, without the previous attributes.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixdata</code></td>
+<td>
+<p>A data frame describing reference data whose covariances with variable <code>newdata</code> may be requested.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_X_ZAC.object</code></td>
+<td>
+<p>The return value of calling <code>preprocess_fix_corr</code> (see trivial Example). This is a more efficient way of providing information about the <code>fixdata</code> for repeated calls to <code>get_predCov_var_fix</code> with variable <code>newdata</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blockSize</code></td>
+<td>
+  
+<p>For data with many rows, it may be more efficient to perform some operations on slices of the data, and this gives the maximum number or rows of each slice. Further, parallelisation of computations over the slices is possible, as controlled by the <code>cluster_args</code> argument. Slicing and parallelisation may operate only if covariance matrices are not requested. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>character string; The returned point predictions are on the response scale if <code>type="response"</code> (the default; for binomial response, a frequency 0&lt;.&lt;1). It is on the linear predictor scale if <code>type="link"</code>. <br>
+* The “prediction variance” (as opposed to the response variance, see <code>predVar</code>) that may be returned as a <code>"predVar"</code>  attribute of the point predictions is always on the linear predictor scale, even when <code>type="response"</code>. If you want to extract this <code>predVar</code> transformed to the response scale, use <code>predict(.,variances=list(respVar=TRUE))</code> and take the difference between the <code>respVar</code> and <code>residVar</code> attributes of the result.<br>
+* Prediction intervals (as opposed to the response intervals) will be on the linear predictor or response scale depending on <code>type</code> (new to versions more recent than 3.12.0).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+
+<p>A list; a warning will direct you to relevant usage when needed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster_args</code></td>
+<td>
+
+<p>Passed to <code>makeCluster</code>. Parallel computations are possible if the slicing mechanism (as controlled by argument <code>blockSize</code>) is effective.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+
+<p>A vector of booleans; it single currently used element is <code>"showpbar"</code>, which controls whether to show a progress bar in certain prediction variance computations.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+
+<p>One of the functions dealing with <code>NA</code>s in data frames (see <code>na.omit</code>). if this is set to <code>na.exclude</code>, <code>NA</code>s will be included in the returned point predictions, for rows of the <code>newdata</code> which do not provide information for all required predictor variables. The effect of the default <code>na.omit</code> is to not include such <code>NA</code>s (this differs from the default of, e.g., <code>predict.lm</code>). Implementation is limited; in particular, <code>na.exclude</code> currently does not have the effect of including <code>NA</code>s in the optional attributes providing (co-)variance information, except the <code>"mv"</code> attribute for predictions of multivariate-response fits.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>further arguments passed to or from other methods. For the <code>get_</code>... functions, they are passed to <code>predict</code>. 
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>See the <code>predVar</code> help page for information about the different concepts of prediction variances handled by spaMM (uncertainty of point prediction vs. of response) and about options controlling their computation.
+</p>
+<p>If  <code>newdata</code> is NULL, <code>predict</code> returns the fitted responses, including random effects, from the object. 
+Otherwise it computes new predictions including random effects as far as possible.   
+For spatial random effects it constructs a correlation matrix <b>C</b> between new locations and locations in the original fit. Then it infers the random effects in the new locations as   <b>C</b> (<b>L</b>'<code class="reqn">)^{-1}</code> <b>v</b> (see <code>spaMM</code> for notation).   For non-spatial random effects, it checks whether any group (i.e., level of a random effect) in the new data was represented in the original data, and it adds the inferred random effect for this group to the prediction for individuals in this group. 
+</p>
+<p>In the <b>point prediction</b> of the linear predictor, the unconditional expected value of <code class="reqn">u</code> is assigned to the realizations of <code class="reqn">u</code> for unobserved levels of non-spatial random effects (it is zero in GLMMs but not for non-gaussian random effects), and the inferred value of <code class="reqn">u</code> is assigned in all other cases. Corresponding values of <code class="reqn">v</code> are then deduced. This computation yields the classical “BLUP” or empirical Bayes predictor in LMMs, but otherwise it may yield less well characterized predictors, where “unconditional” <code class="reqn">v</code> may not be its expected value when the <code>rand.family</code> link is not identity. 
+</p>
+<p>There are cases where prediction without a <code>newdata</code> argument may give results of different length than prediction with <code>newdata=</code>&lt;original data&gt;, as for <code>predict</code>. Notably, for multivariate-response fits, different subsets of lines of the data may be used for each submodel depending on the availability of all variables (including the response variable) for each submodel, and the resulting fitted values from each submodel will be used from prediction; while prediction with <code>newdata</code> does not check the availability of a response variable.
+</p>
+<p><b>Intervals</b> computations use the relevant variance estimates plugged in a Gaussian approximation, except for the simple linear model where it uses Student's <em>t</em> distribution.   
+</p>
+
+
+<h3>Value</h3>
+
+<p>See Details in <code>Tpoisson</code> for questions specific to truncated distributions.
+</p>
+<p>For <code>predict</code>, a matrix or data frame (according to the <code>binding</code> argument), with optional attributes <code>frame</code>, <code>intervals</code>, <code>predVar</code>, <code>fixefVar</code>, <code>residVar</code>, and/or <code>respVar</code>, the last four holding one or more variance vector or covariance matrices. The further attribute <code>fittedName</code> contains the binding name, if any. The <code>frame</code> attribute includes information about any <code>na.action</code> effect on the new data. 
+</p>
+<p>The <code>get_</code>... extractor functions call <code>predict</code> and extract from its result the attribute implied by the name of the extractor. By default, <code>get_intervals</code> will return prediction intervals using <code>predVar</code>.
+<code>get_predVar</code> with non-default <code>which</code> argument has the same effect as the <code>get_</code>... function whose name is implied by <code>which</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>predVar</code> for information specific to prediction variances sensu lato, including the definitions of the four components of prediction variance, <code>fixefVar</code>, <code>predVar</code>, <code>residVar</code> and <code>respVar</code>, that can be requested through the <code>variances</code> argument;
+<code>get_cPredVar</code> for a bootstrap-corrected version of <code>get_predVar</code>;
+<code>residVar</code> for an alternative extractor for residual variances, more general than <code>get_residVar</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("blackcap")
+fitobject &lt;- fitme(migStatus ~ 1 + Matern(1|longitude+latitude),data=blackcap,
+                       fixed=list(nu=4,rho=0.4,phi=0.05))
+predict(fitobject)
+
+#### multiple controls of prediction variances
+## (1) fit with an additional random effect
+grouped &lt;- cbind(blackcap,grp=c(rep(1,7),rep(2,7))) 
+fitobject2 &lt;- fitme(migStatus ~ 1 +  (1|grp) +Matern(1|longitude+latitude),
+                       data=grouped,  fixed=list(nu=4,rho=0.4,phi=0.05))
+
+## (2) re.form usage to remove a random effect from point prediction and variances: 
+predict(fitobject2,re.form= ~ 1 +  Matern(1|longitude+latitude))
+
+## (3) comparison of covariance matrices for two types of new data
+moregroups &lt;- grouped[1:5,]
+rownames(moregroups) &lt;- paste0("newloc",1:5)
+moregroups$grp &lt;- rep(3,5) ## all new data belong to an unobserved third group 
+cov1 &lt;- get_predVar(fitobject2,newdata=moregroups,
+                     variances=list(linPred=TRUE,cov=TRUE))
+moregroups$grp &lt;- 3:7 ## all new data belong to distinct unobserved groups
+cov2 &lt;- get_predVar(fitobject2,newdata=moregroups,
+                     variances=list(linPred=TRUE,cov=TRUE))
+cov1-cov2 ## the expected off-diagonal covariance due to the common group in the first fit.
+
+## Not run: 
+#### Other extractors:
+#
+fix_X_ZAC.object &lt;- preprocess_fix_corr(fitobject,fixdata=blackcap)
+#
+# ... for use in multiple calls to get_predCov_var_fix():
+#
+get_predCov_var_fix(fitobject,newdata=blackcap[14,],fix_X_ZAC.object=fix_X_ZAC.object)
+
+#### Prediction with distinct given phi's in different locations, 
+#   as specified by a resid.model:
+#
+varphi &lt;- cbind(blackcap,logphi=runif(14))
+vphifit &lt;- fitme(migStatus ~ 1 + Matern(1|longitude+latitude), 
+                     resid.model = list(formula=~0+offset(logphi)),
+                     data=varphi,  fixed=list(nu=4,rho=0.4))
+#
+# For respVar computation (i.e., response variance, often called prediction variance), 
+#   one then also needs to provide the variables used in 'resid.model', here 'logphi':
+#
+get_respVar(vphifit,newdata=data.frame(latitude=1,longitude=1,logphi=1))
+#
+# For default 'predVar' computation (i.e., uncertainty in point prediction), 
+#   this is not needed:
+#
+get_predVar(vphifit,newdata=data.frame(latitude=1,longitude=1))                     
+
+#### point predictions and variances with new X and Z
+#
+if(requireNamespace("rsae", quietly = TRUE)) {
+  data("landsat", package = "rsae")
+  fitobject &lt;- fitme(HACorn ~ PixelsCorn + PixelsSoybeans + (1|CountyName),
+                     data=landsat[-33,])
+  newXandZ &lt;- unique(data.frame(PixelsCorn=landsat$MeanPixelsCorn,
+                                PixelsSoybeans=landsat$MeanPixelsSoybeans,
+                                CountyName=landsat$CountyName))
+  predict(fitobject,newdata=newXandZ,variances = list(predVar=TRUE))
+  get_predVar(fitobject,newdata=newXandZ,variances = list(predVar=TRUE))
+}
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

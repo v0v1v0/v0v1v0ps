@@ -1,0 +1,175 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>create_statement</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate a CREATE TABLE statement from a model</h2>
+
+<h3>Description</h3>
+
+<p>Generate a CREATE TABLE statement to score the passed model on a preexisting
+database table. The statement will generate predictions entirely in the
+database, with no need to fetch data into R. Models need not be GLMs, but
+their prediction steps must consist of applying a response function to
+a linear predictor.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">create_statement(mod, dest_table, src_table, dest_schema = NULL,
+  dest_catalog = NULL, src_schema = NULL, src_catalog = NULL,
+  drop = FALSE, temporary = FALSE, pk = c("id"), response = NULL,
+  con = dbplyr::simulate_dbi())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mod</code></td>
+<td>
+<p>A supported model object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dest_table</code></td>
+<td>
+<p>The unqualified DB name of the destination table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>src_table</code></td>
+<td>
+<p>The unqualified DB name of the source table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dest_schema</code></td>
+<td>
+<p>The DB schema of the destination table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dest_catalog</code></td>
+<td>
+<p>The DB catalog of the destination table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>src_schema</code></td>
+<td>
+<p>The DB schema of the source table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>src_catalog</code></td>
+<td>
+<p>The DB catalog of the source table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop</code></td>
+<td>
+<p>Whether to generate a DROP TABLE IF EXISTS before the CREATE TABLE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>temporary</code></td>
+<td>
+<p>Whether the destination table should be a temporary table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pk</code></td>
+<td>
+<p>A vector of primary key column names.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>response</code></td>
+<td>
+<p>The name of a custom response function to apply to the linear predictor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>con</code></td>
+<td>
+<p>A DBI connection to control the details of SQL generation;
+defaults to dbplyr::simulate_dbi() for the best guess at portable SQL.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>An open database connection can be passed as the 'con' argument, or the
+‘dbplyr::simulate_*' functions can be used in applications which don’t have
+a DB connection when they need to generate SQL.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A dbplyr SQL object representing the SELECT statement.
+</p>
+
+
+<h3>Supported packages</h3>
+
+<p>Specific packages and models that are known to work include: glm and lm from
+package:stats, cv.glmnet from package:glmnet, glmboost from package:mboost,
+and bayesglm from package:arm.
+</p>
+<p>Default S3 methods are for objects structured like those of class "glm", so
+models not listed here may work if they resemble those objects, but are not
+guaranteed to.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>Note that if the model object transformed its training data before fitting (e.g.,
+centering and scaling predictors), the generated SQL statement will not include
+those transformations. A future release may include that functionality, but
+centering and scaling in particular are difficult to do efficiently and portably
+in SQL.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Basic create statements
+mod &lt;- glm(Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width + Species,
+           data=datasets::iris)
+create_statement(mod, src_table="tbl_name", dest_table="target_tbl")
+create_statement(mod, src_table="tbl_name", src_schema="schema_name",
+                 src_catalog="catalog_name", dest_table="target_tbl")
+create_statement(mod, src_table="tbl_name", src_schema="schema_name",
+                 src_catalog="catalog_name", dest_table="target_tbl",
+                 dest_schema="target_schema", dest_catalog="target_catalog",
+                 pk=c("lab", "specimen_id"))
+
+#With a custom response function
+create_statement(mod, src_table="tbl_name", src_schema="schema_name",
+                 dest_table="target_tbl", response="probit")
+
+# With a model-derived non-identity response function
+mod &lt;- glm(Sepal.Length &gt; 5.0 ~ Sepal.Width + Petal.Length + Petal.Width + Species,
+           data=datasets::iris, family=binomial("logit"))
+create_statement(mod, src_table="tbl_name", dest_table="target_tbl")
+
+#With formula operators
+x &lt;- matrix(rnorm(100*20),100,20)
+colnames(x) &lt;- sapply(1:20, function(x) paste0("X", as.character(x)))
+x &lt;- as.data.frame(x)
+mod &lt;- glm(X2 ~ X3 + X5 + X15*X8, data=x)
+create_statement(mod, src_table="tbl_name", dest_table="target_tbl")
+create_statement(mod, src_table="tbl_name", dest_table="target_tbl",
+                 response="cauchit")
+
+</code></pre>
+
+
+</div>

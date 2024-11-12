@@ -1,0 +1,267 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Refit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Regression model refitting</h2>
+
+<h3>Description</h3>
+
+<p>Refits the regression model with stably selected variables as predictors
+(without penalisation). Variables in <code>xdata</code> not evaluated in the
+stability selection model will automatically be included as predictors.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Refit(
+  xdata,
+  ydata,
+  stability = NULL,
+  family = NULL,
+  implementation = NULL,
+  Lambda = NULL,
+  seed = 1,
+  verbose = TRUE,
+  ...
+)
+
+Recalibrate(
+  xdata,
+  ydata,
+  stability = NULL,
+  family = NULL,
+  implementation = NULL,
+  Lambda = NULL,
+  seed = 1,
+  verbose = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>xdata</code></td>
+<td>
+<p>matrix of predictors with observations as rows and variables as
+columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ydata</code></td>
+<td>
+<p>optional vector or matrix of outcome(s). If <code>family</code> is set
+to <code>"binomial"</code> or <code>"multinomial"</code>, <code>ydata</code> can be a vector
+with character/numeric values or a factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stability</code></td>
+<td>
+<p>output of <code>VariableSelection</code> or
+<code>BiSelection</code>. If <code>stability=NULL</code> (the default), a model
+including all variables in <code>xdata</code> as predictors is fitted. Argument
+<code>family</code> must be provided in this case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>type of regression model. Possible values include
+<code>"gaussian"</code> (linear regression), <code>"binomial"</code> (logistic
+regression), <code>"multinomial"</code> (multinomial regression), and
+<code>"cox"</code> (survival analysis). If provided, this argument must be
+consistent with input <code>stability</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>implementation</code></td>
+<td>
+<p>optional function to refit the model. If <code>stability</code> is the output of
+<code>VariableSelection</code>, a regression model is refitted.
+If <code>implementation=NULL</code> and <code>Lambda=0</code>, this is done using <code>lm</code> (for linear
+regression), <code>coxph</code> (Cox regression),
+<code>glm</code> (logistic regression), or
+<code>multinom</code> (multinomial regression).
+If <code>Lambda=NULL</code>, a Ridge regression is fitted and calibrated by cross validation using <code>cv.glmnet</code>.
+The function <code>PLS</code> is used if <code>stability</code> is the output of <code>BiSelection</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Lambda</code></td>
+<td>
+<p>optional vector of penalty parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>value of the seed to initialise the random number generator and
+ensure reproducibility of the results (see <code>set.seed</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical indicating if a loading bar and messages should be
+printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to be passed to the function provided in
+<code>implementation</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The output as obtained from: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>lm</code></td>
+<td>
+<p>for
+linear regression (<code>"gaussian"</code> family).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coxph</code></td>
+<td>
+<p>for Cox regression (<code>"cox"</code>
+family).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glm</code></td>
+<td>
+<p>for logistic regression
+(<code>"binomial"</code> family).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multinom</code></td>
+<td>
+<p>for
+multinomial regression (<code>"multinomial"</code> family).</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>VariableSelection</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Linear regression
+
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateRegression(n = 100, pk = 50, family = "gaussian")
+
+# Data split
+ids_train &lt;- Resample(
+  data = simul$ydata,
+  tau = 0.5, family = "gaussian"
+)
+xtrain &lt;- simul$xdata[ids_train, , drop = FALSE]
+ytrain &lt;- simul$ydata[ids_train, , drop = FALSE]
+xrefit &lt;- simul$xdata[-ids_train, , drop = FALSE]
+yrefit &lt;- simul$ydata[-ids_train, , drop = FALSE]
+
+# Stability selection
+stab &lt;- VariableSelection(xdata = xtrain, ydata = ytrain, family = "gaussian")
+print(SelectedVariables(stab))
+
+# Refitting the model
+refitted &lt;- Refit(
+  xdata = xrefit, ydata = yrefit,
+  stability = stab
+)
+refitted$coefficients # refitted coefficients
+head(refitted$fitted.values) # refitted predicted values
+
+# Fitting the full model (including all possible predictors)
+refitted &lt;- Refit(
+  xdata = simul$xdata, ydata = simul$ydata,
+  family = "gaussian"
+)
+refitted$coefficients # refitted coefficients
+
+
+## Logistic regression
+
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateRegression(n = 200, pk = 20, family = "binomial")
+
+# Data split
+ids_train &lt;- Resample(
+  data = simul$ydata,
+  tau = 0.5, family = "binomial"
+)
+xtrain &lt;- simul$xdata[ids_train, , drop = FALSE]
+ytrain &lt;- simul$ydata[ids_train, , drop = FALSE]
+xrefit &lt;- simul$xdata[-ids_train, , drop = FALSE]
+yrefit &lt;- simul$ydata[-ids_train, , drop = FALSE]
+
+# Stability selection
+stab &lt;- VariableSelection(xdata = xtrain, ydata = ytrain, family = "binomial")
+
+# Refitting the model
+refitted &lt;- Refit(
+  xdata = xrefit, ydata = yrefit,
+  stability = stab
+)
+refitted$coefficients # refitted coefficients
+head(refitted$fitted.values) # refitted predicted probabilities
+
+## Partial Least Squares (multiple components)
+if (requireNamespace("sgPLS", quietly = TRUE)) {
+  # Data simulation
+  set.seed(1)
+  simul &lt;- SimulateRegression(n = 500, pk = 15, q = 3, family = "gaussian")
+
+  # Data split
+  ids_train &lt;- Resample(
+    data = simul$ydata,
+    tau = 0.5, family = "gaussian"
+  )
+  xtrain &lt;- simul$xdata[ids_train, , drop = FALSE]
+  ytrain &lt;- simul$ydata[ids_train, , drop = FALSE]
+  xrefit &lt;- simul$xdata[-ids_train, , drop = FALSE]
+  yrefit &lt;- simul$ydata[-ids_train, , drop = FALSE]
+
+  # Stability selection
+  stab &lt;- BiSelection(
+    xdata = xtrain, ydata = ytrain,
+    family = "gaussian", ncomp = 3,
+    LambdaX = seq_len(ncol(xtrain) - 1),
+    LambdaY = seq_len(ncol(ytrain) - 1),
+    implementation = SparsePLS
+  )
+  plot(stab)
+
+  # Refitting the model
+  refitted &lt;- Refit(
+    xdata = xrefit, ydata = yrefit,
+    stability = stab
+  )
+  refitted$Wmat # refitted X-weights
+  refitted$Cmat # refitted Y-weights
+}
+
+
+</code></pre>
+
+
+</div>

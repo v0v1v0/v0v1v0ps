@@ -1,0 +1,338 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ipf</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Iterative Proportional Fitting</h2>
+
+<h3>Description</h3>
+
+<p>Adjust sampling weights to given totals based on household-level and/or
+individual level constraints.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ipf(
+  dat,
+  hid = NULL,
+  conP = NULL,
+  conH = NULL,
+  epsP = 1e-06,
+  epsH = 0.01,
+  verbose = FALSE,
+  w = NULL,
+  bound = 4,
+  maxIter = 200,
+  meanHH = TRUE,
+  allPthenH = TRUE,
+  returnNA = TRUE,
+  looseH = FALSE,
+  numericalWeighting = computeLinear,
+  check_hh_vars = TRUE,
+  conversion_messages = FALSE,
+  nameCalibWeight = "calibWeight",
+  minMaxTrim = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dat</code></td>
+<td>
+<p>a <code>data.table</code> containing household ids (optionally), base
+weights (optionally), household and/or personal level variables (numerical
+or categorical) that should be fitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hid</code></td>
+<td>
+<p>name of the column containing the household-ids within <code>dat</code> or
+NULL if such a variable does not exist.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conP</code></td>
+<td>
+<p>list or (partly) named list defining the constraints on person
+level.  The list elements are contingency tables in array representation
+with dimnames corresponding to the names of the relevant calibration
+variables in <code>dat</code>. If a numerical variable is to be calibrated, the
+respective list element has to be named with the name of that numerical
+variable. Otherwise the list element shoud NOT be named.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conH</code></td>
+<td>
+<p>list or (partly) named list defining the constraints on
+household level.  The list elements are contingency tables in array
+representation with dimnames corresponding to the names of the relevant
+calibration variables in <code>dat</code>. If a numerical variable is to be
+calibrated, the respective list element has to be named with the name of
+that numerical variable. Otherwise the list element shoud NOT be named.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsP</code></td>
+<td>
+<p>numeric value or list (of numeric values and/or arrays)
+specifying the convergence limit(s) for <code>conP</code>. The list can contain
+numeric values and/or arrays which must appear in the same order as the
+corresponding constraints in <code>conP</code>. Also, an array must have the same
+dimensions and dimnames as the corresponding constraint in <code>conP</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsH</code></td>
+<td>
+<p>numeric value or list (of numeric values and/or arrays)
+specifying the convergence limit(s) for <code>conH</code>. The list can contain
+numeric values and/or arrays which must appear in the same order as the
+corresponding constraints in <code>conH</code>. Also, an array must have the same
+dimensions and dimnames as the corresponding constraint in <code>conH</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if TRUE, some progress information will be printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w</code></td>
+<td>
+<p>name if the column containing the base weights within <code>dat</code> or NULL
+if such a variable does not exist. In the latter case, every observation
+in <code>dat</code> is assigned a starting weight of 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bound</code></td>
+<td>
+<p>numeric value specifying the multiplier for determining the
+weight trimming boundary if the change of the base weights should be
+restricted, i.e. if the weights should stay between 1/<code>bound</code>*<code>w</code>
+and <code>bound</code>*<code>w</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxIter</code></td>
+<td>
+<p>numeric value specifying the maximum number of iterations
+that should be performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meanHH</code></td>
+<td>
+<p>if TRUE, every person in a household is assigned the mean of
+the person weights corresponding to the household. If <code>"geometric"</code>, the
+geometric mean is used rather than the arithmetic mean.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allPthenH</code></td>
+<td>
+<p>if TRUE, all the person level calibration steps are
+performed before the houshold level calibration steps (and <code>meanHH</code>, if
+specified). If FALSE, the houshold level calibration steps (and <code>meanHH</code>,
+if specified) are performed after everey person level calibration step.
+This can lead to better convergence properties in certain cases but also
+means that the total number of calibration steps is increased.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnNA</code></td>
+<td>
+<p>if TRUE, the calibrated weight will be set to NA in case of
+no convergence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>looseH</code></td>
+<td>
+<p>if FALSE, the actual constraints <code>conH</code> are used for
+calibrating all the hh weights. If TRUE, only the weights for which the
+lower and upper thresholds defined by <code>conH</code> and <code>epsH</code> are exceeded are
+calibrated. They are however not calibrated against the actual constraints
+<code>conH</code> but against these lower and upper thresholds, i.e.
+<code>conH</code>-<code>conH</code>*<code>epsH</code> and <code>conH</code>+<code>conH</code>*<code>epsH</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numericalWeighting</code></td>
+<td>
+<p>See numericalWeighting</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_hh_vars</code></td>
+<td>
+<p>If <code>TRUE</code> check for non-unique values inside of a
+household for variables in household constraints</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conversion_messages</code></td>
+<td>
+<p>show a message, if inputs need to be reformatted.
+This can be useful for speed optimizations if ipf is called several times
+with similar inputs (for example bootstrapping)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nameCalibWeight</code></td>
+<td>
+<p>character defining the name of the variable for the
+newly generated calibrated weight.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minMaxTrim</code></td>
+<td>
+<p>numeric vector of length2, first element a minimum value
+for weights to be trimmed to, second element a maximum value for weights to
+be trimmed to.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function implements the weighting procedure described
+here: <a href="https://doi.org/10.17713/ajs.v45i3.120">doi:10.17713/ajs.v45i3.120</a>.
+Usage examples can be found in the corresponding vignette
+(<code>vignette("ipf")</code>).
+</p>
+<p><code>conP</code> and <code>conH</code> are contingency tables, which can be created with <code>xtabs</code>.
+The <code>dimnames</code> of those tables should match the names and levels of the
+corresponding columns in <code>dat</code>.
+</p>
+<p><code>maxIter</code>, <code>epsP</code> and <code>epsH</code> are the stopping criteria. <code>epsP</code> and <code>epsH</code>
+describe relative tolerances in the sense that
+</p>
+<p style="text-align: center;"><code class="reqn">1-epsP &lt; \frac{w_{i+1}}{w_i} &lt; 1+epsP</code>
+</p>
+
+<p>will be used as convergence criterium. Here i is the iteration step and wi is
+the weight of a specific person at step i.
+</p>
+<p>The algorithm
+performs best if all varables occuring in the constraints (<code>conP</code> and <code>conH</code>)
+as well as the household variable are coded as <code>factor</code>-columns in <code>dat</code>.
+Otherwise, conversions will be necessary which can be monitored with the
+<code>conversion_messages</code> argument. Setting <code>check_hh_vars</code> to <code>FALSE</code> can also
+incease the performance of the scheme.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function will return the input data <code>dat</code> with the calibrated
+weights <code>calibWeight</code> as an additional column as well as attributes. If no
+convergence has been reached in <code>maxIter</code> steps, and <code>returnNA</code> is <code>TRUE</code>
+(the default), the column <code>calibWeights</code> will only consist of <code>NA</code>s. The
+attributes of the table are attributes derived from the <code>data.table</code> class
+as well as the following.
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>converged</code> </td>
+<td style="text-align: left;"> Did the algorithm converge in <code>maxIter</code> steps? </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>iterations</code> </td>
+<td style="text-align: left;"> The number of iterations performed. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>conP</code>, <code>conH</code>, <code>epsP</code>, <code>epsH</code> </td>
+<td style="text-align: left;"> See Arguments. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>conP_adj</code>, <code>conH_adj</code> </td>
+<td style="text-align: left;"> Adjusted versions of <code>conP</code> and <code>conH</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>formP</code>, <code>formH</code> </td>
+<td style="text-align: left;"> Formulas that were used to calculate <code>conP_adj</code> and
+<code>conH_adj</code> based on the output table.
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Alexander Kowarik, Gregor de Cillia
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+
+# load data
+eusilc &lt;- demo.eusilc(n = 1, prettyNames = TRUE)
+
+# personal constraints
+conP1 &lt;- xtabs(pWeight ~ age, data = eusilc)
+conP2 &lt;- xtabs(pWeight ~ gender + region, data = eusilc)
+conP3 &lt;- xtabs(pWeight*eqIncome ~ gender, data = eusilc)
+
+# household constraints
+conH1 &lt;- xtabs(pWeight ~ hsize + region, data = eusilc)
+
+# simple usage ------------------------------------------
+
+calibweights1 &lt;- ipf(
+  eusilc,
+  conP = list(conP1, conP2, eqIncome = conP3),
+  bound = NULL,
+  verbose = TRUE
+)
+
+# compare personal weight with the calibweigth
+calibweights1[, .(hid, pWeight, calibWeight)]
+
+# advanced usage ----------------------------------------
+
+# use an array of tolerances
+epsH1 &lt;- conH1
+epsH1[1:4, ] &lt;- 0.005
+epsH1[5, ] &lt;- 0.2
+
+# create an initial weight for the calibration
+eusilc[, regSamp := .N, by = region]
+eusilc[, regPop := sum(pWeight), by = region]
+eusilc[, baseWeight := regPop/regSamp]
+
+calibweights2 &lt;- ipf(
+  eusilc,
+  conP = list(conP1, conP2),
+  conH = list(conH1),
+  epsP = 1e-6,
+  epsH = list(epsH1),
+  bound = 4,
+  w = "baseWeight",
+  verbose = TRUE
+)
+
+# show an adjusted version of conP and the original
+attr(calibweights2, "conP_adj")
+attr(calibweights2, "conP")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

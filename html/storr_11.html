@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>storr_dbi</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>DBI storr driver</h2>
+
+<h3>Description</h3>
+
+<p>Object cache driver using the "DBI" package interface for storage.
+This means that storr can work for any supported "DBI" driver
+(though practically this works only for SQLite and Postgres until
+some MySQL dialect translation is done).  To connect, you must
+provide the <em>driver</em> object (e.g., <code>RSQLite::SQLite()</code>,
+or <code>RPostgres::Postgres()</code> as the first argument.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">storr_dbi(tbl_data, tbl_keys, con, args = NULL, binary = NULL,
+  hash_algorithm = NULL, default_namespace = "objects")
+
+driver_dbi(tbl_data, tbl_keys, con, args = NULL, binary = NULL,
+  hash_algorithm = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>tbl_data</code></td>
+<td>
+<p>Name for the table that maps hashes to values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tbl_keys</code></td>
+<td>
+<p>Name for the table that maps keys to hashes</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>con</code></td>
+<td>
+<p>Either A DBI connection or a DBI driver (see example)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args</code></td>
+<td>
+<p>Arguments to pass, along with the driver, to
+<code>DBI::dbConnect</code> if <code>con</code> is a driver.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binary</code></td>
+<td>
+<p>Optional logical indicating if the values should be
+stored in binary.  If possible, this is both (potentially
+faster) and more accurate.  However, at present it is supported
+only under very recent DBI and RSQLite packages, and for no
+other DBI drivers, and is not actually any faster.  If not given
+(i.e., <code>NULL</code>), then binary storage will be used where
+possible when creating new tables, and where tables exist, we
+use whatever was used in the existing tables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hash_algorithm</code></td>
+<td>
+<p>Name of the hash algorithm to use.  Possible
+values are "md5", "sha1", and others supported by
+<code>digest</code>.  If not given, then we will default to
+"md5".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>default_namespace</code></td>
+<td>
+<p>Default namespace (see
+<code>storr</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Because the DBI package specifies a uniform interface for the
+using DBI compliant databases, you need only to provide a
+connection object.  storr does not do anything to help create the
+connection object itself.
+</p>
+<p>The DBI storr driver works by using two tables; one mapping keys
+to hashes, and one mapping hashes to values.  Two table names need
+to be provided here; they must be different and they should be
+treated as opaque (don't use them for anything else - reading or
+writing).  Apart from that the names do not matter.
+</p>
+<p>Because of treatment of binary data by the underlying DBI drivers,
+binary serialistion is not any faster (and might be slightly
+slower than) string serialisation, in contrast with my experience
+with other backends.
+</p>
+<p>storr uses DBI's "prepared query" approach to safely interpolate
+keys, namespaces and values into the database - this should allow
+odd characters without throwing SQL syntax errors.  Table names
+can't be interpolated in the same way - these storr simply quotes,
+but validates beforehand to ensure that <code>tbl_data</code> and
+<code>tbl_keys</code> do not contain quotes.
+</p>
+<p>Be aware that <code>$destroy()</code> will close the connection to the
+database.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (requireNamespace("RSQLite", quietly = TRUE)) {
+  st &lt;- storr::storr_dbi("tblData", "tblKeys", RSQLite::SQLite(),
+                         ":memory:")
+
+  # Set some data:
+  st$set("foo", runif(10))
+  st$list()
+
+  # And retrieve the data:
+  st$get("foo")
+
+  # These are the data tables; treat these as read only
+  DBI::dbListTables(st$driver$con)
+
+  # With recent RSQLite you'll get binary storage here:
+  st$driver$binary
+
+  # The entire storr part of the database can be removed using
+  # "destroy"; this will also close the connection to the database
+  st$destroy()
+
+  # If you have a connection you want to reuse (which will the the
+  # case if you are using an in-memory SQLite database for
+  # multiple things within an application) it may be useful to
+  # pass the connection object instead of the driver:
+  con &lt;- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  st &lt;- storr::storr_dbi("tblData", "tblKeys", con)
+  st$set("foo", runif(10))
+
+  # You can then connect a different storr to the same underlying
+  # storage
+  st2 &lt;- storr::storr_dbi("tblData", "tblKeys", con)
+  st2$get("foo")
+}
+</code></pre>
+
+
+</div>

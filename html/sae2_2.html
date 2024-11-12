@@ -1,0 +1,554 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dynRYfit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Internal fitting function for Dynamic and Rao-Yu models</h2>
+
+<h3>Description</h3>
+
+<p>Function designed to be called by either <code>eblupDyn</code> or <code>eblupRY</code>
+to produce EBLUP small area estimates of the dynamic or Rao-Yu time 
+series models through either ML or REML estimation of the variance 
+components. For completeness, the function is documented here, but
+users are encouraged to base applications on calls to the more
+convenient <code>eblupDyn</code> or <code>eblupRY</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dynRYfit(y,  X,  M,  TI,  NV=1,  vcov_e,  maxiter=100, 
+         iter.tol=.1e-5,  ncolx=NULL,  sig2_u=1,  sig2_v=1, 
+         rho=.8,  rho_u =.4,  delta=NULL,  rho.fixed=NULL, 
+         y.include=NULL, ids=NULL,  contrast.matrix=NULL,  
+         baby.steps=TRUE,  dampening=NULL,  iter.history=NULL,  
+         sig2.min.factor=.0001,  max.rho_u=.98,  max.rho=NULL, 
+         tol=.Machine$double.eps, y.rescale=NULL, 
+         llike.only=FALSE,  method=c("REML", "ML"), 
+         model=c("dyn", "RY"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>For a univariate model, the dependent variable sorted in
+ascending order by time within domain. For a multivariate model, the 
+dependent variables sorted in ascending order by time within variable
+within domain.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>A matrix of independent variables with the same number of 
+rows as the length of <code>y</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M</code></td>
+<td>
+<p>The total number of domains, equivalent to <code>D</code> in 
+<code>eblupDyn</code> and <code>eblupRY</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>TI</code></td>
+<td>
+<p>The number of time instances (constant for all domains).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>NV</code></td>
+<td>
+<p>The number of dependent variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vcov_e</code></td>
+<td>
+<p>For the univariate model, the sampling covariance matrix 
+for the direct estimates of the <code>M*TI</code> elements of the dependent 
+variable. The covariance matrix should be in the form of a square
+matrix with <code>M*TI</code> rows and columns. Non-zero covariances between 
+domains are not allowed, so the matrix must have block
+diagonal form with <code>M</code> blocks, each of which is a square matrix
+with <code>TI</code> rows and columns. Note that within domain, non-zero 
+covariances are allowed over time.
+</p>
+<p>For the multivariate model, the square covariance matrix for the 
+<code>M*NV*TI</code> elements of the dependent variables. The matrix should be 
+in the form of a square matrix with <code>M*NV*TI</code> rows and columns. Time 
+should vary within variable, which should vary within domain.
+Non-zero covariances between domains are not allowed, but non-zero 
+covariances may be present across time and between variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+<p>The maximum number of iterations allowed for the 
+Fisher-scoring algorithm, with a default value of 100.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter.tol</code></td>
+<td>
+<p>The convergence tolerance limit for the 
+Fisher-scoring algorithm, with a default value of .000001.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncolx</code></td>
+<td>
+<p>For a univariate model, the number of columns of X. For a 
+multivariate model, a vector of length NV must be specified giving the
+number of columns of X used for each dependent variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig2_u</code></td>
+<td>
+<p>An initial starting value or values for the variance of the
+random increments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig2_v</code></td>
+<td>
+<p>An initial starting value or values for a domain level
+random effect. In the Rao-Yu model, the random effect is constant over
+time, whereas in the dynamic model it is an initial effect subject to 
+dampening over time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>The correlation across time. This correlation is assumed to
+be the same for the dependent variables in the multivariate model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho_u</code></td>
+<td>
+<p>For <code>NV &gt; 1</code> only, the (NV*(NV-1))/2 starting values for
+the correlations between the random effects of the different dependent
+variables. If a single value is given, it will be used for the 
+(NV*(NV-1))/2 components. The sort order corresponds to a lower triangle
+of the covariance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>The random effect components in the preferred internal order.
+Specification of <code>delta</code> will override any specification of 
+<code>sig2_u</code>, <code>sig2_v</code>, <code>rho</code>, or <code>rho_u</code>. In the 
+univariate case, delta should contain <code>sig2_u</code>, <code>sig2_v</code>, and 
+<code>rho</code>. In the bivariate case, <code>delta</code> should be of length 6 with
+<code>sig2_u</code> and <code>sig2_v</code>, each of length 2, <code>rho</code>, and 
+<code>rho_u</code>. Similarly, for 3 dependent variables, the length of 
+<code>delta</code> is 10, with the last 3 elements <code>rho_u</code> in lower
+triangular form.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.fixed</code></td>
+<td>
+<p>If TRUE, the value of <code>rho</code> imbedded in <code>delta</code>,
+if specified, or else given by <code>rho</code> will remain fixed during the
+iterations. Among other features, this allows the likelihood function
+for trial values of <code>rho</code> to be computed at the maximum over the
+other random effect parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.include</code></td>
+<td>
+<p>If specified, vector of length <code>M</code> to indicate 
+which domains to include in the estimation, with 1 signalling inclusion
+and 0 exclusion. Estimates for the excluded domains will be based on
+the fixed effects model only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>A data frame with <code>M</code> rows giving ids for each of the
+domains. The data frame is copied into the returned object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.matrix</code></td>
+<td>
+<p>A matrix of coefficients of contrasts. The matrix
+must have <code>TI*NV</code> rows, but it can contain an arbitrary number
+of columns. Within each domain, the coefficients are applied
+to the <code>TI*NV</code> EBLUP estimates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baby.steps</code></td>
+<td>
+<p>Unless specified as FALSE, the first five iterations of the
+Fisher scoring algorithm are dampened by factors of 
+<code>c(.0625, .125, .25, .5, .75)</code>. These heuristically derived 
+factors appear to lessen drastic overshooting of the true maximum
+in the initial iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dampening</code></td>
+<td>
+<p>A factor used to dampen the changes in the random
+effect parameters. Unlike <code>baby.steps</code>, its effect persists
+during all of the iterations until convergence. Note that the 
+"factory setting" of this parameter is 1 for the dynamic model but
+.9 for the Rao-Yu model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter.history</code></td>
+<td>
+<p>If TRUE, key values are saved during each  
+iteration and included as additional items, described below,
+in the returned list: <code>delta.hist</code>, <code>llikelihood.hist</code>,
+<code>adj.hist</code>, <code>s.hist</code>, <code>ix.hist</code>, 
+<code>adj.factor.hist</code>, and <code>warning.hist</code>.
+</p>
+<p>If <code>iter.history</code> is not specified, these items will be 
+returned only if the calculations are begun but not successfully 
+completed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig2.min.factor</code></td>
+<td>
+<p>A factor to multiply the minimum direct variance to
+use as a minimum value for any of the variance components. The 
+iterations will be constrained not to go below the resulting bounds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.rho_u</code></td>
+<td>
+<p>A maximum allowed value for the estimated <code>rho_u</code>. The
+default value is .98.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.rho</code></td>
+<td>
+<p>A maximum allowed value for <code>rho</code>. By default, 
+<code>eblupRY</code> sets this value to .98.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>A tolerance value used by matrix routines to prevent numerical
+instability. The value may be set to a lower value to encourage
+covergence, but appropriate caution should be applied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rescale</code></td>
+<td>
+<p>In the univariate case, a scaler multiplier for all of
+the <code>y</code> values. If the <code>y</code> values are either too small or 
+too large, the information matrix may become unstable. Setting this
+value to 1 has no effect; setting it to 10 or 100 rescales very 
+small <code>y</code> values to a more appropriate range. Similarly, 
+positive values less than 1 may be used to rescale large <code>y</code> 
+values. The effect of rescaling is removed before normal return 
+from the function, within the limits of normal precision.
+</p>
+<p>In the multivariate case, <code>y.rescale</code> may be a vector of 
+length <code>NV</code> to rescale each component separately.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>llike.only</code></td>
+<td>
+<p>Compute the log-likelihood (ML) or restricted 
+log-likelihood (REML) without further iteration, typically from
+values specified by <code>delta</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Use restricted maximum likelihood (<code>"REML"</code>) or 
+maximum likelihood (<code>"ML"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Dynamic (<code>"dyn"</code>) or Rao-Yu (<code>"RY"</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Many of arguments can be used to control the iterations if the 
+defaults lead to convergence difficulties. 
+</p>
+<p><code>llike.only</code> in combination with <code>delta</code> permits a 
+point-by-point investigation of the likelihood surface. 
+</p>
+<p>The primary functions <code>eblupDyn</code> and <code>eblupRY</code> determine <code>X</code>, 
+<code>NV</code>, <code>colx</code>, and <code>model</code>, but the remaining parameters can 
+be passed to <code>dynRYfit</code> through <code>eblupDyn</code> or <code>eblupRY</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>eblup</code></td>
+<td>
+<p>In the univariate case, a vector of length <code>M*TI</code> with 
+the eblup estimates in the same sort order as <code>y</code>. In the multivariate
+case, a matrix of M*TI rows and NV columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>A list summarizing the fit of the model with the following:
+</p>
+ 
+<ul>
+<li> <p><code>model:</code> form of the model: TI - Dynamic or RaoYu; REML
+or ML.
+</p>
+</li>
+<li> <p><code>covergence:</code> a logical value indicating whether the 
+convergence criterion was met.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parm</code></td>
+<td>
+<p>A labelled vector with the estimated variance components, 
+correlations, and number of iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef</code></td>
+<td>
+<p>A labelled vector of coefficients for the fixed effects of 
+the model or models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>A data frame with <code>D</code> rows and one or more columns of 
+numeric or character domain identifiers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>An ordered vector of the variance components (see above). 
+It may be used as starting values for additional iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.mse</code></td>
+<td>
+<p>MSE estimates for eblup.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.g1</code></td>
+<td>
+<p>The g1 term of the MSE estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.g2</code></td>
+<td>
+<p>The g2 term of the MSE estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.g3</code></td>
+<td>
+<p>The g3 term of the MSE estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est.fixed</code></td>
+<td>
+<p>Estimates based on fixed effects only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est.fixed.var</code></td>
+<td>
+<p>The variance-covariance matrix for the estimates in 
+<code>coef</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.wt1</code></td>
+<td>
+<p>Weights given to the direct estimate in forming <code>eblup</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.wt2</code></td>
+<td>
+<p>Weights given to the direct estimate, including
+effects through estimating the fixed effect coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.est</code></td>
+<td>
+<p>Estimates requested by the specified contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.mse</code></td>
+<td>
+<p>MSE estimates for <code>contrast.est</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.g1</code></td>
+<td>
+<p>The g1 term in the estimation of <code>contrast.mse</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.g2</code></td>
+<td>
+<p>The g2 term in the estimation of <code>contrast.mse</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.g3</code></td>
+<td>
+<p>The g3 term in the estimation of <code>contrast.mse</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.fixed.est</code></td>
+<td>
+<p>Contrast estimates based on the fixed effect 
+model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.fixed.var</code></td>
+<td>
+<p>Variance estimates for the fixed effect model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.wt1</code></td>
+<td>
+<p>Weight wt1 given to the direct estimate in estimating 
+the contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.wt2</code></td>
+<td>
+<p>Weight wt2 in estimating the contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inf.mat</code></td>
+<td>
+<p>Information matrix for the components of <code>delta</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var.coef</code></td>
+<td>
+<p>Variance covariance matrix for <code>coef</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta.hist</code></td>
+<td>
+<p>Values of <code>delta</code> at each iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>llikelihood.hist</code></td>
+<td>
+<p>Values of the log-likelihood (ML) or
+restricted log-likelihood (REML) at each iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adj.hist</code></td>
+<td>
+<p>Number of cycles in the internal loop to determine 
+<code>adj.factor</code> within each iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inf.mat.hist</code></td>
+<td>
+<p>Values of <code>inf.mat</code> at each iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s.hist</code></td>
+<td>
+<p>Vector to be multiplied by the inverse information matrix
+to determine the change in the parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ix.hist</code></td>
+<td>
+<p>List of parameters eligible for change at each iteration.
+Parameters with estimated changes out of bounds will not be 
+eligible.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adj.factor.hist</code></td>
+<td>
+<p>Adjustment to the vector change in the parameters 
+at each iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>warning.hist</code></td>
+<td>
+<p>A 4-row matrix of warnings at each iteration, where
+warning 1 is set to 1 for the iteration if the algorithm has not found 
+an increase in the restricted log likelihood or log likelihood, 
+warning 2 is set to 1 if the maximum number of iterations is reached, 
+warning 3 is set to 1 if the estimated variance-covariance matrix 
+becomes singular, and warning 4 is set to 1 if the coefficients of the
+fixed effects cannot be estimated.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Robert E. Fay, Mamadou Diallo
+</p>
+
+
+</div>

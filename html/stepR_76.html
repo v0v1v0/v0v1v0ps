@@ -1,0 +1,162 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>transit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>TRANSIT algorithm for detecting jumps</h2>
+
+<h3>Description</h3>
+
+<p>Reimplementation of VanDongen's algorithm for detecting jumps in ion channel recordings.
+</p>
+<p><b>Deprecation warning:</b> This function is mainly used for patchlamp recordings and may be transferred to a specialised package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">transit(y, x = 1:length(y), x0 = 2 * x[1] - x[2], sigma.amp = NA, sigma.slope = NA,
+  amp.thresh = 3, slope.thresh = 2, rel.amp.n = 3, rel.amp.thresh = 4,
+  family = c("gauss", "gaussKern"), param = NULL, refit = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>a numeric vector containing the serial data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.amp</code></td>
+<td>
+<p>amplitude (i.e. raw data within block) standard deviation; estimated using <code>sdrobnorm</code> if omitted</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.slope</code></td>
+<td>
+<p>slope (i.e. central difference within block) standard deviation; estimated using <code>sdrobnorm</code> if omitted</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amp.thresh</code></td>
+<td>
+<p>amplitude threshold</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slope.thresh</code></td>
+<td>
+<p>slope threshold</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rel.amp.n</code></td>
+<td>
+<p>relative amplitude threshold will be used for blocks with no more datapoints than this</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rel.amp.thresh</code></td>
+<td>
+<p>relative amplitude threshold</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a numeric vector of the same length as <code>y</code> containing the corresponding sample points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x0</code></td>
+<td>
+<p>a single numeric giving the last unobserved sample point directly before sampling started</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family, param</code></td>
+<td>
+<p>specifies distribution of data, see family</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>refit</code></td>
+<td>
+<p>should the <code>value</code>s for <code>family = "gaussKern"</code> be obtained by fitting in the end (otherwise they are meaningless)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns an object of class <code>stepfit</code> which encodes the jumps and corresponding mean values.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Only central, no forward differences have been used in this implementation. Moreover, the standard deviations will be estimated by <code>sdrobnorm</code> if omitted (respecting the filter's effect if applicable).
+</p>
+
+
+<h3>References</h3>
+
+<p>VanDongen, A. M. J. (1996) A new algorithm for idealizing single ion channel data containing multiple unknown conductance levels. <em>Biophysical Journal</em> <b>70</b>(3), 1303–1315.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>stepfit</code>, <code>sdrobnorm</code>, <code>jsmurf</code>, <code>stepbound</code>, <code>steppath</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># estimating step-functions with Gaussian white noise added
+# simulate a Gaussian hidden Markov model of length 1000 with 2 states
+# with identical transition rates 0.01, and signal-to-noise ratio 2
+sim &lt;- contMC(1e3, 0:1, matrix(c(0, 0.01, 0.01, 0), 2), param=1/2)
+plot(sim$data, cex = 0.1)
+lines(sim$cont, col="red")
+# maximum-likelihood estimation under multiresolution constraints
+fit.MRC &lt;- smuceR(sim$data$y, sim$data$x)
+lines(fit.MRC, col="blue")
+# choose number of jumps using BIC
+path &lt;- steppath(sim$data$y, sim$data$x, max.blocks=1e2)
+fit.BIC &lt;- path[[stepsel.BIC(path)]]
+lines(fit.BIC, col="green3", lty = 2)
+
+# estimate after filtering
+# simulate filtered ion channel recording with two states
+set.seed(9)
+# sampling rate 10 kHz
+sampling &lt;- 1e4
+# tenfold oversampling
+over &lt;- 10
+# 1 kHz 4-pole Bessel-filter, adjusted for oversampling
+cutoff &lt;- 1e3
+df.over &lt;- dfilter("bessel", list(pole=4, cutoff=cutoff / sampling / over))
+# two states, leaving state 1 at 10 Hz, state 2 at 20 Hz
+rates &lt;- rbind(c(0, 10), c(20, 0))
+# simulate 0.5 s, level 0 corresponds to state 1, level 1 to state 2
+# noise level is 0.3 after filtering
+Sim &lt;- contMC(0.5 * sampling, 0:1, rates, sampling=sampling, family="gaussKern",
+  param = list(df=df.over, over=over, sd=0.3))
+plot(Sim$data, pch = ".")
+lines(Sim$discr, col = "red")
+# fit under multiresolution constraints using filter corresponding to sample rate
+df &lt;- dfilter("bessel", list(pole=4, cutoff=cutoff / sampling))
+Fit.MRC &lt;- jsmurf(Sim$data$y, Sim$data$x, param=df, r=1e2)
+lines(Fit.MRC, col = "blue")
+# fit using TRANSIT
+Fit.trans &lt;- transit(Sim$data$y, Sim$data$x)
+lines(Fit.trans, col = "green3", lty=2)
+</code></pre>
+
+
+</div>

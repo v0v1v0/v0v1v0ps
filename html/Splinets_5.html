@@ -1,0 +1,155 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>exsupp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Correcting support sets and reshaping the matrix of derivatives at the knots.</h2>
+
+<h3>Description</h3>
+
+<p>The function is adjusting for a potential reduction in the support sets due to negligibly small values of rows
+in the derivative matrix. If the derivative matrix has a row equal to zero (or smaller than a neglible positive value) in the one-sided representation
+of it (see the references and <code>sym2one</code>), then the corresponding knot should be removed
+from the support set. The function can be used to eliminate the neglible support components from a <code>Splinets</code>-object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">exsupp(S, supp = NULL, epsilon = 1e-07)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>S</code></td>
+<td>
+<p><code>(m+2)x(k+1)</code> matrix, the values of the derivatives at the knots over some input support set 
+which has the cardinality <code>m+2</code>; The matrix is assumed to be in the symmetric around center form for each component of the support.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>supp</code></td>
+<td>
+<p><code>NULL</code> or <code>Nsupp x2</code> matrix of integers,  the endpoints indices for 
+the input support intervals, where <code>Nsupp</code> is the number of the components in the support set; If the parameter is <code>NULL</code>,
+than the full support is assumed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsilon</code></td>
+<td>
+<p>small positive number, threshold value of the norm of rows of <code>S</code>; If the norm
+of a row of <code>S</code> is less than <code>epsilon</code>, then it will be viewed as a neglible and the knot is excluded from 
+the inside of the support set.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function typically would be applied to an element in the list given by SLOT 
+<code>der</code> of a <code>Splinets</code>-object. It eliminates from the support sets regions of negligible values
+of a corresponding spline and its derivatives.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The list of two elements: <code>exsupp$rS</code> is the reduced derivative matrix from which the neglible rows, if any, have been removed
+and <code>exsupp$rsupp</code> is the corresponding reduced support.
+The output matrix has all the support components in the symmetric around the center form, which is how the derivatives are kept in the <code>Splinets</code>-objects.
+</p>
+
+
+<h3>References</h3>
+
+<p>Liu, X., Nassar, H., Podg<code class="reqn">\mbox{\'o}</code>rski, K. "Dyadic diagonalization of positive definite band matrices and efficient B-spline orthogonalization." Journal of Computational and Applied Mathematics (2022) &lt;https://doi.org/10.1016/j.cam.2022.114444&gt;.
+</p>
+<p>Podg<code class="reqn">\mbox{\'o}</code>rski, K. (2021) 
+"<code>Splinets</code> – splines through the Taylor expansion, their support sets and orthogonal bases." &lt;arXiv:2102.00733&gt;.
+</p>
+<p>Nassar, H., Podg<code class="reqn">\mbox{\'o}</code>rski, K. (2023) "Splinets 1.5.0 – Periodic Splinets." &lt;arXiv:2302.07552&gt;
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>Splinets-class</code> for the description of the <code>Splinets</code>-class;
+<code>sym2one</code> for
+switching between the representations of a derivative matrix over a general support set;
+<code>lincomb</code> for evaluating a linear transformation of splines in a <code>Splinets</code>-object; 
+<code>is.splinets</code> for a diagnostic tool of the <code>Splinets</code>-objects;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#----------------------------------------------------#
+#---Correcting support sets in a derivative matrix---#
+#----------------------------------------------------#
+n=20; k=3; xi=seq(0,1,by=1/(n+1)) #an even number of equally spaced knots 
+set.seed(5)
+S=matrix(rnorm((n+2)*(k+1)),ncol=(k+1))
+spl=construct(xi,k,S) #this spline will be used below to construct a 'sparse' spline
+is.splinets(spl) #verification
+plot(spl)
+
+
+xxi=seq(0,20,by=1/(n+1)) #large set of knots for construction of a sparse spline 
+nn=length(xxi)-2
+spspl=new('Splinets',knots=xxi,smorder=k) #generic object from the 'Splinets'-class
+spspl@der[[1]]=matrix(0,ncol=(k+1),nrow=(nn+2)) #starting with zeros everywhere
+
+spspl@der[[1]][1:(n+2),]=sym2one(spl@der[[1]]) #assigning local spline to a sparse spline at 
+spspl@der[[1]][nn+3-(1:(n+2)),]=spspl@der[[1]][(n+2):1,] #the beginning and the same at the end
+spspl@der[[1]]=sym2one(spspl@der[[1]],inv=TRUE) 
+                                #at this point the object does not account for the sparsity
+
+is.splinets(spspl) #a sparse spline on 421 knots with a non-zero terms at the first 22 
+                   #and at the last 22 knots, the actual support set is not yet reported
+plot(spspl)
+plot(spspl,xlim=c(0,1)) #the local part of the sparse spline
+
+exsupp(spspl@der[[1]]) #the actual support of the spline given the sparse derivative matrix
+
+#Expanding the previous spline by building a slightly more complex support set
+spspl@der[[1]][(n+1)+(1:(n+2)),]=sym2one(spl@der[[1]]) #double the first component of the
+                                              #support because these are tangent supports 
+spspl@der[[1]][(2*n+3)+(1:(n+2)),]=sym2one(spl@der[[1]]) #tdetect a single component of
+                                                #the support with no internal knots removed
+is.splinets(spspl)
+plot(spspl)
+
+
+es=exsupp(spspl@der[[1]])
+es[[2]]   #the new support made of three components with the two first ones
+          #separated by an interval with no knots in it 
+          
+
+spspl@der[[1]]=es[[1]]         #defining the spline on the evaluated actual support
+spspl@supp[[1]]=es[[2]]
+#Example with reduction of not a full support. 
+
+xi1=seq(0,14/(n+1),by=1/(n+1)); n1=13; #the odd number of equally spaced knots 
+S1=matrix(rnorm((n1+2)*(k+1)),ncol=(k+1))
+spl1=construct(xi1,k,S1) #construction of a local spline
+xi2=seq(16/(n+1),42/(n+1),by=1/(n+1)); n2=25; #the odd number of equally spaced knots 
+
+S2=matrix(rnorm((n2+2)*(k+1)),ncol=(k+1))
+spl2=construct(xi2,k,S2) #construction of a local spline
+
+spspl@der[[1]][1:15,]=sym2one(spl1@der[[1]])
+spspl@der[[1]][16,]=rep(0,k+1)
+spspl@der[[1]][17:43,]=sym2one(spl2@der[[1]])
+spspl@der[[1]][1:43,]=sym2one(spspl@der[[1]][1:43,],inv=TRUE)
+
+is.splinets(spspl) #three intervals in the support are repported 
+
+exsupp(spspl@der[[1]],spspl@supp[[1]])
+</code></pre>
+
+
+</div>

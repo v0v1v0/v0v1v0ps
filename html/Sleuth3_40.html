@@ -1,0 +1,130 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>case1902</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Death Penalty and Race</h2>
+
+<h3>Description</h3>
+
+<p>Lawyers collected data on convicted black murderers in the state of Georgia
+to see whether convicted black murderers whose victim was white were
+more likely to 
+receive the death penalty than those whose victim was black,
+after accounting for aggravation level of the murder. They categorized
+murders into 6 progressively more serious types. Category 1 comprises
+barroom brawls, liquor-induced arguments lovers' quarrels, and
+similar crimes. Category 6 includes the most vicious, cruel,
+cold=blooded, unprovoked crimes. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">case1902</code></pre>
+
+
+<h3>Format</h3>
+
+<p>A data frame with 12 observations on the following 4 variables.
+</p>
+
+<dl>
+<dt>Aggravation</dt>
+<dd>
+<p>the aggravation level of the crime, a
+numerical variable ranging from 1 to 6</p>
+</dd> 
+<dt>Victim</dt>
+<dd>
+<p>a factor indicating race of murder victim, with
+levels <code>"White"</code> and <code>"Black"</code></p>
+</dd>
+<dt>Death</dt>
+<dd>
+<p>number in the aggravation and victim category
+who received the death penalty</p>
+</dd> 
+<dt>NoDeath</dt>
+<dd>
+<p>number in the aggravation and victim category
+who did not receive the death penalty</p>
+</dd> 
+</dl>
+<h3>Source</h3>
+
+<p>Ramsey, F.L. and Schafer, D.W. (2013). <em>The Statistical Sleuth: A
+Course in Methods of Data Analysis (3rd ed)</em>, Cengage Learning.
+</p>
+
+
+<h3>References</h3>
+
+<p>Woodworth, G.C. (1989). Statistics and the Death Penalty, <em>Stats</em>
+<b>2</b>: 9–12. 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">str(case1902)
+attach(case1902)
+        
+## EXPLORATION
+proportionDeath  &lt;- Death/(Death + NoDeath)
+myPointCode &lt;- ifelse(Victim=="White",22,24)
+myPointColor &lt;- ifelse(Victim=="White","white","black")
+plot(proportionDeath ~ Aggravation, pch=myPointCode, bg=myPointColor)
+oddsOfDeath &lt;- Death/(NoDeath + .5)  # Add .5 to the demoninator to avoid 0's 
+plot(oddsOfDeath ~ Aggravation, pch=myPointCode, bg=myPointColor)
+plot(oddsOfDeath ~ Aggravation, log="y", pch=myPointCode, bg=myPointColor)
+# Use logistic regression (Ch 21) to see if the 6 odds ratios are constant
+myGlm1 &lt;- glm(cbind(Death,NoDeath) ~ Aggravation + Victim + 
+  Aggravation:Victim, family=binomial) # Logistic reg with interaction
+myGlm2  &lt;- update(myGlm1, ~ . - Aggravation:Victim) # without interaction
+anova(myGlm2, myGlm1) # no evidence of interaction.
+                                              
+
+## INFERENCE
+# Mantel Haenszel
+myTable &lt;- array(rbind(Death, NoDeath), dim=c(2,2,6),
+  dimnames=list(Penalty=c("Death","No Death"), Victim=c("White","Black"),
+  Aggravation=c("1","2","3","4","5","6")))
+myTable   # Show the 6 2x2 tables
+mantelhaen.test(myTable, alternative="greater", correct=FALSE) # 1-sided p-value
+mantelhaen.test(myTable, alternative="greater") # with continuity correction
+mantelhaen.test(myTable) # two.sided (default) for confidence interval
+
+# Logistic Regression (Ch 21) (treating aggravation level as numerical)
+summary(myGlm2)
+beta  &lt;- myGlm2$coef
+exp(beta[3])   #   6.1144 
+exp(confint(myGlm2,3)) # 2.23040 18.72693
+# Interpretation: The odds of death penalty for white victim murderers are 
+# estimated to be 6 times the odds of death penalty for black victim murderers 
+# with similar aggravation level(95% confidence interval: 2.2 to 18.7 times).
+
+ 
+## GRAPHICAL DISPLAY FOR PRESENTATION 
+myPointColor     &lt;- ifelse(Victim=="White","green", "orange")
+plot(jitter(proportionDeath,.1) ~ jitter(Aggravation,.1), 
+  xlab="Aggravation Level of the Murder", 
+  ylab="Proportion of Murderers Who Received Death Penalty",
+  pch=myPointCode, bg=myPointColor, cex=2, lwd=2)
+legend(1,1, c("White Victim Murderers","Black Victim Murderers"), pch=c(21,22),
+  pt.cex=c(2,2), pt.bg=c("green","orange"), pt.lw=c(2,2))
+# Include logistic regression fit on plot
+dummyAg &lt;- seq(min(Aggravation),max(Aggravation),length=50)
+etaB    &lt;- beta[1] + beta[2]*dummyAg
+etaW    &lt;- etaB + beta[3]
+pB      &lt;- exp(etaB)/(1 + exp(etaB))  # Estimated prob of DP; Black victim 
+pW      &lt;- exp(etaW)/(1 + exp(etaW))  # Estimated prob of DP; White victim
+lines(pB ~ dummyAg,lty=1)   
+lines(pW ~ dummyAg,lty=2)              
+
+detach(case1902)
+</code></pre>
+
+
+</div>

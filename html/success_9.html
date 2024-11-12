@@ -1,0 +1,269 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bk_control_limit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Determine control limits for BK-CUSUM by simulation</h2>
+
+<h3>Description</h3>
+
+<p>This function can be used to determine control limits for the
+BK-CUSUM (<code>bk_cusum</code>) procedure by restricting the type I error <code>alpha</code> of the
+procedure over <code>time</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bk_control_limit(time, alpha = 0.05, psi, n_sim = 200, theta, coxphmod,
+  baseline_data, cbaseh, inv_cbaseh, interval = c(0, 9e+12),
+  h_precision = 0.01, seed = 1041996, pb = FALSE, chartpb = FALSE,
+  assist)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>A numeric value over which the type I error <code>alpha</code> must be restricted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>A proportion between 0 and 1 indicating the required maximal type I error.
+Default is 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi</code></td>
+<td>
+<p>A numeric value indicating the estimated Poisson arrival rate of subjects
+at their respective units. Can be determined using
+<code>parameter_assist()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_sim</code></td>
+<td>
+<p>An integer value indicating the amount of units to generate for the
+determination of the control limit. Larger values yield more precise control limits,
+but increase computation times. Default is 200.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+<p>The expected log-hazard ratio <code class="reqn">\theta</code> under the alternative hypothesis.
+If <code class="reqn">\theta &gt;= 0</code>, the chart will try to detect an increase
+in hazard ratio (upper one-sided). If <code class="reqn">\theta &lt; 0</code>,
+the chart will look for a decrease in hazard ratio (lower one-sided).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coxphmod</code></td>
+<td>
+<p>A Cox proportional hazards regression model as
+produced by
+the function <code>coxph()</code>. Suggested: <br><code>coxph(Surv(survtime, censorid) ~ covariates, data = data)</code>. <br>
+Alternatively, a list with the following elements:
+</p>
+
+<dl>
+<dt>
+<code>formula</code>:</dt>
+<dd>
+<p>a <code>formula()</code> in the form <code>~ covariates</code>;</p>
+</dd>
+<dt>
+<code>coefficients</code>:</dt>
+<dd>
+<p>a named vector specifying risk adjustment coefficients
+for covariates. Names must be the same as in <code>formula</code> and colnames of <code>data</code>.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baseline_data</code></td>
+<td>
+<p>(optional): A <code>data.frame</code> used for covariate resampling
+with rows representing subjects and at least the
+following named columns: </p>
+
+<dl>
+<dt>
+<code>entrytime</code>:</dt>
+<dd>
+<p>time of entry into study (numeric);</p>
+</dd>
+<dt>
+<code>survtime</code>:</dt>
+<dd>
+<p>time from entry until event (numeric);</p>
+</dd>
+<dt>
+<code>censorid</code>:</dt>
+<dd>
+<p>censoring indicator (0 = right censored, 1 = observed),
+(integer).</p>
+</dd>
+</dl>
+<p> and optionally additional covariates used for risk-adjustment. Can only be specified
+in combination with <code>coxphmod</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cbaseh</code></td>
+<td>
+<p>A function that returns the unadjusted cumulative
+baseline hazard <code class="reqn">H_0(t)</code>. If <code>cbaseh</code> is missing but
+<code>coxphmod</code> has been
+specified as a survival object, this baseline hazard rate will be determined
+using the provided <code>coxphmod</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inv_cbaseh</code></td>
+<td>
+<p>(optional): A function that returns the unadjusted inverse cumulative
+baseline
+hazard <code class="reqn">H^{-1}_0(t)</code>. If <code>inv_cbaseh</code> is missing, it will be
+determined from <code>cbaseh</code> numerically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>(optional): Interval in which survival times should be solved for numerically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h_precision</code></td>
+<td>
+<p>(optional): A numerical value indicating how precisely the control limit
+should be determined. By default, control limits will be determined up to 2 significant digits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>(optional): A numeric seed for survival time generation. Default
+is 01041996 (my birthday).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pb</code></td>
+<td>
+<p>(optional): A boolean indicating whether a progress bar should
+be shown. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chartpb</code></td>
+<td>
+<p>(optional): A boolean indicating whether progress bars should
+be displayed for the constructions of the charts. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>assist</code></td>
+<td>
+<p>(optional): Output of the function <code>parameter_assist()</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function performs 3 steps to determine a suitable control limit.
+</p>
+
+<ul>
+<li>
+<p> Step 1: Generates <code>n_sim</code> in-control units (failure rate as baseline).
+If <code>data</code> is provided, subject covariates are resampled from the data set.
+</p>
+</li>
+<li>
+<p> Step 2: Determines chart values for all simulated units.
+</p>
+</li>
+<li>
+<p> Step 3: Determines control limits such that at most a proportion <code>alpha</code>
+of all units cross the control limit.
+</p>
+</li>
+</ul>
+<p> The generated data as well as the charts are also returned in the output.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list containing three components:
+</p>
+
+<ul>
+<li> <p><code>call</code>: the call used to obtain output;
+</p>
+</li>
+<li> <p><code>charts</code>: A list of length <code>n_sim</code> containing the constructed charts;
+</p>
+</li>
+<li> <p><code>data</code>: A <code>data.frame</code> containing the in-control generated data.
+</p>
+</li>
+<li> <p><code>h</code>: Determined value of the control limit.
+</p>
+</li>
+<li> <p><code>achieved_alpha</code>: Achieved type I error on the sample of
+<code>n_sim</code> simulated units.
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Daniel Gomon
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>bk_cusum</code>
+</p>
+<p>Other control limit simulation: 
+<code>bernoulli_control_limit()</code>,
+<code>cgr_control_limit()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(survival)
+
+#Determine a cox proportional hazards model for risk-adjustment
+exprfit &lt;- as.formula("Surv(survtime, censorid) ~ age + sex + BMI")
+tcoxmod &lt;- coxph(exprfit, data= surgerydat)
+
+#Determine a control limit restricting type I error to 0.1 over 500 days
+#with specified cumulative hazard function without risk-adjustment
+a &lt;- bk_control_limit(time = 500, alpha = 0.1, theta = log(2),
+cbaseh = function(t) chaz_exp(t, lambda = 0.02),
+inv_cbaseh = function(t) inv_chaz_exp(t, lambda = 0.02), psi = 0.5,
+n_sim = 10)
+
+#Determine a control limit restricting type I error to 0.1 over 500 days
+#using the risk-adjusted cumulative hazard determined using coxph()
+b &lt;- bk_control_limit(time = 500, alpha = 0.1, theta = log(2),
+coxphmod = tcoxmod, psi = 0.5, n_sim = 10)
+
+print(a$h)
+print(b$h)
+</code></pre>
+
+
+</div>

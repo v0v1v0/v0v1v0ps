@@ -1,0 +1,162 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bqr</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bayesian quantile regression</h2>
+
+<h3>Description</h3>
+
+<p>MCMC sampling for Bayesian quantile regression.
+An asymmetric Laplace distribution is assumed for the errors,
+so the regression models targets the specified quantile.
+A g-prior is assumed for the regression coefficients.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bqr(
+  y,
+  X,
+  tau = 0.5,
+  X_test = X,
+  psi = length(y),
+  nsave = 1000,
+  nburn = 1000,
+  nskip = 0,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code>n x 1</code> vector of observed counts</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p><code>n x p</code> matrix of predictors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>the target quantile (between zero and one)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_test</code></td>
+<td>
+<p><code>n_test x p</code> matrix of predictors for test data;
+default is the observed covariates <code>X</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi</code></td>
+<td>
+<p>prior variance (g-prior)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsave</code></td>
+<td>
+<p>number of MCMC iterations to save</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nburn</code></td>
+<td>
+<p>number of MCMC iterations to discard</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nskip</code></td>
+<td>
+<p>number of MCMC iterations to skip between saving iterations,
+i.e., save every (nskip + 1)th draw</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical; if TRUE, print time remaining</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a list with the following elements:
+</p>
+
+<ul>
+<li> <p><code>coefficients</code> the posterior mean of the regression coefficients
+</p>
+</li>
+<li> <p><code>fitted.values</code> the estimated <code>tau</code>th quantile at test points <code>X_test</code>
+</p>
+</li>
+<li> <p><code>post_theta</code>: <code>nsave x p</code> samples from the posterior distribution
+of the regression coefficients
+</p>
+</li>
+<li> <p><code>post_ypred</code>: <code>nsave x n_test</code> samples
+from the posterior predictive distribution at test points <code>X_test</code>
+</p>
+</li>
+<li> <p><code>model</code>: the model fit (here, <code>bqr</code>)
+</p>
+</li>
+</ul>
+<p>as well as the arguments passed
+</p>
+
+
+<h3>Note</h3>
+
+<p>The asymmetric Laplace distribution is advantageous because
+it links the regression model (<code>X%*%theta</code>) to a pre-specified
+quantile (<code>tau</code>). However, it is often a poor model for
+observed data, and the semiparametric version <code>sbqr</code> is
+recommended in general.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Simulate some heteroskedastic data (no transformation):
+dat = simulate_tlm(n = 100, p = 5, g_type = 'box-cox', heterosked = TRUE, lambda = 1)
+y = dat$y; X = dat$X # training data
+y_test = dat$y_test; X_test = dat$X_test # testing data
+
+# Target this quantile:
+tau = 0.05
+
+# Fit the Bayesian quantile regression model:
+fit = bqr(y = y, X = X, tau = tau, X_test = X_test)
+names(fit) # what is returned
+
+# Posterior predictive checks on testing data: empirical CDF
+y0 = sort(unique(y_test))
+plot(y0, y0, type='n', ylim = c(0,1),
+     xlab='y', ylab='F_y', main = 'Posterior predictive ECDF')
+temp = sapply(1:nrow(fit$post_ypred), function(s)
+  lines(y0, ecdf(fit$post_ypred[s,])(y0), # ECDF of posterior predictive draws
+        col='gray', type ='s'))
+lines(y0, ecdf(y_test)(y0),  # ECDF of testing data
+     col='black', type = 's', lwd = 3)
+
+# The posterior predictive checks usually do not pass!
+# try ?sbqr instead...
+
+</code></pre>
+
+
+</div>

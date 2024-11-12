@@ -1,0 +1,119 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>db_lselect</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Lazily select variables from multiple tables in a relational database</h2>
+
+<h3>Description</h3>
+
+<p><code>db_lselect()</code> allows you to select variables from multiple
+tables in an SQL database. It returns a lazy query that combines all the
+variables together into one data frame (as a <code>tibble</code>). The user can
+choose to run <code>collect()</code> after this query if they see fit.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">db_lselect(.data, connection, vars)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>.data</code></td>
+<td>
+<p>a character vector of the tables in a relational database</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>connection</code></td>
+<td>
+<p>the name of the connection object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vars</code></td>
+<td>
+<p>the variables (entered as class "character") to select from the tables in the database</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is a wrapper function in which <span class="pkg">purrr</span> and <span class="pkg">dplyr</span>
+are doing the heavy lifting. The tables in the database are declared as a
+character (or character vector). The variables to select are also declared
+as a character (or character vector), which are then wrapped in a
+<code>one_of()</code> function within <code>select()</code> in <span class="pkg">dplyr</span>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Assuming a particular structure to the database, the function returns a
+combined table including all the requested variables from all the tables listed
+in the <code>data</code> character vector. The returned table will have other attributes
+inherited from how <span class="pkg">dplyr</span> interfaces with SQL, allowing the user to extract
+some information about the query (e.g. through <code>show_query()</code>).
+</p>
+
+
+<h3>References</h3>
+
+<p>Miller, Steven V. 2020. "Clever Uses of Relational (SQL) Databases to Store Your Wider Data (with Some Assistance from <code>dplyr</code> and <code>purrr</code>)" <a href="http://svmiller.com/blog/2020/11/smarter-ways-to-store-your-wide-data-with-sql-magic-purrr/">http://svmiller.com/blog/2020/11/smarter-ways-to-store-your-wide-data-with-sql-magic-purrr/</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+library(DBI)
+library(RSQLite)
+library(dplyr)
+library(dbplyr)
+set.seed(8675309)
+
+A &lt;- data.frame(uid = c(1:10),
+                a = rnorm(10),
+                b = sample(letters, 10),
+                c = rbinom(10, 1, .5))
+
+B &lt;- data.frame(uid = c(11:20),
+                a = rnorm(10),
+                b = sample(letters, 10),
+                c = rbinom(10, 1, .5))
+
+C &lt;- data.frame(uid = c(21:30), a = rnorm(10),
+                b = sample(letters, 10),
+                c = rbinom(10, 1, .5),
+                d = rnorm(10))
+
+con &lt;- dbConnect(SQLite(), ":memory:")
+
+copy_to(con, A, "A",
+        temporary=FALSE)
+
+copy_to(con, B, "B",
+        temporary=FALSE)
+
+copy_to(con, C, "C",
+        temporary=FALSE)
+
+# This returns no warning because columns "a" and "b" are in all tables
+c("A", "B", "C") %&gt;% db_lselect(con, c("uid", "a", "b"))
+
+# This returns two warnings because column "d" is not in 2 of 3 tables.
+# ^ this is by design. It'll inform the user about data availability.
+c("A", "B", "C") %&gt;% db_lselect(con, c("uid", "a", "b", "d"))
+dbDisconnect(con)
+
+</code></pre>
+
+
+</div>

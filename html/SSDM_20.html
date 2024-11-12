@@ -1,0 +1,506 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>modelling</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build an SDM using a single algorithm</h2>
+
+<h3>Description</h3>
+
+<p>This is a function to build an SDM with one algorithm for a single species.
+The function takes as inputs an occurrence data frame made of presence/absence
+or presence-only records and a raster object for data extraction and
+projection. The function returns an S4 Algorithm.SDM class
+object containing the habitat suitability map, the binary map and the
+evaluation table.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">modelling(
+  algorithm,
+  Occurrences,
+  Env,
+  Xcol = "Longitude",
+  Ycol = "Latitude",
+  Pcol = NULL,
+  name = NULL,
+  PA = NULL,
+  cv = "holdout",
+  cv.param = c(0.7, 2),
+  final.fit.data = "all",
+  bin.thresh = "SES",
+  metric = NULL,
+  thresh = 1001,
+  axes.metric = "Pearson",
+  select = FALSE,
+  select.metric = c("AUC"),
+  select.thresh = c(0.75),
+  verbose = TRUE,
+  GUI = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>algorithm</code></td>
+<td>
+<p>character. Choice of the algorithm to be run (see details
+below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Occurrences</code></td>
+<td>
+<p>data frame. Occurrence table (can be processed first by
+<code>load_occ</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Env</code></td>
+<td>
+<p>raster object. Raster object of environmental variable (can be
+processed first by <code>load_var</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Xcol</code></td>
+<td>
+<p>character. Name of the column in the occurrence table containing
+Latitude or X coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ycol</code></td>
+<td>
+<p>character. Name of the column in the occurrence table containing
+Longitude or Y coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Pcol</code></td>
+<td>
+<p>character. Name of the column in the occurrence table specifying
+whether a line is a presence or an absence. A value of 1 is presence and
+value of 0 is absence. If NULL presence-only dataset is assumed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>character. Optional name given to the final SDM produced (by
+default 'Algorithm.SDM').</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PA</code></td>
+<td>
+<p>list(nb, strat) defining the pseudo-absence selection strategy used
+in case of presence-only dataset. If PA is NULL, recommended PA selection
+strategy is used depending on the algorithms (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cv</code></td>
+<td>
+<p>character. Method of cross-validation used to evaluate the SDM (see
+details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cv.param</code></td>
+<td>
+<p>numeric. Parameters associated to the method of
+cross-validation used to evaluate the SDM (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>final.fit.data</code></td>
+<td>
+<p>strategy used for fitting the final model to be returned: 'holdout'= use same train and test data as in (last) evaluation, 'all'= train model with all data (i.e. no test data) or numeric (0-1)= sample a custom training fraction (left out fraction is set aside as test data)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bin.thresh</code></td>
+<td>
+<p>character. Classification threshold (<code>threshold</code>) used to binarize model predictions into presence/absence and compute the confusion matrix (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>(deprecated) character. Classification threshold (<code>SDMTools::optim.thresh</code>) used to binarize model predictions into presence/absence and compute the confusion matrix (see details below). This argument is only kept for backwards compatibility, if possible please use <code>bin.thresh</code> instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thresh</code></td>
+<td>
+<p>(deprecated) integer. Number of equally spaced thresholds in the interval 0-1 (<code>SDMTools::optim.thresh</code>). Only needed when <code>metric</code> is set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>axes.metric</code></td>
+<td>
+<p>Metric used to evaluate variable relative importance (see
+details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>select</code></td>
+<td>
+<p>logical. If set to true, models are evaluated before being
+projected, and not kept if they don't meet selection criteria (see details
+below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>select.metric</code></td>
+<td>
+<p>character. Metric(s) used to pre-select SDMs that reach a
+sufficient quality (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>select.thresh</code></td>
+<td>
+<p>numeric. Threshold(s) associated with the metric(s) used
+to compute the selection.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical. If set to true, allows the function to print text in
+the console.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>GUI</code></td>
+<td>
+<p>logical. Don't take that argument into account (parameter for the
+user interface).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters, e.g. argument lists for the source algorithm modelling functions (see details below).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+ <dl>
+<dt>algorithm</dt>
+<dd>
+<p>'all' allows to call directly all
+available algorithms. Currently, available algorithms include Generalized
+linear model (<strong>GLM</strong>), Generalized additive model (<strong>GAM</strong>),
+Multivariate adaptive regression splines (<strong>MARS</strong>), Generalized
+boosted regressions model (<strong>GBM</strong>), Classification tree analysis
+(<strong>CTA</strong>), Random forest (<strong>RF</strong>), Maximum entropy
+(<strong>MAXENT</strong>), Artificial neural network (<strong>ANN</strong>), and Support
+vector machines (<strong>SVM</strong>). Each algorithm has its own parameters
+settable with the <strong>...</strong> by supplying argument lists (see each algorithm section below to set
+their parameters).</p>
+</dd> <dt>'PA'</dt>
+<dd>
+<p>list with two values: <strong>nb</strong> number of
+pseudo-absences selected, and <strong>strat</strong> strategy used to select
+pseudo-absences: either random selection or disk selection. We set default
+recommendation from Barbet-Massin et al. (2012) (see reference).</p>
+</dd>
+<dt>cv</dt>
+<dd>
+<p><strong>Cross-validation</strong> method used to split the occurrence
+dataset used for evaluation: <strong>holdout</strong> data are partitioned into a
+training set and an evaluation set using a fraction (<em>cv.param[1]</em>) and
+the operation can be repeated (<em>cv.param[2]</em>) times, <strong>k-fold</strong>
+data are partitioned into k (<em>cv.param[1]</em>) folds being k-1 times in
+the training set and once the evaluation set and the operation can be
+repeated (<em>cv.param[2]</em>) times, <strong>LOO</strong> (Leave One Out) each point
+is successively taken as evaluation data.</p>
+</dd> <dt>bin.thresh</dt>
+<dd>
+<p>Choice of the
+metric used to binarize model predictions and compute the confusion matrix (by default SES as recommended by Liu et al. (2005), see reference below):
+<strong>Kappa</strong> maximizes the Kappa, <strong>NOM</strong> highest threshold without omission, <strong>TSS</strong> (True Skill Statistic)
+maximizes the sum of sensitivity and specificity, <strong>SES</strong> uses the
+sensitivity-specificity equality, <strong>EP</strong> threshold where modeled prevalence is closest to observed prevalence.</p>
+</dd>
+<dt>metric (deprecated)</dt>
+<dd>
+<p>Choice of the
+metric used to compute the binary map threshold and the confusion matrix (by
+default SES as recommended by Liu et al. (2005), see reference below):
+<strong>Kappa</strong> maximizes the Kappa, <strong>CCR</strong> maximizes the proportion of
+correctly predicted observations, <strong>TSS</strong> (True Skill Statistic)
+maximizes the sum of sensitivity and specificity, <strong>SES</strong> uses the
+sensitivity-specificity equality, <strong>LW</strong> uses the lowest occurrence
+prediction probability, <strong>ROC</strong> minimizes the distance between the ROC
+plot (receiving operating curve) and the upper left corner
+(1,1).</p>
+</dd>
+<dt>axes.metric</dt>
+<dd>
+<p>Choice of the metric used to evaluate the variable
+relative importance (difference between a full model and one with each
+variable successively omitted): <strong>Pearson</strong> (computes a simple
+Pearson's correlation <em>r</em> between predictions of the full model and the
+one without a variable, and returns the score <em>1-r</em>: the highest the
+value, the more influence the variable has on the model), <strong>AUC</strong>,
+<strong>Kappa</strong>, <strong>sensitivity</strong>, <strong>specificity</strong>, and
+<strong>prop.correct</strong> (proportion of correctly predicted occurrences).</p>
+</dd>
+<dt>select.metric</dt>
+<dd>
+<p>Selection metric(s) used to select SDMs: <strong>AUC</strong>,
+<strong>Kappa</strong>, <strong>sensitivity</strong>, <strong>specificity</strong>, and
+<strong>prop.correct</strong> (proportion of correctly predicted occurrences), <strong>calibration</strong> (calibration statistic as used by Naimi &amp; Araujo 2016).</p>
+</dd>
+<dt>'...'</dt>
+<dd>
+<p>See algorithm in detail section</p>
+</dd> </dl>
+<h3>Value</h3>
+
+<p>an S4 Algorithm.SDM Class object viewable with the
+<code>plot.model</code> method.
+</p>
+
+
+<h3>Generalized linear model (<strong>GLM</strong>) </h3>
+
+<p>Uses the <code>glm</code>
+function from the package 'stats'. You can set parameters by supplying <code>glm.args=list(arg1=val1,arg2=val2)</code> (see <code>glm</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>test</dt>
+<dd>
+<p>character. Test used to evaluate the SDM, default 'AIC'.</p>
+</dd>
+<dt>control</dt>
+<dd>
+<p>list (created with <code>glm.control</code>).
+Contains parameters for controlling the fitting process. Default is <code>glm.control(epsilon = 1e-08, maxit = 500)</code>.
+'epsilon' is a numeric and defines the positive convergence tolerance (eps).
+'maxit' is an integer giving the maximal number of IWLS (Iterative Weighted Last Squares) iterations.</p>
+</dd> </dl>
+<h3>Generalized additive model (<strong>GAM</strong>) </h3>
+
+<p>Uses the <code>gam</code>
+function from the package 'mgcv'. You can set parameters by supplying <code>gam.args=list(arg1=val1,arg2=val2)</code> (see <code>gam</code> for all settable arguments).
+The following parameters have defaults: </p>
+<dl>
+<dt>test</dt>
+<dd>
+<p>character.
+Test used to evaluate the model, default 'AIC'.</p>
+</dd> <dt>control</dt>
+<dd>
+<p>list (created with <code>gam.control</code>).
+Contains parameters for controlling the fitting process. Default is <code>gam.control(epsilon = 1e-08, maxit = 500)</code>.
+'epsilon' is a numeric used for judging the conversion of the GLM IRLS (Iteratively Reweighted Least Squares) loop. 'maxit' is an integer giving the maximum number of IRLS iterations to perform.</p>
+</dd> </dl>
+<h3>Multivariate adaptive regression splines (<strong>MARS</strong>) </h3>
+
+<p>Uses the
+<code>earth</code> function from the package 'earth'. You can set parameters by supplying <code>mars.args=list(arg1=val1,arg2=val2)</code> (see <code>earth</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>degree</dt>
+<dd>
+<p>integer. Maximum degree of interaction (Friedman's mi) ; 1
+meaning build an additive model (i.e., no interaction terms). By default,
+set to 2.</p>
+</dd> </dl>
+<h3>Generalized boosted regressions model (<strong>GBM</strong>) </h3>
+
+<p>Uses the
+<code>gbm</code> function from the package 'gbm'. You can set parameters by supplying <code>gbm.args=list(arg1=val1,arg2=val2)</code> (see <code>gbm</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>distribution</dt>
+<dd>
+<p>character. Automatically detected from the format of the presence column in the occurrence dataset.</p>
+</dd>
+<dt>n.trees</dt>
+<dd>
+<p>integer. The total number of trees to fit. This is equivalent
+to the number of iterations and the number of basis functions in the
+additive expansion. By default, set to 2500.</p>
+</dd>
+<dt>n.minobsinnode</dt>
+<dd>
+<p>integer.
+minimum number of observations in the trees terminal nodes. Note that this
+is the actual number of observations, not the total weight. By default, set
+to 1.</p>
+</dd>
+<dt>cv.folds</dt>
+<dd>
+<p>integer. Number of cross-validation folds to perform.
+If cv.folds&gt;1 then gbm - in addition to the usual fit - will perform a
+cross-validation. By default, set to 3.</p>
+</dd>
+<dt>shrinkage</dt>
+<dd>
+<p>numeric. A shrinkage parameter applied to each tree in the expansion (also known as learning rate or step-size reduction). By default, set to 0.001.</p>
+</dd>
+<dt>bag.fraction</dt>
+<dd>
+<p>numeric. Fraction of the training set observations randomly selected to propose the next tree in the expansion.</p>
+</dd>
+<dt>train.fraction</dt>
+<dd>
+<p>numeric. Training fraction used to fit the first gbm. The remainder is used to compute out-of-sample estimates of the loss function. By default, set to 1 (since evaluation/holdout is done with <code>SSDM::evaluate</code>.</p>
+</dd>
+<dt>n.cores</dt>
+<dd>
+<p>integer. Number of cores to use for parallel computation of the CV folds. By default, set to 1. If you intend to use this, please set <code>ncores=0</code> to avoid conflicts.</p>
+</dd> </dl>
+<h3>Classification tree analysis (<strong>CTA</strong>) </h3>
+
+<p>Uses the <code>rpart</code>
+function from the package 'rpart'. You can set parameters by supplying <code>cta.args=list(arg1=val1,arg2=val2)</code> (see <code>rpart</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>control</dt>
+<dd>
+<p>list (created with <code>rpart.control</code>).
+Contains parameters for controlling the rpart fit. The default is <code>rpart.control(minbucket=1, xval=3)</code>.
+'mibucket' is an integer giving the minimum number of observations in any
+terminal node. 'xval' is an integer defining the number of
+cross-validations.</p>
+</dd> </dl>
+<h3>Random Forest (<strong>RF</strong>) </h3>
+
+<p>Uses the <code>randomForest</code> function
+from the package 'randomForest'. You can set parameters by supplying <code>cta.args=list(arg1=val1,arg2=val2)</code> (see <code>randomForest</code> all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>ntree</dt>
+<dd>
+<p>integer. Number of trees to grow. This should not be set to a
+too small number, to ensure that every input row gets predicted at least a
+few times. By default, set to 2500.</p>
+</dd>
+<dt>nodesize</dt>
+<dd>
+<p>integer. Minimum size of terminal nodes. Setting this number larger causes smaller trees to be grown (and thus take less time). By default, set to 1.</p>
+</dd> </dl>
+<h3>Maximum Entropy (<strong>MAXENT</strong>) </h3>
+
+<p>Uses the <code>maxent</code> function
+from the package 'dismo'. Make sure that you have correctly installed the
+maxent.jar file in the folder ~\R\library\version\dismo\java available
+at <a href="https://biodiversityinformatics.amnh.org/open_source/maxent/">https://biodiversityinformatics.amnh.org/open_source/maxent/</a>. As with the other algorithms, you can set parameters by supplying <code>maxent.args=list(arg1=val1,arg2=val2)</code>. Mind that arguments are passed from dismo to the MAXENT software again as an argument list  (see <code>maxent</code> for more details).
+No specific defaults are set with this method.
+</p>
+
+
+<h3>Artificial Neural Network (<strong>ANN</strong>) </h3>
+
+<p>Uses the <code>nnet</code>
+function from the package 'nnet'. You can set parameters by supplying <code>ann.args=list(arg1=val1,arg2=val2)</code> (see <code>nnet</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>size</dt>
+<dd>
+<p>integer. Number of units in the hidden layer. By default, set to 6.</p>
+</dd>
+<dt>maxit</dt>
+<dd>
+<p>integer. Maximum number of iterations, default 500.</p>
+</dd> </dl>
+<h3>Support vector machines (<strong>SVM</strong>) </h3>
+
+<p>Uses the <code>svm</code> function
+from the package 'e1071'. You can set parameters by supplying <code>svm.args=list(arg1=val1,arg2=val2)</code> (see <code>svm</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>type</dt>
+<dd>
+<p>character. Regression/classification type SVM should be used with. By default, set to "eps-regression".</p>
+</dd>
+<dt>epsilon</dt>
+<dd>
+<p>float. Epsilon parameter in the insensitive loss function, default 1e-08.</p>
+</dd>
+<dt>cross</dt>
+<dd>
+<p>integer. If an integer value k&gt;0 is specified, a k-fold
+cross-validation on the training data is performed to assess the quality of
+the model: the accuracy rate for classification and the Mean Squared Error
+for regression. By default, set to 3.</p>
+</dd>
+<dt>kernel</dt>
+<dd>
+<p>character. The kernel used in training and predicting. By default, set to "radial".</p>
+</dd>
+<dt>gamma</dt>
+<dd>
+<p>numeric. Parameter needed for all kernels, default <code>1/(length(data) -1)</code>.</p>
+</dd> </dl>
+<h3>Warning </h3>
+
+<p>Depending on the raster object resolution the process can
+be more or less time and memory consuming.
+</p>
+
+
+<h3>References</h3>
+
+<p>M. Barbet-Massin, F. Jiguet, C. H.  Albert, &amp; W. Thuiller (2012)
+'Selecting pseudo-absences for species distribution models: how, where and
+how many?' <em>Methods Ecology and Evolution</em> 3:327-338
+<a href="http://onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2011.00172.x/full">http://onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2011.00172.x/full</a>
+</p>
+<p>C. Liu, P. M. Berry, T. P. Dawson,  R. &amp; G. Pearson (2005) 'Selecting
+thresholds of occurrence in the prediction of species distributions.'
+<em>Ecography</em> 28:85-393
+<a href="http://www.researchgate.net/publication/230246974_Selecting_Thresholds_of_Occurrence_in_the_Prediction_of_Species_Distributions">http://www.researchgate.net/publication/230246974_Selecting_Thresholds_of_Occurrence_in_the_Prediction_of_Species_Distributions</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>ensemble_modelling</code> to build ensemble SDMs,
+<code>stack_modelling</code> to build SSDMs.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Loading data
+data(Env)
+data(Occurrences)
+Occurrences &lt;- subset(Occurrences, Occurrences$SPECIES == 'elliptica')
+
+# SDM building
+SDM &lt;- modelling('GLM', Occurrences, Env, Xcol = 'LONGITUDE', Ycol = 'LATITUDE')
+
+# Results plotting
+## Not run: 
+plot(SDM)
+
+## End(Not run)
+
+
+</code></pre>
+
+
+</div>

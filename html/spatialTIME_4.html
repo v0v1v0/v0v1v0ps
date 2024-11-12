@@ -1,0 +1,142 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bi_ripleys_k</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bivariate Ripley's K</h2>
+
+<h3>Description</h3>
+
+<p>Bivariate Ripley's K function within spatialTIME, 'bi_ripleys_k' is a function that takes in a 'mIF' object, along with 
+some parameters like marker names of interest and range of radii in which to assess bivariate clustering or colocalization.
+In 1.3.3.3 we have introduced the ability to forsgo the need for permutations with the implementation of the exact CSR estimate.
+This is both faster and being the exact CSR, produces an exact degree of clustering in the spatial files.
+</p>
+<p>Due to the availability of whole slide images (WSI), there's a possibility users will be running bivariate Ripley's K on samples
+that have millions of cells. When doing this, keep in mind that a nearest neighbor matrix with *n* cell is *n* by *n* in size and 
+therefore easily consumers high performance compute levels of RAM. To combat this, we have implemented a tiling method that performs
+counts for small chunks of the distance matrix at a time before finally calculating the bivariate Ripley's K value on the total counts.
+When doing this there are now 2 import parameters to keep in mind. The 'big' parameter is the size of the tile to use. We have found
+1000 to be a good number that allows for high number of cores while maintaining low RAM usage. The other important parameter when
+working with WSI is nlarge which is the fall over for switching to no edge correction. The spatstat.explore::Kest univariate 
+Ripley's K uses a default of 3000 but we have defaulted to 1000 to keep compute minimized as edge correction uses large amounts
+of RAM over 'none'.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bi_ripleys_k(
+  mif,
+  mnames,
+  r_range = 0:100,
+  edge_correction = "translation",
+  num_permutations = 50,
+  permute = FALSE,
+  keep_permutation_distribution = FALSE,
+  overwrite = TRUE,
+  workers = 6,
+  xloc = NULL,
+  yloc = NULL,
+  force = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mif</code></td>
+<td>
+<p>mIF object with spatial data frames, clinical, and per-sample summary information</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mnames</code></td>
+<td>
+<p>vector of column names for phenotypes or data frame of marker combinations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r_range</code></td>
+<td>
+<p>vector range of radii to calculate co-localization *K*</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>edge_correction</code></td>
+<td>
+<p>character edge_correction method, one of "translation", "border", "or none"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_permutations</code></td>
+<td>
+<p>integer number of permutations to estimate CSR</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>permute</code></td>
+<td>
+<p>whether or not to use permutations to estimate CSR (TRUE) or to calculate exact CSR (FALSE)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep_permutation_distribution</code></td>
+<td>
+<p>boolean as to whether to summarise permutations to mean</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overwrite</code></td>
+<td>
+<p>boolean as to whether to replace existing bivariate_Count if exists</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>workers</code></td>
+<td>
+<p>integer number of CPU workers to use</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xloc, yloc</code></td>
+<td>
+<p>the x and y positions that correspond to cells. If left as NULL, XMin, XMax, YMin, and YMax must be present in the spatial files</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>force</code></td>
+<td>
+<p>logical whether or not to continue if sample has more than 10,000 cells</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>mif object with bivariate Ripley's K calculated
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">x &lt;- spatialTIME::create_mif(clinical_data = spatialTIME::example_clinical %&gt;% 
+                               dplyr::mutate(deidentified_id = as.character(deidentified_id)),
+                             sample_data = spatialTIME::example_summary %&gt;% 
+                               dplyr::mutate(deidentified_id = as.character(deidentified_id)),
+                             spatial_list = spatialTIME::example_spatial,
+                             patient_id = "deidentified_id", 
+                             sample_id = "deidentified_sample")
+mnames_good &lt;- c("CD3..Opal.570..Positive","CD8..Opal.520..Positive",
+                 "FOXP3..Opal.620..Positive","PDL1..Opal.540..Positive",
+                 "PD1..Opal.650..Positive","CD3..CD8.","CD3..FOXP3.")
+x2 = bi_ripleys_k(mif = x, mnames = mnames_good[1:2], 
+                   r_range = 0:100, edge_correction = "none", permute = FALSE,
+                   num_permutations = 50, keep_permutation_distribution = FALSE, 
+                   workers = 1)
+</code></pre>
+
+
+</div>

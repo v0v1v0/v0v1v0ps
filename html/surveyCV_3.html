@@ -1,0 +1,150 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cv.svydesign</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>CV for <code>svydesign</code> objects</h2>
+
+<h3>Description</h3>
+
+<p>Wrapper function which takes a <code>svydesign</code> object
+and a vector of model formulas (as strings),
+and passes it into <code>cv.svy</code>.
+Returns survey CV estimates of the mean loss for each model
+(MSE for linear models, or binary cross-entropy for logistic models).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cv.svydesign(
+  design_object,
+  formulae,
+  nfolds = 5,
+  method = c("linear", "logistic"),
+  na.rm = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design_object</code></td>
+<td>
+<p>Name of a <code>svydesign</code> object created using the <code>survey</code>
+package. We do not yet support use of <code>probs</code> or <code>pps</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formulae</code></td>
+<td>
+<p>Vector of formulas (as strings) for the GLMs to be compared in
+cross validation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nfolds</code></td>
+<td>
+<p>Number of folds to be used during cross validation, defaults to
+5</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>String, must be either "linear" or "logistic", determines type of
+model fit during cross validation, defaults to linear</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>Whether to drop cases with missing values when taking 'svymean'
+of test losses</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If you have already fitted a <code>svyglm</code>,
+you may prefer the convenience wrapper function
+<code>cv.svyglm</code>.
+</p>
+<p>For models other than linear or logistic regression,
+you can use <code>folds.svy</code> or <code>folds.svydesign</code> to generate
+CV fold IDs that respect any stratification or clustering in the survey design.
+You can then carry out K-fold CV as usual,
+taking care to also use the survey design features and survey weights
+when fitting models in each training set
+and also when evaluating models against each test set.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object of class <code>svystat</code>, which is a named vector of survey CV estimates of the mean loss
+(MSE for linear models, or binary cross-entropy for logistic models) for each model,
+with names ".Model_1", ".Model_2", etc. corresponding to the models provided in <code>formulae</code>;
+and with a <code>var</code> attribute giving the variances.
+See <code>surveysummary</code> for details.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>surveysummary</code>, <code>svydesign</code>
+</p>
+<p><code>cv.svyglm</code> for a wrapper to use with a <code>svyglm</code> object
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Compare CV MSEs and their SEs under 3 linear models
+# for a stratified sample and a one-stage cluster sample,
+# using data from the `survey` package
+library(survey)
+data("api", package = "survey")
+# stratified sample
+dstrat &lt;- svydesign(id = ~1, strata = ~stype, weights = ~pw, data = apistrat,
+                    fpc = ~fpc)
+cv.svydesign(formulae = c("api00~ell",
+                          "api00~ell+meals",
+                          "api00~ell+meals+mobility"),
+             design_object = dstrat, nfolds = 5)
+# one-stage cluster sample
+dclus1 &lt;- svydesign(id = ~dnum, weights = ~pw, data = apiclus1, fpc = ~fpc)
+cv.svydesign(formulae = c("api00~ell",
+                          "api00~ell+meals",
+                          "api00~ell+meals+mobility"),
+             design_object = dclus1, nfolds = 5)
+
+# Compare CV MSEs and their SEs under 3 linear models
+# for a stratified cluster sample with clusters nested within strata
+data(NSFG_data)
+library(splines)
+NSFG.svydes &lt;- svydesign(id = ~SECU, strata = ~strata, nest = TRUE,
+                         weights = ~wgt, data = NSFG_data)
+cv.svydesign(formulae = c("income ~ ns(age, df = 2)",
+                          "income ~ ns(age, df = 3)",
+                          "income ~ ns(age, df = 4)"),
+             design_object = NSFG.svydes, nfolds = 4)
+
+# Logistic regression example, using the same stratified cluster sample;
+# instead of CV MSE, we calculate CV binary cross-entropy loss,
+# where (as with MSE) lower values indicate better fitting models
+# (NOTE: na.rm=TRUE is not usually ideal;
+#  it's used below purely for convenience, to keep the example short,
+#  but a thorough analysis would look for better ways to handle the missing data)
+cv.svydesign(formulae = c("KnowPreg ~ ns(age, df = 1)",
+                          "KnowPreg ~ ns(age, df = 2)",
+                          "KnowPreg ~ ns(age, df = 3)"),
+             design_object = NSFG.svydes, nfolds = 4,
+             method = "logistic", na.rm = TRUE)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,155 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>discreteVPC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>VPC for non Gaussian data models</h2>
+
+<h3>Description</h3>
+
+<p>This function provides VPC plots for non Gaussian data models (work in progress)
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">discreteVPC(object, outcome = "categorical", verbose = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an saemixObject object returned by the <code>saemix</code> function.
+The object must include simulated data under the empirical design, using the model and
+estimated parameters from a fit, produced via the <code>simulateDiscreteSaemix</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>type of outcome (valid types are "TTE", "binary", "categorical", "count")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>whether to print messages (defaults to FALSE)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments, used to pass graphical options (to be implemented, currently not available)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is a very rough first attempt at automatically creating VPC plots for
+models defined through their log-likelihood (categorical, count, or TTE data). It makes use of the
+new element simulate.function in the model component of the object
+</p>
+
+<ul>
+<li>
+<p> for TTE data, a KM-VPC plot will be produced
+</p>
+</li>
+<li>
+<p> for count, categorical and binary data, a plot showing the proportion of each score/category across time will be shown
+along with the corresponding prediction intervals from the model
+These plots can be stratified over a covariate in the data set (currently only categorical covariates)
+by passing an argument which.cov='name' to the call
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Emmanuelle Comets <a href="mailto:emmanuelle.comets@inserm.fr">emmanuelle.comets@inserm.fr</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Brendel, K, Comets, E, Laffont, C, Laveille, C, Mentre, F.
+Metrics for external model evaluation with an application to the population
+pharmacokinetics of gliclazide, Pharmaceutical Research 23 (2006),
+2036-2049.
+</p>
+<p>Holford, N. The Visual Predictive Check: superiority to standard diagnostic
+(Rorschach) plots (Abstract 738), in: 14th Meeting of the Population
+Approach Group in Europe, Pamplona, Spain, 2005.
+</p>
+<p>Ron Keizer, tutorials on VPC TODO
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SaemixObject</code>, <code>saemix</code>,
+<code>saemix.plot.vpc</code>, <code>simulateDiscreteSaemix</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(lung.saemix)
+
+saemix.data&lt;-saemixData(name.data=lung.saemix,header=TRUE,name.group=c("id"),
+name.predictors=c("time","status","cens"),name.response=c("status"),
+name.covariates=c("age", "sex", "ph.ecog", "ph.karno", "pat.karno", "wt.loss","meal.cal"),
+units=list(x="days",y="",covariates=c("yr","","-","%","%","cal","pounds")))
+
+weibulltte.model&lt;-function(psi,id,xidep) {
+  T&lt;-xidep[,1]
+  y&lt;-xidep[,2] # events (1=event, 0=no event)
+  cens&lt;-which(xidep[,3]==1) # censoring times (subject specific)
+  init &lt;- which(T==0)
+  lambda &lt;- psi[id,1] # Parameters of the Weibull model
+  beta &lt;- psi[id,2]
+  Nj &lt;- length(T)
+  ind &lt;- setdiff(1:Nj, append(init,cens)) # indices of events
+  hazard &lt;- (beta/lambda)*(T/lambda)^(beta-1) # H'
+  H &lt;- (T/lambda)^beta # H
+  logpdf &lt;- rep(0,Nj) # ln(l(T=0))=0
+  logpdf[cens] &lt;- -H[cens] + H[cens-1] # ln(l(T=censoring time))
+  logpdf[ind] &lt;- -H[ind] + H[ind-1] + log(hazard[ind]) # ln(l(T=event time))
+  return(logpdf)
+}
+
+simulateWeibullTTE &lt;- function(psi,id,xidep) {
+  T&lt;-xidep[,1]
+  y&lt;-xidep[,2] # events (1=event, 0=no event)
+  cens&lt;-which(xidep[,3]==1) # censoring times (subject specific)
+  init &lt;- which(T==0)
+  lambda &lt;- psi[,1] # Parameters of the Weibull model
+  beta &lt;- psi[,2]
+  tevent&lt;-T
+  Vj&lt;-runif(dim(psi)[1])
+  tsim&lt;-lambda*(-log(Vj))^(1/beta) # nsuj events
+  tevent[T&gt;0]&lt;-tsim
+  tevent[tevent[cens]&gt;T[cens]] &lt;- T[tevent[cens]&gt;T[cens]]
+  return(tevent)
+  }
+saemix.model&lt;-saemixModel(model=weibulltte.model,description="time model",modeltype="likelihood",
+       simulate.function = simulateWeibullTTE,
+                psi0=matrix(c(1,2),ncol=2,byrow=TRUE,dimnames=list(NULL,  c("lambda","beta"))),
+                transform.par=c(1,1),covariance.model=matrix(c(1,0,0,0),ncol=2, byrow=TRUE))
+saemix.options&lt;-list(seed=632545,save=FALSE,save.graphs=FALSE, displayProgress=FALSE)
+
+
+tte.fit&lt;-saemix(saemix.model,saemix.data,saemix.options)
+simtte.fit &lt;- simulateDiscreteSaemix(tte.fit, nsim=100)
+gpl &lt;- discreteVPC(simtte.fit, outcome="TTE")
+plot(gpl)
+
+
+</code></pre>
+
+
+</div>

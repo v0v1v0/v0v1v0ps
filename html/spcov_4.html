@@ -1,0 +1,229 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spcov</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sparse Covariance Estimation</h2>
+
+<h3>Description</h3>
+
+<p>Provides a sparse and positive definite estimate of a covariance matrix.
+This function performs the majorize-minimize algorithm described in Bien &amp;
+Tibshirani 2011 (see full reference below).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spcov(
+  Sigma,
+  S,
+  lambda,
+  step.size,
+  nesterov = TRUE,
+  n.outer.steps = 10000,
+  n.inner.steps = 10000,
+  tol.outer = 1e-04,
+  thr.inner = 0.01,
+  backtracking = 0.2,
+  trace = 0
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Sigma</code></td>
+<td>
+<p>an initial guess for Sigma (suggestions: <code>S</code> or
+<code>diag(diag(S)))</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>S</code></td>
+<td>
+<p>the empirical covariance matrix of the data.  Must be positive
+definite (if it is not, add a small constant to the diagonal).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>penalty parameter.  Either a scalar or a matrix of the same
+dimension as <code>Sigma</code>.  This latter choice should be used to penalize
+only off-diagonal elements.  All elements of <code>lambda</code> must be
+non-negative.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step.size</code></td>
+<td>
+<p>the step size to use in generalized gradient descent.
+Affects speed of algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nesterov</code></td>
+<td>
+<p>indicates whether to use Nesterov's modification of
+generalized gradient descent. Default: <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.outer.steps</code></td>
+<td>
+<p>maximum number of majorize-minimize steps to take
+(recall that MM is the outer loop).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.inner.steps</code></td>
+<td>
+<p>maximum number of generalized gradient steps to take
+(recall that generalized gradient descent is the inner loop).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol.outer</code></td>
+<td>
+<p>convergence threshold for outer (MM) loop.  Stops when drop
+in objective between steps is less than <code>tol.outer</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thr.inner</code></td>
+<td>
+<p>convergence threshold for inner (i.e. generalized gradient)
+loop.  Stops when mean absolute change in <code>Sigma</code> is less than
+<code>thr.inner * mean(abs(S))</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>backtracking</code></td>
+<td>
+<p>if <code>FALSE</code>, then fixed step size used.  If numeric
+and in (0,1), this is the parameter of backtracking that multiplies
+<code>step.size</code> on each step.  Usually, in range of (0.1, 0.8). Default:
+<code>0.2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p>controls how verbose output should be.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is the R implementation of Algorithm 1 in Bien, J., and Tibshirani, R.
+(2011), "Sparse Estimation of a Covariance Matrix," Biometrika. 98(4).
+807–820.  The goal is to approximately minimize (over Sigma) the following
+non-convex optimization problem:
+</p>
+<p>minimize logdet(Sigma) + trace(S Sigma^-1) + || lambda*Sigma ||_1 subject to
+Sigma positive definite.
+</p>
+<p>Here, the L1 norm and matrix multiplication between lambda and Sigma are
+elementwise.  The empirical covariance matrix must be positive definite for
+the optimization problem to have bounded objective (see Section 3.3 of
+paper). We suggest adding a small constant to the diagonal of S if it is
+not.  Since the above problem is not convex, the returned matrix is not
+guaranteed to be a global minimum of the problem.
+</p>
+<p>In Section 3.2 of the paper, we mention a simple modification of gradient
+descent due to Nesterov.  The argument <code>nesterov</code> controls whether to
+use this modification (we suggest that it be used).  We also strongly
+recommend using backtracking.  This allows the algorithm to begin by taking
+large steps (the initial size is determined by the argument
+<code>step.size</code>) and then to gradually reduce the size of steps.
+</p>
+<p>At the start of the algorithm, a lower bound (<code>delta</code> in the paper) on
+the eigenvalues of the solution is calculated.  As shown in Equation (3) of
+the paper, the prox function for our generalized gradient descent amounts to
+minimizing (over a matrix X) a problem of the form
+</p>
+<p>minimize (1/2)|| X-A ||_F^2 + || lambda*X ||_1 subject to X &gt;= delta I
+</p>
+<p>This is implemented using an alternating direction method of multipliers
+approach given in Appendix 3.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Sigma</code></td>
+<td>
+<p>the sparse covariance estimate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.iter</code></td>
+<td>
+<p>a vector
+giving the number of generalized gradient steps taken on each step of the MM
+algorithm</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>a vector giving the objective values after each step
+of the MM algorithm</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Jacob Bien and Rob Tibshirani
+</p>
+
+
+<h3>References</h3>
+
+<p>Bien, J., and Tibshirani, R. (2011), "Sparse Estimation of a
+Covariance Matrix," Biometrika. 98(4). 807–820.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>ProxADMM
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(1)
+n &lt;- 100
+p &lt;- 20
+# generate a covariance matrix:
+model &lt;- GenerateCliquesCovariance(ncliques=4, cliquesize=p / 4, 1)
+
+# generate data matrix with x[i, ] ~ N(0, model$Sigma):
+x &lt;- matrix(rnorm(n * p), ncol=p) %*% model$A
+S &lt;- var(x)
+
+# compute sparse, positive covariance estimator:
+step.size &lt;- 100
+tol &lt;- 1e-3
+P &lt;- matrix(1, p, p)
+diag(P) &lt;- 0
+lam &lt;- 0.06
+mm &lt;- spcov(Sigma=S, S=S, lambda=lam * P,
+            step.size=step.size, n.inner.steps=200,
+            thr.inner=0, tol.outer=tol, trace=1)
+sqrt(mean((mm$Sigma - model$Sigma)^2))
+sqrt(mean((S - model$Sigma)^2))
+## Not run: image(mm$Sigma!=0)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,254 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>runMI</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit a lavaan Model to Multiple Imputed Data Sets</h2>
+
+<h3>Description</h3>
+
+<p>This function fits a lavaan model to a list of imputed data sets, and can
+also implement multiple imputation for a single <code>data.frame</code> with
+missing observations, using either the Amelia package or the mice package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">runMI(model, data, fun = "lavaan", ..., m, miArgs = list(),
+  miPackage = "Amelia", seed = 12345)
+
+lavaan.mi(model, data, ..., m, miArgs = list(), miPackage = "Amelia",
+  seed = 12345)
+
+cfa.mi(model, data, ..., m, miArgs = list(), miPackage = "Amelia",
+  seed = 12345)
+
+sem.mi(model, data, ..., m, miArgs = list(), miPackage = "Amelia",
+  seed = 12345)
+
+growth.mi(model, data, ..., m, miArgs = list(), miPackage = "Amelia",
+  seed = 12345)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The analysis model can be specified using lavaan
+<code>model.syntax</code> or a parameter table (as returned by
+<code>parTable</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A <code>data.frame</code> with missing observations, or a <code>list</code>
+of imputed data sets (if data are imputed already). If <code>runMI</code> has
+already been called, then imputed data sets are stored in the
+<code>@DataList</code> slot, so <code>data</code> can also be a <code>lavaan.mi</code> object
+from which the same imputed data will be used for additional analyses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p><code>character</code>. Name of a specific lavaan function used to fit
+<code>model</code> to <code>data</code> (i.e., <code>"lavaan"</code>, <code>"cfa"</code>,
+<code>"sem"</code>, or <code>"growth"</code>). Only required for <code>runMI</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to pass to <code>lavaan</code> or
+<code>lavaanList</code>. See also <code>lavOptions</code>.
+Note that <code>lavaanList</code> provides parallel computing options, as well as
+a <code>FUN</code> argument so the user can extract custom output after the model
+is fitted to each imputed data set (see <strong>Examples</strong>).  TIP: If a
+custom <code>FUN</code> is used <em>and</em> <code>parallel = "snow"</code> is requested,
+the user-supplied function should explicitly call <code>library</code> or use
+<code>::</code> for any functions not part of the base distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p><code>integer</code>. Request the number of imputations. Ignored if
+<code>data</code> is already a <code>list</code> of imputed data sets or a
+<code>lavaan.mi</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>miArgs</code></td>
+<td>
+<p>Addition arguments for the multiple-imputation function
+(<code>miPackage</code>). The arguments should be put in a list (see example
+below). Ignored if <code>data</code> is already a <code>list</code> of imputed data
+sets or a <code>lavaan.mi</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>miPackage</code></td>
+<td>
+<p>Package to be used for imputation. Currently these
+functions only support <code>"Amelia"</code> or <code>"mice"</code> for imputation.
+Ignored if <code>data</code> is already a <code>list</code> of imputed data sets or a
+<code>lavaan.mi</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p><code>integer</code>. Random number seed to be set before imputing the
+data. Ignored if <code>data</code> is already a <code>list</code> of imputed data sets
+or a <code>lavaan.mi</code> object.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>lavaan.mi</code> object
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Terrence D. Jorgensen (University of Amsterdam; <a href="mailto:TJorgensen314@gmail.com">TJorgensen314@gmail.com</a>)
+</p>
+
+
+<h3>References</h3>
+
+<p>Enders, C. K. (2010). <em>Applied missing data analysis</em>. New
+York, NY: Guilford.
+</p>
+<p>Rubin, D. B. (1987). <em>Multiple imputation for nonresponse in surveys</em>.
+New York, NY: Wiley.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"> ## Not run: 
+## impose missing data for example
+HSMiss &lt;- HolzingerSwineford1939[ , c(paste("x", 1:9, sep = ""),
+                                      "ageyr","agemo","school")]
+set.seed(12345)
+HSMiss$x5 &lt;- ifelse(HSMiss$x5 &lt;= quantile(HSMiss$x5, .3), NA, HSMiss$x5)
+age &lt;- HSMiss$ageyr + HSMiss$agemo/12
+HSMiss$x9 &lt;- ifelse(age &lt;= quantile(age, .3), NA, HSMiss$x9)
+
+## specify CFA model from lavaan's ?cfa help page
+HS.model &lt;- '
+  visual  =~ x1 + x2 + x3
+  textual =~ x4 + x5 + x6
+  speed   =~ x7 + x8 + x9
+'
+
+## impute data within runMI...
+out1 &lt;- cfa.mi(HS.model, data = HSMiss, m = 20, seed = 12345,
+               miArgs = list(noms = "school"))
+
+## ... or impute missing data first
+library(Amelia)
+set.seed(12345)
+HS.amelia &lt;- amelia(HSMiss, m = 20, noms = "school", p2s = FALSE)
+imps &lt;- HS.amelia$imputations
+out2 &lt;- cfa.mi(HS.model, data = imps)
+
+## same results (using the same seed results in the same imputations)
+cbind(impute.within = coef(out1), impute.first = coef(out2))
+
+summary(out1, fit.measures = TRUE)
+summary(out1, ci = FALSE, fmi = TRUE, output = "data.frame")
+summary(out1, ci = FALSE, stand = TRUE, rsq = TRUE)
+
+## model fit. D3 includes information criteria
+anova(out1)
+## equivalently:
+lavTestLRT.mi(out1)
+## request D2
+anova(out1, test = "D2")
+## request fit indices
+fitMeasures(out1)
+
+
+## fit multigroup model without invariance constraints
+mgfit.config &lt;- cfa.mi(HS.model, data = imps, estimator = "mlm",
+                       group = "school")
+## add invariance constraints, and use previous fit as "data"
+mgfit.metric &lt;- cfa.mi(HS.model, data = mgfit.config, estimator = "mlm",
+                       group = "school", group.equal = "loadings")
+mgfit.scalar &lt;- cfa.mi(HS.model, data = mgfit.config, estimator = "mlm",
+                       group = "school",
+                       group.equal = c("loadings","intercepts"))
+
+## compare fit of 2 models to test metric invariance
+## (scaled likelihood ratio test)
+lavTestLRT.mi(mgfit.metric, h1 = mgfit.config)
+## To compare multiple models, you must use anova()
+anova(mgfit.config, mgfit.metric, mgfit.scalar)
+## or compareFit(), which also includes fit indices for comparison
+## (optional: name the models)
+compareFit(config = mgfit.config, metric = mgfit.metric,
+           scalar = mgfit.scalar,
+           argsLRT = list(test = "D2", method = "satorra.bentler.2010"))
+
+## correlation residuals to investigate local misfit
+resid(mgfit.scalar, type = "cor.bentler")
+## modification indices for fixed parameters, to investigate local misfit
+modindices.mi(mgfit.scalar)
+## or lavTestScore.mi for modification indices about equality constraints
+lavTestScore.mi(mgfit.scalar)
+
+## Wald test of whether latent means are == (fix 3 means to zero in group 2)
+eq.means &lt;- ' .p70. == 0
+              .p71. == 0
+              .p72. == 0 '
+lavTestWald.mi(mgfit.scalar, constraints = eq.means)
+
+
+
+## ordered-categorical data
+data(datCat)
+lapply(datCat, class) # indicators already stored as ordinal
+## impose missing values
+set.seed(123)
+for (i in 1:8) datCat[sample(1:nrow(datCat), size = .1*nrow(datCat)), i] &lt;- NA
+
+## impute ordinal missing data using mice package
+library(mice)
+set.seed(456)
+miceImps &lt;- mice(datCat)
+## save imputations in a list of data.frames
+impList &lt;- list()
+for (i in 1:miceImps$m) impList[[i]] &lt;- complete(miceImps, action = i)
+
+## fit model, save zero-cell tables and obsolete "WRMR" fit indices
+catout &lt;- cfa.mi(' f =~ 1*u1 + 1*u2 + 1*u3 + 1*u4 ', data = impList,
+                 FUN = function(fit) {
+                   list(wrmr = lavaan::fitMeasures(fit, "wrmr"),
+                        zeroCells = lavaan::lavInspect(fit, "zero.cell.tables"))
+                 })
+summary(catout)
+lavTestLRT.mi(catout, test = "D2", pool.robust = TRUE)
+fitMeasures(catout, fit.measures = c("rmsea","srmr","cfi"),
+            test = "D2", pool.robust = TRUE)
+
+## extract custom output
+sapply(catout@funList, function(x) x$wrmr) # WRMR for each imputation
+catout@funList[[1]]$zeroCells # zero-cell tables for first imputation
+catout@funList[[2]]$zeroCells # zero-cell tables for second imputation ...
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

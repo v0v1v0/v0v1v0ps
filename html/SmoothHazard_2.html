@@ -1,0 +1,230 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>idmModel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate illness-death model objects</h2>
+
+<h3>Description</h3>
+
+<p>Function to generate an illness-death model for simulation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">idmModel(
+  scale.illtime = 1/100,
+  shape.illtime = 1,
+  scale.lifetime = 1/100,
+  shape.lifetime = 1,
+  scale.waittime = 1/100,
+  shape.waittime = 1,
+  scale.censtime = 1/100,
+  shape.censtime = 1,
+  n.inspections = 5,
+  schedule = 10,
+  punctuality = 5
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>scale.illtime</code></td>
+<td>
+<p>Weilbull scale for latent illness time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shape.illtime</code></td>
+<td>
+<p>Weilbull shape for latent illness time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale.lifetime</code></td>
+<td>
+<p>Weilbull scale for latent life time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shape.lifetime</code></td>
+<td>
+<p>Weilbull shape for latent life time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale.waittime</code></td>
+<td>
+<p>Weilbull scale for latent life time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shape.waittime</code></td>
+<td>
+<p>Weilbull shape for latent life time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale.censtime</code></td>
+<td>
+<p>Weilbull scale for censoring time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shape.censtime</code></td>
+<td>
+<p>Weilbull shape for censoring time</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.inspections</code></td>
+<td>
+<p>Number of inspection times</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>schedule</code></td>
+<td>
+<p>Mean of the waiting time between adjacent
+inspections.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>punctuality</code></td>
+<td>
+<p>Standard deviation of waiting time between
+inspections.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Based on the functionality of the lava PACKAGE the function generates
+a latent variable model (latent illtime, waittime and lifetime)
+and censoring mechanism (censtime, inspection1,inspection2,...,inspectionK).
+</p>
+<p>The function <code>sim.idmModel</code> then simulates
+right censored lifetimes and interval censored illness times.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A latent variable model object <code>lvm</code>
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Thomas Alexander Gerds
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(lava)
+library(prodlim)
+# generate illness-death model based on exponentially
+# distributed times
+m &lt;- idmModel(scale.illtime=1/70,
+              shape.illtime=1.8,
+              scale.lifetime=1/50,
+              shape.lifetime=0.7,
+              scale.waittime=1/30,
+              shape.waittime=0.7)
+round(sim(m,6),1)
+
+# Estimate the parameters of the Weibull models
+# based on the uncensored exact event times
+# and the uncensored illstatus.
+set.seed(18)
+d &lt;- sim(m,100,latent=FALSE)
+d$uncensored.status &lt;- 1
+f &lt;- idm(formula01=Hist(time=illtime,event=illstatus)~1,
+         formula02=Hist(time=lifetime,event=uncensored.status)~1,
+         data=d,
+         conf.int=FALSE)
+print(f)
+
+# Change the rate of the 0-&gt;2 and 0-&gt;1 transitions
+# also the rate of the 1-&gt;2 transition
+# and also lower the censoring rate
+m &lt;- idmModel(scale.lifetime=1/2000,
+              scale.waittime=1/30,
+              scale.illtime=1/1000,
+              scale.censtime=1/1000)
+set.seed(18)
+d &lt;- sim(m,50,latent=TRUE)
+d$uncensored.status &lt;- 1
+
+f &lt;- idm(formula01=Hist(time=observed.illtime,event=illstatus)~1,
+         formula02=Hist(time=observed.lifetime,event=uncensored.status)~1,
+         data=d,
+         conf.int=FALSE)
+print(f)
+
+# Estimate based on the right censored observations
+fc &lt;- idm(formula01=Hist(time=illtime,event=seen.ill)~1,
+          formula02=Hist(time=observed.lifetime,event=seen.exit)~1,
+          data=d,
+          conf.int=FALSE)
+print(fc)
+
+# Estimate based on interval censored and right censored observations
+fi &lt;- idm(formula01=Hist(time=list(L,R),event=seen.ill)~1,
+          formula02=Hist(time=observed.lifetime,event=seen.exit)~1,
+          data=d,
+          conf.int=FALSE)
+print(fi)
+
+# Estimation of covariate effects:
+# X1, X2, X3
+m &lt;- idmModel(shape.waittime=2,
+              scale.lifetime=1/2000,
+              scale.waittime=1/300,
+              scale.illtime=1/10000,
+              scale.censtime=1/10000)
+distribution(m,"X1") &lt;- binomial.lvm(p=0.3)
+distribution(m,"X2") &lt;- normal.lvm(mean=120,sd=20)
+distribution(m,"X3") &lt;- normal.lvm(mean=50,sd=20)
+regression(m,to="latent.illtime",from="X1") &lt;- 1.7
+regression(m,to="latent.illtime",from="X2") &lt;- 0.07
+regression(m,to="latent.illtime",from="X3") &lt;- -0.1
+regression(m,to="latent.waittime",from="X1") &lt;- 1.8
+regression(m,to="latent.lifetime",from="X1") &lt;- 0.7
+set.seed(28)
+d &lt;- sim(m,100,latent=TRUE)
+head(d)
+table(ill=d$seen.ill,death=d$seen.exit)
+
+# Estimation based on uncensored data
+d$uncensored.status &lt;- 1
+# uncensored data
+F1 &lt;- idm(formula01=Hist(time=illtime,event=illstatus)~X1+X2+X3,
+          formula02=Hist(time=lifetime,event=uncensored.status)~X1+X2+X3,
+          data=d,conf.int=FALSE)
+print(F1)
+
+# Estimation based on right censored data
+F2 &lt;- idm(formula01=Hist(time=illtime,event=seen.ill)~X1+X2+X3,
+          formula02=Hist(time=observed.lifetime,event=seen.exit)~X1+X2+X3,
+          data=d,conf.int=FALSE)
+print(F2)
+
+# Estimation based on interval censored and right censored data
+F3 &lt;- idm(formula01=Hist(time=list(L,R),event=seen.ill)~X1+X2+X3,
+          formula02=Hist(time=observed.lifetime,event=seen.exit)~X1+X2+X3,
+          data=d,conf.int=FALSE)
+print(F3)
+cbind(uncensored=F1$coef,right.censored=F2$coef,interval.censored=F3$coef)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>MaternIMRFa</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+corrFamily constructor for Interpolated Markov Random Field (IMRF) covariance structure approximating a 2D Matern correlation model.
+</h2>
+
+<h3>Description</h3>
+
+<p>Reimplements the <code>IMRF</code> correlation model approximating a Matern correlation function, through a <code>corrFamily</code> constructor. This allows the efficient joint estimation of the <code>alpha</code> parameter of the approximating Markov random field (in principle related to the smoothness parameter of the <code>Matern</code> correlation function) together with its <code>kappa</code> parameter. By contrast, random effects terms specified as <code>IMRF(1| . , model = &lt;INLA::inla.spde2.matern result&gt;)</code>  assume a fixed <code>alpha</code>.
+</p>
+<p>Using this feature requires that the not-on-CRAN package <span class="pkg">INLA</span> (<a href="https://www.r-inla.org">https://www.r-inla.org</a>) is installed so that <code>INLA::inla.spde2.matern</code> can be called for each <code>alpha</code> value. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R"># corrFamily constructor:
+MaternIMRFa(mesh, tpar = c(alpha = 1.25, kappa = 0.1), fixed = NULL, norm=FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>mesh</code></td>
+<td>
+
+<p>An <code>inla.mesh</code> object as produced by <code>INLA::inla.mesh.2d</code>.
+</p>
+</td>
+</tr></table>
+<p>and consistently with the general format of <code>corrFamily</code> constructors:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>tpar</code></td>
+<td>
+
+<p>Named numeric vector: template values of the parameters of the model. Better not modified unless you know what you are doing. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+<p>NULL or numeric vector, to fix the parameters of this model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>norm</code></td>
+<td>
+<p>Boolean: whether to apply a normalization so that the random effect is homoscedastic (see <code>IMRF</code>) for details.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list suitable as input in the <code>covStruct</code> argument, with the following elements: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>f </code></td>
+<td>
+<p>function returning a precision matrix for the random effect in mesh vertices;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tpar </code></td>
+<td>
+<p>template parameter vector (see general requirements of a <code>corrFamily</code> descriptor);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Af</code></td>
+<td>
+<p>function returning a matrix that implements the prediction of random effect values in data locations by interpolation of values in <code>mesh</code> locations (similarly to <code>INLA::inla.spde.make.A</code>);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>specifies that the matrix returned by <code>Cf</code> is a precision matrix rather than a correlation matrix;</p>
+</td>
+</tr>
+</table>
+<p>and possibly other elements which should not be considered as stable features of the return value.
+</p>
+
+
+<h3>References</h3>
+
+<p>Lindgren F., Rue H., Lindström J. (2011) An explicit link between Gaussian fields and Gaussian Markov random fields: the stochastic partial differential equation approach Journal of the Royal Statistical Society: Series B (Statistical Methodology), 73: 423-498. <a href="https://doi.org/10.1111/j.1467-9868.2011.00777.x">doi:10.1111/j.1467-9868.2011.00777.x</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+
+if(requireNamespace("INLA", quietly = TRUE)) {
+
+data("Loaloa")
+
+mesh &lt;- INLA::inla.mesh.2d(loc = Loaloa[, c("longitude", "latitude")],
+                     max.edge = c(3, 20)) 
+
+### Fit with fixed alpha                     
+
+(fit_MaternIMRF &lt;- fitme(
+  cbind(npos,ntot-npos) ~ elev1 + elev2 + elev3 + elev4 + maxNDVI1 + 
+        seNDVI +  MaternIMRFa(1|longitude+latitude, mesh, fixed=c(alpha=1.05)),
+  family=binomial(), 
+  data=Loaloa, verbose=c(TRACE=interactive())) )
+   
+# For data sets with a small number of locations (as here), fitting
+# the Matern model as follows is faster than fitting its MaternIMRFa approximation. 
+# Here this appears more than twofold faster
+
+fit_Matern &lt;- fitme(
+  cbind(npos,ntot-npos) ~ elev1 + elev2 + elev3 + elev4 + maxNDVI1 + 
+        seNDVI + Matern(1|longitude+latitude), 
+  fixed=list(nu=0.05),                          # in principle similar to alpha=0.05
+  data=Loaloa,family=binomial())   
+  
+  
+  
+### Same with variable alpha                     
+
+(fit_MaternIMRF &lt;- fitme(
+  cbind(npos,ntot-npos) ~ elev1 + elev2 + elev3 + elev4 + maxNDVI1 + 
+        seNDVI + MaternIMRFa(1|longitude+latitude, mesh),         
+  family=binomial(), 
+  data=Loaloa, verbose=c(TRACE=interactive())) )
+
+# Comparable Matern fit:
+fit_Matern &lt;- fitme(
+  cbind(npos,ntot-npos) ~ elev1 + elev2 + elev3 + elev4 + maxNDVI1 + 
+        seNDVI + Matern(1|longitude+latitude), 
+  init=list(nu=0.25), lower=list(nu=0), upper=list(nu=1),
+  data=Loaloa,family=binomial())   
+  
+# Note that the fitted nu and alpha parameters do not quite match each other,
+# and that the IMRF likelihood does not really approximate the Matern likelihood.
+# Mesh design would also be seen to matter.   
+
+} else print("INLA must be installed to run this example.")
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

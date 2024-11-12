@@ -1,0 +1,230 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>optimizePars</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Optimize parameters for acoustic analysis</h2>
+
+<h3>Description</h3>
+
+<p>This customized wrapper for <code>optim</code> attempts to optimize
+the parameters of <code>segment</code> or <code>analyze</code> by comparing
+the results with a manually annotated "key". This optimization function uses
+a single measurement per audio file (e.g., median pitch or the number of
+syllables). For other purposes, you may want to adapt the optimization
+function so that the key specifies the exact timing of syllables, their
+median length, frame-by-frame pitch values, or any other characteristic that
+you want to optimize for. The general idea remains the same, however: we want
+to tune function parameters to fit our type of audio and research priorities.
+The default settings of <code>segment</code> and <code>analyze</code> have
+been optimized for human non-linguistic vocalizations.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">optimizePars(
+  myfolder,
+  key,
+  myfun,
+  pars,
+  bounds = NULL,
+  fitnessPar,
+  fitnessFun = function(x) 1 - cor(x, key, use = "pairwise.complete.obs"),
+  nIter = 10,
+  init = NULL,
+  initSD = 0.2,
+  control = list(maxit = 50, reltol = 0.01, trace = 0),
+  otherPars = list(plot = FALSE),
+  mygrid = NULL,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>myfolder</code></td>
+<td>
+<p>path to where the .wav files live</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>key</code></td>
+<td>
+<p>a vector containing the "correct" measurement that we are aiming
+to reproduce</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>myfun</code></td>
+<td>
+<p>the function being optimized: either 'segment' or
+'analyze' (in quotes)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars</code></td>
+<td>
+<p>names of arguments to <code>myfun</code> that should be
+optimized</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bounds</code></td>
+<td>
+<p>a list setting the lower and upper boundaries for possible
+values of optimized parameters. For ex., if we optimize <code>smooth</code>
+and <code>smoothOverlap</code>, reasonable bounds might be list(low = c(5,
+0), high = c(500, 95))</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fitnessPar</code></td>
+<td>
+<p>the name of output variable that we are comparing with the
+key, e.g. 'nBursts' or 'pitch_median'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fitnessFun</code></td>
+<td>
+<p>the function used to evaluate how well the output of
+<code>myfun</code> fits the key. Defaults to 1 - Pearson's correlation (i.e. 0 is
+perfect fit, 1 is awful fit). For pitch, log scale is more meaningful, so a
+good fitness criterion is "function(x) 1 - cor(log(x), log(key), use =
+'pairwise.complete.obs')"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nIter</code></td>
+<td>
+<p>repeat the optimization several times to check convergence</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init</code></td>
+<td>
+<p>initial values of optimized parameters (if NULL, the default
+values are taken from the definition of <code>myfun</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initSD</code></td>
+<td>
+<p>each optimization begins with a random seed, and
+<code>initSD</code> specifies the SD of normal distribution used to generate
+random deviation of initial values from the defaults</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>a list of control parameters passed on to
+<code>optim</code>. The method used is "Nelder-Mead"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>otherPars</code></td>
+<td>
+<p>a list of additional arguments to <code>myfun</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mygrid</code></td>
+<td>
+<p>a dataframe with one column per parameter to optimize, with
+each row specifying the values to try. If not NULL, <code>optimizePars</code>
+simply evaluates each combination of parameter values, without calling
+<code>optim</code> (see examples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if TRUE, reports the values of parameters evaluated and fitness</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If your sounds are very different from human non-linguistic vocalizations,
+you may want to change the default values of other arguments to speed up
+convergence. Adapt the code to enforce suitable constraints, depending
+on your data.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a matrix with one row per iteration with fitness in the first
+column and the best values of each of the optimized parameters in the
+remaining columns.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Download 260 sounds from the supplements in Anikin &amp; Persson (2017)
+# - see http://cogsci.se/publications.html
+# Unzip them into a folder, say '~/Downloads/temp'
+myfolder = '~/Downloads/temp260'  # 260 .wav files live here
+
+# Optimization of SEGMENTATION
+# Import manual counts of syllables in 260 sounds from
+# Anikin &amp; Persson (2017) (our "key")
+key = segmentManual  # a vector of 260 integers
+
+# Run optimization loop several times with random initial values
+# to check convergence
+# NB: with 260 sounds and default settings, this might take ~20 min per iteration!
+res = optimizePars(myfolder = myfolder, myfun = 'segment', key = key,
+  pars = c('shortestSyl', 'shortestPause'),
+  fitnessPar = 'nBursts', otherPars = list(method = 'env'),
+  nIter = 3, control = list(maxit = 50, reltol = .01, trace = 0))
+
+# Examine the results
+print(res)
+for (c in 2:ncol(res)) {
+  plot(res[, c], res[, 1], main = colnames(res)[c])
+}
+pars = as.list(res[1, 2:ncol(res)])  # top candidate (best pars)
+s = do.call(segment, c(myfolder, pars))  # segment with best pars
+cor(key, as.numeric(s[, fitnessPar]))
+boxplot(as.numeric(s[, fitnessPar]) ~ as.integer(key), xlab='key')
+abline(a=0, b=1, col='red')
+
+# Try a grid with particular parameter values instead of formal optimization
+res = optimizePars(myfolder = myfolder, myfun = 'segment', key = segmentManual,
+  pars = c('shortestSyl', 'shortestPause'),
+  fitnessPar = 'nBursts', otherPars = list(method = 'env'),
+  mygrid = expand.grid(shortestSyl = c(30, 40),
+                       shortestPause = c(30, 40, 50)))
+1 - res$fit  # correlations with key
+
+# Optimization of PITCH TRACKING (takes several hours!)
+key = as.numeric(log(pitchManual))
+res = optimizePars(
+  myfolder = myfolder,
+    myfun = 'analyze',
+    key = key,  # log-scale better for pitch
+    pars = c('windowLength', 'silence'),
+    bounds = list(low = c(5, 0), high = c(200, .2)),
+    fitnessPar = 'pitch_median',
+    nIter = 2,
+    otherPars = list(plot = FALSE, loudness = NULL, novelty = NULL,
+                     roughness = NULL, nFormants = 0),
+    fitnessFun = function(x) {
+      1 - cor(log(x), key, use = 'pairwise.complete.obs') *
+      (1 - mean(is.na(x) &amp; is.finite(key))) # penalize failing to detect f0
+})
+
+## End(Not run)
+</code></pre>
+
+
+</div>

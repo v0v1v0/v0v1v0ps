@@ -1,0 +1,619 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sfMsDS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Spatial Factor Multi-Species Hierarchical Distance Sampling Models</h2>
+
+<h3>Description</h3>
+
+<p>Function for fitting spatial factor multi-species hierarchical distance sampling models. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sfMsDS(abund.formula, det.formula, data, inits, priors,  
+       tuning, cov.model = 'exponential', NNGP = TRUE, 
+       n.neighbors = 15, search.type = 'cb', n.factors, 
+       n.batch, batch.length, accept.rate = 0.43, 
+       family = 'Poisson', transect = 'line', det.func = 'halfnormal', 
+       n.omp.threads = 1, verbose = TRUE, n.report = 100, 
+       n.burn = round(.10 * n.batch * batch.length), n.thin = 1, 
+       n.chains = 1, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>abund.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the abundance portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+and slopes are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the detection portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+and slopes are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>covs</code>, <code>coords</code>, 
+<code>dist.breaks</code>, and <code>offset</code>. <code>y</code>
+is a three-dimensional array of observed count data with first dimension equal to the number 
+of species, second dimension equal to the number of sites, and third 
+dimension equal to the maximum number of replicates at a given site. 
+<code>covs</code> is a matrix or data frame containing the variables 
+used in the abundance and/or the detection portion of the model, with
+<code class="reqn">J</code> rows for each column (variable). <code>dist.breaks</code> is a vector of 
+distances that denote the breakpoints of the distance bands. <code>dist.breaks</code> should
+have length equal to the third dimension of <code>y</code> plus one. <code>offset</code> is an 
+offset that can be used to scale estimates from abundance per transect to density per 
+some desired unit of measure. This can be either a single value or a vector with an offset
+value for each site (e.g., if transects differ in length). <code>coords</code> is a matrix
+or data frame with two columns that contain the spatial coordinates of each site. 
+Note that <code>spAbundance</code> assumes coordinates are specified in a projected
+coordinate system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>alpha.comm</code>, <code>beta.comm</code>, <code>beta</code>, 
+<code>alpha</code>, <code>tau.sq.beta</code>, <code>tau.sq.alpha</code>, <code>sigma.sq.mu</code>, 
+<code>sigma.sq.p</code>, <code>phi</code>, <code>nu</code>, <code>lambda</code>, <code>w</code>, 
+<code>kappa</code>, and <code>N</code>. <code>sigma.sq.mu</code> and 
+<code>sigma.sq.p</code> are only relevant when including random effects in the 
+abundance and detection portion of the model, respectively. <code>kappa</code> is
+only relevant when <code>family = 'NB'</code>. <code>nu</code> is only relevant if 
+<code>cov.model = "matern"</code>.
+The value portion of each tag is the parameter's initial value. See 
+<code>priors</code> description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.comm.normal</code>, <code>alpha.comm.normal</code>, 
+<code>tau.sq.beta.ig</code>, <code>tau.sq.alpha.ig</code>, <code>sigma.sq.mu.ig</code>, 
+<code>sigma.sq.p.ig</code>, <code>kappa.unif</code>, 
+<code>phi.unif</code>, and <code>nu.unif</code>. Community-level abundance 
+(<code>beta.comm</code>) and detection (<code>alpha.comm</code>) regression coefficients 
+are assumed to follow a normal distribution. The hyperparameters of the 
+normal distribution are passed as a list of length two with the first
+and second elements corresponding to the mean and variance of the normal
+distribution, which are each specified as vectors of 
+length equal to the number of coefficients to be estimated or of length one
+if priors are the same for all coefficients. If not
+specified, prior means are set to 0 and prior variances are set to 100.
+Community-level variance parameters for abundance (<code>tau.sq.beta</code>) and
+detection (<code>tau.sq.alpha</code>) are assumed to follow an inverse Gamma 
+distribution. The hyperparameters of the inverse gamma distribution are 
+passed as a list of length two with the first and second elements 
+corresponding to the shape and scale parameters, which are each specified
+as vectors of length equal to the number of coefficients to be estimated 
+or a single value if all parameters are assigned the same prior. 
+If not specified, prior shape and scale parameters are set to 0.1. <code>sigma.sq.mu</code> and 
+<code>sigma.sq.p</code> are the random effect variances for any abundance or 
+detection random effects, respectively, and are assumed to follow an inverse
+Gamma distribution. The hyperparameters of the inverse-Gamma distribution
+are passed as a list of length two with first and second elements corresponding
+to the shape and scale parameters, respectively, which are each specified as
+vectors of length equal to the number of random effects or of length one 
+if priors are the same for all random effect variances. <code>kappa</code> is the 
+negative binomial dispersion parameter for each species and is assumed to 
+follow a uniform distribution. The hyperparameters of the uniform distribution
+are passed as a list of length two with first and second elements corresponding to the
+lower and upper bounds of the uniform distribution, respectively, which are each 
+specified as vectors of length equal to the number of species or of length one
+if priors are the same for all species-specific dispersion parameters. 
+The spatial factor model fits <code>n.factors</code> independent
+spatial processes. The spatial decay <code>phi</code> and smoothness <code>nu</code> parameters 
+for each latent factor are assumed to follow Uniform distributions. 
+The hyperparameters of the Uniform are passed as a list with two elements, 
+with both elements being vectors of length <code>n.factors</code> corresponding to the lower and 
+upper support, respectively, or as a single value if the same value is assigned
+for all factors. The priors for the factor loadings matrix <code>lambda</code> are fixed
+following the standard spatial factor model to ensure parameter 
+identifiability (Christensen and Amemlya 2002). The
+upper triangular elements of the <code>n.sp x n.factors</code> matrix are fixed at 0 and the 
+diagonal elements are fixed at 1. The lower triangular elements are assigned a 
+standard normal prior (i.e., mean 0 and variance 1).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name, 
+whose value defines the initial variance of the adaptive sampler. 
+Valid tags are <code>beta</code>, <code>alpha</code>, <code>lambda</code> (the latent factor loadings), 
+<code>w</code> (the latent factors), <code>beta.star</code> (the abundance 
+random effect values), <code>alpha.star</code> (the detection random effect values), and 
+<code>kappa</code>. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations. Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>NNGP</code></td>
+<td>
+<p>if <code>TRUE</code>, model is fit with an NNGP.  See Datta et al. (2016) and 
+Finley et al. (2019) for more information. Currently only NNGP is supported,
+functionality for a Gaussian Process be addded in future package development.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP. Only used if 
+<code>NNGP = TRUE</code>. Datta et al. (2016) showed that 15 neighbors is usually 
+sufficient, but that as few as 5 neighbors can be adequate for certain data
+sets, which can lead to even greater decreases in run time. We recommend
+starting with 15 neighbors (the default) and if additional gains in computation
+time are desired, subsequently compare the results with a smaller number
+of neighbors using WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search.type</code></td>
+<td>
+<p>a quoted keyword that specifies the type of nearest
+neighbor search algorithm. Supported method key words are: <code>"cb"</code> and
+<code>"brute"</code>. The <code>"cb"</code> should generally be much
+faster. If locations do not have identical coordinate values on
+the axis used for the nearest neighbor ordering then <code>"cb"</code> 
+and <code>"brute"</code> should produce identical neighbor sets. 
+However, if there are identical coordinate values on the axis used 
+for nearest neighbor ordering, then <code>"cb"</code> and <code>"brute"</code> 
+might produce different, but equally valid, neighbor sets, 
+e.g., if data are on a grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.factors</code></td>
+<td>
+<p>the number of factors to use in the latent factor model approach.
+Typically, the number of factors is set to be small (e.g., 4-5) relative to the
+total number of species in the community, which will lead to substantial
+decreases in computation time. However, the value can be anywhere
+between 1 and N (the number of species in the community).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches in each chain to run for the Adaptive MCMC
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch in each chain to run for the Adaptive
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for Adaptive MCMC. Default is
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>the distribution to use for the latent abundance process. Currently 
+supports <code>'NB'</code> (negative binomial) and <code>'Poisson'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>transect</code></td>
+<td>
+<p>the type of transect. Currently supports line transects (<code>'line'</code>) or
+circular transects (i.e., point counts; <code>'point'</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.func</code></td>
+<td>
+<p>the detection model used to describe how detection probability varies
+with distance. In other software, this is often referred to as the key function. Currently
+supports two functions: half normal (<code>'halfnormal'</code>) and negative exponential
+(<code>'negexp'</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating the number of threads
+to use for SMP parallel processing. The package must be compiled for 
+OpenMP support. For most Intel-based machines, we recommend setting 
+<code>n.omp.threads</code> up to the number of hypterthreaded cores. Note, 
+<code>n.omp.threads</code> &gt; 1 might not work on some systems. Currently only 
+relevant for spatial models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.samples</code> to 
+discard as burn-in for each chain. By default, the first 10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default 
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>sfMsDS</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level abundance regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level abundance regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level abundance dispersion parameters. Only included
+when <code>family = 'NB'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the spatial correlation parameters for each spatial factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the spatial factor loadings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for 
+the latent effects for each spatial factor. Array dimensions correspond
+to MCMC sample, spatial factor, then site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent abundance values for each species. Note that these values
+always represent transect-level abundance, even when an offset is 
+supplied. Array dimensions correspond to MCMC sample, species, then site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent expected abundance values for each species. When an offset
+is supplied in the <code>data</code> object, these correspond to expected
+abundance per unit area (i.e., density). Array dimensions correspond to 
+MCMC sample, species, then site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.mu.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random effects included in the abundance portion
+of the model. Only included if random effects are specified in 
+<code>abund.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.p.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random effects included in the detection portion 
+of the model. Only included if random effects are specified in 
+<code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance random effects. Only included if random effects 
+are specified in <code>abund.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection random effects. Only included if random effects 
+are specified in <code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rep.samples</code></td>
+<td>
+<p>a four-dimensional array of fitted values. 
+Array dimensions correspond to MCMC samples, species, sites, and distance band.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pi.samples</code></td>
+<td>
+<p>a four-dimensional array of cell-specific detection
+probabilities. Array dimensions correspond to MCMC samples, species, 
+sites, and distance band.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>MCMC sampler execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent prediction and/or model fit evaluation. 
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Royle, J. A. (2004). N‐mixture models for estimating population size
+from spatially replicated counts. Biometrics, 60(1), 108-115.
+</p>
+<p>Datta, A., S. Banerjee, A.O. Finley, and A.E. Gelfand. (2016)
+Hierarchical Nearest-Neighbor Gaussian process models for large
+geostatistical datasets. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1080/01621459.2015.1044091">doi:10.1080/01621459.2015.1044091</a>.
+</p>
+<p>Finley, A.O., A. Datta, B.D. Cook, D.C. Morton, H.E. Andersen, and
+S. Banerjee. (2019) Efficient algorithms for Bayesian Nearest Neighbor
+Gaussian Processes. <em>Journal of Computational and Graphical
+Statistics</em>, <a href="https://doi.org/10.1080/10618600.2018.1537924">doi:10.1080/10618600.2018.1537924</a>.
+</p>
+<p>Sollmann, R., Gardner, B., Williams, K. A., Gilbert, A. T., 
+&amp; Veit, R. R. (2016). A hierarchical distance sampling model to 
+estimate abundance and covariate associations of species 
+and communities. Methods in Ecology and Evolution, 7(5), 529-537.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(210)
+J.x &lt;- 10
+J.y &lt;- 10 
+J &lt;- J.x * J.y
+# Number of distance bins from which to simulate data. 
+n.bins &lt;- 5
+# Length of each bin. This should be of length n.bins
+bin.width &lt;- c(.10, .10, .20, .3, .1)
+# Number of species
+n.sp &lt;- 5
+# Community-level abundance coefficients
+beta.mean &lt;- c(-1, 0.2, 0.3, -0.2)
+p.abund &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.2, 0.3, 0.5, 0.4)
+# Detection coefficients
+alpha.mean &lt;- c(-1.0, -0.3)
+p.det &lt;- length(alpha.mean)
+tau.sq.alpha &lt;- c(0.1, 0.2)
+# Detection decay function
+det.func &lt;- 'halfnormal'
+mu.RE &lt;- list()
+p.RE &lt;- list()
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = n.sp, ncol = p.abund)
+alpha &lt;- matrix(NA, nrow = n.sp, ncol = p.det)
+for (i in 1:p.abund) {
+  beta[, i] &lt;- rnorm(n.sp, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(n.sp, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+sp &lt;- TRUE 
+family &lt;- 'Poisson'
+kappa &lt;- runif(n.sp, 0.3, 3) 
+offset &lt;- pi * .8^2
+transect &lt;- 'line'
+factor.model &lt;- TRUE
+n.factors &lt;- 3
+phi &lt;- runif(n.factors, 3 / 1, 3 / .2)
+cov.model &lt;- 'exponential'
+
+dat &lt;- simMsDS(J.x = J.x, J.y = J.y, n.bins = n.bins, bin.width = bin.width,
+               n.sp = n.sp, beta = beta, alpha = alpha, det.func = det.func, 
+               mu.RE = mu.RE, p.RE = p.RE, sp = sp, cov.model = cov.model,
+               sigma.sq = sigma.sq, phi = phi, nu = nu, family = family, 
+               offset = offset, transect = transect, factor.model = factor.model, 
+               n.factors = n.factors)
+
+y &lt;- dat$y
+X &lt;- dat$X
+X.p &lt;- dat$X.p
+coords &lt;- dat$coords
+dist.breaks &lt;- dat$dist.breaks
+
+covs &lt;- cbind(X, X.p)
+colnames(covs) &lt;- c('int.abund', 'abund.cov.1', 'abund.cov.2', 'abund.cov.3', 
+                    'int.det', 'det.cov.1')
+
+data.list &lt;- list(y = y, 
+                  covs = covs,
+                  dist.breaks = dist.breaks, 
+                  coords = coords,
+                  offset = offset)
+
+# Priors
+prior.list &lt;- list(beta.comm.normal = list(mean = 0, var = 10),
+                   alpha.comm.normal = list(mean = 0, var = 10), 
+                   kappa.unif = list(0, 100), 
+                   phi.unif = list(3 / 1, 3 / .1),
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1),
+                   tau.sq.alpha.ig = list(a = 0.1, b = 0.1)) 
+# Starting values
+inits.list &lt;- list(alpha.comm = 0, beta.comm = 0, beta = 0,
+                   alpha = 0, kappa = 1, phi = 3 / .5)
+
+tuning &lt;- list(beta = 0.1, alpha = 0.1, beta.star = 0.3, alpha.star = 0.1, 
+               kappa = 0.8, lambda = 1, w = 1, phi = 0.8) 
+
+n.batch &lt;- 4 
+batch.length &lt;- 25
+n.burn &lt;- 0
+n.thin &lt;- 1
+n.chains &lt;- 1
+
+out &lt;- sfMsDS(abund.formula = ~ abund.cov.1 + abund.cov.2 + abund.cov.3,
+              det.formula = ~ det.cov.1,
+              data = data.list, 
+              n.batch = n.batch, 
+              batch.length = batch.length, 
+              inits = inits.list, 
+              family = 'Poisson',
+              det.func = 'halfnormal', 
+              transect = transect, 
+              tuning = tuning,
+              cov.model = 'exponential', 
+              NNGP = TRUE,
+              n.neighbors = 5,
+              n.factors = n.factors,
+              priors = prior.list, 
+              accept.rate = 0.43, 
+              n.omp.threads = 1, 
+              verbose = TRUE, 
+              n.report = 10,
+              n.burn = n.burn,
+              n.thin = n.thin,
+              n.chains = n.chains) 
+summary(out, level = 'community')
+</code></pre>
+
+
+</div>

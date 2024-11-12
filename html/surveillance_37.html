@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>algo.hmm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Hidden Markov Model (HMM) method</h2>
+
+<h3>Description</h3>
+
+ 
+<p>This function implements on-line HMM detection of outbreaks based on
+the retrospective procedure described in Le Strat and Carret (1999).
+Using the function <code>msm</code> (from package <span class="pkg">msm</span>) a specified HMM
+is estimated, the decoding problem, i.e. the most probable state
+configuration, is found by the Viterbi algorithm and the most
+probable state of the last observation is recorded. On-line
+detection is performed by sequentially repeating this procedure.
+</p>
+<p>Warning: This function can be very slow - a more efficient implementation would be nice!
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">  algo.hmm(disProgObj, control = list(range=range, Mtilde=-1, 
+           noStates=2, trend=TRUE, noHarmonics=1,
+           covEffectEqual=FALSE, saveHMMs = FALSE, extraMSMargs=list()))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>disProgObj</code></td>
+<td>
+<p>object of class disProg (including the observed and the state chain)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>control object: 
+</p>
+
+<dl>
+<dt><code>range</code></dt>
+<dd>
+<p>determines the desired time points
+which should be evaluated. Note that opposite to other
+surveillance methods an initial parameter estimation
+occurs in the HMM. Note that range should be high
+enough to allow for enough reference values for
+estimating the HMM</p>
+</dd>
+<dt><code>Mtilde</code></dt>
+<dd>
+<p>number of observations back in time
+to use for fitting the HMM (including
+the current observation). Reasonable values are a multiple of
+<code>disProgObj$freq</code>, the default is
+<code>Mtilde=-1</code>, which means to use all possible
+values - for long series this might take very long time!</p>
+</dd>
+<dt><code>noStates</code></dt>
+<dd>
+<p>number of hidden states in the HMM
+– the typical choice is 2. The initial rates are set
+such that the <code>noStates</code>th state is the one
+having the highest rate. In other words: this state is considered
+the outbreak state.</p>
+</dd>
+<dt><code>trend</code></dt>
+<dd>
+<p>Boolean stating whether a linear time trend exists, i.e. if <code>TRUE</code> (default) then <code class="reqn">\beta_j \neq 0</code></p>
+</dd>
+<dt><code>noHarmonics</code></dt>
+<dd>
+<p>number of harmonic waves to include in the linear predictor. Default is 1.</p>
+</dd>
+<dt><code>covEffectEqual</code></dt>
+<dd>
+<p>see details</p>
+</dd>
+<dt><code>saveHMMs</code></dt>
+<dd>
+<p>Boolean, if <code>TRUE</code> then the fitted HMMs are saved. With this option the function can also be used to analyse data retrospectively. Default option is <code>FALSE</code></p>
+</dd>
+<dt><code>extraMSMArgs</code></dt>
+<dd>
+<p>A named list with additional arguments to send to the <code>msm</code> HMM fitting function. Note that the <code>msm</code> arguments <code>formula</code>, <code>data</code>, <code>qmatrix</code>, <code>hmodel</code>, <code>hcovariates</code> and <code>hconstraint</code> are automatically filled by <code>algo.hmm</code>, thus these should NOT be modified.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For each time point t the reference values values are extracted. If
+the number of requested values is larger than the number of possible
+values the latter is used. Now the following happens on these reference values:
+</p>
+<p>A <code>noStates</code>-State Hidden Markov Model (HMM) is used based on
+the Poisson distribution with linear predictor on the log-link
+scale. I.e.  </p>
+<p style="text-align: center;"><code class="reqn">Y_t | X_t = j \sim Po(\mu_t^j),</code>
+</p>
+<p> where </p>
+<p style="text-align: center;"><code class="reqn">\log(\mu_t^j) = \alpha_j + \beta_j\cdot
+    t + \sum_{i=1}^{nH} \gamma_j^i \cos(2i\pi/freq\cdot (t-1)) +
+    \delta_j^i \sin(2i\pi/freq\cdot (t-1))</code>
+</p>
+
+<p>and <code class="reqn">nH=</code><code>noHarmonics</code> and <code class="reqn">freq=12,52</code> depending on the
+sampling frequency of the surveillance data. In the above <code class="reqn">t-1</code> is
+used, because the first week is always saved as <code>t=1</code>, i.e. we
+want to ensure that the first observation corresponds to cos(0) and
+sin(0).
+</p>
+<p>If <code>covEffectEqual</code> then all covariate effects parameters are
+equal for the states, i.e. <code class="reqn">\beta_j=\beta, \gamma_j^i=\gamma^i,
+    \delta_j^i=\delta^i</code> for all <code class="reqn">j=1,...,\code{noStates}</code>.
+</p>
+<p>In case more complicated HMM models are to be fitted it is possible to
+modify the <code>msm</code> code used in this function. Using
+e.g. <code>AIC</code> one can select between different models (see the
+<span class="pkg">msm</span> package for further details). 
+</p>
+<p>Using the Viterbi algorithms the most probable state configuration
+is obtained for the reference values and if the most probable
+configuration for the last reference value (i.e. time t) equals
+<code>control$noOfStates</code> then an alarm is given.
+</p>
+<p>Note: The HMM is re-fitted from scratch every time, sequential
+updating schemes of the HMM would increase speed considerably!  A
+major advantage of the approach is that outbreaks in the reference
+values are handled automatically.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>algo.hmm</code> gives a list of class <code>survRes</code> which includes the 
+vector of alarm values for every timepoint in <code>range</code>. No
+<code>upperbound</code> can be specified and is put equal to zero.
+</p>
+<p>The resulting object contains a list <code>control$hmms</code>, which
+contains the <code>"msm"</code> objects with the fitted HMMs
+(if <code>saveHMMs=TRUE</code>).
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>M. Höhle</p>
+
+
+<h3>References</h3>
+
+<p>Y. Le Strat and F. Carrat, Monitoring Epidemiologic Surveillance Data using Hidden Markov Models (1999), Statistics in Medicine, 18, 3463–3478
+</p>
+<p>I.L. MacDonald and W. Zucchini, Hidden Markov and Other Models for Discrete-valued Time Series,  (1997), Chapman &amp; Hall, Monographs on Statistics and applied Probability 70
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>msm</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Simulate outbreak data from HMM
+set.seed(123)
+counts &lt;- sim.pointSource(p = 0.98, r = 0.8, length = 3*52,
+                              A = 1, alpha = 1, beta = 0, phi = 0,
+                              frequency = 1, state = NULL, K = 1.5)
+
+## Not run: 
+#Do surveillance using a two state HMM without trend component and
+#the effect of the harmonics being the same in both states. A sliding
+#window of two years is used to fit the HMM
+surv &lt;- algo.hmm(counts, control=list(range=(2*52):length(counts$observed),
+                                   Mtilde=2*52,noStates=2,trend=FALSE,
+                                   covEffectsEqual=TRUE,extraMSMargs=list()))
+plot(surv,legend.opts=list(x="topright"))
+
+## End(Not run)
+
+if (require("msm")) {
+#Retrospective use of the function, i.e. monitor only the last time point
+#but use option saveHMMs to store the output of the HMM fitting
+surv &lt;- algo.hmm(counts,control=list(range=length(counts$observed),Mtilde=-1,noStates=2,
+                          trend=FALSE,covEffectsEqual=TRUE, saveHMMs=TRUE))
+
+#Compute most probable state using the viterbi algorithm - 1 is "normal", 2 is "outbreak".
+viterbi.msm(surv$control$hmms[[1]])$fitted
+
+#How often correct?
+tab &lt;- cbind(truth=counts$state + 1 ,
+             hmm=viterbi.msm(surv$control$hmm[[1]])$fitted)
+table(tab[,1],tab[,2])
+}
+</code></pre>
+
+
+</div>

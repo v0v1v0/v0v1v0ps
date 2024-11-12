@@ -1,0 +1,139 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ipu</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>iterative proportional updating</h2>
+
+<h3>Description</h3>
+
+<p>adjust sampling weights to given totals based on household-level and/or
+individual level constraints
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ipu(inp, con, hid = NULL, eps = 1e-07, verbose = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>inp</code></td>
+<td>
+<p>a <code>data.frame</code> or <code>data.table</code> containing household ids
+(optionally), counts for household and/or personal level attributes that
+should be fitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>con</code></td>
+<td>
+<p>named list with each list element holding a constraint total with
+list-names relating to column-names in <code>inp</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hid</code></td>
+<td>
+<p>character vector specifying the variable containing household-ids
+within <code>inp</code> or NULL if such a variable does not exist.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps</code></td>
+<td>
+<p>number specifiying convergence limit</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if TRUE, ipu will print some progress information.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Bernhard Meindl
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(data.table)
+# basic example
+inp &lt;- as.data.frame(matrix(0, nrow=8, ncol=6))
+colnames(inp) &lt;- c("hhid","hh1","hh2","p1","p2","p3")
+inp$hhid &lt;- 1:8
+inp$hh1[1:3] &lt;- 1
+inp$hh2[4:8] &lt;- 1
+inp$p1 &lt;- c(1,1,2,1,0,1,2,1)
+inp$p2 &lt;- c(1,0,1,0,2,1,1,1)
+inp$p3 &lt;- c(1,1,0,2,1,0,2,0)
+con &lt;- list(hh1=35, hh2=65, p1=91, p2=65, p3=104)
+res &lt;- ipu(inp=inp, hid="hhid", con=con, verbose=FALSE)
+
+# more sophisticated
+# load sample and population data
+data(eusilcS)
+data(eusilcP)
+
+# variable generation and preparation
+eusilcS$hsize &lt;- factor(eusilcS$hsize)
+
+# make sure, factor levels in sample and population match
+eusilcP$region &lt;- factor(eusilcP$region, levels = levels(eusilcS$db040))
+eusilcP$gender &lt;- factor(eusilcP$gender, levels = levels(eusilcS$rb090))
+eusilcP$hsize  &lt;- factor(eusilcP$hsize , levels = levels(eusilcS$hsize))
+
+# generate input matrix
+# we want to adjust to variable "db040" (region) as household variables and
+# variable "rb090" (gender) as individual information
+
+library(data.table)
+samp &lt;- data.table(eusilcS)
+pop &lt;-  data.table(eusilcP)
+setkeyv(samp, "db030")
+hh &lt;- samp[!duplicated(samp$db030),]
+hhpop &lt;- pop[!duplicated(pop$hid),]
+
+# reg contains for each region the number of households
+reg &lt;- data.table(model.matrix(~db040 +0, data=hh))
+# hsize contains for each household size the number of households
+hsize &lt;- data.table(model.matrix(~factor(hsize) +0, data=hh))
+
+# aggregate persons-level characteristics per household
+# gender contains for each household the number of males and females
+gender &lt;- data.table(model.matrix(~db030+rb090 +0, data=samp))
+setkeyv(gender, "db030")
+gender &lt;- gender[, lapply(.SD, sum), by = key(gender)]
+
+# bind together and use it as input
+inp &lt;- cbind(reg, hsize, gender)
+
+# the totals we want to calibrate to
+con &lt;- c(
+  as.list(xtabs(rep(1, nrow(hhpop)) ~ hhpop$region)),
+  as.list(xtabs(rep(1, nrow(hhpop)) ~ hhpop$hsize)),
+  as.list(xtabs(rep(1, nrow(eusilcP)) ~ eusilcP$gender))
+)
+# we need to have the same names as in 'inp'
+names(con) &lt;- setdiff(names(inp), "db030")
+
+# run ipu und check results
+res &lt;- ipu(inp=inp, hid="db030", con=con, verbose=TRUE)
+
+is &lt;- sapply(2:(ncol(res)-1), function(x) {
+  sum(res[,x]*res$weights)
+})
+data.frame(required=unlist(con), is=is)
+
+</code></pre>
+
+
+</div>

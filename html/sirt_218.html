@@ -1,0 +1,194 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>mcmc_coef</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Some Methods for Objects of Class <code>mcmc.list</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>Some methods for objects of class <code>mcmc.list</code> created
+from the <span class="pkg">coda</span> package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## coefficients
+mcmc_coef(mcmcobj, exclude="deviance")
+
+## covariance matrix
+mcmc_vcov(mcmcobj, exclude="deviance")
+
+## confidence interval
+mcmc_confint( mcmcobj, parm, level=.95, exclude="deviance" )
+
+## summary function
+mcmc_summary( mcmcobj, quantiles=c(.025,.05,.50,.95,.975) )
+
+## plot function
+mcmc_plot(mcmcobj, ...)
+
+## inclusion of derived parameters in mcmc object
+mcmc_derivedPars( mcmcobj, derivedPars )
+
+## Wald test for parameters
+mcmc_WaldTest( mcmcobj, hypotheses )
+
+## S3 method for class 'mcmc_WaldTest'
+summary(object, digits=3, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mcmcobj</code></td>
+<td>
+
+<p>Objects of class <code>mcmc.list</code> as created by
+<code>coda::mcmc</code>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exclude</code></td>
+<td>
+
+<p>Vector of parameters which should be excluded in calculations
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parm</code></td>
+<td>
+<p>Optional vector of parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>Confidence level</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quantiles</code></td>
+<td>
+<p>Vector of quantiles to be computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Parameters to be passed to <code>mcmc_plot</code>.
+See <code>LAM::plot.amh</code> for arguments.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>derivedPars</code></td>
+<td>
+<p>List with derived parameters (see examples).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hypotheses</code></td>
+<td>
+<p>List with hypotheses of the form
+<code class="reqn">g_i( \bold{\theta})=0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>Object of class <code>mcmc_WaldTest</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>digits</code></td>
+<td>
+<p>Number of digits used for rounding.</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>coda::mcmc</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+#############################################################################
+# EXAMPLE 1: Logistic regression in rcppbugs package
+#############################################################################
+
+
+#***************************************
+# (1) simulate data
+set.seed(8765)
+N &lt;- 500
+x1 &lt;- stats::rnorm(N)
+x2 &lt;- stats::rnorm(N)
+y &lt;- 1*( stats::plogis( -.6 + .7*x1 + 1.1 *x2 ) &gt; stats::runif(N) )
+
+#***************************************
+# (2) estimate logistic regression with glm
+mod &lt;- stats::glm( y ~ x1 + x2, family="binomial" )
+summary(mod)
+
+#***************************************
+# (3) estimate model with rcppbugs package
+library(rcppbugs)
+b &lt;- rcppbugs::mcmc.normal( stats::rnorm(3),mu=0,tau=0.0001)
+y.hat &lt;- rcppbugs::deterministic( function(x1,x2,b){
+                stats::plogis( b[1] + b[2]*x1 + b[3]*x2 ) },
+                  x1, x2, b)
+y.lik &lt;- rcppbugs::mcmc.bernoulli( y, p=y.hat, observed=TRUE)
+model &lt;- rcppbugs::create.model(b, y.hat, y.lik)
+
+#*** estimate model in rcppbugs; 5000 iterations, 1000 burnin iterations
+n.burnin &lt;- 500 ; n.iter &lt;- 2000 ; thin &lt;- 2
+ans &lt;- rcppbugs::run.model(model, iterations=n.iter, burn=n.burnin, adapt=200, thin=thin)
+print(rcppbugs::get.ar(ans)) # get acceptance rate
+print(apply(ans[["b"]],2,mean)) # get means of posterior
+
+#*** convert rcppbugs into mcmclist object
+mcmcobj &lt;- data.frame( ans$b )
+colnames(mcmcobj) &lt;- paste0("b",1:3)
+mcmcobj &lt;- as.matrix(mcmcobj)
+class(mcmcobj) &lt;- "mcmc"
+attr(mcmcobj, "mcpar") &lt;- c( n.burnin+1, n.iter, thin )
+mcmcobj &lt;- coda::mcmc( mcmcobj )
+
+# coefficients, variance covariance matrix and confidence interval
+mcmc_coef(mcmcobj)
+mcmc_vcov(mcmcobj)
+mcmc_confint( mcmcobj, level=.90 )
+
+# summary and plot
+mcmc_summary(mcmcobj)
+mcmc_plot(mcmcobj, ask=TRUE)
+
+# include derived parameters in mcmc object
+derivedPars &lt;- list( "diff12"=~ I(b2-b1), "diff13"=~ I(b3-b1) )
+mcmcobj2 &lt;- sirt::mcmc_derivedPars(mcmcobj, derivedPars=derivedPars )
+mcmc_summary(mcmcobj2)
+
+#*** Wald test for parameters
+ # hyp1: b2 - 0.5=0
+ # hyp2: b2 * b3=0
+hypotheses &lt;- list( "hyp1"=~ I( b2 - .5 ), "hyp2"=~ I( b2*b3 ) )
+test1 &lt;- sirt::mcmc_WaldTest( mcmcobj, hypotheses=hypotheses )
+summary(test1)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

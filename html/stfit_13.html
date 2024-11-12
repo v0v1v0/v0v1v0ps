@@ -1,0 +1,198 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>meanEst</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>STFIT Mean Estimation</h2>
+
+<h3>Description</h3>
+
+<p>The function is used for pixel-wise mean estimation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">meanEst(
+  doy,
+  mat,
+  doyeval = seq(min(doy), max(doy)),
+  msk = rep(FALSE, ncol(mat)),
+  outlier.tol = 0.5,
+  minimum.num.obs = 4,
+  cluster = NULL,
+  redo = TRUE,
+  clipRange = c(-Inf, Inf),
+  clipMethod = c("truncate", "nnr"),
+  img.nrow = NULL,
+  img.ncol = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>doy</code></td>
+<td>
+<p>vector of day of year (DOY) index</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mat</code></td>
+<td>
+<p>data matrix. Each row contains a row stacked image pixel values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>doyeval</code></td>
+<td>
+<p>a vector of DOY on which to get the mean imputation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>msk</code></td>
+<td>
+<p>an optional logistic vector. TRUE represent the corresponding pixel is always missing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outlier.tol</code></td>
+<td>
+<p>the tolerance value in defining an image as outlier. The percent of 
+outlier pixels in an image exceed this value is regarded as outlier image which will not
+be used in temporal mean estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minimum.num.obs</code></td>
+<td>
+<p>minimum number of observations needed for mean estimation. Too few observations
+may lead to big estimation error.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+<p>an optional vector defining clusters of pixels. If NULL, mean estimation
+is conducted on each pixel, otherwise all pixels from the same cluster are combined for
+mean estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>redo</code></td>
+<td>
+<p>whether to recalculate the mean estimation if there is an outlier (only redo once).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clipRange</code></td>
+<td>
+<p>vector of length 2, specifying the minimum and maximum values of the prediction value</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clipMethod</code></td>
+<td>
+<p>"nnr" or "truncate". "nnr" uses average of nearest neighbor pixels to impute;
+"truncate use the clipRange value to truncate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>img.nrow</code></td>
+<td>
+<p>number of rows for an image, only used when 'clipMethod' is "nnr"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>img.ncol</code></td>
+<td>
+<p>number of columns for an image, only used when 'clipMethod' is "nnr"</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>There are several predefined methods for mean estimation: <code>smooth_spline</code>, 
+<code>llreg</code>, <code>lpreg</code> and <code>spreg</code>. User can use <code>opt$get()</code> to check
+the current registered method and use <code>opt$set()</code> function to set the method.
+For exmaple, one can run <code>opt$set(smooth_spline)</code> first and then run the 
+<code>meanEst</code> function to use smoothing spline regression for mean eatimation.
+User can also customize the methods for mean estimation. For example, mean estimation
+through fourier basis expansion:
+</p>
+<pre>
+.X = fda::eval.basis(1:365, fda::create.fourier.basis(rangeval=c(0,365), nbasis=11))
+customfun &lt;- function(x, y, x.eval=1:365, minimum.num.obs = 10){
+  nonna.idx = !is.na(y)
+  if(sum(nonna.idx) &lt; minimum.num.obs)
+    return(rep(NA, 365))
+  ## lmfit = lm.fit(.X[unlist(lapply(x, function(x) which(x == x.eval))),], y[nonna.idx])
+  lmfit = lm.fit(.X[x[nonna.idx],], y[nonna.idx])
+  return(.X[x.eval,] 
+}
+stfit::opts_stfit$set(temporal_mean_est = customfun)
+</pre>
+
+
+<h3>Value</h3>
+
+<p>a list containing the following entries:
+</p>
+
+<ul>
+<li>
+<p> doyeval: same as input <code>doyeval</code>
+</p>
+</li>
+<li>
+<p> meanmat: estimated mean matrix, with number of rows equals length of <code>doyeval</code>
+and number of columns equal <code>ncol(mat)</code>
+</p>
+</li>
+<li>
+<p> idx: a list of image indexes 
+</p>
+
+<ul>
+<li>
+<p> idx.allmissing: completely missing image indexes,
+</p>
+</li>
+<li>
+<p> idx.partialmissing: partially observed image indexes,
+</p>
+</li>
+<li>
+<p> idx.fullyobserved: fully observed image indexes,
+</p>
+</li>
+<li>
+<p> idx.outlier: outlier image indexes.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> outlier: a list of image outliers information
+</p>
+
+<ul>
+<li>
+<p> outidx: index of the outlier image
+</p>
+</li>
+<li>
+<p> outpct: percentage of outlier pixels corresponding to <code>outidx</code>,
+</p>
+</li>
+<li>
+<p> outlst: a list of the same length as <code>outidx</code>, with each list the missing pixel index.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+</div>

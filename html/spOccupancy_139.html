@@ -1,0 +1,508 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>svcPGBinom</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Single-Species Spatially-Varying Coefficient Binomial Models Using Polya-Gamma Latent Variables</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>svcPGBinom</code> fits single-species spatially-varying coefficient binomial models using Polya-Gamma latent variables. Models are fit using Nearest Neighbor Gaussian Processes. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">svcPGBinom(formula, data, inits, priors, tuning, svc.cols = 1, 
+           cov.model = "exponential", NNGP = TRUE, 
+           n.neighbors = 15, search.type = "cb", n.batch,
+           batch.length, accept.rate = 0.43, 
+           n.omp.threads = 1, verbose = TRUE, n.report = 100, 
+           n.burn = round(.10 * n.batch * batch.length), 
+           n.thin = 1, n.chains = 1, k.fold, k.fold.threads = 1, 
+           k.fold.seed = 100, k.fold.only = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>covs</code>, <code>weights</code>, and <code>coords</code>. 
+<code>y</code> is a numeric vector containing the binomial data with length equal
+to the total number of sites (<code class="reqn">J</code>). 
+<code>covs</code> is a matrix or data frame containing the covariates used in 
+the model, with <code class="reqn">J</code> rows for each column (variable). <code>weights</code> is a 
+numeric vector containing the binomial weights (i.e., the total number of 
+Bernoulli trials) at each site. If <code>weights</code> is not specified, 
+<code>svcPGBinom</code> assumes 1 trial at each site (i.e., presence/absence). 
+<code>coords</code> is a <code class="reqn">J \times 2</code> matrix 
+of the observation coordinates. Note that <code>spOccupancy</code> assumes coordinates are specified 
+in a projected coordinate system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>beta</code>, <code>sigma.sq</code>, 
+<code>phi</code>, <code>w</code>, <code>nu</code>, and <code>sigma.sq.psi</code>.  
+<code>nu</code> is only specified if <code>cov.model = "matern"</code>, and <code>sigma.sq.psi</code>
+is only specified if there are random effects in <code>formula</code>. 
+The value portion of each tag is the parameter's initial value. See <code>priors</code>
+description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.normal</code>, <code>phi.unif</code>, 
+<code>sigma.sq.ig</code>, <code>sigma.sq.unif</code>, <code>nu.unif</code>, and
+<code>sigma.sq.psi.ig</code>. Regression coefficients (<code>beta</code>)
+are assumed to follow a normal distribution. The hyperparameters of the 
+normal distribution are passed as a list of length two with the first
+and second elements corresponding to the mean and variance of the normal
+distribution, which are each specified as vectors of 
+length equal to the number of coefficients to be estimated or of length
+one if priors are the same for all coefficients. If not
+specified, prior means are set to 0 and prior variances set to 2.73. The 
+spatial variance parameter, <code>sigma.sq</code>, for each spatially-varying 
+coefficient is assumed to follow an 
+inverse-Gamma distribution or a uniform distribution (default is 
+inverse-Gamma). The spatial decay <code>phi</code> and 
+smoothness <code>nu</code> parameters are assumed to follow Uniform 
+distributions. The hyperparameters of the inverse-Gamma for <code>sigma.sq</code>
+are passed as a list with two elements corresponding to the 
+shape and scale parametters, respetively, with each element comprised of 
+a vector equal to the number of spatially-varying coefficients to be estimated
+or of length one if priors are the same for all coefficients.
+The hyperparameters of any uniform priors are also passed as a list of 
+length two with the first and second elements corresponding to 
+the lower and upper support, respectively, which can be passed as
+a vector equal to the total number of spatially-varying coefficients to 
+be estimated or of length one if priors are the same for all coefficients.
+<code>sigma.sq.psi</code> are the random effect variances for any random effects, 
+respectively, and are assumed to follow an 
+inverse-Gamma distribution. The hyperparameters of
+the inverse-Gamma distribution are passed as a list of length two with the 
+first and second elements corresponding to the shape and scale parameters, 
+respectively, which are each specified as vectors of length equal to the 
+number of random intercepts or of length one if priors are the same for all
+random effect variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>svc.cols</code></td>
+<td>
+<p>a vector indicating the variables whose effects will be 
+estimated as spatially-varying coefficients. <code>svc.cols</code> can be an 
+integer vector with values indicating the order of covariates specified 
+in the model formula (with 1 being the intercept if specified), or it can 
+be specified as a character vector with names corresponding to variable 
+names in <code>covs</code> (for the intercept, use <code>'(Intercept)'</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter
+name. Valid tags are <code>phi</code>, <code>sigma.sq</code>, and <code>nu</code>. 
+The value portion of each tag defines the initial variance of the Adaptive sampler. See
+Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>NNGP</code></td>
+<td>
+<p>if <code>TRUE</code>, model is fit with an NNGP. If <code>FALSE</code>, 
+a full Gaussian process is used. See Datta et al. (2016) and 
+Finley et al. (2019) for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP. Only used if 
+<code>NNGP = TRUE</code>. Datta et al. (2016) showed that 15 neighbors is usually 
+sufficient, but that as few as 5 neighbors can be adequate for certain data
+sets, which can lead to even greater decreases in run time. We recommend
+starting with 15 neighbors (the default) and if additional gains in computation
+time are desired, subsequently compare the results with a smaller number
+of neighbors using WAIC or k-fold cross-validation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search.type</code></td>
+<td>
+<p>a quoted keyword that specifies the type of nearest
+neighbor search algorithm. Supported method key words are: <code>"cb"</code> and
+<code>"brute"</code>. The <code>"cb"</code> should generally be much
+faster. If locations do not have identical coordinate values on
+the axis used for the nearest neighbor ordering then <code>"cb"</code> 
+and <code>"brute"</code> should produce identical neighbor sets. 
+However, if there are identical coordinate values on the axis used 
+for nearest neighbor ordering, then <code>"cb"</code> and <code>"brute"</code> 
+might produce different, but equally valid, neighbor sets, 
+e.g., if data are on a grid. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches in each chain to run for the Adaptive MCMC 
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch in each chain to run for the Adaptive 
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for Adaptive MCMC. Default is 
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating
+the number of threads to use for SMP parallel processing. The package must
+be compiled for OpenMP support. For most Intel-based machines, we
+recommend setting <code>n.omp.threads</code> up to the number of
+hyperthreaded cores. Note, <code>n.omp.threads</code> &gt; 1 might not
+work on some systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis sampler acceptance and
+MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.batch * batch.length</code> 
+samples in each chain to discard as burn-in. By default, the first 
+10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default 
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of MCMC chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold</code></td>
+<td>
+<p>specifies the number of <em>k</em> folds for cross-validation. 
+If not specified as an argument, then cross-validation is not performed
+and <code>k.fold.threads</code> and <code>k.fold.seed</code> are ignored. In <em>k</em>-fold
+cross-validation, the data specified in <code>data</code> is randomly
+partitioned into <em>k</em> equal sized subsamples. Of the <em>k</em> subsamples, 
+<em>k</em> - 1 subsamples are used to fit the model and the remaining <em>k</em>
+samples are used for prediction. The cross-validation process is repeated 
+<em>k</em> times (the folds). As a scoring rule, we use the model deviance 
+as described in Hooten and Hobbs (2015). Cross-validation is performed
+after the full model is fit using all the data. Cross-validation results
+are reported in the <code>k.fold.deviance</code> object in the return list.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.threads</code></td>
+<td>
+<p>number of threads to use for cross-validation. If 
+<code>k.fold.threads &gt; 1</code> parallel processing is accomplished using the 
+<span class="pkg">foreach</span> and <span class="pkg">doParallel</span> packages. Ignored if <code>k.fold</code>
+is not specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.seed</code></td>
+<td>
+<p>seed used to split data set into <code>k.fold</code> parts
+for k-fold cross-validation. Ignored if <code>k.fold</code> is not specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.only</code></td>
+<td>
+<p>a logical value indicating whether to only perform 
+cross-validation (<code>TRUE</code>) or perform cross-validation after fitting 
+the full model (<code>FALSE</code>). Default value is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>svcPGBinom</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rep.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples 
+for the fitted data values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occurrence probability values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for spatial covariance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for the 
+latent spatial random effects for all spatially-varying coefficients. 
+Dimensions correspond to MCMC sample, coefficient, and sites.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.psi.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of unstructured random intercepts included in the 
+model. Only included if random intercepts are specified in 
+<code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the unstructured random effects. Only included if random intercepts
+are specified in <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>like.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the likelihood value associated with each site. Used for calculating
+WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.deviance</code></td>
+<td>
+<p>soring rule (deviance) from k-fold cross-validation. 
+Only included if <code>k.fold</code> is specified in function call.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Datta, A., S. Banerjee, A.O. Finley, and A.E. Gelfand. (2016)
+Hierarchical Nearest-Neighbor Gaussian process models for large
+geostatistical datasets. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1080/01621459.2015.1044091">doi:10.1080/01621459.2015.1044091</a>.
+</p>
+<p>Finley, A.O., A. Datta, B.D. Cook, D.C. Morton, H.E. Andersen, and
+S. Banerjee. (2019) Efficient algorithms for Bayesian Nearest Neighbor
+Gaussian Processes. <em>Journal of Computational and Graphical
+Statistics</em>, <a href="https://doi.org/10.1080/10618600.2018.1537924">doi:10.1080/10618600.2018.1537924</a>.
+</p>
+<p>Finley, A. O., and  Banerjee, S. (2020). Bayesian spatially varying coefficient 
+models in the spBayes R package. <em>Environmental Modelling and Software</em>, 
+125, 104608.
+</p>
+<p>Polson, N.G., J.G. Scott, and J. Windle. (2013) Bayesian Inference for
+Logistic Models Using Polya-Gamma Latent Variables. 
+<em>Journal of the American Statistical Association</em>, 108:1339-1349.
+</p>
+<p>Roberts, G.O. and Rosenthal J.S. (2009) Examples  of adaptive MCMC. 
+<em>Journal of Computational and Graphical Statistics</em>, 18(2):349-367.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(1000)
+# Sites
+J.x &lt;- 10
+J.y &lt;- 10
+J &lt;- J.x * J.y
+# Binomial weights
+weights &lt;- sample(10, J, replace = TRUE)
+beta &lt;- c(0, 0.5, -0.2, 0.75)
+p &lt;- length(beta)
+# No unstructured random effects
+psi.RE &lt;- list()
+# Spatial parameters
+sp &lt;- TRUE
+# Two spatially-varying covariates. 
+svc.cols &lt;- c(1, 2)
+p.svc &lt;- length(svc.cols)
+cov.model &lt;- "exponential"
+sigma.sq &lt;- runif(p.svc, 0.4, 1.5)
+phi &lt;- runif(p.svc, 3/1, 3/0.2)
+
+# Simulate the data  
+dat &lt;- simBinom(J.x = J.x, J.y = J.y, weights = weights, beta = beta, 
+                psi.RE = psi.RE, sp = sp, svc.cols = svc.cols, 
+                cov.model = cov.model, sigma.sq = sigma.sq, phi = phi)
+
+# Binomial data
+y &lt;- dat$y
+# Covariates
+X &lt;- dat$X
+# Spatial coordinates
+coords &lt;- dat$coords
+
+# Package all data into a list
+# Covariates
+covs &lt;- cbind(X)
+colnames(covs) &lt;- c('int', 'cov.1', 'cov.2', 'cov.3')
+
+# Data list bundle
+data.list &lt;- list(y = y, 
+                  covs = covs,
+                  coords = coords, 
+                  weights = weights)
+# Priors
+prior.list &lt;- list(beta.normal = list(mean = 0, var = 2.72), 
+                   sigma.sq.ig = list(a = 2, b = 1), 
+                   phi.unif = list(a = 3 / 1, b = 3 / 0.1)) 
+
+# Starting values
+inits.list &lt;- list(beta = 0, alpha = 0,
+                   sigma.sq = 1, phi = phi)
+# Tuning
+tuning.list &lt;- list(phi = 1) 
+
+n.batch &lt;- 10
+batch.length &lt;- 25
+n.burn &lt;- 100
+n.thin &lt;- 1
+
+out &lt;- svcPGBinom(formula = ~ cov.1 + cov.2 + cov.3, 
+                  svc.cols = c(1, 2),
+                  data = data.list, 
+                  n.batch = n.batch, 
+                  batch.length = batch.length, 
+                  inits = inits.list, 
+                  priors = prior.list,
+                  accept.rate = 0.43, 
+                  cov.model = "exponential", 
+                  tuning = tuning.list, 
+                  n.omp.threads = 1, 
+                  verbose = TRUE, 
+                  NNGP = TRUE, 
+                  n.neighbors = 5,
+                  n.report = 2, 
+                  n.burn = n.burn, 
+                  n.thin = n.thin, 
+                  n.chains = 1) 
+
+summary(out)
+</code></pre>
+
+
+</div>

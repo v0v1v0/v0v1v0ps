@@ -1,0 +1,257 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>steadyICA</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Estimate independent components by minimizing distance covariance </h2>
+
+<h3>Description</h3>
+
+<p>The model is: X = S M + E, where X is n x p and has mean zero, S is n x d, M is d x p, and E is measurement error. For whitened data, we have Z = S t(W), where W is orthogonal. We find the matrix M such that S minimizes the distance covariance dependency measure.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">steadyICA(X, n.comp = ncol(X), w.init = NULL, PIT = FALSE, bw = 'SJ', adjust = 1,
+whiten = FALSE, irlba = FALSE, symmetric = FALSE, eps = 1e-08, alpha.eps = 1e-08,
+maxit = 100, method = c('Cpp','R'), verbose = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>The n x p data matrix, where n is the number of observations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.comp</code></td>
+<td>
+<p>number of components to be estimated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.init</code></td>
+<td>
+<p>a p x d initial unmixing matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PIT</code></td>
+<td>
+<p>logical; if TRUE, the distribution and density of the independent components are estimated using gaussian kernel density estimates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bw</code></td>
+<td>
+<p>Argument for bandwidth selection method; defaults to 'SJ'; see stats::density</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjust</code></td>
+<td>
+<p>adjust bandwidth selection; e.g., if observations are correlated, consider using adjust &gt; 1; see stats::density</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>whiten</code></td>
+<td>
+<p>logical; if TRUE, whitens the data before applying ICA, i.e., X%*%whitener = Z, where Z has mean zero and empirical covariance equal to the identity matrix, and Z is then used as the input.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>irlba</code></td>
+<td>
+<p>logical; when whiten=TRUE, irlbA=TRUE uses the R-package 'irlba' in the whitening, which is generally faster than base::svd though sometimes less accurate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>symmetric</code></td>
+<td>
+<p>logical; if TRUE, implements the symmetric version of the ICA algorithm, which is invariant to the ordering of the columns of X but is slower</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps</code></td>
+<td>
+<p>algorithm terminates when the norm of the gradient of multidcov is less than eps</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxit</code></td>
+<td>
+<p>maximum number of iterations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.eps</code></td>
+<td>
+<p>tolerance controlling the level of annealing: algorithm terminates with a warning if the learning parameter is less than alpha.eps</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>options 'Cpp' (default), which requires the package 'Rcpp', or 'R', which is solely written in R but is much slower</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical; if TRUE, prints the value of multidcov, norm of the gradient, and current value of the learning parameter.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>S</code></td>
+<td>
+<p>the estimated independent components</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>the estimated unmixing matrix: if whiten=TRUE, W is orthogonal and corresponds to Z W = S; if whiten=FALSE, corresponds to X ginv(M) = S</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M</code></td>
+<td>
+<p>Returns the estimated mixing matrix for the model X = S M, where X is not pre-whitened (although X is centered)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+<p>the value of the objective function at the estimated S</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Table</code></td>
+<td>
+<p>summarizes algorithm status at each iteration</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>convergence</code></td>
+<td>
+<p>1 if norm of the gradient is less than eps, 2 if the learning parameter was smaller than alpha.eps, which usually means the gradient is sufficiently small, 0 otherwise</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Benjamin Risk
+</p>
+
+
+<h3>References</h3>
+
+<p>Matteson, D. S. &amp; Tsay, R. Independent component analysis via U-Statistics. 
+&lt;http://www.stat.cornell.edu/~matteson/#ICA&gt;
+
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>multidcov</code>
+
+
+
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(999)
+nObs &lt;- 1024
+nComp &lt;- 3
+# simulate from some gamma distributions:
+simS&lt;-cbind(rgamma(nObs, shape = 1, scale = 2),
+            rgamma(nObs, shape = 3, scale = 2),
+            rgamma(nObs, shape = 9, scale = 0.5))
+
+#standardize by expected value and variance:
+simS[,1] = (simS[,1] - 1*2)/sqrt(1*2^2)
+simS[,2] = (simS[,2] - 3*2)/sqrt(3*2^2)
+simS[,3] = (simS[,3] - 9*0.5)/sqrt(9*0.5^2)
+
+# slightly revised 'mixmat' function (from ProDenICA)
+# for p&gt;=d: uses fastICA and ProDenICA parameterization:
+myMixmat &lt;- function (p = 2, d = NULL) {
+  if(is.null(d)) d = p
+  a &lt;- matrix(rnorm(d * p), d, p)
+  sa &lt;- La.svd(a)
+  dL &lt;- sort(runif(d) + 1)
+  mat &lt;- sa$u%*%(sa$vt*dL)
+  attr(mat, "condition") &lt;- dL[d]/dL[1]
+  mat
+}
+
+simM &lt;- myMixmat(p = 6, d = nComp)
+xData &lt;- simS%*%simM
+xWhitened &lt;- whitener(xData, n.comp = nComp)
+
+#estimate mixing matrix:
+est.steadyICA.v1 = steadyICA(X = xData,whiten=TRUE,n.comp=nComp,verbose = TRUE)
+
+#Define the 'true' W:
+W.true &lt;- solve(simM%*%xWhitened$whitener)
+
+frobICA(M1=est.steadyICA.v1$M,M2=simM)
+frobICA(S1=est.steadyICA.v1$S,S2=simS)
+
+## Not run: 
+#now initiate from target:
+est.steadyICA.v2 = steadyICA(X = xData, w.init= W.true, n.comp = nComp, whiten=TRUE, verbose=TRUE)
+
+#estimate using PIT steadyICA such that dimension reduction is via ICA:
+est.steadyICA.v3 = steadyICA(X = xData, w.init=ginv(est.steadyICA.v2$M),
+PIT=TRUE, n.comp = nComp, whiten=FALSE, verbose=TRUE)
+
+frobICA(M1=est.steadyICA.v2$M,M2=simM)
+frobICA(M1=est.steadyICA.v3$M,M2=simM) 
+frobICA(S1=est.steadyICA.v2$S,S2=simS)
+
+#tends to be lower than PCA-based (i.e., whitening) methods:
+frobICA(S1=est.steadyICA.v3$S,S2=simS) 
+
+# JADE uses a different parameterization and different notation.
+# Using our parameterization and notation, the arguments for 
+# JADE::amari.error correspond to:
+amari.error(t(W.hat), W.true)
+
+library(JADE)
+
+amari.error(t(est.steadyICA.v1$W), W.true) 
+amari.error(t(est.steadyICA.v2$W), W.true)
+##note that a square W is not estimated if PIT=TRUE and whiten=FALSE
+
+#Compare performance to fastICA:
+library(fastICA)
+est.fastICA = fastICA(X = xData, n.comp = 3, tol=1e-07)
+amari.error(t(est.fastICA$W), W.true)
+##steadyICA usually outperforms fastICA
+
+##Compare performance to ProDenICA:
+library(ProDenICA)
+est.ProDenICA = ProDenICA(x = xWhitened$Z, k = 3, maxit=40,trace=TRUE)
+amari.error(t(est.ProDenICA$W), W.true)
+##ProDenICA and steadyICA tend to be similar when sources
+##are continuously differentiable
+
+## End(Not run)
+</code></pre>
+
+
+</div>

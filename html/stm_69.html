@@ -1,0 +1,197 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>topicLasso</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Plot predictions using topics</h2>
+
+<h3>Description</h3>
+
+<p>Use the <span class="pkg">glmnet</span> package to plot LASSO based estimates of relationship
+between an arbitrary dependent variable with topics and additional variables
+as predictors.  This function is experimental (see below).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">topicLasso(
+  formula,
+  data,
+  stmobj = NULL,
+  subset = NULL,
+  omit.var = NULL,
+  family = "gaussian",
+  main = "Topic Effects on Outcome",
+  xlab = expression("Lower Outcome Higher Outcome"),
+  labeltype = c("prob", "frex", "lift", "score"),
+  seed = 2138,
+  xlim = c(-4, 4),
+  standardize = FALSE,
+  nfolds = 20,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Formula specifying the dependent variable and additional
+variables to included in the LASSO beyond the topics present in the stmobj.
+Just pass a 1 on the right-hand side in order to run without additional
+controls.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Data file containing the dependent variable. Typically will be
+the metadata file used in the stm analysis. It must have a number of rows
+equal to the number of documents in the stmobj.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stmobj</code></td>
+<td>
+<p>The STM object, and output from the <code>stm</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+<p>A logical statement that will be used to subset the corpus.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>omit.var</code></td>
+<td>
+<p>Pass a character vector of variable names to be excluded
+from the plot.  Note this does not exclude them from the calculation, only
+the plot.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>The family parameter used in <code>glmnet</code>.  See
+explanation there.  Defaults to "gaussian"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>main</code></td>
+<td>
+<p>Character string for the main title.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlab</code></td>
+<td>
+<p>Character string giving an x-axis label.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>labeltype</code></td>
+<td>
+<p>Type of example words to use in labeling each topic. See
+<code>labelTopics</code>. Defaults to "prob".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>The random seed for replication of the cross-validation samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlim</code></td>
+<td>
+<p>Width of the x-axis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>standardize</code></td>
+<td>
+<p>Whether to standardize variables. Default is FALSE, which
+is different from the <span class="pkg">glmnet</span> default because the topics are already
+standardized.  Note that glmnet standardizes the variables by default but
+then projects them back to their original scales before reporting
+coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nfolds</code></td>
+<td>
+<p>the number of cross-validation folds.  Defaults to 20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments to be passed to glmnet.  This can be useful
+for addressing convergence problems.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is used for estimating the most important topical predictors
+of an arbitrary outcome.  The idea is to run an L1 regularized regression
+using <code>cv.glmnet</code> in the <span class="pkg">glmnet</span> package where the
+document-level dependent variable is chosen by the user and the predictors
+are the document-topic proportions in the <code>stm</code> model along with
+any other variables of interest.
+</p>
+<p>The function uses cross-validation to choose the regularization parameter
+and generates a plot of which loadings were the most influential in
+predicting the outcome.  It also invisibly returns the glmnet model so that
+it can be used for prediction.
+</p>
+<p>NOTE: This function is still very experimental and may have stability
+issues.  If stability issues are encountered see the documentation in
+<span class="pkg">glmnet</span> for arguments that can be passed to improve convergence.  Also,
+it is unlikely to work well with multivariate gaussian or multinomial
+families.
+</p>
+
+
+<h3>References</h3>
+
+<p>Friedman, Jerome, Trevor Hastie, and Rob Tibshirani.
+"Regularization paths for generalized linear models via coordinate descent."
+Journal of statistical software 33.1 (2010): 1.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><span class="pkg">glmnet</span>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+
+#Load the poliblog data
+data(poliblog5k)
+#estimate a model with 50 topics
+stm1 &lt;- stm(poliblog5k.docs, poliblog5k.voc, 50,
+            prevalence=~rating + blog, data=poliblog5k.meta,
+            init.type="Spectral")
+#make a plot of the topics most predictive of "rating"
+out &lt;- topicLasso(rating ~ 1, family="binomial", data=poliblog5k.meta,stmobj=stm1)
+#generate some in-sample predictions
+pred &lt;- predict(out, newx=stm1$theta,type="class")
+#check the accuracy of the predictions
+table(pred, poliblog5k.meta$rating)
+
+</code></pre>
+
+
+</div>

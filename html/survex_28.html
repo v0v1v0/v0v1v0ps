@@ -1,0 +1,139 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>model_survshap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Global SHAP Values</h2>
+
+<h3>Description</h3>
+
+<p>This function computes global SHAP values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">model_survshap(explainer, ...)
+
+## S3 method for class 'surv_explainer'
+model_survshap(
+  explainer,
+  new_observation = NULL,
+  y_true = NULL,
+  N = NULL,
+  calculation_method = "kernelshap",
+  aggregation_method = "integral",
+  output_type = "survival",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>explainer</code></td>
+<td>
+<p>an explainer object - model preprocessed by the <code>explain()</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters, passed to internal functions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new_observation</code></td>
+<td>
+<p>new observations for which predictions need to be explained</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_true</code></td>
+<td>
+<p>a two element numeric vector or matrix of one row and two columns, the first element being the true observed time and the second the status of the observation, used for plotting</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>a positive integer, number of observations used as the background data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>calculation_method</code></td>
+<td>
+<p>a character, either <code>"kernelshap"</code> for use of <code>kernelshap</code> library (providing faster Kernel SHAP with refinements), <code>"exact_kernel"</code> for exact Kernel SHAP estimation, or <code>"treeshap"</code> for use of <code>treeshap</code> library (efficient implementation to compute SHAP values for tree-based models).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>aggregation_method</code></td>
+<td>
+<p>a character, either <code>"integral"</code>, <code>"integral_absolute"</code>, <code>"mean_absolute"</code>, <code>"max_absolute"</code>, or <code>"sum_of_squares"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output_type</code></td>
+<td>
+<p>a character, either <code>"survival"</code> or <code>"chf"</code>. Determines which type of prediction should be used for explanations.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If specifying <code>y_true</code>, also <code>new_observation</code> must be specified.
+Using the argument <code>new_observation</code>, global SHAP values are computed for the provided data. Otherwise,
+global SHAP values are computed for the data, the <code>explainer</code> was trained with.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>aggregated_surv_shap</code> containing the computed global SHAP values.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+veteran &lt;- survival::veteran
+rsf_ranger &lt;- ranger::ranger(
+    survival::Surv(time, status) ~ .,
+    data = veteran,
+    respect.unordered.factors = TRUE,
+    num.trees = 100,
+    mtry = 3,
+    max.depth = 5
+)
+rsf_ranger_exp &lt;- explain(
+    rsf_ranger,
+    data = veteran[, -c(3, 4)],
+    y = survival::Surv(veteran$time, veteran$status),
+    verbose = FALSE
+)
+
+ranger_global_survshap &lt;- model_survshap(
+    explainer = rsf_ranger_exp,
+    new_observation = veteran[
+        c(1:4, 17:20, 110:113, 126:129),
+        !colnames(veteran) %in% c("time", "status")
+    ],
+    y_true = survival::Surv(
+        veteran$time[c(1:4, 17:20, 110:113, 126:129)],
+        veteran$status[c(1:4, 17:20, 110:113, 126:129)]
+    ),
+    aggregation_method = "integral",
+    calculation_method = "kernelshap",
+)
+plot(ranger_global_survshap)
+plot(ranger_global_survshap, geom = "beeswarm")
+plot(ranger_global_survshap, geom = "profile", color_variable = "karno")
+
+
+</code></pre>
+
+
+</div>

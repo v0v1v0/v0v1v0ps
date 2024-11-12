@@ -1,0 +1,532 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>BayesID_HReg</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+The function to implement Bayesian parametric and semi-parametric analyses for semi-competing risks data in the context of hazard regression (HReg) models.
+</h2>
+
+<h3>Description</h3>
+
+<p>Independent/cluster-correlated semi-competing risks data can be analyzed using HReg models that have a hierarchical structure. The priors for baseline hazard functions can be specified by either parametric (Weibull) model or non-parametric mixture of piecewise exponential models (PEM). The option to choose between parametric multivariate normal (MVN) and non-parametric Dirichlet process mixture of multivariate normals (DPM) is available for the prior of cluster-specific random effects distribution. The conditional hazard function for time to the terminal event given time to non-terminal event can be modeled based on either Markov (it does not depend on the timing of the non-terminal event) or semi-Markov assumption (it does depend on the timing).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">BayesID_HReg(Formula, data, id=NULL, model=c("semi-Markov", "Weibull"),
+hyperParams, startValues, mcmcParams, na.action = "na.fail", subset=NULL, path=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Formula</code></td>
+<td>
+
+<p>a <code>Formula</code> object, with the outcome on the left of a <code class="reqn">\sim</code>, and covariates on the right. It is of the form, time to non-terminal event + corresponding censoring indicator | time to terminal event + corresponding censoring indicator <code class="reqn">\sim</code> covariates for <code class="reqn">h_1</code> | covariates for <code class="reqn">h_2</code> | covariates for <code class="reqn">h_3</code>: i.e., <code class="reqn">y_1</code>+<code class="reqn">\delta_1</code> | <code class="reqn">y_2</code>+<code class="reqn">\delta_2</code> ~ <code class="reqn">x_1</code> | <code class="reqn">x_2</code> | <code class="reqn">x_3</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>a data.frame in which to interpret the variables named in <code>Formula</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+
+<p>a vector of cluster information for <code>n</code> subjects. The cluster membership must be consecutive positive integers, <code class="reqn">1:J</code>.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+
+<p>a character vector that specifies the type of components in a model. 
+The first element is for the assumption on <code class="reqn">h_3</code>: "semi-Markov" or "Markov". 
+The second element is for the specification of baseline hazard functions: "Weibull" or "PEM". 
+The third element needs to be set only for clustered semi-competing risks data and is for the specification of cluster-specific random effects distribution: "MVN" or "DPM".
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperParams</code></td>
+<td>
+
+<p>a list containing lists or vectors for hyperparameter values in hierarchical models. Components include, 
+<code>theta</code> (a numeric vector for hyperparameter in the prior of subject-specific frailty variance component), 
+<code>WB</code> (a list containing numeric vectors for Weibull hyperparameters: <code>WB.ab1</code>, <code>WB.ab2</code>, <code>WB.ab3</code>, <code>WB.cd1</code>, <code>WB.cd2</code>, <code>WB.cd3</code>), 
+<code>PEM</code> (a list containing numeric vectors for PEM hyperparameters: <code>PEM.ab1</code>, <code>PEM.ab2</code>, <code>PEM.ab3</code>, <code>PEM.alpha1</code>, <code>PEM.alpha2</code>, <code>PEM.alpha3</code>).
+Models for clustered data require additional components,
+<code>MVN</code> (a list containing numeric vectors for MVN hyperparameters: <code>Psi_v</code>, <code>rho_v</code>), 
+<code>DPM</code> (a list containing numeric vectors for DPM hyperparameters: <code>Psi0</code>, <code>rho0</code>, <code>aTau</code>, <code>bTau</code>).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startValues</code></td>
+<td>
+
+<p>a list containing vectors of starting values for model parameters. It can be specified as the object returned by the function <code>initiate.startValues_HReg</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmcParams</code></td>
+<td>
+
+<p>a list containing variables required for MCMC sampling. Components include,
+<code>run</code> (a list containing numeric values for setting for the overall run: 
+<code>numReps</code>, total number of scans; <code>thin</code>, extent of thinning; <code>burninPerc</code>, the proportion of burn-in).
+<code>storage</code> (a list containing numeric values for storing posterior samples for subject- and cluster-specific random effects: 
+<code>nGam_save</code>, the number of <code class="reqn">\gamma</code> to be stored; 
+<code>storeV</code>, a vector of three logical values to determine whether all the posterior samples of <code class="reqn">V_1</code>, <code class="reqn">V_2</code>, <code class="reqn">V_3</code> are to be stored).
+<code>tuning</code> (a list containing numeric values relevant to tuning parameters for specific updates in Metropolis-Hastings-Green (MHG) algorithm: 
+<code>mhProp_theta_var</code>, the variance of proposal density for <code class="reqn">\theta</code>; <code>mhProp_Vg_var</code>, the variance of proposal density for <code class="reqn">V_g</code> in DPM models; 
+<code>mhProp_alphag_var</code>, the variance of proposal density for <code class="reqn">\alpha_g</code> in Weibull models; 
+<code>Cg</code>, a vector of three proportions that determine the sum of probabilities of choosing the birth and the death moves in PEM models. 
+The sum of the three elements should not exceed 0.6;
+<code>delPertg</code>, the perturbation parameters in the birth update in PEM models. The values must be between 0 and 0.5;
+If <code>rj.scheme</code>=1, the birth update will draw the proposal time split from <code class="reqn">1:s_{max}</code>.
+If <code>rj.scheme</code>=2, the birth update will draw the proposal time split from uniquely ordered failure times in the data. Only required for PEM models;
+<code>Kg_max</code>, the maximum number of splits allowed at each iteration in MHG algorithm for PEM models;
+<code>time_lambda1</code>, <code>time_lambda2</code>, <code>time_lambda3</code> - time points at which the log-hazard functions are calculated for <code>predict.Bayes_HReg</code>, Only required for PEM models).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+
+<p>how NAs are treated. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+
+<p>a specification of the rows to be used: defaults to all rows. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+
+<p>the name of directory where the results are saved.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>We view the semi-competing risks data as arising from an underlying illness-death model system in which individuals may undergo one or more of three transitions: 1) from some initial condition to non-terminal event, 2) from some initial condition to terminal event, 3) from non-terminal event to terminal event. Let <code class="reqn">t_{ji1}</code>, <code class="reqn">t_{ji2}</code> denote time to non-terminal and terminal event from subject <code class="reqn">i=1,...,n_j</code> in cluster <code class="reqn">j=1,...,J</code>. The system of transitions is modeled via the specification of three hazard functions:
+</p>
+<p style="text-align: center;"><code class="reqn">h_1(t_{ji1} | \gamma_{ji}, x_{ji1}, V_{j1}) = \gamma_{ji} h_{01}(t_{ji1})\exp(x_{ji1}^{\top}\beta_1 +V_{j1}), t_{ji1}&gt;0,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">h_2(t_{ji2} | \gamma_{ji}, x_{ji2}, V_{j2}) = \gamma_{ji} h_{02}(t_{ji2})\exp(x_{ji2}^{\top}\beta_2 +V_{j2}), t_{ji2}&gt;0,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">h_3(t_{ji2} | t_{ji1}, \gamma_{ji}, x_{ji3}, V_{j3}) = \gamma_{ji} h_{03}(t_{ji2})\exp(x_{ji3}^{\top}\beta_3 +V_{j3}), 0&lt;t_{ji1}&lt;t_{ji2},</code>
+</p>
+
+<p>where <code class="reqn">\gamma_{ji}</code> is a subject-specific frailty and <code class="reqn">V_j</code>=(<code class="reqn">V_{j1}</code>, <code class="reqn">V_{j2}</code>, <code class="reqn">V_{j3}</code>) is a vector of cluster-specific random effects (each specific to one of the three possible transitions), taken to be independent of <code class="reqn">x_{ji1}</code>, <code class="reqn">x_{ji2}</code>, and <code class="reqn">x_{ji3}</code>.
+For <code class="reqn">g \in \{1,2,3\}</code>, <code class="reqn">h_{0g}</code> is an unspecified baseline hazard function and <code class="reqn">\beta_g</code> is a vector of <code class="reqn">p_g</code> log-hazard ratio regression parameters.
+The <code class="reqn">h_{03}</code> is assumed to be Markov with respect to <code class="reqn">t_1</code>. We refer to the model specified by three conditional hazard functions as the Markov model.
+An alternative specification is to model the risk of terminal event following non-terminal event as a function of the sojourn time. Specifically, retaining <code class="reqn">h_1</code> and <code class="reqn">h_2</code> as above,
+we consider modeling <code class="reqn">h_3</code> as follows:
+</p>
+<p style="text-align: center;"><code class="reqn">h_3(t_{ji2} | t_{ji1}, \gamma_{ji}, x_{ji3}, V_{j3}) = \gamma_{ji} h_{03}(t_{ji2}-t_{ji1})\exp(x_{ji3}^{\top}\beta_3 +V_{j3}), 0&lt;t_{ji1}&lt;t_{ji2}.</code>
+</p>
+
+<p>We refer to this alternative model as the semi-Markov model. <br>
+For parametric MVN prior specification for a vector of cluster-specific random effects, we assume <code class="reqn">V_j</code> arise as i.i.d. draws from a mean 0 MVN distribution with variance-covariance matrix <code class="reqn">\Sigma_V</code>. The diagonal elements of the <code class="reqn">3\times 3</code> matrix <code class="reqn">\Sigma_V</code> characterize variation across clusters in risk for non-terminal, terminal and terminal following non-terminal event, respectively, which is not explained by covariates included in the linear predictors. Specifically, the priors can be written as follows:
+</p>
+<p style="text-align: center;"><code class="reqn">V_j \sim MVN(0, \Sigma_V),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\Sigma_V \sim inverse-Wishart(\Psi_v, \rho_v).</code>
+</p>
+
+<p>For DPM prior specification for <code class="reqn">V_j</code>, we consider non-parametric Dirichlet process mixture of MVN distributions: the <code class="reqn">V_j</code>'s are draws from a finite mixture of M multivariate Normal distributions, each with their own mean vector and variance-covariance matrix, (<code class="reqn">\mu_m</code>, <code class="reqn">\Sigma_m</code>) for <code class="reqn">m=1,...,M</code>. Let <code class="reqn">m_j\in\{1,...,M\}</code> denote the specific component to which the <code class="reqn">j</code>th cluster belongs. Since the class-specific (<code class="reqn">\mu_m</code>, <code class="reqn">\Sigma_m</code>) are unknown they are taken to be draws from some distribution, <code class="reqn">G_0</code>, often referred to as the centering distribution. Furthermore, since the true class memberships are not known, we denote the probability that the <code class="reqn">j</code>th cluster belongs to any given class by the vector <code class="reqn">p=(p_1,..., p_M)</code> whose components add up to 1.0. In the absence of prior knowledge regarding the distribution of class memberships for the <code class="reqn">J</code> clusters across the <code class="reqn">M</code> classes, a natural prior for <code class="reqn">p</code> is the conjugate symmetric <code class="reqn">Dirichlet(\tau/M,...,\tau/M)</code> distribution; the hyperparameter, <code class="reqn">\tau</code>, is often referred to as a the precision parameter. The prior can be represented as follows (<code class="reqn">M</code> goes to infinity):
+</p>
+<p style="text-align: center;"><code class="reqn">V_j | m_j \sim MVN(\mu_{m_j}, \Sigma_{m_j}),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">(\mu_m, \Sigma_m) \sim G_{0},~~ for ~m=1,...,M,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">m_j | p \sim Discrete(m_j| p_1,...,p_M),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">p \sim Dirichlet(\tau/M,...,\tau/M),</code>
+</p>
+
+<p>where <code class="reqn">G_0</code> is taken to be a multivariate Normal/inverse-Wishart (NIW) distribution for which the probability density function is the following product:
+</p>
+<p style="text-align: center;"><code class="reqn">f_{NIW}(\mu, \Sigma | \Psi_0, \rho_0) = f_{MVN}(\mu | 0, \Sigma) \times f_{inv-Wishart}(\Sigma | \Psi_0, \rho_0).</code>
+</p>
+
+<p>We consider <code class="reqn">Gamma(a_{\tau}, b_{\tau})</code> as the prior for concentration parameter <code class="reqn">\tau</code>.
+</p>
+<p>For non-parametric PEM prior specification for baseline hazard functions, let <code class="reqn">s_{g,\max}</code> denote the largest observed event time for each transition <code class="reqn">g \in \{1,2,3\}</code>.
+Then, consider the finite partition of the relevant time axis into <code class="reqn">K_{g} + 1</code> disjoint intervals: <code class="reqn">0&lt;s_{g,1}&lt;s_{g,2}&lt;...&lt;s_{g, K_g+1} = s_{g, \max}</code>. For notational convenience, let <code class="reqn">I_{g,k}=(s_{g, k-1}, s_{g, k}]</code> denote the <code class="reqn">k^{th}</code> partition. For given a partition, <code class="reqn">s_g = (s_{g,1}, \dots, s_{g, K_g + 1})</code>, we assume the log-baseline hazard functions is piecewise constant:
+</p>
+<p style="text-align: center;"><code class="reqn">\lambda_{0g}(t)=\log h_{0g}(t) = \sum_{k=1}^{K_g + 1} \lambda_{g,k} I(t\in I_{g,k}),</code>
+</p>
+
+<p>where <code class="reqn">I(\cdot)</code> is the indicator function and <code class="reqn">s_{g,0} \equiv 0</code>. Note, this specification is general in that the partitions of the time axes differ across the three hazard functions. our prior choices are, for <code class="reqn">g\in\{1,2,3\}</code>:
+</p>
+<p style="text-align: center;"><code class="reqn">\lambda_g | K_g, \mu_{\lambda_g}, \sigma_{\lambda_g}^2 \sim MVN_{K_g+1}(\mu_{\lambda_g}1, \sigma_{\lambda_g}^2\Sigma_{\lambda_g}),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">K_g \sim Poisson(\alpha_g),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(s_g | K_g) \propto \frac{(2K_g+1)! \prod_{k=1}^{K_g+1}(s_{g,k}-s_{g,k-1})}{(s_{g,K_g+1})^{(2K_g+1)}},</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(\mu_{\lambda_g}) \propto 1,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\sigma_{\lambda_g}^{-2} \sim Gamma(a_g, b_g).</code>
+</p>
+
+<p>Note that <code class="reqn">K_g</code> and <code class="reqn">s_g</code> are treated as random and the priors for <code class="reqn">K_g</code> and <code class="reqn">s_g</code> jointly form a time-homogeneous Poisson process prior for the partition. The number of time splits and their positions are therefore updated within our computational scheme using reversible jump MCMC.
+</p>
+<p>For parametric Weibull prior specification for baseline hazard functions, <code class="reqn">h_{0g}(t) = \alpha_g \kappa_g t^{\alpha_g-1}</code>. In our Bayesian framework, our prior choices are, for <code class="reqn">g\in\{1,2,3\}</code>:
+</p>
+<p style="text-align: center;"><code class="reqn">\pi(\alpha_g) \sim Gamma(a_g, b_g),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\pi(\kappa_g) \sim Gamma(c_g, d_g).</code>
+</p>
+
+<p>Our prior choice for remaining model parameters in all of four models (Weibull-MVN, Weibull-DPM, PEM-MVN, PEM-DPM) is given as follows:
+</p>
+<p style="text-align: center;"><code class="reqn">\pi(\beta_g) \propto 1,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\gamma_{ji}|\theta \sim Gamma(\theta^{-1}, \theta^{-1}),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\theta^{-1} \sim Gamma(\psi, \omega).</code>
+</p>
+  
+<p>We provide a detailed description of the hierarchical models for cluster-correlated semi-competing risks data. The models for independent semi-competing risks data can be obtained by removing cluster-specific random effects, <code class="reqn">V_j</code>, and its corresponding prior	specification from the description given above.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>BayesID_HReg</code> returns an object of class <code>Bayes_HReg</code>. <br></p>
+
+
+<h3>Note</h3>
+
+<p>The posterior samples of <code class="reqn">\gamma</code> and <code class="reqn">V_g</code> are saved separately in <code>working directory/path</code>. 
+For a dataset with large <code class="reqn">n</code>, <code>nGam_save</code> should be carefully specified considering the system memory and the storage capacity.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Kyu Ha Lee and Sebastien Haneuse<br>
+Maintainer: Kyu Ha Lee &lt;klee15239@gmail.com&gt;
+</p>
+
+
+<h3>References</h3>
+
+<p>Lee, K. H., Haneuse, S., Schrag, D., and Dominici, F. (2015), 
+Bayesian semiparametric analysis of semicompeting risks data: 
+investigating hospital readmission after a pancreatic cancer diagnosis, <em>Journal of the Royal Statistical Society: Series C</em>, 64, 2, 253-273.<br><br>
+Lee, K. H., Dominici, F., Schrag, D., and Haneuse, S. (2016),
+Hierarchical models for semicompeting risks data with application to quality of end-of-life care for pancreatic cancer, <em>Journal of the American Statistical Association</em>, 111, 515, 1075-1095. <br><br>
+Alvares, D., Haneuse, S., Lee, C., Lee, K. H. (2019),
+SemiCompRisks: An R package for the analysis of independent and cluster-correlated semi-competing risks data, <em>The R Journal</em>, 11, 1, 376-400. <br></p>
+
+
+<h3>See Also</h3>
+
+<p><code>initiate.startValues_HReg</code>, <code>print.Bayes_HReg</code>, <code>summary.Bayes_HReg</code>, <code>predict.Bayes_HReg</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run:    
+# loading a data set
+data(scrData)
+id=scrData$cluster
+
+form &lt;- Formula(time1 + event1 | time2 + event2 ~ x1 + x2 + x3 | x1 + x2 | x1 + x2)
+
+#####################
+## Hyperparameters ##
+#####################
+
+## Subject-specific frailty variance component
+##  - prior parameters for 1/theta
+##
+theta.ab &lt;- c(0.7, 0.7)
+
+## Weibull baseline hazard function: alphas, kappas
+##
+WB.ab1 &lt;- c(0.5, 0.01) # prior parameters for alpha1
+WB.ab2 &lt;- c(0.5, 0.01) # prior parameters for alpha2
+WB.ab3 &lt;- c(0.5, 0.01) # prior parameters for alpha3
+##
+WB.cd1 &lt;- c(0.5, 0.05) # prior parameters for kappa1
+WB.cd2 &lt;- c(0.5, 0.05) # prior parameters for kappa2
+WB.cd3 &lt;- c(0.5, 0.05) # prior parameters for kappa3
+
+## PEM baseline hazard function
+##
+PEM.ab1 &lt;- c(0.7, 0.7) # prior parameters for 1/sigma_1^2
+PEM.ab2 &lt;- c(0.7, 0.7) # prior parameters for 1/sigma_2^2
+PEM.ab3 &lt;- c(0.7, 0.7) # prior parameters for 1/sigma_3^2
+##
+PEM.alpha1 &lt;- 10 # prior parameters for K1
+PEM.alpha2 &lt;- 10 # prior parameters for K2
+PEM.alpha3 &lt;- 10 # prior parameters for K3
+
+## MVN cluster-specific random effects
+##
+Psi_v &lt;- diag(1, 3)
+rho_v &lt;- 100
+
+## DPM cluster-specific random effects
+##
+Psi0  &lt;- diag(1, 3)
+rho0  &lt;- 10
+aTau  &lt;- 1.5
+bTau  &lt;- 0.0125
+
+##
+hyperParams &lt;- list(theta=theta.ab,
+                WB=list(WB.ab1=WB.ab1, WB.ab2=WB.ab2, WB.ab3=WB.ab3,
+                       WB.cd1=WB.cd1, WB.cd2=WB.cd2, WB.cd3=WB.cd3),
+                   PEM=list(PEM.ab1=PEM.ab1, PEM.ab2=PEM.ab2, PEM.ab3=PEM.ab3,
+                       PEM.alpha1=PEM.alpha1, PEM.alpha2=PEM.alpha2, PEM.alpha3=PEM.alpha3),
+                   MVN=list(Psi_v=Psi_v, rho_v=rho_v),
+                   DPM=list(Psi0=Psi0, rho0=rho0, aTau=aTau, bTau=bTau))
+                    
+###################
+## MCMC SETTINGS ##
+###################
+
+## Setting for the overall run
+##
+numReps    &lt;- 2000
+thin       &lt;- 10
+burninPerc &lt;- 0.5
+
+## Settings for storage
+##
+nGam_save &lt;- 0
+storeV    &lt;- rep(TRUE, 3)
+
+## Tuning parameters for specific updates
+##
+##  - those common to all models
+mhProp_theta_var  &lt;- 0.05
+mhProp_Vg_var     &lt;- c(0.05, 0.05, 0.05)
+##
+## - those specific to the Weibull specification of the baseline hazard functions
+mhProp_alphag_var &lt;- c(0.01, 0.01, 0.01)
+##
+## - those specific to the PEM specification of the baseline hazard functions
+Cg        &lt;- c(0.2, 0.2, 0.2)
+delPertg  &lt;- c(0.5, 0.5, 0.5)
+rj.scheme &lt;- 1
+Kg_max    &lt;- c(50, 50, 50)
+sg_max    &lt;- c(max(scrData$time1[scrData$event1 == 1]),
+               max(scrData$time2[scrData$event1 == 0 &amp; scrData$event2 == 1]),
+               max(scrData$time2[scrData$event1 == 1 &amp; scrData$event2 == 1]))
+
+time_lambda1 &lt;- seq(1, sg_max[1], 1)
+time_lambda2 &lt;- seq(1, sg_max[2], 1)
+time_lambda3 &lt;- seq(1, sg_max[3], 1)               
+
+##
+mcmc.WB  &lt;- list(run=list(numReps=numReps, thin=thin, burninPerc=burninPerc),
+                storage=list(nGam_save=nGam_save, storeV=storeV),
+                tuning=list(mhProp_theta_var=mhProp_theta_var,
+                mhProp_Vg_var=mhProp_Vg_var, mhProp_alphag_var=mhProp_alphag_var))
+
+##
+mcmc.PEM &lt;- list(run=list(numReps=numReps, thin=thin, burninPerc=burninPerc),
+                storage=list(nGam_save=nGam_save, storeV=storeV),
+                tuning=list(mhProp_theta_var=mhProp_theta_var,
+                mhProp_Vg_var=mhProp_Vg_var, Cg=Cg, delPertg=delPertg,
+                rj.scheme=rj.scheme, Kg_max=Kg_max,
+                time_lambda1=time_lambda1, time_lambda2=time_lambda2,
+                time_lambda3=time_lambda3))
+    
+#####################
+## Starting Values ##
+#####################
+
+##
+Sigma_V &lt;- diag(0.1, 3)
+Sigma_V[1,2] &lt;- Sigma_V[2,1] &lt;- -0.05
+Sigma_V[1,3] &lt;- Sigma_V[3,1] &lt;- -0.06
+Sigma_V[2,3] &lt;- Sigma_V[3,2] &lt;- 0.07
+
+#################################################################
+## Analysis of Independent Semi-Competing Risks Data ############
+#################################################################
+
+#############
+## WEIBULL ##
+#############
+
+##
+myModel &lt;- c("semi-Markov", "Weibull")
+myPath  &lt;- "Output/01-Results-WB/"
+
+startValues      &lt;- initiate.startValues_HReg(form, scrData, model=myModel, nChain=2)
+
+##
+fit_WB &lt;- BayesID_HReg(form, scrData, id=NULL, model=myModel,
+                hyperParams, startValues, mcmc.WB, path=myPath)
+				
+fit_WB
+summ.fit_WB &lt;- summary(fit_WB); names(summ.fit_WB)
+summ.fit_WB
+pred_WB &lt;- predict(fit_WB, tseq=seq(from=0, to=30, by=5))
+plot(pred_WB, plot.est="Haz")
+plot(pred_WB, plot.est="Surv")
+
+#########
+## PEM ##
+#########
+
+##						
+myModel &lt;- c("semi-Markov", "PEM")
+myPath  &lt;- "Output/02-Results-PEM/"
+
+startValues      &lt;- initiate.startValues_HReg(form, scrData, model=myModel, nChain=2)
+
+##
+fit_PEM &lt;- BayesID_HReg(form, scrData, id=NULL, model=myModel,
+                 hyperParams, startValues, mcmc.PEM, path=myPath)
+				
+fit_PEM
+summ.fit_PEM &lt;- summary(fit_PEM); names(summ.fit_PEM)
+summ.fit_PEM
+pred_PEM &lt;- predict(fit_PEM)
+plot(pred_PEM, plot.est="Haz")
+plot(pred_PEM, plot.est="Surv")
+					
+#################################################################
+## Analysis of Correlated Semi-Competing Risks Data #############
+#################################################################
+
+#################
+## WEIBULL-MVN ##
+#################
+
+##
+myModel &lt;- c("semi-Markov", "Weibull", "MVN")
+myPath  &lt;- "Output/03-Results-WB_MVN/"
+
+startValues      &lt;- initiate.startValues_HReg(form, scrData, model=myModel, id, nChain=2)
+
+##
+fit_WB_MVN &lt;- BayesID_HReg(form, scrData, id, model=myModel,
+                    hyperParams, startValues, mcmc.WB, path=myPath)
+                    
+fit_WB_MVN
+summ.fit_WB_MVN &lt;- summary(fit_WB_MVN); names(summ.fit_WB_MVN)
+summ.fit_WB_MVN
+pred_WB_MVN &lt;- predict(fit_WB_MVN, tseq=seq(from=0, to=30, by=5))
+plot(pred_WB_MVN, plot.est="Haz")
+plot(pred_WB_MVN, plot.est="Surv")
+
+
+#################
+## WEIBULL-DPM ##
+#################
+
+##
+myModel &lt;- c("semi-Markov", "Weibull", "DPM")
+myPath  &lt;- "Output/04-Results-WB_DPM/"
+
+startValues      &lt;- initiate.startValues_HReg(form, scrData, model=myModel, id, nChain=2)
+
+##
+fit_WB_DPM &lt;- BayesID_HReg(form, scrData, id, model=myModel,
+                    hyperParams, startValues, mcmc.WB, path=myPath)
+
+fit_WB_DPM
+summ.fit_WB_DPM &lt;- summary(fit_WB_DPM); names(summ.fit_WB_DPM)
+summ.fit_WB_DPM
+pred_WB_DPM &lt;- predict(fit_WB_MVN, tseq=seq(from=0, to=30, by=5))
+plot(pred_WB_DPM, plot.est="Haz")
+plot(pred_WB_DPM, plot.est="Surv")
+
+#############
+## PEM-MVN ##
+#############
+
+##
+myModel &lt;- c("semi-Markov", "PEM", "MVN")
+myPath  &lt;- "Output/05-Results-PEM_MVN/"
+
+startValues      &lt;- initiate.startValues_HReg(form, scrData, model=myModel, id, nChain=2)
+
+##
+fit_PEM_MVN &lt;- BayesID_HReg(form, scrData, id, model=myModel,
+                    hyperParams, startValues, mcmc.PEM, path=myPath)
+                    
+fit_PEM_MVN
+summ.fit_PEM_MVN &lt;- summary(fit_PEM_MVN); names(summ.fit_PEM_MVN)
+summ.fit_PEM_MVN
+pred_PEM_MVN &lt;- predict(fit_PEM_MVN)
+plot(pred_PEM_MVN, plot.est="Haz")
+plot(pred_PEM_MVN, plot.est="Surv")
+
+#############
+## PEM-DPM ##
+#############
+
+##
+myModel &lt;- c("semi-Markov", "PEM", "DPM")
+myPath  &lt;- "Output/06-Results-PEM_DPM/"
+
+startValues      &lt;- initiate.startValues_HReg(form, scrData, model=myModel, id, nChain=2)
+                    
+##
+fit_PEM_DPM &lt;- BayesID_HReg(form, scrData, id, model=myModel,
+                    hyperParams, startValues, mcmc.PEM, path=myPath)
+                    
+fit_PEM_DPM
+summ.fit_PEM_DPM &lt;- summary(fit_PEM_DPM); names(summ.fit_PEM_DPM)
+summ.fit_PEM_DPM
+pred_PEM_DPM &lt;- predict(fit_PEM_DPM)
+plot(pred_PEM_DPM, plot.est="Haz")
+plot(pred_PEM_DPM, plot.est="Surv")
+                    
+
+## End(Not run)
+</code></pre>
+
+
+</div>

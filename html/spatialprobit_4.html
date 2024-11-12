@@ -1,0 +1,95 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>c.sarprobit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Combine different SAR probit estimates into one</h2>
+
+<h3>Description</h3>
+
+<p>This method combines SAR probit estimates into one SAR probit object,
+e.g. when collecting the results of a parallel MCMC.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sarprobit'
+c(...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>A vector of <code>sarprobit</code> objects.</p>
+</td>
+</tr></table>
+<h3>Value</h3>
+
+<p>This functions returns an object of class <code>sarprobit</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Stefan Wilhelm &lt;wilhelm@financial.com&gt;
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sarprobit</code> for SAR probit model fitting
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+## parallel estimation using mclapply() under Unix (will not work on Windows)
+library(parallel)
+mc &lt;- 2 # number of cores; set as appropriate to your hardware
+run1 &lt;- function(...) sar_probit_mcmc(y, X, W, ndraw=500, burn.in=200, thinning=1)
+system.time( {
+## To make this reproducible:
+set.seed(123, "L'Ecuyer")
+sarprobit.res &lt;- do.call(c, mclapply(seq_len(mc), run1))
+})
+summary(sarprobit.res)
+
+
+## parallel estimation using parLapply() under Windows
+library(parallel)
+ndraw &lt;- 1000  # the number of MCMC draws
+mc &lt;- 4        # the number of cores; set as appropriate to your hardware
+
+run1 &lt;- function(...) {
+  args &lt;- list(...)
+  library(spatialprobit)
+  sar_probit_mcmc(y=args$y, X=args$X2, W=args$W, ndraw=args$ndraw, burn.in=100, thinning=1)
+}
+
+parallelEstimation &lt;- function(mc, ndraw, y, X, W) {
+  cl &lt;- makeCluster(mc)
+  ## To make this reproducible:
+  clusterSetRNGStream(cl, 123)
+  library(spatialprobit) # needed for c() method on master
+  sarprobit.res &lt;- do.call(c, parLapply(cl, seq_len(mc), run1, y=y, X2=X, W=W, ndraw=ndraw/mc))
+  stopCluster(cl)
+  return(sarprobit.res)
+}
+
+# parallel estimation using 1, 2, 4 and 8 cores
+system.time(p1 &lt;- parallelEstimation(mc=1, ndraw=5000, y=y, X=X, W=W))
+system.time(p2 &lt;- parallelEstimation(mc=2, ndraw=5000, y=y, X=X, W=W))
+system.time(p4 &lt;- parallelEstimation(mc=4, ndraw=5000, y=y, X=X, W=W))
+system.time(p8 &lt;- parallelEstimation(mc=8, ndraw=5000, y=y, X=X, W=W))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,83 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sdf_unnest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Unnest data along a column</h2>
+
+<h3>Description</h3>
+
+<p>Unnesting is an (optional) explode operation coupled with a nested select to promote the sub-fields of
+the exploded top level array/map/struct to the top level. Hence, given <code>a</code>, an array with fields
+<code>a1, a2, a3</code>, then codesdf_explode(df, a) will produce output with each record replicated
+for every element in the <code>a</code> array and with the fields <code>a1, a2, a3</code> (but not <code>a</code>)
+at the top level. Similar to <code>tidyr::unnest</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sdf_unnest(x, column, keep_all = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object (usually a <code>spark_tbl</code>) coercible to a Spark DataFrame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>column</code></td>
+<td>
+<p>The field to explode</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep_all</code></td>
+<td>
+<p>Logical. If <code>FALSE</code> then records where the exploded value is empty/null
+will be dropped.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Note that this is a less precise tool than using <code>sdf_explode</code> and <code>sdf_select</code>
+directly because all fields of the exploded array will be kept and promoted. Direct calls to these
+methods allows for more targeted use of <code>sdf_select</code> to promote only those fields that
+are wanted to the top level of the data frame.
+</p>
+<p>Additionally, though <code>sdf_select</code> allows users to reach arbitrarily far into a nested
+structure, this function will only reach one layer deep. It may well be that the unnested fields
+are themselves nested structures that need to be dealt with accordingly.
+</p>
+<p>Note that map types are supported, but there is no <code>is_map</code> argument. This is because the
+function is doing schema interrogation of the input data anyway to determine whether an explode
+operation is required (it is of maps and arrays, but not for bare structs). Given this the result
+of the schema interrogation drives the value o <code>is_map</code> provided to <code>sdf_explode</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# first get some nested data
+iris_tbl &lt;- copy_to(sc, iris, name="iris")
+iris_nst &lt;- iris_tbl %&gt;%
+  sdf_nest(Sepal_Length, Sepal_Width, Petal_Length, Petal_Width, .key="data") %&gt;%
+  group_by(Species) %&gt;%
+  summarize(data=collect_list(data))
+
+# then explode it
+iris_nst %&gt;% sdf_unnest(data)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

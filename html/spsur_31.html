@@ -1,0 +1,392 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spsurtime</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimation of SUR models for simple spatial panels (G=1).</h2>
+
+<h3>Description</h3>
+
+<p>This function estimates SUR models for simple spatial 
+panel datasets.
+<code>spsurtime</code> is restricted, specifically, to cases where 
+there is only one equation, <em>G=1</em>, and a varying number of spatial 
+units, <em>N</em>, and time periods, <em>Tm</em>. The SUR structure appears
+in form of serial dependence among the error terms corresponding to the 
+same spatial unit.
+Note that it is assumed that all spatial units share a common pattern 
+of serial dependence.
+</p>
+<p>The user can choose between different types of spatial specifications, 
+as described below, and the estimation algorithms allow for the 
+introduction of linear restrictions on the <code class="reqn">\beta</code> parameters
+associated to the regressors. The spatial panels with SUR structure 
+can be estimated by maximum-likelihood methods or three-stages least 
+squares procedures, using spatial instrumental variables.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spsurtime (formula, data, time, na.action,
+                  listw = NULL, type = "sim", Durbin = NULL, 
+                  method = "eigen", fit_method = "ml", maxlagW = NULL,
+                  zero.policy = NULL, interval = NULL, trs = NULL,
+                  R = NULL, b = NULL, demean = FALSE, control = list() )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>An object type <code>Formula</code> 
+similar to objects created with the package <span class="pkg">Formula</span> 
+describing the equations to be estimated in the model. 
+This model may contain several responses (explained 
+variables) and a varying number of regressors in each equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An object of class data.frame or a matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>Time variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+<p>A function (default <code>options("na.action")</code>),
+can also be <code>na.omit</code> or <code>na.exclude</code> with consequences 
+for residuals and fitted values. It may be necessary to set 
+<code>zero.policy</code> to <code>TRUE</code> because this subsetting may 
+create no-neighbour observations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>listw</code></td>
+<td>
+<p>A <code>listw</code> object created for example by 
+<code>nb2listw</code> from <span class="pkg">spatialreg</span> package; if 
+<code>nb2listw</code> not given, set to 
+the same spatial weights as the <code>listw</code> argument. It can
+also be a spatial weighting matrix of order <em>(NxN)</em> instead of
+a <code>listw</code> object. Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Type of spatial model specification: "sim",
+"slx", "slm", "sem", "sdm", 
+"sdem", "sarar" or "gnm". Default = "sim".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Durbin</code></td>
+<td>
+<p>If a formula object and model is type "sdm", "sdem" 
+or "slx" the subset of explanatory variables to lag for each equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Similar to the corresponding parameter of 
+<code>lagsarlm</code> function in <span class="pkg">spatialreg</span> package. 
+"eigen" (default) - the Jacobian is computed as the product of 
+(1 - rho*eigenvalue) using <code>eigenw</code>, and 
+"spam" or "Matrix_J" for strictly symmetric weights lists of 
+styles "B" and "C", or made symmetric by similarity 
+(Ord, 1975, Appendix C) if possible for styles "W" and "S", 
+using code from the spam or Matrix packages to calculate the 
+determinant; "Matrix" and "spam_update" provide updating Cholesky 
+decomposition methods; "LU" provides an alternative sparse matrix 
+decomposition approach. In addition, there are "Chebyshev" and 
+Monte Carlo "MC" approximate log-determinant methods; 
+the Smirnov/Anselin (2009) trace approximation is available 
+as "moments". Three methods: "SE_classic", "SE_whichMin", 
+and "SE_interp" are provided experimentally, the first to 
+attempt to emulate the behaviour of Spatial Econometrics 
+toolbox ML fitting functions. All use grids of log determinant 
+values, and the latter two attempt to ameliorate some features 
+of "SE_classic".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit_method</code></td>
+<td>
+<p>Method of estimation for the spatial panel SUR model, 
+either <em>ml</em> or <em>3sls</em>. Default = <em>ml</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxlagW</code></td>
+<td>
+<p>Maximum spatial lag order of the regressors employed to 
+produce spatial instruments for the spatial lags of the explained 
+variables. Default = 2. Note that in case of <code>type</code> = "sdm", the 
+default value for <code>maxlagW</code> is set to 3 because the first lag of 
+the regressors, <code class="reqn">WX_{tg}</code>, can not be used as spatial instruments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zero.policy</code></td>
+<td>
+<p>Similar to the corresponding parameter of 
+<code>lagsarlm</code> function in <span class="pkg">spatialreg</span> package. 
+If <code>TRUE</code> assign zero to the lagged value of zones without 
+neighbours, if <code>FALSE</code> assign <code>NA</code> - causing 
+<code>spsurml()</code> to terminate with an error. Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>Search interval for autoregressive parameter.
+Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trs</code></td>
+<td>
+<p>Either <code>NULL</code> or vector of powered spatial weights 
+matrix traces output by <code>trW</code>. Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R</code></td>
+<td>
+<p>A row vector of order <em>(1xpr)</em> with  the set of 
+<em>r</em> linear constraints on the <em>beta</em> parameters. The 
+<em>first</em> restriction appears in the first <em>p</em> terms,
+the second restriction in the next <em>p</em> terms and so on. 
+Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>A column vector of order <em>(rx1)</em> with the values of 
+the linear restrictions on the <em>beta</em> parameters. 
+Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>demean</code></td>
+<td>
+<p>Logical value to allow for the demeaning of panel data. In this case,
+<code>spsurml</code> subtracts the individual mean to each spatial 
+or cross-sectional unit. Default = <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>list of additional arguments.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Function <code>spsurtime</code> only admits a formula, created with 
+<code>Formula</code> and a dataset of class <code>data.frame</code> 
+or <code>matrix</code>. That is, the data cannot be uploaded using data 
+matrices <code class="reqn">Y</code> and <code class="reqn">X</code> provided for other functions in 
+this package. <br>
+The argument <code>time</code> selects the variable, in the <code>data.frame</code>, 
+associated to the time dimension in the panel dataset. Then 
+<code>spsurtime</code> operates as in Anselin (1988), that is,
+each cross-section is treated as if it were an equation in a SUR model, 
+which now has <em>Tm</em> 'equations' and <em>N</em> individuals. <br>
+The SUR structure appears because there is serial dependence in the errors 
+of each individual in the panel. The serial dependence in the errors is 
+not parameterized, but estimated non-parametrically in the <code class="reqn">Sigma</code> 
+covariance matrix returned by the function. An important constraint to 
+mention is that the serial dependence assumed to be the same for all 
+individuals in the sample. Serial dependence among individuals is 
+excluded from Anselin approach.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An <code>spsur</code> object with the output of the maximum-likelihood or 
+three-stages least-squares estimation of the spatial panel SUR model.
+</p>
+
+
+<h3>Author(s)</h3>
+
+
+<table>
+<tr>
+<td style="text-align: left;">
+  Fernando Lopez  </td>
+<td style="text-align: left;"> <a href="mailto:fernando.lopez@upct.es">fernando.lopez@upct.es</a> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  Roman Minguez  </td>
+<td style="text-align: left;"> <a href="mailto:roman.minguez@uclm.es">roman.minguez@uclm.es</a> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  Jesus Mur  </td>
+<td style="text-align: left;"> <a href="mailto:jmur@unizar.es">jmur@unizar.es</a> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  </td>
+</tr>
+</table>
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p> Anselin, L. (1988). Spatial econometrics: methods and models. Dordrecht,
+Kluwer Academic Publishers.
+</p>
+</li>
+<li>
+<p> Lopez, F.A., Mur, J., and Angulo, A. (2014). Spatial model
+selection strategies in a SUR framework. The case of regional
+productivity in EU. <em>Annals of Regional Science</em>, 53(1), 197-220.
+&lt;doi:10.1007/s00168-014-0624-2&gt;
+</p>
+</li>
+<li>
+<p> Lopez, F.A., Martinez-Ortiz, P.J., and Cegarra-Navarro, J.G. (2017).
+Spatial spillovers in public expenditure on a municipal level in
+Spain. <em>Annals of Regional Science</em>, 58(1), 39-65.
+&lt;doi:10.1007/s00168-016-0780-7&gt;
+</p>
+</li>
+<li>
+<p> Minguez, R., Lopez, F.A. and Mur, J.  (2022).
+spsur: An R Package for Dealing with Spatial 
+Seemingly Unrelated Regression Models. 
+<em>Journal of Statistical Software</em>, 
+104(11), 1–43. &lt;doi:10.18637/jss.v104.i11&gt;
+</p>
+</li>
+<li>
+<p> Mur, J., Lopez, F., and Herrera, M. (2010). Testing for spatial
+effects in seemingly unrelated regressions. <em>Spatial Economic Analysis</em>, 
+5(4), 399-440. &lt;doi:10.1080/17421772.2010.516443&gt;
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>spsurml</code>, <code>spsur3sls</code>, 
+<code>wald_betas</code>,  <code>wald_deltas</code>,
+<code>lmtestspsur</code>, <code>lr_betas</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+####################################
+######## PANEL DATA (G=1; Tm&gt;1) ###
+####################################
+
+## Example 1:
+rm(list = ls()) # Clean memory
+data(spc)
+lwspc &lt;- spdep::mat2listw(Wspc, style = "W")
+N &lt;- nrow(spc)
+Tm &lt;- 2
+index_time &lt;- rep(1:Tm, each = N)
+index_indiv &lt;- rep(1:N, Tm)
+WAGE &lt;- c(spc$WAGE83, spc$WAGE81)
+UN &lt;- c(spc$UN83, spc$UN80)
+NMR &lt;- c(spc$NMR83, spc$NMR80)
+SMSA &lt;- c(spc$SMSA, spc$SMSA)
+pspc &lt;- data.frame(index_indiv, index_time, WAGE, UN,
+                    NMR, SMSA)
+form_pspc &lt;- WAGE ~ UN + NMR + SMSA
+form2_pspc &lt;- WAGE | NMR ~ UN  | UN + SMSA
+
+# SLM 
+pspc_slm &lt;- spsurtime(formula = form_pspc, data = pspc, 
+                      listw = lwspc,
+                      time = pspc$index_time, 
+                      type = "slm", fit_method = "ml")
+summary(pspc_slm)
+ 
+pspc_slm2 &lt;- spsurtime(formula = form2_pspc, data = pspc, 
+                      listw = lwspc,
+                      time = pspc$index_time, 
+                      type = "slm", fit_method = "ml")
+summary(pspc_slm2)
+
+
+## VIP: The output of the whole set of the examples can be examined 
+## by executing demo(demo_spsurtime, package="spsur")
+
+ 
+### Example 2:
+rm(list = ls()) # Clean memory
+### Read NCOVR.sf object
+data(NCOVR, package="spsur")
+nbncovr &lt;- spdep::poly2nb(NCOVR.sf, queen = TRUE)
+### Some regions with no links...
+lwncovr &lt;- spdep::nb2listw(nbncovr, style = "W", zero.policy = TRUE)
+N &lt;- nrow(NCOVR.sf)
+Tm &lt;- 4
+index_time &lt;- rep(1:Tm, each = N)
+index_indiv &lt;- rep(1:N, Tm)
+pHR &lt;- c(NCOVR.sf$HR60, NCOVR.sf$HR70, NCOVR.sf$HR80, NCOVR.sf$HR90)
+pPS &lt;- c(NCOVR.sf$PS60, NCOVR.sf$PS70, NCOVR.sf$PS80, NCOVR.sf$PS90)
+pUE &lt;- c(NCOVR.sf$UE60, NCOVR.sf$UE70, NCOVR.sf$UE80, NCOVR.sf$UE90)
+pNCOVR &lt;- data.frame(indiv = index_indiv, time = index_time,
+                     HR = pHR, PS = pPS, UE = pUE)
+form_pHR &lt;- HR ~ PS + UE
+
+## SIM
+
+pHR_sim &lt;- spsurtime(formula = form_pHR, data = pNCOVR, 
+                    time = pNCOVR$time, type = "sim", fit_method = "ml")
+summary(pHR_sim)
+
+## SLM by 3SLS. 
+
+pHR_slm &lt;- spsurtime(formula = form_pHR, data = pNCOVR, listw = lwncovr,
+                     time = pNCOVR$time, type = "slm", 
+                     fit_method = "3sls")
+summary(pHR_slm)
+
+############################# Wald tests about betas in spatio-temporal models
+### H0: equal betas for PS in equations 1, 3 and 4.
+R &lt;- matrix(0, nrow = 2, ncol = 12) 
+## nrow = number of restrictions 
+## ncol = number of beta parameters
+R[1, 2] &lt;- 1; R[1, 8] &lt;- -1 # PS beta coefficient in equations 1 equal to 3
+R[2, 2] &lt;- 1; R[2, 11] &lt;- -1 # PS beta coefficient in equations 1 equal to 4
+b &lt;- matrix(0, nrow=2, ncol=1)
+wald_betas(pHR_sim , R = R , b = b) # SIM model
+wald_betas(pHR_slm , R = R , b = b) # SLM model
+############################# Wald tests about spatial-parameters in
+############################# spatio-temporal models
+### H0: equal rhos in slm model for equations 1 and 2.
+R2 &lt;- matrix(0, nrow = 1, ncol = 4)
+R2[1, 1] &lt;- 1; R2[1, 2] &lt;- -1
+b2 &lt;- matrix(0, nrow = 1, ncol = 1)
+wald_deltas(pHR_slm, R = R2, b = b2)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,298 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>earsC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Surveillance for a count data time series using the EARS C1, C2
+or C3 method and its extensions</h2>
+
+<h3>Description</h3>
+
+
+<p>The function takes <code>range</code> values of the surveillance time
+series <code>sts</code> and for each time point computes a threshold for the number of counts
+based on values from the recent past.
+This is then compared to the observed
+number of counts. If the observation is above a specific quantile of
+the prediction interval, then an alarm is raised.  This method is especially useful
+for data without many historic values, since it only needs counts from the recent past.
+
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">earsC(sts, control = list(range = NULL, method = "C1",
+                          baseline = 7, minSigma = 0,
+                          alpha = 0.001))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sts</code></td>
+<td>
+<p>object of class sts (including the <code>observed</code> and the <code>state</code> time series) , which is to be monitored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>Control object
+</p>
+
+<dl>
+<dt><code>range</code></dt>
+<dd>
+<p>Specifies the index in the <code>sts</code> object of
+all the timepoints which
+should be monitored. If <code>range</code> is <code>NULL</code> the maximum number
+of possible timepoints is used (this number depends on the method chosen):
+</p>
+
+<dl>
+<dt>C1</dt>
+<dd>
+<p>all timepoints from the observation with index <code>baseline + 1</code>
+can be monitored,</p>
+</dd>
+<dt>C2</dt>
+<dd>
+<p>timepoints from index <code>baseline + 3</code> can be
+monitored,</p>
+</dd>
+<dt>C3</dt>
+<dd>
+<p>timepoints starting from the index <code>baseline + 5</code> can be monitored.</p>
+</dd>
+</dl>
+</dd>
+<dt><code>method</code></dt>
+<dd>
+<p>String indicating which method to use: <br></p>
+
+<dl>
+<dt><code>"C1"</code></dt>
+<dd>
+<p>for EARS C1-MILD method (Default),</p>
+</dd>
+<dt><code>"C2"</code></dt>
+<dd>
+<p>for EARS C2-MEDIUM method,</p>
+</dd>
+<dt><code>"C3"</code></dt>
+<dd>
+<p>for EARS C3-HIGH method.</p>
+</dd>
+</dl>
+<p>See Details for further information about the methods.
+</p>
+</dd>
+<dt><code>baseline</code></dt>
+<dd>
+<p>how many time points to use for calculating the baseline, see details</p>
+</dd>
+<dt><code>minSigma</code></dt>
+<dd>
+<p>By default 0. If <code>minSigma</code> is higher than 0, for C1 and
+C2, the quantity zAlpha * minSigma is then the alerting threshold if the
+baseline is zero. Howard Burkom suggests using a value of 0.5 or 1 for sparse data.</p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>An approximate (two-sided) <code class="reqn">(1-\alpha)\cdot 100\%</code> prediction
+interval is calculated. By default if <code>alpha</code> is <code>NULL</code>
+the value 0.001 is assumed
+for C1 and C2 whereas 0.025 is assumed for C3. These different choices are the one made at the CDC.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The three methods are different in terms of baseline used for calculation of
+the expected value and in terms of method for calculating the expected value:
+</p>
+
+<ul>
+<li>
+<p> in C1 and C2 the expected value is the moving average of counts over
+the sliding window of the baseline and the prediction interval depends on the
+standard derivation of the observed counts in this window. They can be considered as
+Shewhart control charts with a small sample used for calculations.
+</p>
+</li>
+<li>
+<p> in C3 the expected value is based on the sum over 3 timepoints
+(assessed timepoints and the two previous timepoints) of the discrepancy
+between observations and predictions, predictions being calculated with
+the C2 method.
+This method has similarities with a CUSUM method due to it
+adding discrepancies between predictions and observations over several timepoints,
+but is not a CUSUM  (sum over 3 timepoints, not accumulation over a whole range),
+even if it sometimes is presented as such.
+</p>
+</li>
+</ul>
+<p>Here is what the function does for each method, see the literature
+sources for further details:
+</p>
+
+<ol>
+<li>
+<p> For C1 the baseline are the <code>baseline</code> (default 7) timepoints before the assessed timepoint t,
+t-<code>baseline</code> to t-1. The expected value is the mean of the baseline. An approximate
+(two-sided) <code class="reqn">(1-\alpha)\cdot 100\%</code> prediction interval is calculated based on the
+assumption that  the difference between the expected value and the observed
+value divided by the standard derivation of counts over the sliding window,
+called <code class="reqn">C_1(t)</code>, follows a standard normal distribution in the absence
+of outbreaks:
+</p>
+<p style="text-align: center;"><code class="reqn">C_1(t)= \frac{Y(t)-\bar{Y}_1(t)}{S_1(t)},</code>
+</p>
+
+<p>where
+</p>
+<p style="text-align: center;"><code class="reqn">\bar{Y}_1(t)= \frac{1}{\code{baseline}} \sum_{i=t-1}^{t-\code{baseline}} Y(i)</code>
+</p>
+
+<p>and
+</p>
+<p style="text-align: center;"><code class="reqn"> S^2_1(t)= \frac{1}{6} \sum_{i=t-1}^{t-\code{baseline}} [Y(i) - \bar{Y}_1(i)]^2.</code>
+</p>
+
+<p>Then under the null hypothesis of no outbreak,
+</p>
+<p style="text-align: center;"><code class="reqn">C_1(t) \mathcal \&gt; \sim \&gt; {N}(0,1)</code>
+</p>
+
+<p>An alarm is raised if </p>
+<p style="text-align: center;"><code class="reqn">C_1(t)\ge z_{1-\alpha}</code>
+</p>
+
+<p>with <code class="reqn">z_{1-\alpha}</code> the <code class="reqn">(1-\alpha)^{th}</code> quantile of the standard normal distribution. <br></p>
+<p>The upperbound <code class="reqn">U_1(t)</code> is then defined by:
+</p>
+<p style="text-align: center;"><code class="reqn">U_1(t)= \bar{Y}_1(t) + z_{1-\alpha}S_1(t).</code>
+</p>
+
+</li>
+<li>
+<p> C2 is very similar to C1 apart from a 2-day lag in the baseline definition.
+In other words the baseline for C2 is <code>baseline</code> (Default: 7) timepoints with a 2-day lag before the monitored
+timepoint t, i.e. <code class="reqn">(t-\code{baseline}-2)</code> to <code class="reqn">t-3</code>. The expected value is the mean of the baseline. An approximate
+(two-sided) <code class="reqn">(1-\alpha)\cdot 100\%</code> prediction interval is calculated based on the
+assumption that  the difference between the expected value and the observed
+value divided by the standard derivation of counts over the sliding window,
+called <code class="reqn">C_2(t)</code>, follows a standard normal distribution in the absence
+of outbreaks:
+</p>
+<p style="text-align: center;"><code class="reqn">C_2(t)= \frac{Y(t)-\bar{Y}_2(t)}{S_2(t)},</code>
+</p>
+
+<p>where
+</p>
+<p style="text-align: center;"><code class="reqn">\bar{Y}_2(t)= \frac{1}{\code{baseline}} \sum_{i=t-3}^{t-\code{baseline}-2} Y(i)</code>
+</p>
+
+<p>and
+</p>
+<p style="text-align: center;"><code class="reqn"> S^2_2(t)= \frac{1}{\code{baseline}-1} \sum_{i=t-3}^{t-\code{baseline}-2} [Y(i) - \bar{Y}_2(i)]^2.</code>
+</p>
+
+<p>Then under the null hypothesis of no outbreak,
+</p>
+<p style="text-align: center;"><code class="reqn">C_2(t) \mathcal \sim {N}(0,1)</code>
+</p>
+
+<p>An alarm is raised if </p>
+<p style="text-align: center;"><code class="reqn">C_2(t)\ge z_{1-\alpha},</code>
+</p>
+
+<p>with <code class="reqn">z_{1-\alpha}</code> the <code class="reqn">(1-\alpha)^{th}</code> quantile of the standard normal distribution. <br></p>
+<p>The upperbound <code class="reqn">U_{2}(t)</code> is then defined by:
+</p>
+<p style="text-align: center;"><code class="reqn">U_{2}(t)= \bar{Y}_{2}(t) + z_{1-\alpha}S_{2}(t).</code>
+</p>
+
+</li>
+<li>
+<p> C3 is quite different from the two other methods, but it is based on C2.
+Indeed it uses <code class="reqn">C_2(t)</code> from timepoint t and the two previous timepoints.
+This means the baseline consists of the timepoints <code class="reqn">t-(\code{baseline}+4)</code> to <code class="reqn">t-3</code>.
+The statistic <code class="reqn">C_3(t)</code> is the sum of discrepancies between observations and
+predictions.
+</p>
+<p style="text-align: center;"><code class="reqn">C_3(t)= \sum_{i=t}^{t-2} \max(0,C_2(i)-1)</code>
+</p>
+
+<p>Then under the null hypothesis of no outbreak,
+</p>
+<p style="text-align: center;"><code class="reqn">C_3(t) \mathcal \sim {N}(0,1)</code>
+</p>
+
+<p>An alarm is raised if </p>
+<p style="text-align: center;"><code class="reqn">C_3(t)\ge z_{1-\alpha},</code>
+</p>
+
+<p>with <code class="reqn">z_{1-\alpha}</code> the <code class="reqn">(1-\alpha)^{th}</code> quantile of the standard normal distribution. <br></p>
+<p>The upperbound <code class="reqn">U_3(t)</code> is then defined by:
+</p>
+<p style="text-align: center;"><code class="reqn">U_3(t)= \bar{Y}_2(t) + S_2(t)\left(z_{1-\alpha}-\sum_{i=t-1}^{t-2} \max(0,C_2(i)-1)\right).</code>
+</p>
+
+</li>
+</ol>
+<h3>Value</h3>
+
+<p>An object of class <code>sts</code> with the slots <code>upperbound</code> and <code>alarm</code> filled
+by the chosen method.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>M. Salmon, H. Burkom</p>
+
+
+<h3>Source</h3>
+
+<p>Fricker, R.D., Hegler, B.L, and Dunfee, D.A. (2008). Comparing syndromic surveillance detection methods: EARS versus a CUSUM-based methodology,
+27:3407-3429, Statistics in medicine.
+</p>
+<p>Salmon, M., Schumacher, D. and Höhle, M. (2016):
+Monitoring count time series in <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span>: Aberration detection in public
+health surveillance. <em>Journal of Statistical Software</em>,
+<b>70</b> (10), 1-35. <a href="https://doi.org/10.18637/jss.v070.i10">doi:10.18637/jss.v070.i10</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#Sim data and convert to sts object
+disProgObj &lt;- sim.pointSource(p = 0.99, r = 0.5, length = 208, A = 1,
+                              alpha = 1, beta = 0, phi = 0,
+                              frequency = 1, state = NULL, K = 1.7)
+stsObj &lt;- disProg2sts( disProgObj)
+
+
+# Call earsC function and show result
+res1 &lt;- earsC(stsObj, control = list(range = 20:208, method="C1"))
+plot(res1, legend.opts=list(horiz=TRUE, x="topright"))
+
+
+# Compare C3 upperbounds depending on alpha
+res3 &lt;- earsC(stsObj, control = list(range = 20:208,method="C3",alpha = 0.001))
+plot(upperbound(res3), type='l')
+res3 &lt;- earsC(stsObj, control = list(range = 20:208,method="C3"))
+lines(upperbound(res3), col='red')
+
+</code></pre>
+
+
+</div>

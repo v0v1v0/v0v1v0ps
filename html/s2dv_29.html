@@ -1,0 +1,168 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Consist_Trend</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute trend using only model data for which observations are available</h2>
+
+<h3>Description</h3>
+
+<p>Compute the linear trend for a time series by least square fitting together
+with the associated error interval for both the observational and model data.
+The 95% confidence interval and detrended observational and model data are 
+also provided.<br>
+The function doesn't do the ensemble mean, so if the input data have the 
+member dimension, ensemble mean needs to be computed beforehand.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Consist_Trend(
+  exp,
+  obs,
+  dat_dim = "dataset",
+  time_dim = "sdate",
+  interval = 1,
+  ncores = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>exp</code></td>
+<td>
+<p>A named numeric array of experimental data, with at least two 
+dimensions 'time_dim' and 'dat_dim'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs</code></td>
+<td>
+<p>A named numeric array of observational data, same dimensions as
+parameter 'exp' except along 'dat_dim'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dat_dim</code></td>
+<td>
+<p>A character string indicating the name of the dataset 
+dimensions. If data at some point of 'time_dim' are not complete along 
+'dat_dim' in both 'exp' and 'obs', this point in all 'dat_dim' will be 
+discarded. The default value is 'dataset'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time_dim</code></td>
+<td>
+<p>A character string indicating the name of dimension along
+which the trend is computed. The default value is 'sdate'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>A positive numeric indicating the unit length between two 
+points along 'time_dim' dimension. The default value is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>An integer indicating the number of cores to use for parallel 
+computation. The default value is NULL.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list containing:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>$trend</code></td>
+<td>
+
+<p>A numeric array of the trend coefficients of model and observational data 
+with dimensions c(stats = 2, nexp + nobs, the rest dimensions of 'exp' and 
+'obs' except time_dim), where 'nexp' is the length of 'dat_dim' in 'exp' 
+and 'nobs' is the length of 'dat_dim' in 'obs. The 'stats' dimension 
+contains the intercept and the slope.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>$conf.lower</code></td>
+<td>
+
+<p>A numeric array of the lower limit of 95% confidence interval with 
+dimensions same as $trend. The 'stats' dimension contains the lower 
+confidence level of the intercept and the slope.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>$conf.upper</code></td>
+<td>
+
+<p>A numeric array of the upper limit of 95% confidence interval with 
+dimensions same as $trend. The 'stats' dimension contains the upper 
+confidence level of the intercept and the slope.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>$detrended_exp</code></td>
+<td>
+
+<p>A numeric array of the detrended model data with the same dimensions as 
+'exp'.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>$detrended_obs</code></td>
+<td>
+
+<p>A numeric array of the detrended observational data with the same 
+dimensions as 'obs'.
+</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">#'# Load sample data as in Load() example:
+example(Load)
+clim &lt;- Clim(sampleData$mod, sampleData$obs)
+ano_exp &lt;- Ano(sampleData$mod, clim$clim_exp)
+ano_obs &lt;- Ano(sampleData$obs, clim$clim_obs)
+runmean_months &lt;- 12
+smooth_ano_exp &lt;- Smoothing(ano_exp, runmeanlen = runmean_months)
+smooth_ano_obs &lt;- Smoothing(ano_obs, runmeanlen = runmean_months)
+dim_to_mean &lt;- 'member'  # average along members
+years_between_startdates &lt;- 5
+trend &lt;- Consist_Trend(MeanDims(smooth_ano_exp, dim_to_mean, na.rm = TRUE), 
+                      MeanDims(smooth_ano_obs, dim_to_mean, na.rm = TRUE), 
+                      interval = years_between_startdates)
+#Bind data for plotting
+trend_bind &lt;- abind::abind(trend$conf.lower[2, , ], trend$trend[2, , ], 
+                          trend$conf.upper[2, , ], trend$trend[1, , ], along = 0)
+trend_bind &lt;- Reorder(trend_bind, c(2, 1, 3))
+
+PlotVsLTime(trend_bind, toptitle = "trend", ytitle = "K/(5 years)", 
+           monini = 11, limits = c(-0.8, 0.8), listexp = c('CMIP5 IC3'), 
+           listobs = c('ERSST'), biglab = FALSE, hlines = c(0)) 
+PlotAno(InsertDim(trend$detrended_exp, 2, 1), InsertDim(trend$detrended_obs, 2, 1), 
+       startDates, "Detrended tos anomalies", ytitle = 'K', 
+       legends = 'ERSST', biglab = FALSE)
+
+
+</code></pre>
+
+
+</div>

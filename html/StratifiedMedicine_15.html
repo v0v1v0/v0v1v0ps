@@ -1,0 +1,399 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>submod_train</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Subgroup Identification: Train Model</h2>
+
+<h3>Description</h3>
+
+<p>Wrapper function to train a subgroup model (submod). Outputs subgroup assignments and 
+fitted model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">submod_train(
+  Y,
+  A,
+  X,
+  Xtest = NULL,
+  mu_train = NULL,
+  family = "gaussian",
+  submod = "lmtree",
+  hyper = NULL,
+  ple = "ranger",
+  ple.hyper = NULL,
+  meta = ifelse(family == "survival", "T-learner", "X-learner"),
+  propensity = FALSE,
+  pool = "no",
+  delta = "&gt;0",
+  param = NULL,
+  resample = NULL,
+  R = 20,
+  resample_pool = NULL,
+  R_pool = 20,
+  stratify = ifelse(!is.null(A), "trt", "no"),
+  combine = "SS",
+  alpha_ovrl = 0.05,
+  alpha_s = 0.05,
+  verbose.resamp = FALSE,
+  efficient = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>The outcome variable. Must be numeric or survival (ex; Surv(time,cens) )</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A</code></td>
+<td>
+<p>Treatment variable. (Default supports binary treatment, either numeric or 
+factor). "ple_train" accomodates &gt;2 along with binary treatments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>Covariate space.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Xtest</code></td>
+<td>
+<p>Test set. Default is NULL (no test predictions). Variable types should match X.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu_train</code></td>
+<td>
+<p>Patient-level estimates in training set (see <code>ple_train</code>). 
+Default=NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Outcome type. Options include "gaussion" (default), "binomial", and "survival".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>submod</code></td>
+<td>
+<p>Subgroup identification model function. Options include tree-methods that 
+target the treatment by variable interaction directly ("lmtree", "glmtree", "mob_weib"),
+regress the CATE ("rpart_cate", "ctree_cate"), and target prognostic variables ("rpart", "ctree").
+Default for family="gaussian" is "lmtree" (MOB with OLS loss). For "binomial" the default is 
+"glmtree" (MOB with binomial loss). Default for "survival" is "lmtree" (log-rank transformation 
+on survival outcomes and then fit MOB-OLS). "None" uses no submod. Currently only available for 
+binary treatments or A=NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyper</code></td>
+<td>
+<p>Hyper-parameters for submod (must be list). Default is NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ple</code></td>
+<td>
+<p>Base-learner used to estimate patient-level equantities, such as the 
+conditional average treatment effect (CATE), E(Y|A=1,X)-E(Y|A=0, X) = CATE(X). 
+Default is random based based through "ranger". "None" uses no ple. See below for 
+details on estimating the treatment contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ple.hyper</code></td>
+<td>
+<p>Hyper-parameters for the PLE function (must be list). 
+Default is NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meta</code></td>
+<td>
+<p>Using the ple model as a base learner, meta-learners can be used for 
+estimating patient-level treatment differences. Options include "T-learner" (treatment
+specific models), "S-learner" (single model), and "X-learner". For family="gaussian" &amp;
+"binomial", the default is "X-learner", which uses a two-stage regression 
+approach (See Kunzel et al 2019). For "survival", the default is "T-learner". "X-learner" 
+is currently not supported for survival outcomes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>propensity</code></td>
+<td>
+<p>Propensity score estimation, P(A=a|X). Default=FALSE which 
+use the marginal estimates, P(A=a) (applicable for RCT data). If TRUE, will 
+use the "ple" base learner to estimate P(A=a|X).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pool</code></td>
+<td>
+<p>Whether to pool the initial identified subgroups (ex: tree nodes).
+Default = "no". Other options include "trteff" or "trteff_boot" (check if 
+naive or bootstrap treatment estimate is beyond clinical meaningful 
+threshold delta, ex: trteff_boot &gt; 0), and optimal treatment regime (OTR) pooling, 
+"otr:logistic", "otr:rf". "otr:logistic" fits weighted logistic regression 
+with I(mu_1-mu_0&gt;delta) as the outcome, the candidate subgroups as covariates, 
+and weights=abs((mu_1-mu_0) - delta). "otr:rf" follows the same approach but 
+with weighted random forest, and also includes X in the regression. Regardless 
+of the pooling approach, the key output is "trt_assign", a data-frame with the 
+initial subgroups and the pooled subgroups (ex: dopt=1, patient should receive
+A=1, vs dopt=0, patient should receive A=0).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>Threshold for defining benefit vs non-benefitting patients. 
+Only applicable for submod="otr", and if pooling is used (see "pool"). 
+Default="&gt;0".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param</code></td>
+<td>
+<p>Parameter estimation and inference function. Based on the discovered 
+subgroups, estimate parameter estimates and correspond variability metrics. Options
+include "lm" (unadjusted linear regression), "dr" (doubly-robust estimator),
+"gcomp" (G-computation, average the patient-level estimates), "cox" (cox regression),
+and "rmst" (RMST based estimates as in survRMST package). Default for "gaussian",
+"binomial" is "dr", while default for "survival" is "cox". Currently only available 
+for binary treatments or A=NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resample</code></td>
+<td>
+<p>Resampling method for resample-based treatment effect estimates 
+and variability metrics. Options include "Bootstrap" and 
+"CV" (cross-validation). Default=NULL (No resampling).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R</code></td>
+<td>
+<p>Number of resamples (default=NULL; R=100 for Permutation/Bootstrap 
+and R=5 for CV). This resamples the entire PRISM procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resample_pool</code></td>
+<td>
+<p>For submod only, resampling method for pooling step. 
+nly applicable if resample_submod="Bootstrap" and/or pool="trteff_boot".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R_pool</code></td>
+<td>
+<p>Number of resamples for resample_pool</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratify</code></td>
+<td>
+<p>Stratified resampling? Default="trt" (stratify by A). Other
+options include "sub" (stratify by the identified subgroups), "trt_sub" 
+(stratify by A and the identified subgroups), and "no" (no stratification).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>combine</code></td>
+<td>
+<p>Method of combining group-specific point-estimates. Options 
+include "SS" (sample size weighting), and "maxZ" 
+(see: Mehrotra and Marceau-West). This is used for pooling (ex: within dopt=1
+groups, aggregate group-specific treatment estimates), and for calculating 
+the overall population treatment effect estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_ovrl</code></td>
+<td>
+<p>Two-sided alpha level for overall population. Default=0.05</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_s</code></td>
+<td>
+<p>Two-sided alpha level at subgroup level. Default=0.05</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose.resamp</code></td>
+<td>
+<p>Output iterations during resampling? Default=FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>efficient</code></td>
+<td>
+<p>If TRUE (default for PRISM), then models (filter, ple, submod) will 
+store reduced set of outputs for faster speed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Any additional parameters, not currently passed through.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>submod_train currently fits a number of tree-based subgroup models, most of
+which aim to find subgroups with varying treatment effects (i.e. predictive variables).
+Let E(Y|A=1,X)-E(Y|A=0,X) = CATE(X) correspond to the estimated conditional average treatment 
+effect. Current options include:
+</p>
+<p>1. lmtree: Wrapper function for the function "lmtree" from the partykit package. Here, 
+model-based partitioning (MOB) with an OLS loss function, Y~MOB_OLS(A,X), is used to 
+identify prognostic and/or predictive variables. If the outcome Y is survival, then 
+this outcome will first be transformed via log-rank scores (coin::logrank_trafo(Y)).
+</p>
+<p>Default hyper-parameters are: 
+hyper = list(alpha=0.05, maxdepth=4, parm=NULL, minsize=floor(dim(X)[1]*0.10)).
+</p>
+<p>2. glmtree: Wrapper function for the function "glmtree" from the partykit package. Here, 
+model-based partitioning (MOB) with GLM binomial + identity link loss function, 
+(Y~MOB_GLM(A,X)), is used to identify prognostic and/or predictive variables.
+</p>
+<p>Default hyper-parameters are:
+hyper = list(link="identity", alpha=0.05, maxdepth=4, parm=NULL, minsize=floor(dim(X)[1]*0.10)).
+</p>
+<p>3. ctree / ctree_cate: Wrapper function for the function "ctree" from the partykit package. Here, 
+conditional inference trees are used to identify either prognostic ("ctree"), Y~CTREE(X), 
+or predictive variables, CATE(X) ~ CTREE(X).
+</p>
+<p>Default hyper-parameters are:
+hyper=list(alpha=0.10, minbucket = floor(dim(X)[1]*0.10), maxdepth = 4). 
+</p>
+<p>4. rpart / rpart_cate: Recursive partitioning through the "rpart" R package. Here, 
+recursive partitioning and regression trees are used to identify either prognostic ("rpart"),
+Y~rpart(X), or predictive variables ("rpart_cate"), CATE(X)~rpart(X).
+</p>
+<p>Default hyper-parameters are:
+hyper=list(alpha=0.10, minbucket = floor(dim(X)[1]*0.10), maxdepth = 4). 
+</p>
+<p>5. mob_weib: Wrapper function for the function "mob" with weibull loss function using
+the partykit package. Here, model-based partitioning (MOB) with weibull loss (survival),
+(Y~MOB_WEIB(A,X)), is used to identify prognostic and/or predictive variables.
+</p>
+<p>Default hyper-parameters are:
+hyper = list(alpha=0.10, maxdepth=4, parm=NULL, minsize=floor(dim(X)[1]*0.10)).
+</p>
+<p>6. otr: Optimal treatment regime approach using "ctree". Based on CATE estimates and 
+clinically meaningful threshold delta (ex: &gt;0), fit I(CATE&gt;delta)~CTREE(X) with 
+weights=abs(CATE-delta). 
+</p>
+<p>Default hyper-parameters are:
+hyper=list(alpha=0.10, minbucket = floor(dim(X)[1]*0.10), maxdepth = 4, delta="&gt;0").
+</p>
+
+
+<h3>Value</h3>
+
+<p>Trained subgroup model and subgroup predictions/estimates for train/test sets.
+</p>
+
+<ul>
+<li>
+<p> mod - trained subgroup model
+</p>
+</li>
+<li>
+<p> Subgrps.train - Identified subgroups (training set)
+</p>
+</li>
+<li>
+<p> Subgrps.test - Identified subgroups (test set)
+</p>
+</li>
+<li>
+<p> pred.train - Predictions (training set)
+</p>
+</li>
+<li>
+<p> pred.test - Predictions (test set)
+</p>
+</li>
+<li>
+<p> Rules - Definitions for subgroups, if provided in fitted submod output.
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p> Zeileis A, Hothorn T, Hornik K (2008). Model-Based Recursive Partitioning. 
+Journal of Computational and Graphical Statistics, 17(2), 492–514.
+</p>
+</li>
+<li>
+<p> Seibold H, Zeileis A, Hothorn T. Model-based recursive partitioning for 
+subgroup analyses. Int J Biostat, 12 (2016), pp. 45-63
+</p>
+</li>
+<li>
+<p> Hothorn T, Hornik K, Zeileis A (2006). Unbiased Recursive Partitioning: 
+A Conditional Inference Framework. Journal of Computational and Graphical Statistics,
+15(3), 651–674.
+</p>
+</li>
+<li>
+<p> Zhao et al. (2012) Estimated individualized treatment rules using outcome 
+weighted learning. Journal of the American Statistical Association, 107(409): 1106-1118.
+</p>
+</li>
+<li>
+<p> Breiman L, Friedman JH, Olshen RA, and Stone CJ. (1984) Classification 
+and Regression Trees. Wadsworth
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>PRISM</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+library(StratifiedMedicine)
+## Continuous ##
+dat_ctns = generate_subgrp_data(family="gaussian")
+Y = dat_ctns$Y
+X = dat_ctns$X
+A = dat_ctns$A
+
+# Fit through submod_train wrapper #
+mod1 = submod_train(Y=Y, A=A, X=X, Xtest=X, submod="submod_lmtree")
+table(mod1$Subgrps.train)
+plot(mod1$fit$mod)
+mod1$trt_eff
+
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,345 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SCA_RWM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SCA with random walk in M</h2>
+
+<h3>Description</h3>
+
+<p><code>SCA_RWM</code> is a modification of SCA that incorporates a random walk in M in logit space (constant with age).
+Set the variance (<code>start$tau_M</code>) to a small value (0.001) in order to fix M for all years, which is functionally equivalent to SCA.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SCA_RWM(
+  x = 1,
+  Data,
+  AddInd = "B",
+  SR = c("BH", "Ricker", "none"),
+  vulnerability = c("logistic", "dome"),
+  catch_eq = c("Baranov", "Pope"),
+  CAA_dist = c("multinomial", "lognormal"),
+  CAA_multiplier = 50,
+  rescale = "mean1",
+  max_age = Data@MaxAge,
+  start = NULL,
+  prior = list(),
+  fix_h = TRUE,
+  fix_F_equilibrium = TRUE,
+  fix_omega = TRUE,
+  fix_tau = TRUE,
+  LWT = list(),
+  early_dev = c("comp_onegen", "comp", "all"),
+  late_dev = "comp50",
+  refyear = expression(length(Data@Year)),
+  M_bounds = NULL,
+  integrate = FALSE,
+  silent = TRUE,
+  opt_hess = FALSE,
+  n_restart = ifelse(opt_hess, 0, 1),
+  control = list(iter.max = 2e+05, eval.max = 4e+05),
+  inner.control = list(),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A position in the Data object (by default, equal to one for assessments).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Data</code></td>
+<td>
+<p>An object of class Data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>AddInd</code></td>
+<td>
+<p>A vector of integers or character strings indicating the indices to be used in the model. Integers assign the index to
+the corresponding index in Data@AddInd, "B" (or 0) represents total biomass in Data@Ind, "VB" represents vulnerable biomass in
+Data@VInd, and "SSB" represents spawning stock biomass in Data@SpInd. Vulnerability to the survey is fixed in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SR</code></td>
+<td>
+<p>Stock-recruit function (either <code>"BH"</code> for Beverton-Holt, <code>"Ricker"</code>, or <code>"none"</code> for constant mean recruitment).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vulnerability</code></td>
+<td>
+<p>Whether estimated vulnerability is <code>"logistic"</code> or <code>"dome"</code> (double-normal).
+See details for parameterization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>catch_eq</code></td>
+<td>
+<p>Whether to use the Baranov equation or Pope's approximation to calculate the predicted catch at age in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CAA_dist</code></td>
+<td>
+<p>Whether a multinomial or lognormal distribution is used for likelihood of the catch-at-age matrix. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CAA_multiplier</code></td>
+<td>
+<p>Numeric for data weighting of catch-at-age matrix if <code>CAA_hist = "multinomial"</code>. Otherwise ignored. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rescale</code></td>
+<td>
+<p>A multiplicative factor that rescales the catch in the assessment model, which
+can improve convergence. By default, <code>"mean1"</code> scales the catch so that time series mean is 1, otherwise a numeric.
+Output is re-converted back to original units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_age</code></td>
+<td>
+<p>Integer, the maximum age (plus-group) in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Optional list of starting values. Entries can be expressions that are evaluated in the function. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior</code></td>
+<td>
+<p>A named list for the parameters of any priors to be added to the model. See below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_h</code></td>
+<td>
+<p>Logical, whether to fix steepness to value in <code>Data@steep</code> in the model for <code>SCA</code>. This only affects
+calculation of reference points for <code>SCA2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_F_equilibrium</code></td>
+<td>
+<p>Logical, whether the equilibrium fishing mortality prior to the first year of the model
+is estimated. If <code>TRUE</code>, <code>F_equilibrium</code> is fixed to value provided in <code>start</code> (if provided),
+otherwise, equal to zero (assumes unfished conditions).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_omega</code></td>
+<td>
+<p>Logical, whether the standard deviation of the catch is fixed. If <code>TRUE</code>,
+omega is fixed to value provided in <code>start</code> (if provided), otherwise, value based on <code>Data@CV_Cat</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_tau</code></td>
+<td>
+<p>Logical, the standard deviation of the recruitment deviations is fixed. If <code>TRUE</code>,
+tau is fixed to value provided in <code>start</code> (if provided), otherwise, value based on <code>Data@sigmaR</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LWT</code></td>
+<td>
+<p>A named list (Index, CAA, Catch) of likelihood weights for the data components. For the index, a vector of length survey. For
+CAL and Catch, a single value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>early_dev</code></td>
+<td>
+<p>Numeric or character string describing the years for which recruitment deviations are estimated in <code>SCA</code>. By default,
+equal to <code>"comp_onegen"</code>, where rec devs are estimated one full generation prior to the first year when catch-at-age (CAA) data are available.
+With <code>"comp"</code>, rec devs are estimated starting in the first year with CAA. With <code>"all"</code>, rec devs start at the beginning of the model.
+If numeric, the number of years after the first year of the model for which to start estimating rec devs. Use negative numbers for years prior to the first year.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>late_dev</code></td>
+<td>
+<p>Typically, a numeric for the number of most recent years in which recruitment deviations will
+not be estimated in <code>SCA</code> (recruitment in these years will be based on the mean predicted by stock-recruit relationship).
+By default, <code>"comp50"</code> uses the number of ages (smaller than the mode)
+for which the catch-at-age matrix has less than half the abundance than that at the mode.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>refyear</code></td>
+<td>
+<p>An expression for the year for which M is used to report MSY and unfished reference points. By default, terminal year. If multiple
+years are provided, then the mean M over the specified time period is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M_bounds</code></td>
+<td>
+<p>A numeric vector of length 2 to indicate the minimum and maximum M in the random walk as a proportion of the starting M
+(<code>start$M</code>). The default min and max are 75% and 125%, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>integrate</code></td>
+<td>
+<p>Logical, whether the likelihood of the model integrates over the likelihood
+of the recruitment deviations (thus, treating it as a random effects/state-space variable).
+Otherwise, recruitment deviations are penalized parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Logical, passed to <code>TMB::MakeADFun()</code>, whether TMB
+will print trace information during optimization. Used for diagnostics for model convergence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt_hess</code></td>
+<td>
+<p>Logical, whether the hessian function will be passed to <code>stats::nlminb()</code> during optimization
+(this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
+in convergence rate). Ignored if <code>integrate = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_restart</code></td>
+<td>
+<p>The number of restarts (calls to <code>stats::nlminb()</code>) in the optimization procedure, so long as the model
+hasn't converged. The optimization continues from the parameters from the previous (re)start.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A named list of arguments for optimization to be passed to
+<code>stats::nlminb()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inner.control</code></td>
+<td>
+<p>A named list of arguments for optimization of the random effects, which
+is passed on to <code>TMB::newton()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments to be passed.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The model estimates year-specific M (constant with age) as a random walk in logit space, bounded by
+a proportion of <code>start$M</code> (specified in <code>M_bounds</code>).
+</p>
+<p>The starting value for the first year M (start$M) is <code>Data@Mort[x]</code> and is fixed, unless a prior is provided (<code>prior$M</code>).
+The fixed SD of the random walk (<code>tau_M</code>) is 0.05, by default.
+</p>
+<p>Steepness and unfished recruitment in the estimation model, along with unfished reference points, correspond to spawners per recruit using the first year M.
+With argument <code>refyear</code>, new unfished reference points and steepness values are calculated. See examples.
+</p>
+<p>Alternative values can be provided in the start list (see examples):
+</p>
+
+<ul>
+<li> <p><code>R0</code> Unfished recruitment, except when <code>SR = "none"</code> where it is mean recruitment.
+By default, 150% <code>Data@OM$R0[x]</code> is used as the start value in closed-loop simulation, and 400\
+</p>
+</li>
+<li> <p><code>h</code> Steepness. Otherwise, <code>Data@steep[x]</code> is used, or 0.9 if empty.
+</p>
+</li>
+<li> <p><code>M</code> Natural mortality in the first year. Otherwise, <code>Data@Mort[x]</code> is used.
+</p>
+</li>
+<li> <p><code>vul_par</code> Vulnerability parameters, see next paragraph.
+</p>
+</li>
+<li> <p><code>F</code> A vector of length nyears for year-specific fishing mortality.
+</p>
+</li>
+<li> <p><code>F_equilibrium</code> Equilibrium fishing mortality leading into first year of the model (to determine initial depletion). By default, 0.
+</p>
+</li>
+<li> <p><code>omega</code> Lognormal SD of the catch (observation error) when <code>catch_eq = "Baranov"</code>. By default, <code>Data@CV_Cat[x]</code>.
+</p>
+</li>
+<li> <p><code>tau</code> Lognormal SD of the recruitment deviations (process error). By default, <code>Data@sigmaR[x]</code>.
+</p>
+</li>
+<li> <p><code>tau_M</code> The fixed SD of the random walk in M. By default, 0.05.
+</p>
+</li>
+</ul>
+<p>See SCA for all other information about the structure and setup of the model.
+</p>
+<p>The SCA builds in a stock-recruit relationship into the model. Annual unfished and MSY reference points are
+calculated and reported in TMB_report of the Assessment object.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class Assessment.
+</p>
+
+
+<h3>Online Documentation</h3>
+
+<p>Model description and equations are available on the openMSE
+<a href="https://openmse.com/features-assessment-models/2-sca/">website</a>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Q. Huynh
+</p>
+
+
+<h3>See Also</h3>
+
+<p>SCA SCA_DDM
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">res &lt;- SCA_RWM(Data = MSEtool::SimulatedData, start = list(M_start = 0.4, tau_M = 0.05))
+res2 &lt;- SCA(Data = MSEtool::SimulatedData)
+res3 &lt;- SCA_RWM(Data = MSEtool::SimulatedData, start = list(M_start = 0.4, tau_M = 0.001))
+
+# Use mean M in most recent 5 years for reporting reference points 
+res_5r &lt;- SCA_RWM(Data = MSEtool::SimulatedData, 
+                  refyear = expression(seq(length(Data@Year) - 4, length(Data@Year))),
+                  start = list(M_start = 0.4, tau_M = 0.001))
+res_5r@SSB0 # SSB0 reported (see also res_5r@TMB_report$new_E0)
+res_5r@TMB_report$E0 # SSB0 of Year 1 M
+
+
+compare_models(res, res2, res3)
+
+</code></pre>
+
+
+</div>

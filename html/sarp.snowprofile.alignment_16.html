@@ -1,0 +1,264 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dtwSP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate DTW alignment of two snow profiles</h2>
+
+<h3>Description</h3>
+
+<p>This is the core function of the package and allows to match layers between pairs of snow profiles to align them. It
+provides a variety of options, where the default values represent a good starting point to the alignment of most generic
+profiles.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dtwSP(
+  query,
+  ref,
+  open.end = TRUE,
+  checkGlobalAlignment = "auto",
+  keep.internals = TRUE,
+  step.pattern = symmetricP1,
+  resamplingRate = 0.5,
+  rescale2refHS = FALSE,
+  bottom.up = TRUE,
+  top.down = TRUE,
+  simType = "HerlaEtAl2021",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>query</code></td>
+<td>
+<p>The query snow profile to be warped</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ref</code></td>
+<td>
+<p>The reference snow profile to be warped against</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>open.end</code></td>
+<td>
+<p>Is an open end alignment desired? Recommended if profiles will not be rescaled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>checkGlobalAlignment</code></td>
+<td>
+<p>Do you want to check whether a global alignment performs better (i.e.,
+<code>open.end = FALSE</code>), and use the optimal one of the computed alignments? <code>'auto'</code> sets to <code>TRUE</code> if <code>simType == "HerlaEtAl2021"</code> and to <code>FALSE</code> otherwise.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.internals</code></td>
+<td>
+<p>Append resampled and aligned snow profiles as well as internal parameters to the output object?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step.pattern</code></td>
+<td>
+<p>The local slope constraint of the warping path, defaults to Sakoe-Chiba's symmetric pattern
+described by a slope factor of P = 1, see dtw::stepPattern</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resamplingRate</code></td>
+<td>
+<p>Scalar, numeric resampling rate for a regular depth grid. If the profiles have been rescaled prior to calling this routine, set to <code>NA</code>.
+To resample onto the smallest possible mutual (original, likely irregular) depth grid (see Details, bullet point 2.2), set to <code>'irregularInterfaces'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rescale2refHS</code></td>
+<td>
+<p>Rescale the query snow height to match the ref snow height?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bottom.up</code></td>
+<td>
+<p>Compute an open.end alignment from the ground upwards?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>top.down</code></td>
+<td>
+<p>Compute an open.end alignment from the snow surface downwards?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simType</code></td>
+<td>
+<p>the similarity between two profiles can be computed with different approaches, see simSP</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments passed to distanceSPlayers, and dtw::dtw, and simSP e.g.
+</p>
+
+<ul>
+<li> <p><code>dims</code>, <code>weights</code> (defaults specified in <code>distanceSPlayers</code>)
+</p>
+</li>
+<li> <p><code>ddateNorm</code>, numeric, normalize deposition date (default specified in <code>distanceSPlayers</code>)
+</p>
+</li>
+<li> <p><code>windowFunction</code>, default <code>warpWindowSP</code>
+</p>
+</li>
+<li> <p><code>window.size</code>, <code>window.size.abs</code>, <code>ddate.window.size</code> (defaults specified in <code>warpWindowSP</code>)
+</p>
+</li>
+<li> <p><code>gtype_distMat</code>, specific to profile alignment, see distanceSPlayers
+</p>
+</li>
+<li> <p><code>gtype_distMat_simSP</code>, specific to similarity measure in simSP
+</p>
+</li>
+<li> <p><code>prefLayerWeights</code>, weighting matrix for preferential layer matching, e.g. layerWeightingMat
+</p>
+</li>
+<li> <p><code>nonMatchedSim</code> Similarity value <code style="white-space: pre;">⁠[0, 1]⁠</code> for non-matched layers, see simSP. indifference = 0.5, penalty &lt; 0.5
+</p>
+</li>
+<li> <p><code>nonMatchedThickness</code> How strongly should the thicknesses of non-matched layers influence the resulting similarity of
+the profiles? The smaller this (positive!) value, the more influence; and vice versa. See simSP for more details.
+</p>
+</li>
+<li> <p><code>apply_scalingFactor</code> Setting for simSP in case <code>simType</code> is <code>"layerwise"</code> or <code>"wsum_scaled"</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The individual steps of aligning snow profiles (which can all be managed from this function):
+</p>
+
+<ol>
+<li>
+<p> (optional) <strong>Rescale</strong> the profiles to the same height (cf., scaleSnowHeight)
+</p>
+</li>
+<li> <p><strong>Resample</strong> the profiles onto the same depth grid. 2 different approaches:
+</p>
+
+<ul>
+<li>
+<p> regular grid with a sampling rate that is provided by the user (recommended, cf., resampleSP).
+</p>
+</li>
+<li>
+<p> irregular grid that includes all layer interfaces within the two profiles (i.e., set <code>resamplingRate = 'irregularInterfaces'</code>) (cf., resampleSPpairs)
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> Compute a weighted <strong>local cost matrix</strong> from multiple layer characteristics (cf., distanceSPlayers)
+</p>
+</li>
+<li> <p><strong>Match the layers</strong> of the profiles with a call to dtw::dtw (eponymous R package)
+</p>
+</li>
+<li>
+<p> Align the profiles by <strong>warping</strong> the query profile onto the reference profile (cf., warpSP)
+</p>
+</li>
+<li>
+<p> (optional) If the function has been called with multiple different boundary conditions (global, top-down, or bottom-up alignments),
+the optimal alignment as determined by simSP or by the DTW distance will be returned.
+</p>
+</li>
+<li>
+<p> (optional) Compute a <strong>similarity score</strong> for the two profiles with simSP
+</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p>An alignment object of class 'dtwSP' is returned. This is essentially a list with various information about the alignment.
+If <code>keep.internals = TRUE</code>, the resampled snow profiles 'query', 'reference' and 'queryWarped', as well as the
+'costMatrix' and 'directionMatrix' are elements of the returned object.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Furthermore, the alignment based on grain type information is currently only possible for specific grain types. These grain types
+require a pre-defined distance or similarity, such as given by grainSimilarity_align. If your profile contains other grain types,
+you are required to define your custom <code>grainSimilarity</code> matrix.
+</p>
+<p>The package used to require re-scaling of the profiles to identical snow heights. This requirement has been removed in v1.1.0.
+Profiles therefore can be resampled onto a regular grid, whilst keeping their original total snow heights. The alignment can
+then be carried out bottom.up or top.down with a relative or absolute window size. If the profiles have different snow heights and a relative
+window size is provided, the window size is computed using the larger snow height of the two profiles (e.g., Profile A HS 100 cm,
+Profile B HS 80 cm; window.size = 0.3 translates to an effective window size of +/- 33 cm).
+See examples for alignments without prior re-scaling.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>fherla
+</p>
+
+
+<h3>References</h3>
+
+<p>Herla, F., Horton, S., Mair, P., &amp; Haegeli, P. (2021). Snow profile alignment and similarity assessment for aggregating,
+clustering, and evaluating of snowpack model output for avalanche forecasting. Geoscientific Model Development, 14(1), 239–258.
+https://doi.org/10.5194/gmd-14-239-2021
+</p>
+
+
+<h3>See Also</h3>
+
+<p>plotSPalignment, simSP
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Align a modeled and a manual snow profile, primarily based on default settings:
+dtwAlignment &lt;- dtwSP(SPpairs$A_modeled, SPpairs$A_manual, open.end = FALSE)
+
+## check out the resulting dtwSP alignment object:
+summary(dtwAlignment)
+plotSPalignment(dtwAlignment = dtwAlignment)
+plotCostDensitySP(dtwAlignment)
+
+
+## Align profiles from subsequent days without re-scaling them:
+dtwAlignment &lt;- dtwSP(SPpairs$C_day3, SPpairs$C_day1, resamplingRate = 0.5, rescale2refHS = FALSE,
+                      window.size.abs = 30)
+## Note, per default both bottom.up and top.down alignments have been considered,
+#  let's check out which one was suited better:
+dtwAlignment$direction  # i.e., bottom up
+## Check it out visually:
+plotSPalignment(dtwAlignment = dtwAlignment,
+                mainQu = "3 Days after...", mainRef = "...the reference profile.")
+plotCostDensitySP(dtwAlignment, labelHeight = TRUE)
+
+</code></pre>
+
+
+</div>

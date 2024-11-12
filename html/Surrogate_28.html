@@ -1,0 +1,213 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fit_model_SurvSurv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit Survival-Survival model</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>fit_model_SurvSurv()</code> fits the copula model for time-to-event
+surrogate and true endpoints (Stijven et al., 2022). Because the bivariate
+distributions of the surrogate-true endpoint pairs are functionally
+independent across treatment groups, a bivariate distribution is fitted in
+each treatment group separately. The marginal distributions are based on the
+Royston-Parmar survival model (Royston and Parmar, 2002).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fit_model_SurvSurv(
+  data,
+  copula_family,
+  n_knots = 2,
+  fitted_model = NULL,
+  method = "BFGS",
+  maxit = 500
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame in the correct format (See details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>copula_family</code></td>
+<td>
+<p>One of the following parametric copula families:
+<code>"clayton"</code>, <code>"frank"</code>, <code>"gaussian"</code>, or <code>"gumbel"</code>. The first element in
+<code>copula_family</code> corresponds to the control group, the second to the
+experimental group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_knots</code></td>
+<td>
+<p>Number of internal knots for the Royston-Parmar survival
+models for <code class="reqn">\tilde{S}_0</code>, <code class="reqn">T_0</code>, <code class="reqn">\tilde{S}_1</code>, and <code class="reqn">T_1</code>.
+If <code>length(n_knots) == 1</code>, the same number of knots are assumed for the
+four marginal distributions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fitted_model</code></td>
+<td>
+<p>Fitted model from which initial values are extracted. If
+<code>NULL</code> (default), standard initial values are used. This option intended
+for when a model is repeatedly fitted, e.g., in a bootstrap.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Optimization algorithm for maximizing the objective function.
+For all options, see <code>?maxLik::maxLik</code>. Defaults to <code>"BFGRS"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxit</code></td>
+<td>
+<p>Maximum number of iterations for the numeric optimization,
+defaults to 500.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns an S3 object that can be used to perform the sensitivity
+analysis with <code>sensitivity_analysis_SurvSurv_copula()</code>.
+</p>
+
+
+<h3>Model</h3>
+
+<p>In the causal-inference approach to evaluating surrogate endpoints, the first
+step is to estimate the joint distribution of the relevant potential
+outcomes. Let <code class="reqn">(T_0, S_0, S_1, T_1)'</code>.  denote the vector of potential
+outcomes where <code class="reqn">(S_k, T_k)'</code> is the pair of potential outcomes under
+treatment <code class="reqn">Z = k</code>. <code class="reqn">T</code> refers to the true endpoint, e.g., overall
+survival. <code class="reqn">S</code> refers to the composite surrogate endpoint, e.g.,
+progression-free-survival. Because <code class="reqn">S</code> is usually a composite endpoint
+with death as possible event, modeling difficulties arise because <code class="reqn">Pr(S_k
+= T_k) &gt; 0</code>.
+</p>
+<p>Due to difficulties in modeling the composite surrogate and the true endpoint
+jointly, the time-to-surrogate event (<code class="reqn">\tilde{S}</code>) is modeled instead of
+the time-to-composite surrogate event (<code class="reqn">S</code>). Using this new variable,
+<code class="reqn">\tilde{S}</code>, a D-vine copula model is proposed for <code class="reqn">(T_0,
+\tilde{S}_0, \tilde{S}_1, T_1)'</code> in Stijven et al. (2022). However, only the
+following bivariate distributions are identifiable <code class="reqn">(T_k, \tilde{S}_k)'</code>
+for <code class="reqn">k=0,1</code>. The margins in these bivariate distributions are based on
+the Royston-Parmar survival model (Roystona and Parmar, 2002). The
+association is modeled through two copulas of the same parametric form, but
+with unique copula parameters.
+</p>
+<p>Two modelling choices are made before estimating the two bivariate
+distributions described in the previous paragraph:
+</p>
+
+<ul>
+<li>
+<p> The number of internal knots for the Royston-Parmar survival models. This
+is specified through the <code>n_knots</code> argument. The number of knots is assumed
+to be equal across the four margins.
+</p>
+</li>
+<li>
+<p> The parametric family of the bivariate copulas. The parametric family is
+assumed to be equal across treatment groups. This choice is specified through
+the <code>copula_family</code> argument.
+</p>
+</li>
+</ul>
+<h3>Data Format</h3>
+
+<p>The data frame should have the semi-competing risks format. The columns must
+be ordered as follows:
+</p>
+
+<ul>
+<li>
+<p> time to surrogate event, true event, or independent censoring; whichever
+comes first
+</p>
+</li>
+<li>
+<p> time to true event, or independent censoring; whichever comes first
+</p>
+</li>
+<li>
+<p> treatment indicator: 0 or 1
+</p>
+</li>
+<li>
+<p> surrogate event indicator: 1 if surrogate event is observed, 0 otherwise
+</p>
+</li>
+<li>
+<p> true event indicator: 1 if true event is observed, 0 otherwise
+</p>
+</li>
+</ul>
+<p>Note that according to the methodology in Stijven et al. (2022), the
+surrogate event must not be the composite event. For example, when the
+surrogacy of progression-free survival for overall survival is evaluated. The
+surrogate event is progression, but not the composite event of progression or
+death.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Florian Stijven
+</p>
+
+
+<h3>References</h3>
+
+<p>Stijven, F., Alonso, a., Molenberghs, G., Van Der Elst, W., Van
+Keilegom, I. (2024). An information-theoretic approach to the evaluation of
+time-to-event surrogates for time-to-event true endpoints based on causal
+inference.
+</p>
+<p>Royston, P., &amp; Parmar, M. K. (2002). Flexible parametric
+proportional-hazards and proportional-odds models for censored survival
+data, with application to prognostic modelling and estimation of treatment
+effects. Statistics in medicine, 21(15), 2175-2197.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sensitivity_analysis_SurvSurv_copula()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if(require(Surrogate)) {
+  data("Ovarian")
+  #For simplicity, data is not recoded to semi-competing risks format, but is
+  #left in the composite event format.
+  data = data.frame(Ovarian$Pfs,
+                    Ovarian$Surv,
+                    Ovarian$Treat,
+                    Ovarian$PfsInd,
+                    Ovarian$SurvInd)
+  Surrogate::fit_model_SurvSurv(data = data,
+                                copula_family = "clayton",
+                                n_knots = 1)
+}
+
+</code></pre>
+
+
+</div>

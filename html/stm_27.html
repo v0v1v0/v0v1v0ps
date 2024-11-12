@@ -1,0 +1,177 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>optimizeDocument</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Optimize Document</h2>
+
+<h3>Description</h3>
+
+<p>A primarily internal use function for optimizing the document-level
+parameters of the variational distribution.  
+Included here for advanced users who want to design new
+post-processing features. This help file assumes knowledge of our 
+notation which follows the mathematical notation used in our vignette
+and other papers.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">optimizeDocument(
+  document,
+  eta,
+  mu,
+  beta,
+  sigma = NULL,
+  sigmainv = NULL,
+  sigmaentropy = NULL,
+  method = "BFGS",
+  control = list(maxit = 500),
+  posterior = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>document</code></td>
+<td>
+<p>a single matrix containing the document in the <code>stm</code> format</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eta</code></td>
+<td>
+<p>a vector of length K-1 containing the initial starting value for eta</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>a vector of length K-1 containing the prevalence prior</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>a matrix containing the complete topic-word distribution for the document.
+If using a content covariate model it is presumed that you have already passed the correct content
+covariate level's beta.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>a K-1 by K-1 matrix containing the covariance matrix of the MVN prior. If you supply this
+you do not need to supply <code>sigmainv</code> or <code>sigmaentropy</code>.  See below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigmainv</code></td>
+<td>
+<p>a K-1 by K-1 matrix containing the precision matrix of the MVN prior.  If you supplied
+<code>sigma</code> you do not need to supply this. See below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigmaentropy</code></td>
+<td>
+<p>the entropy term calculated from sigma.  If you supplied <code>sigma</code> you do not
+need to supply this.  See below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the method passed to <code>optim</code>.  Uses "BFGS" by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>the control argument passed to <code>optim</code>.  Sets the maximum number of observations
+to 500 but can be used to set other aspects of the optimization per the instructions in <code>optim</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>posterior</code></td>
+<td>
+<p>should the full posterior be returned?  If TRUE (as it is by default) returns the full 
+variational posterior.  Otherwise just returns the point estimate.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is a small wrapper around the internal function used
+to complete the E-step for each document.
+</p>
+<p>Regarding the arguments <code>sigma</code>, <code>sigmainv</code> and <code>sigmaentropy</code>.  In
+the internal version of the code we calculate <code>sigmainv</code> and <code>sigmaentropy</code>
+once each E-step because it is shared by all documents.  If you supply the original
+value to <code>sigma</code> it will calculate these for you.  If you are going to be using
+this to run a bunch of documents and speed is a concern, peek at the underlying code
+and do the calculation yourself once and then just pass the result to the function so
+it isn't repeated with every observation.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>phis</code></td>
+<td>
+<p>A K by V* matrix containing the variational distribution for each token (where V* is the number of 
+unique words in the given document.  They are in the order of appearance in the document. For words repeated
+more than once the sum of the column is the number of times that token appeared.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>A (K-1) by 1 matrix containing the mean of the variational distribution for eta.  This is 
+actually just called eta in the output of <code>stm</code> as it is also the point estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nu</code></td>
+<td>
+<p>A (K-1) by (K-1) matrix containing the covariance matrix of the variational distribution for eta.
+This is also the inverse Hessian matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bound</code></td>
+<td>
+<p>The value of the document-level contribution to the global approximate evidence lower bound.</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>thetaPosterior</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># fitting to a nonsense word distribution
+V &lt;- length(poliblog5k.voc)
+K &lt;- 50
+beta &lt;- matrix(rgamma(V*K,shape = .1), nrow=K, ncol=V)
+beta &lt;- beta/rowSums(beta)
+doc &lt;- poliblog5k.docs[[1]]
+mu &lt;- rep(0, K-1)
+sigma &lt;- diag(1000, nrow=K-1)
+optimizeDocument(doc, eta=rep(0, K-1), mu=mu, beta=beta, sigma=sigma)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,182 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>mlePde1D</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>MLE for toroidal process via PDE solving in 1D</h2>
+
+<h3>Description</h3>
+
+<p>Maximum Likelihood Estimation (MLE) for arbitrary diffusions,
+based on the transition probability density (tpd) obtained as the numerical
+solution of the Fokker–Planck Partial Differential Equation (PDE) in 1D.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">mlePde1D(data, delta, b, sigma2, Mx = 500, Mt = ceiling(100 * delta),
+  sdInitial = 0.1, linearBinning = FALSE, start, lower, upper, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a vector of size <code>N</code> with the discretized trajectory of
+the diffusion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>time discretization step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>drift function. Must return a vector of the same size as its
+argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma2</code></td>
+<td>
+<p>function giving the squared diffusion coefficient. Must
+return a vector of the same size as its argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Mx</code></td>
+<td>
+<p>size of the equispaced spatial grid in <code class="reqn">[-\pi,\pi)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Mt</code></td>
+<td>
+<p>size of the time grid in <code class="reqn">[0, t]</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sdInitial</code></td>
+<td>
+<p>the standard deviation of the concentrated WN giving the
+initial condition.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>linearBinning</code></td>
+<td>
+<p>flag to indicate whether linear binning should be
+applied for the initial values of the tpd, instead of usual simple binning
+(cheaper). Linear binning is always done in the evaluation of the tpd.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>starting values, a matrix with <code>p</code> columns, with each
+entry representing a different starting value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower, upper</code></td>
+<td>
+<p>bound for box constraints as in method <code>"L-BFGS-B"</code>
+of <code>optim</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further parameters passed to <code>crankNicolson1D</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>See Sections 3.4.1 and 3.4.4 in García-Portugués et al. (2019) for
+details.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Output from <code>mleOptimWrapper</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>García-Portugués, E., Sørensen, M., Mardia, K. V. and Hamelryck, T. (2019)
+Langevin diffusions on the torus: estimation and applications.
+<em>Statistics and Computing</em>, 29(2):1–22. <a href="https://doi.org/10.1007/s11222-017-9790-2">doi:10.1007/s11222-017-9790-2</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Test in OU
+alpha &lt;- 2
+mu &lt;- 0
+sigma &lt;- 1
+set.seed(234567)
+traj &lt;- rTrajOu(x0 = 0, alpha = alpha, mu = mu, sigma = sigma, N = 500,
+                delta = 0.5)
+b &lt;- function(x, pars) pars[1] * (pars[2] - x)
+sigma2 &lt;- function(x, pars) rep(pars[3]^2, length(x))
+
+exactOu &lt;- mleOu(traj, delta = 0.5, start = c(1, 1, 2),
+                 lower = c(0.1, -pi, 0.1), upper = c(10, pi, 10))
+pdeOu &lt;- mlePde1D(data = traj, delta = 0.5, Mx = 100, Mt = 100, b = b,
+                  sigma2 = sigma2, start = c(1, 1, 2),
+                  lower = c(0.1, -pi, -10), upper = c(10, pi, 10),
+                  verbose = 2)
+pdeOuLin &lt;- mlePde1D(data = traj, delta = 0.5, Mx = 100, Mt = 100, b = b,
+                     sigma2 = sigma2, start = c(1, 1, 2),
+                     lower = c(0.1, -pi, -10), upper = c(10, pi, 10),
+                     linearBinning = TRUE, verbose = 2)
+head(exactOu)
+head(pdeOu)
+head(pdeOuLin)
+
+# Test in WN diffusion
+alpha &lt;- 2
+mu &lt;- 0
+sigma &lt;- 1
+set.seed(234567)
+traj &lt;- rTrajWn1D(x0 = 0, alpha = alpha, mu = mu, sigma = sigma, N = 500,
+                 delta = 0.5)
+
+exactOu &lt;- mleOu(traj, delta = 0.5, start = c(1, 1, 2),
+                 lower = c(0.1, -pi, 0.1), upper = c(10, pi, 10))
+pdeWn &lt;- mlePde1D(data = traj, delta = 0.5, Mx = 100, Mt = 100,
+                  b = function(x, pars)
+                    driftWn1D(x = x, alpha = pars[1], mu = pars[2],
+                              sigma = pars[3]),
+                  sigma2 = function(x, pars) rep(pars[3]^2, length(x)),
+                  start = c(1, 1, 2), lower = c(0.1, -pi, -10),
+                  upper = c(10, pi, 10), verbose = 2)
+pdeWnLin &lt;- mlePde1D(data = traj, delta = 0.5, Mx = 100, Mt = 100,
+                     b = function(x, pars)
+                       driftWn1D(x = x, alpha = pars[1], mu = pars[2],
+                                 sigma = pars[3]),
+                     sigma2 = function(x, pars) rep(pars[3]^2, length(x)),
+                     start = c(1, 1, 2), lower = c(0.1, -pi, -10),
+                     upper = c(10, pi, 10), linearBinning = TRUE,
+                     verbose = 2)
+head(exactOu)
+head(pdeWn)
+head(pdeWnLin)
+
+</code></pre>
+
+
+</div>

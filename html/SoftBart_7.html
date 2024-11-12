@@ -1,0 +1,107 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>partial_dependence_regression</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Partial Dependence Function for SoftBART Regression</h2>
+
+<h3>Description</h3>
+
+<p>Computes the partial dependence function for a given covariate at a given set of covariate values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">partial_dependence_regression(fit, test_data, var_str, grid)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>A fitted model of type <code>softbart_regression</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_data</code></td>
+<td>
+<p>A data set used to form the baseline distribution of covariates for the partial dependence function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var_str</code></td>
+<td>
+<p>A string giving the variable name of the predictor to compute the partial dependence function for.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p>The values of the predictor to compute the partial dependence function at.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a list with the following components:
+</p>
+
+<ul>
+<li> <p><code>pred_df</code>: a data.frame containing columns for a MCMC iteration ID (<code>sample</code>), the value on the grid, and the partial dependence function value.
+</p>
+</li>
+<li> <p><code>mu</code>: a matrix containing the same information as <code>pred_df</code>, with the rows corresponding to iterations and columns corresponding to grid values.
+</p>
+</li>
+<li> <p><code>grid</code>: the grid used as input.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## NOTE: SET NUMBER OF BURN IN AND SAMPLE ITERATIONS HIGHER IN PRACTICE
+
+num_burn &lt;- 10 ## Should be ~ 5000
+num_save &lt;- 10 ## Should be ~ 5000
+
+set.seed(1234)
+f_fried &lt;- function(x) 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3] - 0.5)^2 + 
+  10 * x[,4] + 5 * x[,5]
+
+gen_data &lt;- function(n_train, n_test, P, sigma) {
+  X &lt;- matrix(runif(n_train * P), nrow = n_train)
+  mu &lt;- f_fried(X)
+  X_test &lt;- matrix(runif(n_test * P), nrow = n_test)
+  mu_test &lt;- f_fried(X_test)
+  Y &lt;- mu + sigma * rnorm(n_train)
+  Y_test &lt;- mu + sigma * rnorm(n_test)
+  
+  return(list(X = X, Y = Y, mu = mu, X_test = X_test, Y_test = Y_test, 
+              mu_test = mu_test))
+}
+
+## Simiulate dataset
+sim_data &lt;- gen_data(250, 250, 10, 1)
+
+df &lt;- data.frame(X = sim_data$X, Y = sim_data$Y)
+df_test &lt;- data.frame(X = sim_data$X_test, Y = sim_data$Y_test)
+
+## Fit the model
+
+opts &lt;- Opts(num_burn = num_burn, num_save = num_save)
+fitted_reg &lt;- softbart_regression(Y ~ ., df, df_test, opts = opts)
+
+## Compute PDP and plot
+
+grid &lt;- seq(from = 0, to = 1, length = 10)
+pdp_x4 &lt;- partial_dependence_regression(fitted_reg, df_test, "X.4", grid)
+plot(pdp_x4$grid, colMeans(pdp_x4$mu))
+</code></pre>
+
+
+</div>

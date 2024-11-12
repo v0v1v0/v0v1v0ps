@@ -1,0 +1,89 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predVar</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prediction and response variances</h2>
+
+<h3>Description</h3>
+
+<p>spaMM allows computation of four variance components of prediction, returned by <code>predict</code> as “...<code>Var</code>” attributes: <code>predVar</code>, <code>fixefVar</code>, <code>residVar</code>, or <code>respVar</code>. The phrase “prediction variance” is used inconsistently in the literature. Often it is used to denote the uncertainty in the response (therefore, including the residual variance), but <span class="pkg">spaMM</span> follows some literature for mixed models in departing from this usage. Here, this uncertainly is called the response variance (<code>respVar</code>), while prediction variance (<code>predVar</code>) is used to denote the uncertainty in the linear predictor (as in Booth &amp; Hobert, 1998; see also Jeske &amp; Harville, 1988). The <code>respVar</code> is the <code>predVar</code> plus the residual variance <code>residVar</code>.
+</p>
+<p>Which components are returned is controlled in particular by the <code>type</code> and <code>variances</code> arguments of the relevant functions. <code>variances</code> is a list of booleans whose possible elements either match the possible returned components: <code>predVar</code>, <code>fixefVar</code>, <code>residVar</code>, or <code>respVar</code>; or may additionally include <code>linPred</code>, <code>disp</code>, <code>cov</code>, <code>as_tcrossfac_list</code> and possibly other cryptic ones. 
+</p>
+<p>The <code>predict</code> default value for all elements is <code>NULL</code>, which jointly translate to no component being computed, equivalently to setting all elements to <code>FALSE</code>. However, setting one component to <code>TRUE</code> may reverse the default effect for other components. In particular, by default, component <code>predVar</code> implies <code>linPred=TRUE, disp=TRUE</code> and component <code>respVar</code> additionally implies <code>residVar=TRUE</code>; in both cases, the <code>linPred=TRUE</code> default by default implies <code>fixefVar=TRUE</code>. Calling for one variance may imply that some of its components are not only computed but also returned as a distinct attribute.    
+</p>
+<p>By default the returned components are vectors of variances (with exceptions for some <code>type</code> value). To obtain covariance matrices (when applicable), set <code>cov=TRUE</code>. <code>as_tcrossfac_list=TRUE</code> can be used to return a list of matrices <code class="reqn">X_i</code> such that the <code>predVar</code> covariance matrix equals <code class="reqn">\sum_i X_i X'_i</code>. It thus provides a representation of the <code>predVar</code> that may be useful in particular when the <code>predVar</code> has large dimension, as the component <code class="reqn">X_i</code>s may require less memory (being possibly non-square or sparse).  
+</p>
+<p><code>residVar=TRUE</code> evaluates <code>residVar</code> the residual variance. For families without a dispersion parameter (e.g., <code>binomial</code> or <code>poisson</code>), this is as given by the <code>variance</code> function of the <code>family</code> object (in the binomial case, it is thus the variance of a single binary draw). For families with a dispersion parameter (such as <code class="reqn">\phi</code> for gaussian or Gamma families, negative-binomial, beta), it is the residual variance as function of the dispersion parameter, whether this parameter is a single scalar or follows a more complex residual-dispersion model.  Prior weights are however ignored (see the <code>residVar</code> etractor for the opposite feature). For the beta-binomial family, it is also the variance of a single binary draw; although this family has a residual-dispersion parameter the latter variance is not affected by it.
+</p>
+<p><code>fixefVar=TRUE</code> evaluates <code>fixefVar</code>, the variance due to uncertainty in fixed effects (<b>X</b><code class="reqn">\beta</code>).
+</p>
+<p>Computations implying <code>linPred=TRUE</code> will take into account the variances of the linear predictor <code class="reqn">\eta</code>, i.e. the uncertainty in fixed effects (<b>X</b><code class="reqn">\beta</code>) and random effects (<b>ZLv</b>), <b>for given dispersion parameters</b> (see Details).
+For fixed-effect models, the <code>fixefVar</code> calculations reduces to the <code>linPred</code> one.
+</p>
+<p>Computations implying <code>disp=TRUE</code> additionally include the effect of uncertainty in estimates of dispersion parameters (<code class="reqn">\lambda</code> and <code class="reqn">\phi</code>), with some limitations (see Details). <code>variances=list(predVar=TRUE)</code>, which evaluates the uncertainty of linear predictor, implies <code>disp=TRUE</code> by default, meaning that it includes such effects of uncertainty in dispersion parameters on the linear predictor. <code>variances=list(respVar=TRUE)</code> performs similarly but additionally includes the residual variance in the returned variance.
+</p>
+
+
+<h3>Details</h3>
+
+<p><code>fixefVar</code> is the (co)variance of <b>X</b><code class="reqn">\beta</code>, deduced from the asymptotic covariance matrix of <code class="reqn">\beta</code> estimates. 
+</p>
+<p><code>linPred</code> is the prediction (co)variance of <code class="reqn">\eta</code>=<b>X</b><code class="reqn">\beta</code>+<b>Z</b><b>v</b> (see <code>HLfit</code> Details for notation, and keep in mind that new matrices may replace the ones from the fit object when <code>newdata</code> are used), by default computed for given dispersion parameters. It takes into account the joint uncertainty in estimation of <code class="reqn">\beta</code> and prediction of <b>v</b>. 
+In particular, for new levels of the random effects, <code>predVar</code> computation takes into account uncertainty in prediction of <b>v</b> for these new levels. For <b>prediction covariance</b> with a new <b>Z</b>, it matters whether a single or multiple new levels are used: see Examples.
+</p>
+<p>For computations implying <code>disp=TRUE</code>, prediction variance may also include a term accounting for uncertainty in <code class="reqn">\phi</code> and <code class="reqn">\lambda</code>, computed following Booth and Hobert (1998, eq. 19). This computation acheives its originally described purpose for a scalar residual variance (<code class="reqn">\phi</code>) and for several random effects with scalar variances (<code class="reqn">\lambda</code>). This computation ignores uncertainties in spatial correlation parameters. 
+</p>
+<p>The (1998) formulas for the effect of uncertainty in dispersion parameters are here also applied to the variance parameters in random-coefficient terms, but with a one-time warning. Not only this is not expected to account for the uncertainty of the correlation parameter(s) of such terms, but the result will depend on the internal representation (the “square root”) of the covariance matrix, which may differ among the different fitting algorithms that may be used by <span class="pkg">spaMM</span>. 
+</p>
+<p><code>respVar</code> is the sum of <code>predVar</code> (pre- and post-multiplied by <code class="reqn">\partial\mu/\partial\eta</code> for models with non-identity link) and of <code>residVar</code>. 
+</p>
+<p>These variance calculations are approximate except for LMMs, and cannot be guaranteed to give accurate results.  
+</p>
+
+
+<h3>References</h3>
+
+<p>Booth, J.G., Hobert, J.P. (1998) Standard errors of prediction in generalized linear mixed models. J. Am. Stat. Assoc. 93: 262-272. 
+</p>
+<p>Jeske, Daniel R. &amp; Harville, David A. (1988) Prediction-interval procedures and (fixed-effects) confidence-interval procedures for mixed linear models. Communications in Statistics - Theory and Methods, 17: 1053-1087. <a href="https://doi.org/10.1080/03610928808829672">doi:10.1080/03610928808829672</a> 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# (but run in help("get_predVar"))
+data("blackcap")
+fitobject &lt;- fitme(migStatus ~ 1 + Matern(1|longitude+latitude),data=blackcap,
+                       fixed=list(nu=4,rho=0.4,phi=0.05))
+
+#### multiple controls of prediction variances
+# (1) fit with an additional random effect
+grouped &lt;- cbind(blackcap,grp=c(rep(1,7),rep(2,7))) 
+fitobject &lt;- fitme(migStatus ~ 1 +  (1|grp) +Matern(1|longitude+latitude),
+                       data=grouped,  fixed=list(nu=4,rho=0.4,phi=0.05))
+
+# (2) re.form usage to remove a random effect from point prediction and variances: 
+predict(fitobject,re.form= ~ 1 +  Matern(1|longitude+latitude))
+
+# (3) comparison of covariance matrices for two types of new data
+moregroups &lt;- grouped[1:5,]
+rownames(moregroups) &lt;- paste0("newloc",1:5)
+moregroups$grp &lt;- rep(3,5) ## all new data belong to an unobserved third group 
+cov1 &lt;- get_predVar(fitobject,newdata=moregroups,
+                     variances=list(linPred=TRUE,cov=TRUE))
+moregroups$grp &lt;- 3:7 ## all new data belong to distinct unobserved groups
+cov2 &lt;- get_predVar(fitobject,newdata=moregroups,
+                     variances=list(linPred=TRUE,cov=TRUE))
+cov1-cov2 ## the expected off-diagonal covariance due to the common group in the first fit.
+
+
+## End(Not run)
+## see help("get_predVar") for further examples
+</code></pre>
+
+
+</div>

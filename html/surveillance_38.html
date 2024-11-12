@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>algo.outbreakP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Semiparametric surveillance of outbreaks</h2>
+
+<h3>Description</h3>
+
+<p>Frisen and Andersson (2009) method for semiparametric surveillance of outbreaks
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">algo.outbreakP(disProgObj, control = list(range = range, k=100,
+               ret=c("cases","value"),maxUpperboundCases=1e5))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>disProgObj</code></td>
+<td>
+<p>object of class disProg (including the observed and the state chain).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A list controlling the behaviour of the algorithm
+</p>
+
+<dl>
+<dt><code>range</code></dt>
+<dd>
+<p>determines the desired
+time-points which should be monitored. Note that it is
+automatically assumed that ALL other values in <code>disProgObj</code>
+can be used for the estimation, i.e. for a specific value <code>i</code>
+in <code>range</code> all values from 1 to <code>i</code> are used for estimation.</p>
+</dd>
+<dt><code>k</code></dt>
+<dd>
+<p>The threshold value. Once the outbreak statistic
+is above this threshold <code>k</code> an alarm is sounded.</p>
+</dd>
+<dt><code>ret</code></dt>
+<dd>
+<p>a string specifying the type of
+<code>upperbound</code>-statistic that is returned. With
+<code>"cases"</code> the number of cases that would have been
+necessary to produce an alarm (NNBA) or with <code>"value"</code> the
+outbreakP-statistic is computed (see below).</p>
+</dd>
+<dt><code>maxUpperboundCases</code></dt>
+<dd>
+<p>Upperbound when numerically searching
+for NNBA. Default is 1e5.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A generalized likelihood ratio test based on the Poisson
+distribution is implemented where the means of the in-control and
+out-of-control states are computed by isotonic regression.
+</p>
+<p style="text-align: center;"><code class="reqn">OutbreakP(s) = \prod_{t=1}^s \left( \frac{\hat{\mu}^{C1}(t)}{\hat{\mu}^D(t)} \right)^{x(t)}</code>
+</p>
+
+<p>where <code class="reqn">\hat{\mu}^{C1}(t)</code> is the estimated mean obtained by
+uni-modal regression under the assumption of one change-point and
+<code class="reqn">\hat{\mu}^D(t)</code> is the estimated result when there is no
+change-point (i.e. this is just the mean of all observations). Note
+that the contrasted hypothesis assume all means are equal until the
+change-point, i.e. this detection method is especially suited for
+detecting a shift from a relative constant mean. Hence, this is less
+suited for detection in diseases with strong seasonal endemic
+component. Onset of influenza detection is an example where this
+method works particular well.
+</p>
+<p>In case <code>control$ret == "cases"</code> then a brute force numerical
+search for the number needed before alarm (NNBA) is performed. That
+is, given the past observations, what's the minimum number which would
+have caused an alarm? Note: Computing this might take a while because
+the search is done by sequentially increasing/decreasing the last
+observation by one for each time point in <code>control$range</code> and
+then calling the workhorse function of the algorithm again. The argument
+<code>control$maxUpperboundCases</code> controls the upper limit of this
+search (default is 1e5).
+Currently, even though the statistic has passed the threshold, the NNBA
+is still computed. After a few time instances what typically happens is
+that no matter the observed value we would have an alarm at this time point. In this case the value of NNBA is set to <code>NA</code>. Furthermore, the first time
+point is always <code>NA</code>, unless <code>k&lt;1</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>algo.outbreakP</code> gives a list of class <code>survRes</code> which
+includes the vector of alarm values for every time-point in
+<code>range</code>, the vector of threshold values for every time-point
+in <code>range</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>M. Höhle – based on Java code by M. Frisen and
+L. Schiöler</p>
+
+
+<h3>Source</h3>
+
+<p>The code is an extended R port of the Java code by Marianne
+Frisén and Linus Schiöler from the
+Computer Assisted Search For Epidemics (CASE) project,
+formerly available from <code style="white-space: pre;">⁠https://case.folkhalsomyndigheten.se/⁠</code>
+under the GNU GPL License v3.
+
+
+</p>
+<p>An additional feature of the R code is that it contains a search for
+NNBA (see details).
+</p>
+
+
+<h3>References</h3>
+
+<p>Frisén, M., Andersson and Schiöler, L., (2009), Robust
+outbreak surveillance of epidemics in Sweden, Statistics in
+Medicine, 28(3):476-493.
+</p>
+<p>Frisén, M. and Andersson, E., (2009) Semiparametric
+Surveillance of Monotonic Changes, Sequential Analysis 28(4):434-454.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Use data from outbreakP manual (http://www.hgu.gu.se/item.aspx?id=16857)
+y &lt;- matrix(c(1,0,3,1,2,3,5,4,7,3,5,8,16,23,33,34,48),ncol=1)
+
+#Generate sts object with these observations
+mysts &lt;- sts(y, alarm=y*0)
+
+#Run the algorithm and present results
+#Only the value of outbreakP statistic
+upperbound(outbreakP(mysts, control=list(range=1:length(y),k=100,
+           ret="value")))
+
+#Graphical illustration with number-needed-before-alarm (NNBA) upperbound.
+res &lt;- outbreakP(mysts, control=list(range=1:length(y),k=100,
+           ret="cases"))
+plot(res,dx.upperbound=0,lwd=c(1,1,3),legend.opts=list(legend=c("Infected",
+      "NNBA","Outbreak","Alarm"),horiz=TRUE))
+</code></pre>
+
+
+</div>

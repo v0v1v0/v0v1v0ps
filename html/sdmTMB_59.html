@@ -1,0 +1,278 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sdmTMB_cv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Cross validation with sdmTMB models</h2>
+
+<h3>Description</h3>
+
+<p>Facilitates cross validation with sdmTMB models. Returns the log likelihood
+of left-out data, which is similar in spirit to the ELPD (expected log
+pointwise predictive density). The function has an option for
+leave-future-out cross validation. By default, the function creates folds
+randomly but folds can be manually assigned via the <code>fold_ids</code> argument.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sdmTMB_cv(
+  formula,
+  data,
+  mesh_args,
+  mesh = NULL,
+  time = NULL,
+  k_folds = 8,
+  fold_ids = NULL,
+  lfo = FALSE,
+  lfo_forecast = 1,
+  lfo_validations = 5,
+  parallel = TRUE,
+  use_initial_fit = FALSE,
+  future_globals = NULL,
+  spde = deprecated(),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Model formula.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mesh_args</code></td>
+<td>
+<p>Arguments for <code>make_mesh()</code>. If supplied, the mesh will be
+reconstructed for each fold.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mesh</code></td>
+<td>
+<p>Output from <code>make_mesh()</code>. If supplied, the mesh will be constant
+across folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>The name of the time column. Leave as <code>NULL</code> if this is only
+spatial data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_folds</code></td>
+<td>
+<p>Number of folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fold_ids</code></td>
+<td>
+<p>Optional vector containing user fold IDs. Can also be a
+single string, e.g. <code>"fold_id"</code> representing the name of the variable in
+<code>data</code>. Ignored if <code>lfo</code> is TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lfo</code></td>
+<td>
+<p>Whether to implement leave-future-out (LFO) cross validation where
+data are used to predict future folds. <code>time</code> argument in <code>sdmTMB()</code> must
+be specified. See Details section below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lfo_forecast</code></td>
+<td>
+<p>If <code>lfo = TRUE</code>, number of time steps to forecast. Time
+steps 1, ..., T are used to predict T + <code>lfo_forecast</code> and the last
+forecasted time step is used for validation. See Details section below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lfo_validations</code></td>
+<td>
+<p>If <code>lfo = TRUE</code>, number of times to step through the
+LFOCV process. Defaults to 5. See Details section below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>If <code>TRUE</code> and a <code>future::plan()</code> is supplied, will be run in
+parallel.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_initial_fit</code></td>
+<td>
+<p>Fit the first fold and use those parameter values
+as starting values for subsequent folds? Can be faster with many folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>future_globals</code></td>
+<td>
+<p>A character vector of global variables used within
+arguments if an error is returned that <span class="pkg">future.apply</span> can't find an
+object. This vector is appended to <code>TRUE</code> and passed to the argument
+<code>future.globals</code> in <code>future.apply::future_lapply()</code>. Useful if global
+objects are used to specify arguments like priors, families, etc.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spde</code></td>
+<td>
+<p><strong>Depreciated.</strong> Use <code>mesh</code> instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>All other arguments required to run <code>sdmTMB()</code> model with the
+exception of <code>weights</code>, which are used to define the folds.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><strong>Parallel processing</strong>
+</p>
+<p>Parallel processing can be used by setting a <code>future::plan()</code>.
+</p>
+<p>For example:
+</p>
+<div class="sourceCode"><pre>library(future)
+plan(multisession)
+# now use sdmTMB_cv() ...
+</pre></div>
+<p><strong>Leave-future-out cross validation (LFOCV)</strong>
+</p>
+<p>An example of LFOCV with 9 time steps, <code>lfo_forecast = 1</code>, and
+<code>lfo_validations = 2</code>:
+</p>
+
+<ul>
+<li>
+<p> Fit data to time steps 1 to 7, predict and validate step 8.
+</p>
+</li>
+<li>
+<p> Fit data to time steps 1 to 8, predict and validate step 9.
+</p>
+</li>
+</ul>
+<p>An example of LFOCV with 9 time steps, <code>lfo_forecast = 2</code>, and
+<code>lfo_validations = 3</code>:
+</p>
+
+<ul>
+<li>
+<p> Fit data to time steps 1 to 5, predict and validate step 7.
+</p>
+</li>
+<li>
+<p> Fit data to time steps 1 to 6, predict and validate step 8.
+</p>
+</li>
+<li>
+<p> Fit data to time steps 1 to 7, predict and validate step 9.
+</p>
+</li>
+</ul>
+<p>See example below.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list:
+</p>
+
+<ul>
+<li> <p><code>data</code>: Original data plus columns for fold ID, CV predicted value,
+and CV log likelihood.
+</p>
+</li>
+<li> <p><code>models</code>: A list of models; one per fold.
+</p>
+</li>
+<li> <p><code>fold_loglik</code>: Sum of left-out log likelihoods per fold. More positive
+values are better.
+</p>
+</li>
+<li> <p><code>sum_loglik</code>: Sum of <code>fold_loglik</code> across all left-out data. More positive
+values are better.
+</p>
+</li>
+<li> <p><code>pdHess</code>: Logical vector: Hessian was invertible each fold?
+</p>
+</li>
+<li> <p><code>converged</code>: Logical: all <code>pdHess</code> <code>TRUE</code>?
+</p>
+</li>
+<li> <p><code>max_gradients</code>: Max gradient per fold.
+</p>
+</li>
+</ul>
+<p>Prior to <span class="pkg">sdmTMB</span> version '0.3.0.9002', <code>elpd</code> was incorrectly returned as
+the log average likelihood, which is another metric you could compare models
+with, but not ELPD. For maximum likelihood, <a href="https://github.com/pbs-assess/sdmTMB/issues/235">ELPD is equivalent in spirit to the sum of the log likelihoods</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">mesh &lt;- make_mesh(pcod, c("X", "Y"), cutoff = 25)
+
+# Set parallel processing first if desired with the future package.
+# See the Details section above.
+
+m_cv &lt;- sdmTMB_cv(
+  density ~ 0 + depth_scaled + depth_scaled2,
+  data = pcod, mesh = mesh,
+  family = tweedie(link = "log"), k_folds = 2
+)
+
+m_cv$fold_loglik
+m_cv$sum_loglik
+
+head(m_cv$data)
+m_cv$models[[1]]
+m_cv$max_gradients
+
+
+# Create mesh each fold:
+m_cv2 &lt;- sdmTMB_cv(
+  density ~ 0 + depth_scaled + depth_scaled2,
+  data = pcod, mesh_args = list(xy_cols = c("X", "Y"), cutoff = 20),
+  family = tweedie(link = "log"), k_folds = 2
+)
+
+# Use fold_ids:
+m_cv3 &lt;- sdmTMB_cv(
+  density ~ 0 + depth_scaled + depth_scaled2,
+  data = pcod, mesh = mesh,
+  family = tweedie(link = "log"),
+  fold_ids = rep(seq(1, 3), nrow(pcod))[seq(1, nrow(pcod))]
+)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,357 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>mixed.mtc</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Statistical Matching via Mixed Methods</h2>
+
+<h3>Description</h3>
+
+<p>This function implements some mixed methods to perform statistical matching between two data sources. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">mixed.mtc(data.rec, data.don, match.vars, y.rec, z.don, method="ML",
+           rho.yz=NULL, micro=FALSE, constr.alg="Hungarian") 
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data.rec</code></td>
+<td>
+
+<p>A matrix or data frame that plays the role of <em>recipient</em> in the statistical matching application. This data set must contain all variables (columns) that should be used in statistical matching, i.e. the variables called by the arguments <br><code>match.vars</code> and <code>y.rec</code>. Note that continuous variables are expected, if there are some categorical variables they are re-coded into dummies. Missing values (<code>NA</code>) are not allowed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data.don</code></td>
+<td>
+
+<p>A matrix or data frame that plays the role of <em>donor</em> in the statistical matching application. This data set must contain all the numeric variables (columns) that should be used in statistical matching, i.e. the variables called by the arguments <code>match.vars</code> and <code>z.don</code>. Note that continuous variables are expected, if there are some categorical variables they are re-coded into dummies. Missing values (<code>NA</code>) are not allowed. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>match.vars</code></td>
+<td>
+
+<p>A character vector with the names of the common variables (the columns in both the data frames) to be used as matching variables (<b>X</b>). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rec</code></td>
+<td>
+
+<p>A character vector with the name of the target variable Y that is observed only for units in <code>data.rec</code>. Only one continuous variable is allowed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z.don</code></td>
+<td>
+
+<p>A character vector with the name of the target variable Z that is observed only for units in <code>data.don</code>.  Only one continuous variable is allowed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+
+<p>A character vector that identifies the method that should be used to estimate the parameters of the regression models: Y vs. <b>X</b> and Z vs. <b>X</b>.  Maximum Likelihood method is used when <code>method="ML"</code> (default); on the contrary, when <code>method="MS"</code> the parameters are estimated according to approach proposed by Moriarity and Scheuren (2001 and 2003).  See Details for further information.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.yz</code></td>
+<td>
+
+<p>A numeric value representing a guess for the correlation between the Y (<code>y.rec</code>) and the Z variable (<code>z.don</code>) that are not jointly observed.  When <code>method="MS"</code> then the argument <code>cor.yz</code> must specify the value of the correlation coefficient <code class="reqn">\rho_{YZ}</code>; on the contrary, when <code>method="ML"</code>, it must specify the <em>partial correlation coefficient</em> between Y and Z given <b>X</b> (<code class="reqn">\rho_{YZ|\bf{X}}</code>). 
+</p>
+<p>By default (<code>rho.yz=NULL</code>).  In practice, in absence of auxiliary information concerning the correlation coefficient or the partial correlation coefficient, the statistical matching is carried out under the assumption of independence between Y and Z given <b>X</b> (Conditional Independence Assumption, CIA ), i.e.  <code class="reqn">\rho_{YZ|\bf{X}}=0</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>micro</code></td>
+<td>
+
+<p>Logical.  When <code>micro=FALSE</code> (default) only the parameters' estimates are returned.  On the contrary, when <code>micro=TRUE</code> the function returns also <code>data.rec</code> filled in with the values for the variable Z.  The donors for filling in Z in <code>data.rec</code> are identified using a constrained distance hot deck method.  In this case, the number of units (rows) in <code>data.don</code> must be grater or equal to the number of units (rows) in <code>data.rec</code>.  See next argument and Details for further information.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constr.alg</code></td>
+<td>
+
+<p>A string that has to be specified when <code>micro=TRUE</code>, in order to solve the transportation problem involved by the constrained distance hot deck method.  Two choices are available: “lpSolve” and “Hungarian”.  In the first case, <br><code>constr.alg="lpSolve"</code>, the transportation problem is solved by means of the function <code>lp.transport</code> available in the package <span class="pkg">lpSolve</span>.  When <br><code>constr.alg="Hungarian"</code> (default) the transportation problem is solved using the Hungarian method implemented in the function <code>solve_LSAP</code> available in the package <span class="pkg">clue</span> (Hornik, 2012).  Note that Hungarian algorithm is more efficient and requires less processing time.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function implements some mixed methods to perform statistical matching. A mixed method consists of two steps: 
+</p>
+<p>(1) adoption of a parametric model for the joint distribution of <code class="reqn"> \left( \mathbf{X},Y,Z \right) </code> and estimation of its parameters;
+</p>
+<p>(2) derivation of a complete “synthetic” data set (recipient data set filled in with values for the Z variable) using a nonparametric approach.
+</p>
+<p>In this case, as far as (1) is concerned, it is assumed that  <code class="reqn"> \left( \mathbf{X},Y,Z \right) </code> follows a multivariate normal distribution.  Please note that if some of the <b>X</b> are categorical, then they are recoded into dummies before starting with the estimation.  In such a case, the assumption of multivariate normal distribution may be questionable.  
+</p>
+<p>The whole procedure is based on the imputation method known as <em>predictive mean matching</em>.  The procedure consists of three steps: 
+</p>
+<p><b>step 1a)</b> <em>Regression step</em>: the two linear regression models Y vs. <b>X</b> and Z vs. <b>X</b> are considered and their parameters are estimated. 
+</p>
+<p><b>step 1b)</b> <em>Computation of intermediate values</em>.  For the units in <code>data.rec</code> the following intermediate values are derived:
+</p>
+<p style="text-align: center;"><code class="reqn"> \tilde{z}_{a} = \hat{\alpha}_{Z} + \hat{\beta}_{Z\bf{X}} \mathbf{x}_a + e_a </code>
+</p>
+
+<p>for each <code class="reqn">a=1,\ldots,n_{A}</code>, being <code class="reqn">n_A</code> the number of units in <code>data.rec</code> (rows of <code>data.rec</code>).  Note that, <code class="reqn">e_a</code> is a random draw from the multivariate normal distribution with zero mean and estimated residual variance  <code class="reqn">\hat{\sigma}_{Z|\bf{X}}</code>.
+</p>
+<p>Similarly, for the units in <code>data.don</code> the following intermediate values are derived:
+</p>
+<p style="text-align: center;"><code class="reqn"> \tilde{y}_{b} = \hat{\alpha}_{Y} + \hat{\beta}_{Y\bf{X}} \mathbf{x}_b + e_b </code>
+</p>
+
+<p>for each <code class="reqn">b=1,\ldots,n_{B}</code>, being <code class="reqn">n_B</code> the number of units in <code>data.don</code> (rows of <code>data.don</code>). <code class="reqn">e_b</code> is a random draw from the multivariate normal distribution with zero mean and estimated residual variance <code class="reqn">\hat{\sigma}_{Y|\bf{X}}</code>.
+</p>
+<p><b>step 2)</b> <em>Matching step</em>.  For each observation (row) in <code>data.rec</code> a donor is chosen in <code>data.don</code> through a nearest neighbor constrained distance hot deck procedure.  The distances are computed between <code class="reqn">\left( y_a, \tilde{z}_a \right)</code> and <code class="reqn">\left( \tilde{y}_b, z_b \right)</code> using Mahalanobis distance.
+</p>
+<p>For further details see Sections 2.5.1 and 3.6.1 in D'Orazio <em>et al.</em> (2006).
+</p>
+<p>In step 1a) the parameters of the regression model can be estimated by means of the Maximum Likelihood method (<code>method="ML"</code>) (see D'Orazio <em>et al.</em>, 2006, pp. 19–23,73–75) or, using the Moriarity and Scheuren (2001 and 2003) approach (<code>method="MS"</code>) (see also D'Orazio <em>et al.</em>, 2006, pp. 75–76).  The two estimation methods are compared in D'Orazio <em>et al.</em> (2005). 
+</p>
+<p>When <code>method="MS"</code>, if the value specified for the argument <code>rho.yz</code> is not compatible with the other correlation coefficients estimated from the data, then it is substituted with the closest value compatible with the other estimated coefficients.
+</p>
+<p>When <code>micro=FALSE</code> only the estimation of the parameters is performed (step 1a).  Otherwise, <br> 
+(<code>micro=TRUE</code>) the whole procedure is carried out.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with a varying number of components depending on the values of the arguments 
+<code>method</code> and <code>rho.yz</code>. 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+
+<p>The estimated mean vector. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vc</code></td>
+<td>
+
+<p>The estimated variance–covariance matrix. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cor</code></td>
+<td>
+
+<p>The estimated correlation matrix. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>res.var</code></td>
+<td>
+
+<p>A vector with estimates of the residual variances <code class="reqn">\sigma_{Y|Z\bf{X}}</code> and <code class="reqn">\sigma_{Z|Y\bf{X}}</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.prho.yz</code></td>
+<td>
+
+<p>It is the initial guess for the partial correlation coefficient <code class="reqn">\rho_{YZ|\bf{X}}</code> passed in input via the <code>rho.yz</code> argument when <code>method="ML"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.yz</code></td>
+<td>
+
+<p>Returned in output only when <code>method="MS"</code>. It is a vector with four values: the initial guess for <code class="reqn">\rho_{YZ}</code>; the lower and upper bounds for <code class="reqn">\hat{\rho}_{YZ}</code> in the statistical matching framework given the correlation coefficients between Y and <b>X</b> and the correlation coefficients between Z and <b>X</b> estimated from the available data; and, finally, the closest admissible value used in computations instead of the initial <code>rho.yz</code> that resulted not coherent with the others correlation coefficients estimated from the available data.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phi</code></td>
+<td>
+
+<p>When <code>method="MS"</code>. Estimates of the <code class="reqn">\phi</code> terms introduced by Moriarity and Scheuren (2001 and 2003). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>filled.rec</code></td>
+<td>
+
+<p>The <code>data.rec</code> filled in with the values of Z. It is returned only when <br><code>micro=TRUE</code>.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mtc.ids</code></td>
+<td>
+
+<p>when <code>micro=TRUE</code>. This is a matrix with the same number of rows of <code>data.rec</code> and two columns. The first column contains the row names of the <code>data.rec</code> and the second column contains the row names of the corresponding donors selected from the <code>data.don</code>. When the input matrices do not contain row names, a numeric matrix with the indexes of the rows is provided.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist.rd</code></td>
+<td>
+
+<p>A vector with the distances between each recipient unit and the corresponding donor, returned only in case <code>micro=TRUE</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+
+<p>How the function has been called.
+</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Marcello D'Orazio <a href="mailto:mdo.statmatch@gmail.com">mdo.statmatch@gmail.com</a> 
+</p>
+
+
+<h3>References</h3>
+
+<p>D'Orazio, M., Di Zio, M. and Scanu, M. (2005). “A comparison among different estimators of regression parameters on statistically matched files through an extensive simulation study”, <em>Contributi</em>, <b>2005/10</b>, Istituto Nazionale di Statistica, Rome.
+</p>
+<p>D'Orazio, M., Di Zio, M. and Scanu, M. (2006). <em>Statistical Matching: Theory and Practice.</em> Wiley, Chichester.
+</p>
+<p>Hornik K. (2012).  clue: Cluster ensembles.  R package version 0.3-45.  <a href="https://CRAN.R-project.org/package=clue">https://CRAN.R-project.org/package=clue</a>.
+</p>
+<p>Moriarity, C., and Scheuren, F. (2001). “Statistical matching: a paradigm for assessing the uncertainty in the procedure”. <em>Journal of Official Statistics</em>, <b>17</b>, 407–422.
+</p>
+<p>Moriarity, C., and Scheuren, F. (2003). “A note on Rubin's statistical matching using file concatenation with adjusted weights and multiple imputation”, <em>Journal of Business and Economic Statistics</em>, <b>21</b>, 65–73.
+</p>
+
+
+<h3>See Also</h3>
+
+ 
+<p><code>NND.hotdeck</code>, <code>mahalanobis.dist</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# reproduce the statistical matching framework
+# starting from the iris data.frame
+suppressWarnings(RNGversion("3.5.0"))
+set.seed(98765)
+pos &lt;- sample(1:150, 50, replace=FALSE)
+ir.A &lt;- iris[pos,c(1,3:5)]
+ir.B &lt;- iris[-pos, 2:5]
+
+xx &lt;- intersect(colnames(ir.A), colnames(ir.B))
+xx  # common variables
+
+# ML estimation method under CIA ((rho_YZ|X=0));
+# only parameter estimates (micro=FALSE)
+# only continuous matching variables
+xx.mtc &lt;- c("Petal.Length", "Petal.Width")
+mtc.1 &lt;- mixed.mtc(data.rec=ir.A, data.don=ir.B, match.vars=xx.mtc,
+                    y.rec="Sepal.Length", z.don="Sepal.Width")
+
+# estimated correlation matrix
+mtc.1$cor 
+
+# ML estimation method under CIA ((rho_YZ|X=0));
+# only parameter estimates (micro=FALSE)
+# categorical variable 'Species' used as matching variable
+
+xx.mtc &lt;- xx
+mtc.2 &lt;- mixed.mtc(data.rec=ir.A, data.don=ir.B, match.vars=xx.mtc,
+                    y.rec="Sepal.Length", z.don="Sepal.Width")
+
+# estimated correlation matrix
+mtc.2$cor 
+
+
+# ML estimation method with partial correlation coefficient
+# set equal to 0.5 (rho_YZ|X=0.5)
+# only parameter estimates (micro=FALSE)
+
+mtc.3 &lt;- mixed.mtc(data.rec=ir.A, data.don=ir.B, match.vars=xx.mtc,
+                    y.rec="Sepal.Length", z.don="Sepal.Width",
+                    rho.yz=0.5)
+
+# estimated correlation matrix
+mtc.3$cor 
+
+# ML estimation method with partial correlation coefficient
+# set equal to 0.5 (rho_YZ|X=0.5)
+# with imputation step (micro=TRUE)
+
+mtc.4 &lt;- mixed.mtc(data.rec=ir.A, data.don=ir.B, match.vars=xx.mtc,
+                    y.rec="Sepal.Length", z.don="Sepal.Width",
+                    rho.yz=0.5, micro=TRUE, constr.alg="Hungarian")
+
+# first rows of data.rec filled in with z
+head(mtc.4$filled.rec)
+
+#
+# Moriarity and Scheuren estimation method under CIA;
+# only with parameter estimates (micro=FALSE)
+mtc.5 &lt;- mixed.mtc(data.rec=ir.A, data.don=ir.B, match.vars=xx.mtc,
+                    y.rec="Sepal.Length", z.don="Sepal.Width",
+                    method="MS")
+
+# the starting value of rho.yz and the value used
+# in computations
+mtc.5$rho.yz
+
+# estimated correlation matrix
+mtc.5$cor 
+
+# Moriarity and Scheuren estimation method
+# with correlation coefficient set equal to -0.15 (rho_YZ=-0.15)
+# with imputation step (micro=TRUE)
+
+mtc.6 &lt;- mixed.mtc(data.rec=ir.A, data.don=ir.B, match.vars=xx.mtc,
+                    y.rec="Sepal.Length", z.don="Sepal.Width",
+                    method="MS", rho.yz=-0.15, 
+                    micro=TRUE, constr.alg="lpSolve")
+
+# the starting value of rho.yz and the value used
+# in computations
+mtc.6$rho.yz
+
+# estimated correlation matrix
+mtc.6$cor
+
+# first rows of data.rec filled in with z imputed values
+head(mtc.6$filled.rec)
+
+</code></pre>
+
+
+</div>

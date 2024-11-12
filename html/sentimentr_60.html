@@ -1,0 +1,227 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sentiment_by</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Polarity Score (Sentiment Analysis) By Groups</h2>
+
+<h3>Description</h3>
+
+<p>Approximate the sentiment (polarity) of text by grouping variable(s).  For a
+full description of the sentiment detection algorithm see 
+<code>sentiment</code>.  See <code>sentiment</code>
+for more details about the algorithm, the sentiment/valence shifter keys
+that can be passed into the function, and other arguments that can be passed.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sentiment_by(
+  text.var,
+  by = NULL,
+  averaging.function = sentimentr::average_downweighted_zero,
+  group.names,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>text.var</code></td>
+<td>
+<p>The text variable.  Also takes a <code>sentimentr</code> or
+<code>sentiment_by</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by</code></td>
+<td>
+<p>The grouping variable(s).  Default <code>NULL</code> uses the original
+row/element indices; if you used a column of 12 rows for <code>text.var</code>
+these 12 rows will be used as the grouping variable.  Also takes a single
+grouping variable or a list of 1 or more grouping variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>averaging.function</code></td>
+<td>
+<p>A function for performing the group by averaging.
+The default, <code>average_downweighted_zero</code>, downweights 
+zero values in the averaging.  Note that the function must handle 
+<code>NA</code>s.  The <span class="pkg">sentimentr</span> functions 
+<code>average_weighted_mixed_sentiment</code> and <code>average_mean</code> are also 
+available.  The former upweights negative when the analysts suspects the 
+speaker is likely to surround negatives with positives (mixed) as a polite 
+social convention but still the affective state is negative.  The later is a 
+standard mean average.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group.names</code></td>
+<td>
+<p>A vector of names that corresponds to group.  Generally
+for internal use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments passed to <code>sentiment</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a <span class="pkg">data.table</span> with grouping variables plus:
+</p>
+
+<ul>
+<li>
+<p>  element_id - The id number of the original vector passed to <code>sentiment</code>
+</p>
+</li>
+<li>
+<p>  sentence_id - The id number of the sentences within each <code>element_id</code>
+</p>
+</li>
+<li>
+<p>  word_count - Word count <code>sum</code>med by grouping variable
+</p>
+</li>
+<li>
+<p>  sd - Standard deviation (<code>sd</code>) of the sentiment/polarity score by grouping variable
+</p>
+</li>
+<li>
+<p>  ave_sentiment - Sentiment/polarity score <code>mean</code> average by grouping variable
+</p>
+</li>
+</ul>
+<h3>Chaining</h3>
+
+<p><span class="pkg">sentimentr</span> uses non-standard evaluation when you use <code>with()</code> OR 
+<code>%$%</code> (<span class="pkg">magrittr</span>) and looks for the vectors within the data set 
+passed to it. There is one exception to this...when you pass a 
+<code>get_sentences()</code> object to <code>sentiment_by()</code> to the first argument 
+which is <code>text.var</code> it calls the <code>sentiment_by.get_sentences_data_frame</code> 
+method which requires <code>text.var</code> to be a <code>get_sentences_data_frame</code> 
+object. Because this object is a <code>data.frame</code> its method knows this and 
+knows it can access the columns of the <code>get_sentences_data_frame</code> object 
+directly (usually <code>text.var</code> is an atomic vector), it just needs the 
+names of the columns to grab.
+</p>
+<p>To illustrate this point understand that all three of these approaches 
+result in exactly the same output:
+</p>
+<pre>
+## method 1
+presidential_debates_2012 %&gt;%
+    get_sentences() %&gt;%
+    sentiment_by(by = c('person', 'time'))
+
+## method 2
+presidential_debates_2012 %&gt;%
+    get_sentences() %$%
+    sentiment_by(., by = c('person', 'time'))
+
+## method 3
+presidential_debates_2012 %&gt;%
+    get_sentences() %$%
+    sentiment_by(dialogue, by = list(person, time))
+</pre>
+<p>Also realize that a <code>get_sentences_data_frame</code> object also has a column
+with a <code>get_sentences_character</code> class column which also has a method in
+<span class="pkg">sentimentr</span>.
+</p>
+<p>When you use <code>with()</code> OR <code>%$%</code> then you're not actually passing
+the <code>get_sentences_data_frame</code> object to <span class="pkg">sentimentr</span> and hence the
+<code>sentiment_by.get_sentences_data_frame</code> method isn't called rather
+<code>sentiment_by</code> is evaluated in the environment/data of the
+<code>get_sentences_data_frame object</code>. You can force the object passed this
+way to be evaluated as a <code>get_sentences_data_frame</code> object and thus
+calling the <code>sentiment_by.get_sentences_data_frame</code> method by using the
+<code>.</code> operator as I've done in method 2 above. Otherwise you pass the name
+of the text column which is actually a <code>get_sentences_character class</code>
+and it calls its own method. In this case the by argument expects vectors or
+a list of vectors and since it's being evaluated within the data set you can
+use <code>list()</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other sentiment functions: 
+<code>sentiment()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">mytext &lt;- c(
+   'do you like it?  It is red. But I hate really bad dogs',
+   'I am the best friend.',
+   "Do you really like it?  I'm not happy"
+)
+
+## works on a character vector but not the preferred method avoiding the 
+## repeated cost of doing sentence boundary disambiguation every time 
+## `sentiment` is run
+## Not run: 
+sentiment(mytext)
+sentiment_by(mytext)
+
+## End(Not run)
+
+## preferred method avoiding paying the cost 
+mytext &lt;- get_sentences(mytext)
+
+sentiment_by(mytext)
+sentiment_by(mytext, averaging.function = average_mean)
+sentiment_by(mytext, averaging.function = average_weighted_mixed_sentiment)
+get_sentences(sentiment_by(mytext))
+
+(mysentiment &lt;- sentiment_by(mytext, question.weight = 0))
+stats::setNames(get_sentences(sentiment_by(mytext, question.weight = 0)),
+    round(mysentiment[["ave_sentiment"]], 3))
+
+pres_dat &lt;- get_sentences(presidential_debates_2012)
+
+## Not run: 
+## less optimized way
+with(presidential_debates_2012, sentiment_by(dialogue, person))
+
+## End(Not run)
+
+## Not run: 
+sentiment_by(pres_dat, 'person')
+
+(out &lt;- sentiment_by(pres_dat, c('person', 'time')))
+plot(out)
+plot(uncombine(out))
+
+sentiment_by(out, presidential_debates_2012$person)
+with(presidential_debates_2012, sentiment_by(out, time))
+
+highlight(with(presidential_debates_2012, sentiment_by(out, list(person, time))))
+
+## End(Not run)
+
+## Not run: 
+## tidy approach
+library(dplyr)
+library(magrittr)
+
+hu_liu_cannon_reviews %&gt;%
+   mutate(review_split = get_sentences(text)) %$%
+   sentiment_by(review_split)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

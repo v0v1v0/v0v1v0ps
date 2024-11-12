@@ -1,0 +1,213 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bootstrap_CIs</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate one or multiple bootstrap confidence intervals</h2>
+
+<h3>Description</h3>
+
+<p>Calculate one or multiple bootstrap confidence intervals, given
+a sample of bootstrap replications.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bootstrap_CIs(
+  boot_est,
+  boot_se = NULL,
+  est = NULL,
+  se = NULL,
+  CI_type = "percentile",
+  level = 0.95,
+  B_vals = length(boot_est),
+  reps = 1L,
+  format = "wide",
+  seed = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>boot_est</code></td>
+<td>
+<p>vector of bootstrap replications of an estimator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot_se</code></td>
+<td>
+<p>vector of estimated standard errors from each bootstrap
+replication.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est</code></td>
+<td>
+<p>numeric value of the estimate based on the original sample.
+Required for <code>CI_type = "normal"</code>, <code>CI_type = "basic"</code>, and
+<code>CI_type = "student"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>numeric value of the estimated standard error based on the original
+sample. Required for <code>CI_type = "student"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI_type</code></td>
+<td>
+<p>Character string or vector of character strings indicating
+types of confidence intervals to calculate. Options are <code>"normal"</code>,
+<code>"basic"</code>, <code>"student"</code>, and <code>"percentile"</code> (the default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>numeric value between 0 and 1 for the desired coverage level,
+with a default of <code>0.95</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B_vals</code></td>
+<td>
+<p>vector of sub-sample sizes for which to calculate confidence
+intervals. Setting <code>B_vals = length(boot_est)</code> (the default) will
+return bootstrap confidence intervals calculated on the full set of
+bootstrap replications. For <code>B_vals &lt; length(boot_est)</code>, confidence
+intervals will be calculated after sub-sampling (without replacement) the
+bootstrap replications.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reps</code></td>
+<td>
+<p>integer value for the number of sub-sample confidence intervals
+to generate when <code>B_vals &lt; length(boot_est)</code>, with a default of
+<code>reps = 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>format</code></td>
+<td>
+<p>character string controlling the format of the output. If
+<code>format = "wide"</code> (the default), then different types of confidence
+intervals will be returned in separate columns. If <code>format = "long"</code>,
+then confidence intervals of different types will appear on different rows
+of dataset. If <code>format = "wide-list"</code>, then different types of
+confidence intervals will be returned in separate columns and the result
+will be wrapped in an unnamed list.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Single numeric value to which the random number generator seed
+will be set. Default is <code>NULL</code>, which does not set a seed.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Confidence intervals are calculated following the methods described
+in Chapter 5 of Davison and Hinkley (1997). For basic non-parametric
+bootstraps, the methods are nearly identical to the implementation in
+<code>boot.ci</code> from the <code>boot</code> package.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>format = "wide"</code>, the function returns a <code>data.frame</code>
+with <code>reps</code> rows per entry of <code>B_vals</code>, where each row contains
+confidence intervals for one sub-sample replication.
+</p>
+<p>If <code>format = "long"</code>, the function returns a <code>data.frame</code> with
+one row for each <code>CI_type</code>, each replication, and each entry of
+<code>B_vals</code>, where each row contains a single confidence interval for one
+sub-sample replication.
+</p>
+<p>If <code>format = "wide-list"</code>, then the output will be structured as in
+<code>format = "wide"</code> but will be wrapped in an unnamed list, which makes
+it easier to sore the output in a tibble, and will be assigned the class
+<code>"bootstrap_CIs"</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Davison, A.C. and Hinkley, D.V. (1997). _Bootstrap Methods and
+Their Application_, Chapter 5. Cambridge University Press.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># generate t-distributed data
+N &lt;- 50
+mu &lt;- 2
+nu &lt;- 5
+dat &lt;- mu + rt(N, df = nu)
+
+# create bootstrap replications
+f &lt;- \(x) {
+ c(
+   M = mean(x, trim = 0.1),
+   SE = sd(x) / sqrt(length(x))
+ )
+}
+
+booties &lt;- replicate(399, {
+  sample(dat, replace = TRUE, size = N) |&gt;
+  f()
+})
+
+res &lt;- f(dat)
+
+# calculate bootstrap CIs from full set of bootstrap replicates
+bootstrap_CIs(
+  boot_est = booties[1,],
+  boot_se = booties[2,],
+  est = res[1],
+  se = res[2],
+  CI_type = c("normal","basic","student","percentile"),
+  format = "long"
+)
+
+# calculate multiple bootstrap CIs using sub-sampling of replicates
+bootstrap_CIs(
+  boot_est = booties[1,],
+  boot_se = booties[2,],
+  est = res[1],
+  se = res[2],
+  CI_type = c("normal","basic","student","percentile"),
+  B_vals = 199,
+  reps = 4L,
+  format = "long"
+)
+
+# calculate multiple bootstrap CIs using sub-sampling of replicates,
+# for each of several sub-sample sizes.
+bootstrap_CIs(
+  boot_est = booties[1,],
+  boot_se = booties[2,],
+  est = res[1],
+  se = res[2],
+  CI_type = c("normal","basic","student","percentile"),
+  B_vals = c(49,99,199),
+  reps = 4L,
+  format = "long"
+)
+
+</code></pre>
+
+
+</div>

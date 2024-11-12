@@ -1,0 +1,691 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>estimatePopsize</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Single source capture-recapture models</h2>
+
+<h3>Description</h3>
+
+<p><code>estimatePopsize</code> first fits appropriate (v)glm model and
+then estimates full (observed and unobserved) population size.
+In this types of models it is assumed that the response vector
+(i.e. the dependent variable) corresponds to the number of times a given unit
+was observed in the source.
+Population size is then usually estimated by Horvitz-Thompson type estimator:
+</p>
+\[\hat{N} = \sum_{k=1}^{N}\frac{I_{k}}{\mathbb{P}(Y_{k}&gt;0)} = 
+\sum_{k=1}^{N_{obs}}\frac{1}{1-\mathbb{P}(Y_{k}=0)}\]
+<p>where \(I_{k}=I_{Y_{k} &gt; 0}\) are indicator
+variables, with value 1 if kth unit was observed at least once and 0 otherwise.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">estimatePopsize(formula, ...)
+
+## Default S3 method:
+estimatePopsize(
+  formula,
+  data,
+  model = c("ztpoisson", "ztnegbin", "ztgeom", "zotpoisson", "ztoipoisson",
+    "oiztpoisson", "ztHurdlepoisson", "Hurdleztpoisson", "zotnegbin", "ztoinegbin",
+    "oiztnegbin", "ztHurdlenegbin", "Hurdleztnegbin", "zotgeom", "ztoigeom", "oiztgeom",
+    "ztHurdlegeom", "ztHurdlegeom", "zelterman", "chao"),
+  ratioReg = FALSE,
+  weights = NULL,
+  subset = NULL,
+  naAction = NULL,
+  method = c("optim", "IRLS"),
+  popVar = c("analytic", "bootstrap", "noEst"),
+  controlMethod = NULL,
+  controlModel = NULL,
+  controlPopVar = NULL,
+  modelFrame = TRUE,
+  x = FALSE,
+  y = TRUE,
+  contrasts = NULL,
+  offset,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>formula for the model to be fitted, only applied to the "main"
+linear predictor. Only single response models are available.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional optional arguments passed to other methods eg.
+<code>estimatePopsizeFit</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>data frame or object coercible to data.frame class containing
+data for the regression and population size estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>model for regression and population estimate full description in <code>singleRmodels()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ratioReg</code></td>
+<td>
+<p>Not yet implemented</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>optional object of prior weights used in fitting the model.
+Can be used to specify number of occurrences of rows in data see <code>controlModel()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+<p>a logical vector indicating which observations should be used
+in regression and population size estimation. It will be evaluated on <code>data</code> argument provided on call.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>naAction</code></td>
+<td>
+<p>Not yet implemented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>method for fitting values currently supported: iteratively
+reweighted least squares (<code>IRLS</code>) and maximum likelihood (<code>optim</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>popVar</code></td>
+<td>
+<p>a method of constructing confidence interval either analytic
+or bootstrap. Bootstrap confidence interval type may be specified in
+<code>controlPopVar.</code> There is also the third possible value of <code>noEst</code>
+which skips the population size estimate all together.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>controlMethod</code></td>
+<td>
+<p>a list indicating parameters to use in fitting the model
+may be constructed with <code>singleRcapture::controlMethod</code> function.
+More information included in <code>controlMethod()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>controlModel</code></td>
+<td>
+<p>a list indicating additional formulas for regression
+(like formula for inflation parameter/dispersion parameter) may be
+constructed with <code>singleRcapture::controlModel</code> function.
+More information will eventually be included in <code>controlModel()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>controlPopVar</code></td>
+<td>
+<p>a list indicating parameters to use in estimating variance
+of population size estimation may be constructed with
+<code>singleRcapture::controlPopVar</code> function.
+More information included in <code>controlPopVar()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modelFrame, x, y</code></td>
+<td>
+<p>logical value indicating whether to return model matrix,
+dependent vector and model matrix as a part of output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrasts</code></td>
+<td>
+<p>not yet implemented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>offset</code></td>
+<td>
+<p>a matrix of offset values with number of columns matching the
+number of distribution parameters providing offset values to each of
+linear predictors.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The generalized linear model is characterized by equation
+\[\boldsymbol{\eta}=\boldsymbol{X}\boldsymbol{\beta}\]
+where \(\boldsymbol{X}\) is the (lm) model matrix.
+The vector generalized linear model is similarly characterized by equations
+\[\boldsymbol{\eta}_{k}=\boldsymbol{X}_{k}\boldsymbol{\beta}_{k}\]
+where \(\boldsymbol{X}_{k}\) is a (lm) model
+matrix constructed from appropriate formula
+(specified in <code>controlModel</code> parameter).
+</p>
+<p>The \(\boldsymbol{\eta}\) is then a vector constructed as:
+</p>
+\[\boldsymbol{\eta}=\begin{pmatrix}
+\boldsymbol{\eta}_{1} \cr 
+\boldsymbol{\eta}_{2} \cr
+\dotso \cr
+\boldsymbol{\eta}_{p}
+\end{pmatrix}^{T}\]
+<p>and in cases of models in our package the (vlm) model matrix
+is constructed as a block matrix:
+</p>
+\[\boldsymbol{X}_{vlm}=
+\begin{pmatrix}
+\boldsymbol{X}_{1} &amp; \boldsymbol{0} &amp;\dotso &amp;\boldsymbol{0}\cr
+\boldsymbol{0} &amp; \boldsymbol{X}_{2} &amp;\dotso &amp;\boldsymbol{0}\cr
+\vdots &amp; \vdots &amp; \ddots &amp; \vdots\cr
+\boldsymbol{0} &amp; \boldsymbol{0} &amp;\dotso &amp;\boldsymbol{X}_{p}
+\end{pmatrix}\]
+<p>this differs from convention in <code>VGAM</code> package (if we only consider our
+special cases of vglm models) but this is just a convention and does not
+affect the model, this convention is taken because it makes fitting with
+IRLS (explanation of algorithm in <code>estimatePopsizeFit()</code>) algorithm easier.
+(If <code>constraints</code> matrixes in <code>vglm</code> match the ones we implicitly
+use the <code>vglm</code> model matrix differs with respect to order of
+<code>kronecker</code> multiplication of <code>X</code> and <code>constraints</code>.)
+In this package we use observed likelihood to fit regression models.
+</p>
+<p>As mentioned above usually the population size estimation is done via:
+\[\hat{N} = \sum_{k=1}^{N}\frac{I_{k}}{\mathbb{P}(Y_{k}&gt;0)} = 
+\sum_{k=1}^{N_{obs}}\frac{1}{1-\mathbb{P}(Y_{k}=0)}\]
+</p>
+<p>where \(I_{k}=I_{Y_{k} &gt; 0}\) are indicator variables,
+with value 1 if kth unit was observed at least once and 0 otherwise.
+The \(\mathbb{P}(Y_{k}&gt;0)\) are estimated by maximum likelihood.
+</p>
+<p>The following assumptions are usually present when using
+the method of estimation described above:
+</p>
+
+<ol>
+<li>
+<p> The specified regression model is correct. This entails linear
+relationship between independent variables and dependent ones and
+dependent variable being generated by appropriate distribution.
+</p>
+</li>
+<li>
+<p> No unobserved heterogeneity. If this assumption is broken there
+are some possible (admittedly imperfect) workarounds see details in
+<code>singleRmodels()</code>.
+</p>
+</li>
+<li>
+<p> The population size is constant in relevant time frame.
+</p>
+</li>
+<li>
+<p> Depending on confidence interval construction (asymptotic) normality
+of \(\hat{N}\) statistic is assumed.
+</p>
+</li>
+</ol>
+<p>There are two ways of estimating variance of estimate \(\hat{N}\),
+the first being <code>"analytic"</code> usually done by application of
+law of total variance to \(\hat{N}\):
+</p>
+\[\text{var}(\hat{N})=\mathbb{E}\left(\text{var}
+\left(\hat{N}|I_{1},\dots,I_{n}\right)\right)+
+\text{var}\left(\mathbb{E}(\hat{N}|I_{1},\dots,I_{n})\right)\]
+<p>and then by \(\delta\) method to
+\(\hat{N}|I_{1},\dots I_{N}\):
+</p>
+\[\mathbb{E}\left(\text{var}
+\left(\hat{N}|I_{1},\dots,I_{n}\right)\right)=
+\left.\left(\frac{\partial(N|I_1,\dots,I_N)}{\partial\boldsymbol{\beta}}\right)^{T}
+\text{cov}\left(\boldsymbol{\beta}\right)
+\left(\frac{\partial(N|I_1,\dots,I_N)}{\partial\boldsymbol{\beta}}\right)
+\right|_{\boldsymbol{\beta}=\hat{\boldsymbol{\beta}}}\]
+<p>and the \(\text{var}\left(\mathbb{E}(\hat{N}|I_{1},\dots,I_{n})\right)\)
+term may be derived analytically (if we assume independence of
+observations) since \(\hat{N}|I_{1},\dots,I_{n}\)
+is just a constant.
+</p>
+<p>In general this gives us:
+\[
+\begin{aligned}
+\text{var}\left(\mathbb{E}(\hat{N}|I_{1},\dots,I_{n})\right)&amp;=
+\text{var}\left(\sum_{k=1}^{N}\frac{I_{k}}{\mathbb{P}(Y_{k}&gt;0)}\right)\cr
+&amp;=\sum_{k=1}^{N}\text{var}\left(\frac{I_{k}}{\mathbb{P}(Y_{k}&gt;0)}\right)\cr
+&amp;=\sum_{k=1}^{N}\frac{1}{\mathbb{P}(Y_{k}&gt;0)^{2}}\text{var}(I_{k})\cr
+&amp;=\sum_{k=1}^{N}\frac{1}{\mathbb{P}(Y_{k}&gt;0)^{2}}\mathbb{P}(Y_{k}&gt;0)(1-\mathbb{P}(Y_{k}&gt;0))\cr
+&amp;=\sum_{k=1}^{N}\frac{1}{\mathbb{P}(Y_{k}&gt;0)}(1-\mathbb{P}(Y_{k}&gt;0))\cr
+&amp;\approx\sum_{k=1}^{N}\frac{I_{k}}{\mathbb{P}(Y_{k}&gt;0)^{2}}(1-\mathbb{P}(Y_{k}&gt;0))\cr
+&amp;=\sum_{k=1}^{N_{obs}}\frac{1-\mathbb{P}(Y_{k}&gt;0)}{\mathbb{P}(Y_{k}&gt;0)^{2}}
+\end{aligned}
+\]
+</p>
+<p>Where the approximation on 6th line appears because in 5th line we sum over
+all units, that includes unobserved units, since \(I_{k}\) are
+independent and \(I_{k}\sim b(\mathbb{P}(Y_{k}&gt;0))\) the 6th line
+is an unbiased estimator of the 5th line.
+</p>
+<p>The other method for estimating variance is <code>"bootstrap"</code>, but since
+\(N_{obs}=\sum_{k=1}^{N}I_{k}\) is also a random variable bootstrap
+will not be as simple as just drawing \(N_{obs}\) units from data
+with replacement and just computing \(\hat{N}\).
+</p>
+<p>Method described above is referred to in literature as <code>"nonparametric"</code>
+bootstrap (see <code>controlPopVar()</code>), due to ignoring variability in observed
+sample size it is likely to underestimate variance.
+</p>
+<p>A more sophisticated bootstrap procedure may be described as follows:
+</p>
+
+<ol>
+<li>
+<p> Compute the probability distribution as:
+\[
+\frac{\hat{\boldsymbol{f}}_{0}}{\hat{N}}, 
+\frac{\boldsymbol{f}_{1}}{\hat{N}}, 
+\dots,
+\frac{\boldsymbol{f}_{\max{y}}}{\hat{N}}\]
+where \(\boldsymbol{f}_{n}\) denotes observed
+marginal frequency of units being observed exactly n times.
+</p>
+</li>
+<li>
+<p> Draw \(\hat{N}\) units from the distribution above
+(if \(\hat{N}\) is not an integer than draw
+\(\lfloor\hat{N}\rfloor + b(\hat{N}-\lfloor\hat{N}\rfloor)\)),
+where \(\lfloor\cdot\rfloor\) is the floor function.
+</p>
+</li>
+<li>
+<p> Truncated units with \(y=0\).
+</p>
+</li>
+<li>
+<p> If there are covariates draw them from original data with replacement from
+uniform distribution. For example if unit drawn to new data has
+\(y=2\) choose one of covariate vectors from original data that
+was associated with unit for which was observed 2 times.
+</p>
+</li>
+<li>
+<p> Regress \(\boldsymbol{y}_{new}\) on \(\boldsymbol{X}_{vlm new}\)
+and obtain \(\hat{\boldsymbol{\beta}}_{new}\), with starting point
+\(\hat{\boldsymbol{\beta}}\) to make it slightly faster, use them
+to compute \(\hat{N}_{new}\).
+</p>
+</li>
+<li>
+<p> Repeat 2-5 unit there are at least <code>B</code> statistics are obtained.
+</p>
+</li>
+<li>
+<p> Compute confidence intervals based on <code>alpha</code> and <code>confType</code>
+specified in <code>controlPopVar()</code>.
+</p>
+</li>
+</ol>
+<p>To do step 1 in procedure above it is convenient to first draw binary vector of length
+\(\lfloor\hat{N}\rfloor + b(\hat{N}-\lfloor\hat{N}\rfloor)\) with probability
+\(1-\frac{\hat{\boldsymbol{f}}_{0}}{\hat{N}}\), sum elements in that vector to
+determine the sample size and then draw sample of this size uniformly from the data.
+</p>
+<p>This procedure is known in literature as <code>"semiparametric"</code> bootstrap
+it is necessary to assume that the have a correct estimate
+\(\hat{N}\) in order to use this type of bootstrap.
+</p>
+<p>Lastly there is <code>"paramteric"</code> bootstrap where we assume that the
+probabilistic model used to obtain \(\hat{N}\) is correct the
+bootstrap procedure may then be described as:
+</p>
+
+<ol>
+<li>
+<p> Draw \(\lfloor\hat{N}\rfloor + b(\hat{N}-\lfloor\hat{N}\rfloor)\)
+covariate information vectors with replacement from data according to
+probability distribution that is proportional to: \(N_{k}\),
+where \(N_{k}\) is the contribution of kth unit i.e.
+\(\dfrac{1}{\mathbb{P}(Y_{k}&gt;0)}\).
+</p>
+</li>
+<li>
+<p> Determine \(\boldsymbol{\eta}\) matrix using estimate
+\(\hat{\boldsymbol{\beta}}\).
+</p>
+</li>
+<li>
+<p> Generate \(\boldsymbol{y}\) (dependent variable)
+vector using \(\boldsymbol{\eta}\) and
+probability mass function associated with chosen model.
+</p>
+</li>
+<li>
+<p> Truncated units with \(y=0\) and construct
+\(\boldsymbol{y}_{new}\) and \(\boldsymbol{X}_{vlm new}\).
+</p>
+</li>
+<li>
+<p> Regress \(\boldsymbol{y}_{new}\) on \(\boldsymbol{X}_{vlm new}\)
+and obtain \(\hat{\boldsymbol{\beta}}_{new}\)
+use them to compute \(\hat{N}_{new}\).
+</p>
+</li>
+<li>
+<p> Repeat 1-5 unit there are at least <code>B</code> statistics are obtained.
+</p>
+</li>
+<li>
+<p> Compute confidence intervals based on <code>alpha</code> and <code>confType</code>
+specified in <code>controlPopVar()</code>
+</p>
+</li>
+</ol>
+<p>It is also worth noting that in the <code>"analytic"</code> method <code>estimatePopsize</code>
+only uses "standard" covariance matrix estimation. It is possible that improper
+covariance matrix estimate is the only part of estimation that has its assumptions
+violated. In such cases post-hoc procedures are implemented in this package
+to address this issue.
+</p>
+<p>Lastly confidence intervals for \(\hat{N}\) are computed
+(in analytic case) either by assuming that it follows a normal distribution
+or that variable \(\ln(N-\hat{N})\)
+follows a normal distribution.
+</p>
+<p>These estimates may be found using either <code>summary.singleRStaticCountData</code>
+method or <code>popSizeEst.singleRStaticCountData</code> function. They're labelled as
+<code>normal</code> and <code>logNormal</code> respectively.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns an object of class <code>c("singleRStaticCountData", "singleR", "glm", "lm")</code>
+with type <code>list</code> containing:<br></p>
+
+<ul>
+<li>
+<p><code>y</code> – Vector of dependent variable if specified at function call.
+</p>
+</li>
+<li>
+<p><code>X</code> – Model matrix if specified at function call.
+</p>
+</li>
+<li>
+<p><code>formula</code> – A list with formula provided on call and additional formulas specified in <code>controlModel</code>.
+</p>
+</li>
+<li>
+<p><code>call</code> – Call matching original input.
+</p>
+</li>
+<li>
+<p><code>coefficients</code> – A vector of fitted coefficients of regression.
+</p>
+</li>
+<li>
+<p><code>control</code> – A list of control parameters for <code>controlMethod</code> and <code>controlModel</code>, <code>controlPopVar</code> is included in populationSize.
+</p>
+</li>
+<li>
+<p><code>model</code> – Model which estimation of population size and regression was built, object of class family.
+</p>
+</li>
+<li>
+<p><code>deviance</code> – Deviance for the model.
+</p>
+</li>
+<li>
+<p><code>priorWeights</code> – Prior weight provided on call.
+</p>
+</li>
+<li>
+<p><code>weights</code> – If <code>IRLS</code> method of estimation was chosen weights returned by <code>IRLS</code>, otherwise same as <code>priorWeights</code>.
+</p>
+</li>
+<li>
+<p><code>residuals</code> – Vector of raw residuals.
+</p>
+</li>
+<li>
+<p><code>logL</code> – Logarithm likelihood obtained at final iteration.
+</p>
+</li>
+<li>
+<p><code>iter</code> – Numbers of iterations performed in fitting or if <code>stats::optim</code> was used number of call to loglikelihood function.
+</p>
+</li>
+<li>
+<p><code>dfResiduals</code> – Residual degrees of freedom.
+</p>
+</li>
+<li>
+<p><code>dfNull</code> – Null degrees of freedom.
+</p>
+</li>
+<li>
+<p><code>fittValues</code> – Data frame of fitted values for both mu (the expected value) and lambda (Poisson parameter).
+</p>
+</li>
+<li>
+<p><code>populationSize</code> – A list containing information of population size estimate.
+</p>
+</li>
+<li>
+<p><code>modelFrame</code> – Model frame if specified at call.
+</p>
+</li>
+<li>
+<p><code>linearPredictors</code> – Vector of fitted linear predictors.
+</p>
+</li>
+<li>
+<p><code>sizeObserved</code> – Number of observations in original model frame.
+</p>
+</li>
+<li>
+<p><code>terms</code> – terms attribute of model frame used.
+</p>
+</li>
+<li>
+<p><code>contrasts</code> – contrasts specified in function call.
+</p>
+</li>
+<li>
+<p><code>naAction</code> – naAction used.
+</p>
+</li>
+<li>
+<p><code>which</code> – list indicating which observations were used in regression/population size estimation.
+</p>
+</li>
+<li>
+<p><code>fittingLog</code> – log of fitting information for <code>"IRLS"</code> fitting if specified in <code>controlMethod</code>.
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Piotr Chlebicki, Maciej Beręsewicz
+</p>
+<script id="MathJax-script" async src="../../mathjaxr/doc/mathjax/es5/tex-chtml-full.js"></script><h3>References</h3>
+
+<p>General single source capture recapture literature:
+</p>
+<p>Zelterman, Daniel (1988). ‘Robust estimation in truncated discrete distributions
+with application to capture-recapture experiments’. In: Journal of statistical
+planning and inference 18.2, pp. 225–237.
+</p>
+<p>Heijden, Peter GM van der et al. (2003). ‘Point and interval estimation of the
+population size using the truncated Poisson regression model’.
+In: Statistical Modelling 3.4, pp. 305–322. doi: 10.1191/1471082X03st057oa.
+</p>
+<p>Cruyff, Maarten J. L. F. and Peter G. M. van der Heijden (2008). ‘Point and
+Interval Estimation of the Population Size Using a Zero-Truncated Negative
+Binomial Regression Model’. In: Biometrical Journal 50.6, pp. 1035–1050.
+doi: 10.1002/bimj.200810455
+</p>
+<p>Böhning, Dankmar and Peter G. M. van der Heijden (2009). ‘A covariate adjustment
+for zero-truncated approaches to estimating the size of hidden and
+elusive populations’. In: The Annals of Applied Statistics 3.2, pp. 595–610.
+doi: 10.1214/08-AOAS214.
+</p>
+<p>Böhning, Dankmar, Alberto Vidal-Diez et al. (2013). ‘A Generalization of
+Chao’s Estimator for Covariate Information’. In: Biometrics 69.4, pp. 1033–
+1042. doi: 10.1111/biom.12082
+</p>
+<p>Böhning, Dankmar and Peter G. M. van der Heijden (2019). ‘The identity of the
+zero-truncated, one-inflated likelihood and the zero-one-truncated likelihood
+for general count densities with an application to drink-driving in Britain’.
+In: The Annals of Applied Statistics 13.2, pp. 1198–1211.
+doi: 10.1214/18-AOAS1232.
+</p>
+<p>Navaratna WC, Del Rio Vilas VJ, Böhning D. Extending Zelterman's approach for
+robust estimation of population size to zero-truncated clustered Data.
+Biom J. 2008 Aug;50(4):584-96. doi: 10.1002/bimj.200710441.
+</p>
+<p>Böhning D. On the equivalence of one-inflated zero-truncated and zero-truncated
+one-inflated count data likelihoods. Biom J. 2022 Aug 15. doi: 10.1002/bimj.202100343.
+</p>
+<p>Böhning, D., Friedl, H. Population size estimation based upon zero-truncated,
+one-inflated and sparse count data. Stat Methods Appl 30, 1197–1217 (2021).
+doi: 10.1007/s10260-021-00556-8
+</p>
+<p>Bootstrap:
+</p>
+<p>Zwane, PGM EN and Van der Heijden, Implementing the parametric bootstrap in capture-recapture
+models with continuous covariates 2003 Statistics &amp; probability letters 65.2 pp 121-125
+</p>
+<p>Norris, James L and Pollock, Kenneth H Including model uncertainty in estimating variances
+in multiple capture studies 1996 in Environmental and Ecological Statistics 3.3 pp 235-244
+</p>
+<p>Vector generalized linear models:
+</p>
+<p>Yee, T. W. (2015). Vector Generalized Linear and Additive Models:
+With an Implementation in R. New York, USA: Springer. ISBN 978-1-4939-2817-0.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>stats::glm()</code> – For more information on generalized linear models.
+</p>
+<p><code>stats::optim()</code> – For more information on <code>optim</code> function used in
+<code>optim</code> method of fitting regression.
+</p>
+<p><code>controlMethod()</code> – For control parameters related to regression.
+</p>
+<p><code>controlPopVar()</code> – For control parameters related to population size estimation.
+</p>
+<p><code>controlModel()</code> – For control parameters related to model specification.
+</p>
+<p><code>estimatePopsizeFit()</code> – For more information on fitting procedure in
+<code>esitmate_popsize</code>.
+</p>
+<p><code>popSizeEst()</code> <code>redoPopEstimation()</code> – For extracting population size
+estimation results are applying post-hoc procedures.
+</p>
+<p><code>summary.singleRStaticCountData()</code> – For summarizing important information about the
+model and population size estimation results.
+</p>
+<p><code>marginalFreq()</code> – For information on marginal frequencies and comparison
+between observed and fitted quantities.
+</p>
+<p><code>VGAM::vglm()</code> – For more information on vector generalized linear models.
+</p>
+<p><code>singleRmodels()</code> – For description of various models.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Model from 2003 publication 
+# Point and interval estimation of the
+# population size using the truncated Poisson regression mode
+# Heijden, Peter GM van der et al. (2003)
+model &lt;- estimatePopsize(
+   formula = capture ~ gender + age + nation, 
+   data = netherlandsimmigrant, 
+   model = ztpoisson
+)
+summary(model)
+# Graphical presentation of model fit
+plot(model, "rootogram")
+# Statistical test
+# see documentation for summary.singleRmargin
+summary(marginalFreq(model), df = 1, "group")
+
+# We currently support 2 methods of numerical fitting
+# (generalized) IRLS algorithm and via stats::optim
+# the latter one is faster when fitting negative binomial models 
+# (and only then) due to IRLS having to numerically compute
+# (expected) information matrixes, optim is also less reliable when
+# using alphaFormula argument in controlModel
+modelNegBin &lt;- estimatePopsize(
+    formula = TOTAL_SUB ~ ., 
+    data = farmsubmission, 
+    model = ztnegbin, 
+    method = "optim"
+)
+summary(modelNegBin)
+summary(marginalFreq(modelNegBin))
+
+# More advanced call that specifies additional formula and shows
+# in depth information about fitting procedure
+pseudoHurdleModel &lt;- estimatePopsize(
+    formula = capture ~ nation + age,
+    data = netherlandsimmigrant,
+    model = Hurdleztgeom,
+    method = "IRLS",
+    controlMethod = controlMethod(verbose = 5),
+    controlModel = controlModel(piFormula = ~ gender)
+)
+summary(pseudoHurdleModel)
+# Assessing model fit
+plot(pseudoHurdleModel, "rootogram")
+summary(marginalFreq(pseudoHurdleModel), "group", df = 1)
+
+
+# A advanced input with additional information for fitting procedure and
+# additional formula specification and different link for inflation parameter.
+Model &lt;- estimatePopsize(
+ formula = TOTAL_SUB ~ ., 
+ data = farmsubmission, 
+ model = oiztgeom(omegaLink = "cloglog"), 
+ method = "IRLS", 
+ controlMethod = controlMethod(
+   stepsize = .85, 
+   momentumFactor = 1.2,
+   epsilon = 1e-10, 
+   silent = TRUE
+ ),
+ controlModel = controlModel(omegaFormula = ~ C_TYPE + log_size)
+)
+summary(marginalFreq(Model), df = 18 - length(Model$coefficients))
+summary(Model)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,515 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sqrlUsage</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+How to Use the Interface Functions
+</h2>
+
+<h3>Description</h3>
+
+<p>This material does not describe a single function, but (rather) how to use
+<span class="pkg">SQRL</span> interfaces (once created).
+These interface functions do not have their own static help files, since their
+names are not known at build time.
+</p>
+
+
+<h3>Details</h3>
+
+<p>Once you have a named interface (created either automatically, on loading of the
+<span class="pkg">SQRL</span> namespace, or manually, via <code>sqrlSource</code>), it can be used
+to communicate with the associated data source.
+Connection handles and communication parameters are managed under the hood.
+</p>
+<p>The following sections provide usage examples for an interface called
+<code>owl</code>.
+The names of your own interface functions can be discovered by calling
+<code>sqrlSources()</code>.
+</p>
+
+
+<h3>Opening and Closing</h3>
+
+<pre>
+# Open a connection to the data source.
+owl()
+
+# Alternative method (explicit form).
+owl("open")
+
+# This is fine (the channel survives).
+rm(list = ls(all.names = TRUE))
+
+# Check if the connection is open.
+owl("isopen")
+
+# Open a connection and confirm status.
+owl()$isopen
+
+# Close the connection.
+owl("close")
+
+# Close the connection when not in use.
+owl(autoclose = TRUE)
+</pre>
+<p>Opening connections in the above way isn't usually necessary, since this occurs
+automatically, as and when required.
+</p>
+<p>When necessary, the <code>isopen</code> command ‘pings’ the data source, to
+reliably establish whether or not the connection really is open (including after
+a network outage or remote closure).
+</p>
+<p>With <code>autoclose = TRUE</code>, <code>owl("isopen")</code> should always return
+<code>FALSE</code>, whereas <code>owl()$isopen</code> will often return <code>TRUE</code>.
+This is because the latter command attempts to open a connection, with its
+return value being the connectivity status immediately after that attempt
+(before <var>autoclose</var> takes effect and closes the connection).
+This provides a test of data source reachability and responsiveness, regardless
+of the <var>autoclose</var> setting.
+</p>
+
+
+<h3>Submitting Queries</h3>
+
+<pre>
+# Submit a query.
+owl("select 1")
+
+# Submit another query.
+owl("select '", sample(letters, 1), "' from dual")
+
+# Submit a multi-statement query.
+owl("use necronomicon; select top ",
+    sample(6, 1), " shoggoths from pit")
+
+# Filtering against a set of values.
+owl("select columnA from database.table ",
+    "where columnB in (", c(2, 3, 5), ")")
+
+# Supplying a query as a list of components.
+owl(list("select ", c("'red'", "'blue'")))
+
+# A parameterised query (SQL with R in it).
+owl("select &lt;R&gt; a + b &lt;/R&gt;", a = 0, b = 1)
+
+# Explicit form.
+owl(query = list("select ", "&lt;R&gt;sin(x)&lt;/R&gt;"), x = 0)
+
+# Verbatim query.
+owl(verbatim = "select 1 as N")
+
+# Recall the result of the last successful query.
+owl("result")
+</pre>
+<p>If necessary, a connection channel will be opened automatically.
+The connection will remain open afterwards, unless <var>autoclose</var> is
+<code>TRUE</code>.
+</p>
+<p>When a query is supplied as components, the pieces are pasted together without
+any intervening whitespace.
+To facilitate their use with the <abbr><span class="acronym">SQL</span></abbr> <code>in</code> operator, any atomic
+vectors are collapsed to comma-separated values, beforehand.
+This (default) behaviour can be altered with the <var>aCollapse</var> and
+<var>lCollapse</var> parameters (as described in <code>sqrlParams</code>).
+</p>
+<p>Using the <var>query</var> keyword overrides the order of precedence (as detailed
+below).
+Whereas <var>query</var> arguments go through the usual <span class="pkg">SQRL</span> concatenation,
+parsing, and <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span>-substitution process, <var>verbatim</var> arguments are submitted
+directly and without alteration.
+Consequently, the <var>verbatim</var> command accepts only a single character string,
+which cannot be parameterised via embedded <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span>.
+</p>
+<p>As <span class="pkg">SQRL</span> aims to be flexible on input formatting, the above examples can be
+extrapolated.
+For instance, the explicit <var>query</var> could have been a single string.
+</p>
+<p>When a query returns no data (as would “use database”), the interface
+function returns invisibly.
+</p>
+<p>If a query should fail due to an unexpectedly lost connection, one further
+attempt will be made to reconnect and resubmit (provided the <var>retry</var>
+parameter is <code>TRUE</code>).
+Unless user input is required for authentication, this should go unnoticed.
+If temp tables were in use, then these will have been dropped along with the
+original connection, and an error may still occur.
+</p>
+
+
+<h3>Submitting Queries from File</h3>
+
+<pre>
+# Submit a query from file.
+owl("my/file.sql")
+
+# Equivalent alternative forms.
+owl("my/", "file.sql")
+owl(c("my/", "file.sql"))
+
+# Explicit alternative forms.
+owl(file = "my/file.sql")
+owl(file = c("my/", "file.sql"))
+</pre>
+<p>Using the <var>file</var> keyword overrides the order of precedence (as detailed
+below).
+In its absence, unnamed arguments are treated as a file path when they point to
+a readable file.
+</p>
+<p>In the above examples, <code>list(...)</code> works just as well as <code>c(...)</code>.
+Either way, the path components are pasted together without any intervening
+whitespace (the path not being a literal query).
+</p>
+
+
+<h3>Submitting Parameterised Queries from File</h3>
+
+<pre>
+# Submit a parameterised query from file.
+owl("my/file.sqrl", day = 1, month = "May")
+
+# Supplying the arguments in a list.
+owl("my/file.sqrl", list(day = 1, month = "May"))
+
+# Supplying the arguments in an explicitly named list.
+owl("my/file.sqrl", args = list(day = 1, month = "May"))
+
+# Supplying both the query and its arguments in a list.
+owl(list(file = "my/file.sqrl", day = 1, month = "May"))
+owl(list(file = c("my/", "file.sqrl"),
+         args = list(day = 1, month = "May")))
+</pre>
+<p>To be clear, the phrase “parameterised query” is not meant in the sense
+of prepared or parameterised statements (as per package <span class="pkg">RODBCext</span>).
+In <span class="pkg">SQRL</span>, parameter substitution occurs within <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> (locally), with the
+resulting string being passed to the <abbr><span class="acronym">ODBC</span></abbr> driver as an ordinary query.
+Refer to <code>sqrlScript</code> for the details.
+</p>
+<p>The use of the <var>args</var> keyword is optional when all list members have
+syntactically valid names (in the sense of
+<code>base::make.names</code>).
+Any such lists are automatically interpreted as collections of named arguments
+(and are unpacked to those collections).
+Query arguments called, for instance, <var>file</var>, <var>proc</var>, or <var>query</var>,
+may need to be wrapped in <var>args</var> to ensure they are treated as intended,
+and not as query (script) specifiers.
+</p>
+<p>In keeping with <span class="pkg">SQRL</span>'s intended flexibility around input formatting, any
+of the file path specification methods of the previous section could also be
+used here.
+</p>
+
+
+<h3>Stored Procedures</h3>
+
+<pre>
+# Import procedures from file.
+owl(library = "my/library.sqrl")
+
+# List procedure names.
+owl("library")
+
+# List procedure definitions.
+owl("Library")
+
+# Run a named procedure.
+owl("my procedure")
+
+# Equivalent explicit form.
+owl(proc = "my procedure")
+
+# Run a parameterised procedure.
+owl("Cropp River Rainfall", date = Sys.Date() - 1)
+
+# Empty the library.
+owl(library = NULL)
+</pre>
+<p>As detailed below, procedures top the order of precedence.
+Consequently, the <var>proc</var> keyword is an entirely optional transparency
+device.
+In its absence, unnamed arguments are treated as the name of a procedure when
+they name a procedure within the library.
+</p>
+<p>The library-file procedure-definition format is described in
+<code>sqrlScript</code>.
+The path to such a file (i.e., the value of the <var>library</var> keyword) can be
+supplied in any of the file-path formats of the previous sections (that is, as
+a list or vector of components).
+</p>
+<p>Any of the file-path and/or query-argument specification formats seen in the
+previous two sections can equally be used with procedure names.
+The only difference is to replace any <var>file</var> keyword with the <var>proc</var>
+keyword.
+</p>
+
+
+<h3>Querying Metadata</h3>
+
+<pre>
+# List all tables.
+owl("tables")
+
+# List all tables within a database (schema).
+owl("tables", "mydatabase")
+
+# Get information on the columns of a particular table.
+owl("columns", "mydatabase.table")
+
+# Get information on the primary keys of a particular table.
+owl("primarykeys mydatabase.table")
+
+# Get information on source data types.
+owl("typeinfo")
+</pre>
+<p>The <code>tables</code>, <code>columns</code>, <code>primarykeys</code> and
+<code>typeinfo</code> commands are simple (reduced functionality) wrappers about
+<span class="pkg">RODBC</span>'s <code>sqlTables</code>,
+<code>sqlColumns</code>,
+<code>sqlPrimaryKeys</code>, and
+<code>sqlTypeInfo</code>, respectively.
+These features are dependent upon the support of your <abbr><span class="acronym">DBMS</span></abbr> and driver.
+For some sources, the <var>believeNRows</var> parameter may need to be <code>FALSE</code>.
+Metadata queries bypass SQRL's parser.
+</p>
+
+
+<h3>Reviewing Settings</h3>
+
+<pre>
+# Get the associated source definition.
+owl("source")
+
+# Get the value of one named parameter.
+owl("uid")
+
+# Alternative method (pings the source).
+owl()$uid
+
+# List the values of all parameters.
+owl("config")
+
+# List a subset of parameter values.
+owl("settings")
+</pre>
+<p>The <code>settings</code> subset is intended for restoring <span class="pkg">RODBC</span> and/or
+<span class="pkg">SQRL</span> parameter values at the end of a script that changed some.
+An example of this is given in <code>sqrlScript</code>.
+It can also be used to transfer parameter values between sources.
+</p>
+
+
+<h3>Setting Parameters</h3>
+
+<pre>
+# Set a parameter value.
+owl(stringsAsFactors = FALSE)
+
+# Set multiple parameter values.
+owl(max = 1000, na.strings = c("NA", "-", ""))
+
+# Set multiple values from a list.
+owl(list(case = "toupper", scdo = FALSE))
+
+# Set values from a list (explicit form).
+owl(config = list(visible = TRUE, autoclose = TRUE))
+
+# Import values from source 'wol'.
+owl(config = wol("settings"))
+
+# Import values from a configuration file.
+owl(config = "my/config/file.txt"))
+
+# Import one value from a file.
+owl(pwd = c("path/", "to/", "file", ".txt"))
+
+# Reset parameters to their default values.
+owl(reset = c("errors", "nullstring"))
+</pre>
+<p>The <var>driver</var> and <var>dsn</var> parameters accept file paths as their values.
+For all other parameters, values are extracted from within any specified files.
+</p>
+<p>Assigning <var>visible</var> <code>TRUE</code> authorises modification of the global
+<code>prompt</code> option.
+When running ‘<span class="file">R.exe</span>’, ‘<span class="file">Rterm.exe</span>’ or ‘<span class="file">Rgui.exe</span>’ on a Windows
+operating system, this also authorises modification of the<span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> window title.
+</p>
+<p>Calling <code>reset</code> on its own, as in <code>owl("reset")</code>, does nothing.
+</p>
+<p>Further alternative input formats appear in the examples section of
+<code>sqrlParams</code>.
+</p>
+
+
+<h3>Changing the Interface</h3>
+
+<pre>
+# Change the interface.
+owl(interface = "O")
+
+# Change it back.
+O(interface = "owl")
+</pre>
+<p>Changing the interface is just a particular case of setting a parameter.
+</p>
+<p>If the proposed new interface name already belongs to some other function within
+the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> search path, then the change request will be denied (unless that name is
+<code>remove</code>, in which case the current interface function will be deleted).
+</p>
+<p>A successful change deletes the previous interface.
+</p>
+
+
+<h3>Listing Data Sources</h3>
+
+<pre>
+# See the data sources and their interfaces.
+owl("sources")
+</pre>
+<p>This is equivalent to calling <code>sqrlSources()</code>.
+</p>
+
+
+<h3>Getting Help</h3>
+
+<pre>
+# Get help on 'owl' (alternative forms).
+owl("help")
+owl("?")
+
+# Obtain help, in specific formats.
+owl("help text")
+owl("help html")
+</pre>
+<p>The above calls will attempt to provide help tailored for the specific
+interface, and will fall back to these notes (<code>help(sqrlUsage)</code> or
+<code>?sqrlUsage</code>) should that fail.
+</p>
+
+
+<h3>Removing the Source</h3>
+
+<pre>
+# Deregister the associated source.
+owl("remove")
+</pre>
+<p>This closes any open connection to the data source, deletes the interface
+function (<code>owl</code>), and deregisters the source from <span class="pkg">SQRL</span>.
+</p>
+
+
+<h3>Order of Precedence</h3>
+
+<p>When unnamed arguments are supplied, such as in <code>owl("something")</code>,
+<span class="pkg">SQRL</span> interprets those arguments with the following order of precedence:
+</p>
+
+<ol>
+<li>
+<p> Procedure names (in the <var>library</var>),
+</p>
+</li>
+<li>
+<p> File paths (of <abbr><span class="acronym">SQL</span></abbr> or <abbr><span class="acronym">SQRL</span></abbr> scripts),
+</p>
+</li>
+<li>
+<p> Special words (“close”, “config”, etc.),
+</p>
+</li>
+<li>
+<p> Parameter names (optionally followed by values),
+</p>
+</li>
+<li>
+<p> Literal <abbr><span class="acronym">SQRL</span></abbr> script (including pure <abbr><span class="acronym">SQL</span></abbr>).
+</p>
+</li>
+</ol>
+<p>Hence, if a file called (say) ‘<span class="file">use database</span>’ should exist, then
+<code>owl("use database")</code> submits the content of that file (rather than the
+apparent <abbr><span class="acronym">SQL</span></abbr> command).
+Such conflicts can be resolved by assigning the unnamed arguments to the
+appropriate keyword (<var>file</var>, <var>proc</var>, or <var>query</var>).
+In this case, the new command would be <code>owl(query = "use database")</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sqrlAll</code>,
+<code>sqrlConfig</code>,
+<code>sqrlParams</code>,
+<code>sqrlScript</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Some default values, for demonstration purposes.
+x &lt;- 1; y &lt;- 2
+
+# Define a new SQRL source and its interface. The DSN need
+# not exist, but this will fail (by design) if a function
+# called 'owl' already exists on the R search path.
+sqrlSource("owl", dsn = "HundredAcreWood")
+
+# This (ordinarily pointless) SQRL script contains no SQL,
+# which allows it to run even when the DSN does not exist
+# (there being no need to open a connection). In this case,
+# the x and y variables are implicitly inherited.
+owl("&lt;R&gt; x * y")
+
+# Explicitly assign x, while inheriting y.
+owl("&lt;R&gt; x * y", x = 2)
+
+# An alternative arrangement of arguments.
+owl(x = 3, query = "&lt;R&gt; x * y", y = 1)
+
+# Write the script to file.
+myfile &lt;- tempfile()
+writeLines("&lt;R&gt; x * y", myfile)
+
+# Run the script from file, inheriting variables.
+owl(myfile)
+
+# Run the script from file, with explicit arguments.
+# (These are all equivalent.)
+owl(myfile, x = 2, y = 3)
+owl(myfile, list(x = 2, y = 3))
+owl(myfile, args = list(x = 2, y = 3))
+owl(file = myfile, x = 2, y = 3)
+owl(file = myfile, list(x = 2, y = 3))
+owl(file = myfile, args = list(x = 2, y = 3))
+owl(list(file = myfile, x = 2, y = 3))
+owl(list(file = myfile, args = list(x = 2, y = 3)))
+
+# With the file path specified as components.
+owl(dirname(myfile), "/", basename(myfile), x = 2, y = 3)
+owl(file = c(dirname(myfile), "/", basename(myfile)),
+    args = list(x = 2, y = 3))
+
+# Construct a library file (of procedure definitions).
+mylibraryfile &lt;- tempfile()
+writeLines(c("&lt;proc 'proc-a'&gt; &lt;R&gt; x * y &lt;/proc&gt;",
+             "&lt;proc 'proc-b'&gt; &lt;R&gt; x + y &lt;/proc&gt;"),
+           mylibraryfile)
+
+# Import procedures from file (to owl's library).
+owl(library = mylibraryfile)
+
+# Run the imported procedures.
+owl("proc-a")
+owl("proc-b", x = 2, y = c(3, 4))
+
+# Review the last result.
+owl("result")
+
+# Clean-up.
+unlink(c(myfile, mylibraryfile))
+owl("remove")
+</code></pre>
+
+
+</div>

@@ -1,0 +1,193 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>subgroup_detect</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Test for and Identify a Subgroup with an Enhanced Treatment Effect.</h2>
+
+<h3>Description</h3>
+
+<p>Tests for the existence of a subgroup with an enhanced 
+treatment effect. The subgroup of interest is represented 
+by <code class="reqn">\{\theta:\theta^T X\ge 0\}</code>. The test returns a 
+p-value for <code class="reqn">H_0:\tau=0</code>, where <code class="reqn">\tau</code> is the 
+treatment effect in this subgroup. If <code class="reqn">H_0</code> is 
+rejected, estimates for <code class="reqn">\theta</code> can be used to 
+obtain the estimated subgroup.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">subgroup_detect(outcome, propen, data, 
+                K = 1000L, M = 1000L, seed = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>A formula object.
+The linear model for the outcome regression. 
+The left-hand-side variable must be the response.
+R function lm will be used to estimate model parameters.
+The response must be continuous.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>propen </code></td>
+<td>
+<p>A formula object.
+The model for the propensity score.
+The left-hand-side variable must be the treatment variable.
+R function glm will be used with input option
+family = binomial(link="logit") to estimate model parameters.
+The treatment must be binary.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data   </code></td>
+<td>
+<p>A data.frame object.
+All covariates, treatment, and response variables.
+Note that the treatment must be binary and that the
+response must be continuous.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K      </code></td>
+<td>
+<p>An integer object. 
+The number of random sampled points on the unit ball
+surface <code class="reqn">\{\theta:||\theta||^2=1\}</code>.
+These randomly sampled points are used for approximating
+the Gaussian process in the null and local alternative
+distributions of the test statistic with multivariate
+normal distributions.
+It is recommended that K be set to 10^p, where p is the
+number of parameters in the outcome model.
+Note that it is recommended that the number of covariates
+be less than 10 for this implementation.
+Default value is 1000. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M      </code></td>
+<td>
+<p>An integer object. 
+The number of resamplings of the perturbed test statistic.
+This sample is used to calculate the critical value of the
+test. 
+Default and minimum values are 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed   </code></td>
+<td>
+<p>An integer object or NULL.
+If integer, the seed for random number generation,
+set at the onset of the calculation.
+If NULL, current seed in R environment is used. </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In this function, a linear model with least squares 
+estimate is used for fitting the baseline model <code class="reqn">\mu(X)</code>, 
+and a logistic model with maximum likelihood estimate is 
+used for fitting the propensity score model <code class="reqn">P(a=1|X)</code>.
+These settings cannot be changed by the user.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list consisting of
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>An lm object.
+The object returned by the lm fit of the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>propen </code></td>
+<td>
+<p>A glm object.
+The object returned by the glm fit of the propensity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_value</code></td>
+<td>
+<p>A numeric object.
+The p-value of the test.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta  </code></td>
+<td>
+<p>A named numeric vector.
+The change-plane parameter estimates for subgroup.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop   </code></td>
+<td>
+<p>A numeric object.
+The proportion of sampled points on <code class="reqn">\theta</code> unit
+ball surface that are used for calculating test
+statistic. For some values of <code class="reqn">theta</code>, the
+subgroup contains no samples or all samples. These
+are discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed    </code></td>
+<td>
+<p>If seed was provided as input, the user specified 
+integer seed. If seed was not provided, not present. </p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Ailin Fan, Rui Song, and Wenbin Lu, (2016).
+Change-plane analysis for subgroup detection and sample size calculation, 
+Journal of the American Statistical Association, in press.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#set parameters
+tau &lt;- 0.5
+theta_t &lt;- c(-0.15,0.3,sqrt(1-(-0.15)^2-(0.3)^2))
+beta &lt;- c(1,1,1)
+sigma &lt;- 0.5
+n &lt;- 50
+p &lt;- 2
+
+#generate data
+x1 &lt;- rbinom(n,size=1,prob=0.5)
+x2 &lt;- runif(n,min=-1,max=1)
+X &lt;- cbind(1,x1,x2)
+a &lt;- rbinom(n,1,prob=0.5)
+y &lt;- drop(X%*%beta) + tau*a*(drop(X%*%theta_t)&gt;=0) + rnorm(n,0,sigma)
+
+data &lt;- data.frame(X[,2:3], a, y)
+
+subgroup_detect(outcome = y~x1+x2,
+                propen = a~x1+x2,
+                data = data)
+</code></pre>
+
+
+</div>

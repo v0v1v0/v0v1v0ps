@@ -1,0 +1,456 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>eblupDyn</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>EBLUP Fit of the Dynamic and Rao-Yu Time Series Models</h2>
+
+<h3>Description</h3>
+
+<p>Functions for producing EBLUP small area estimates of the dynamic or
+Rao-Yu time series models through either ML or REML estimation of the variance
+components. The functions can fit univariate or multivariate models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">eblupDyn(formula,  D,  TI,  vardir,  method = c("REML", "ML"),
+         MAXITER = 1000,  PRECISION = .1e-05,  data, 
+         max.rho = NULL,  dampening = 1, ...) 
+         
+         
+eblupRY(formula,  D,  TI,  vardir,  method = c("REML", "ML"),
+         MAXITER = 1000,  PRECISION = .1e-05,  data, 
+         max.rho = .98, dampening = 0.9, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>For a univariate model, a <code>formula</code> for the linear
+regression relationship between the dependent variable and the
+independent variable(s). The variables included in formula must have
+length equal to <code>D*TI</code> and be sorted in ascending order by time 
+within each domain.
+</p>
+<p>For a multivariate model, a list of formulas, one for each 
+dependent variable. The number of dependent variables, <code>NV</code>, is 
+determined from the length of the list. The dependent variables included 
+in the formulas must each have length equal to <code>D*TI</code> and be sorted
+in ascending order by time within each component within each domain,
+which is an extension of the sorting requirement for the univariate 
+model. Further details of the model specification are given under 
+Details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>The total number of domains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>TI</code></td>
+<td>
+<p>The number of time instances, typically years (constant for all 
+domains).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vardir</code></td>
+<td>
+<p>For the univariate model, the sampling covariance matrix 
+for the direct estimates of the <code>D*TI</code> elements of the dependent 
+variable. The covariance matrix should be in the form of a square
+matrix with <code>D*TI</code> rows and columns. Non-zero covariances between 
+domains are not allowed, so the matrix must have a block diagonal form 
+with <code>D</code> blocks, each of which is a square matrix with <code>TI</code> 
+rows and columns. Note that within domain, non-zero covariances are
+allowed over time. 
+</p>
+<p>Alternatively, <code>vardir</code> can be a list of 
+<code>D</code> covariance matrices, each with <code>TI</code> rows and columns.  
+</p>
+<p>For the multivariate model, the square covariance matrix for the 
+<code>D*NV*TI</code> elements of the dependent variables. The matrix must be
+in the form of a square matrix with <code>D*NV*TI</code> rows and columns. The 
+variances and covariances should be in the sort order of time within
+dependent variable within domain. Non-zero covariances between domains 
+are not allowed, but non-zero covariances may be present across time 
+and between components. 
+</p>
+<p>Alternatively, <code>vardir</code> can be a list of
+<code>D</code> covariance matrices, each with <code>NV*TI</code> rows and columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Whether restricted maximum likelihood <code>REML</code> or 
+maximum likelihood <code>ML</code> should be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>MAXITER</code></td>
+<td>
+<p>The maximum number of iterations allowed for the 
+Fisher-scoring algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PRECISION</code></td>
+<td>
+<p>The convergence tolerance limit for the 
+Fisher-scoring algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An optional data frame containing the variables named in 
+<code>formula</code>. By default the variables are taken from the 
+environment from which <code>eblupDyn</code> is called. Because 
+<code>vardir</code> will be of a different size than the variables
+in <code>formula</code>, <code>data</code> will not be searched for
+<code>vardir</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.rho</code></td>
+<td>
+<p>If not <code>NULL</code>, the maximum value allowed for 
+<code>rho</code>. Note the different defaults for <code>eblupDyn</code> and
+<code>eblupRY</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dampening</code></td>
+<td>
+<p>A multiplier of the computed update to parameters
+after iteration 5. A value less than 1 may slow the iterations but 
+lessens the chance of overshooting the optimum choice. The default 
+values were determined experimentally, but may be modified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other parameters passed to <code>dynRYfit</code> that affect
+convergence, provide starting values, or request specific results. 
+The exceptions are <code>y</code>, <code>X</code>, <code>NV</code>, <code>M</code>, 
+<code>ncolx</code>, and <code>model</code>, which will be set by either
+<code>eblupDyn</code> or <code>eblupRY</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A typical model has the form <code>response ~ terms</code> where <code>response</code>
+is the (numeric) response vector and <code>terms</code> is a series of terms that
+specifies a linear predictor for response. 
+</p>
+<p>A formula has an implied intercept term. To remove this use either 
+y ~ x - 1 or y ~ 0 + x. See <code>formula</code> for more details of 
+allowed formulae.
+</p>
+<p><code>eblupDyn</code> and <code>eblupRY</code> parse <code>formula</code> by calling core
+R functions to determine <code>X</code>, then calling <code>dynRYfit</code>.
+As a last step, <code>eblupDyn</code> or <code>eblupRY</code> finalize the list that 
+they return.
+</p>
+<p>The additional parameters passed to <code>dynRYfit</code> may  
+include <code>contrast.matrix</code>, which  specifies linear combinations 
+of estimates within domains, such as the sum over dependent variables 
+or moving averages across time. Corresponding MSE estimates are provided 
+for the contrasts.
+</p>
+<p>The argument <code>ids</code> accepts a data frame with <code>D</code>
+rows of domain identifiers. These ids are returned in the list from
+<code>eblupDyn</code> or <code>eblupRY</code>. 
+</p>
+<p>If <code>iter.history</code> is set to <code>TRUE</code>, the returned object will 
+include additional items with values of statistics at each step of the 
+iteration; see <code>dynRYfit</code> for details on <code>delta.hist</code>, 
+<code>llikelihood.hist</code>, <code>adj.hist</code>, <code>inf.mat.hist</code>,
+<code>s.hist</code>, <code>ix.hist</code>, <code>adj.factor.hist</code>, and 
+<code>warning.hist</code>. The default action
+is to include the history only if the iterations fail, in which case
+the history might suggest what went wrong. In the case of convergence,
+the history is usually not of interest, in which case omitting it
+reduces the size of the returned object.
+</p>
+<p>MSE estimation for REML for both the Rao-Yu and dynamic models follows
+the results summarized in Rao and Molina (2015, pp. 98-111). The MSE estimates 
+incorporate g1, g2, and g3 terms. Our simulations show that the REML estimates
+have somewhat smaller MSEs than the ML estimates, but this is not reflected in 
+the comparison of the estimated MSEs returned by the functions. The MSE 
+estimates under REML perform quite well on average. The MSE estimates for ML 
+use the same estimator as for REML, but they are modest underestimates of the 
+true MSE in the same simulations.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>eblup</code></td>
+<td>
+<p>In the univariate case, a vector of length <code>D*TI</code> with 
+the eblup estimates. In the multivariate case, a data frame of D*TI rows 
+and NV columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>A list summarizing the fit of the model with the following:
+</p>
+
+<ul>
+<li> <p><code>model:</code> form of the model: T - Dynamic or Rao-Yu; REML
+or ML.
+</p>
+</li>
+<li> <p><code>covergence:</code> a logical value indicating whether the 
+convergence criterion was met.
+</p>
+</li>
+<li> <p><code>iterations:</code> number of iterations performed by the 
+Fisher-scoring algorithm.
+</p>
+</li>
+<li> <p><code>estcoef:</code> a data frame with the estimated model 
+coefficients (<code>beta</code>) in the first column , 
+their asymptotic standard errors (<code>std.error</code>) in the 
+second column, the t statistics (<code>tvalue</code>) in the third column, 
+and the p-values (<code>pvalue</code>) of the significance of each 
+coefficient in last column.
+</p>
+</li>
+<li> <p><code>estvarcomp:</code>  a data frame with the estimated values 
+of the variances and correlation coefficients in the first column
+(<code>estimate</code>) and their asymptotic standard errors in the 
+second column (<code>std.error</code>).
+</p>
+</li>
+<li> <p><code>goodness:</code> the log-likelihood and, if REML, the restricted 
+log-likelihood.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parm</code></td>
+<td>
+<p>A labelled vector with the estimated variance components, 
+correlations, and number of iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef</code></td>
+<td>
+<p>A labelled vector of coefficients of the model or models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>A data frame with <code>D</code> rows and one or more columns of 
+numeric or character domain identifiers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>An ordered vector of the variance components, which may be 
+used as starting values for additional iterations, see 
+<code>dynRYfit</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.mse</code></td>
+<td>
+<p>MSE estimates for eblup.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.g1</code></td>
+<td>
+<p>The g1 term of the MSE estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.g2</code></td>
+<td>
+<p>The g2 term of the MSE estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.g3</code></td>
+<td>
+<p>The g3 term of the MSE estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est.fixed</code></td>
+<td>
+<p>Estimates based on fixed effects only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>est.fixed.var</code></td>
+<td>
+<p>The variance-covariance matrix for the estimates in 
+<code>coef</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.wt1</code></td>
+<td>
+<p>Weights given to the direct estimate in forming <code>eblup</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eblup.wt2</code></td>
+<td>
+<p>Weights given to the direct estimate, including
+effects through estimating the fixed effect coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.est</code></td>
+<td>
+<p>Estimates requested by the specified contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.mse</code></td>
+<td>
+<p>MSE estimates for <code>contrast.est</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.g1</code></td>
+<td>
+<p>The g1 term in the estimation of <code>contrast.mse</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.g2</code></td>
+<td>
+<p>The g2 term in the estimation of <code>contrast.mse</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.g3</code></td>
+<td>
+<p>The g3 term in the estimation of <code>contrast.mse</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.fixed.est</code></td>
+<td>
+<p>Contrast estimates based on the fixed effect 
+model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.fixed.var</code></td>
+<td>
+<p>Variance estimates for the fixed effect model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.wt1</code></td>
+<td>
+<p>Weight wt1 given to the direct estimate in estimating 
+the contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast.wt2</code></td>
+<td>
+<p>Weight wt2 in estimating the contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inf.mat</code></td>
+<td>
+<p>Information matrix for the components of <code>delta</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var.coef</code></td>
+<td>
+<p>Variance covariance matrix for <code>coef</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The formula or list of formulas implemented.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Robert E. Fay, Mamadou Diallo
+</p>
+
+
+<h3>References</h3>
+
+<p>- Fay, R.E. and Herriot, R.A. (1979). Estimation of income from small places: An application of James-Stein procedures to census data. Journal of the American Statistical Association 74, 269-277.
+</p>
+<p>- Fay, R.E., Planty, M. and Diallo, M.S. (2013). Small area estimates from the National Crime Victimization Survey. Proceedings of the Joint Statistical Meetings. American Statistical Association, pp. 1544-1557.
+</p>
+<p>- Rao, J.N.K. and Molina, I. (2015). Small Area Estimation, 2nd ed. Wiley, Hoboken, NJ.
+</p>
+<p>- Rao, J.N.K. and Yu, M. (1994). Small area estimation by combining time series and cross-sectional data. Canadian Journal of Statistics 22, 511-528.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">D &lt;- 20 # number of domains
+TI &lt;- 5 # number of years
+set.seed(1)
+data &lt;- data.frame(Y= mvrnormSeries(D=D, TI=TI, rho.dyn=.9, sigma.v.dyn=1, 
+   sigma.u.dyn=.19, sigma.e=diag(5)), X=rep(1:TI, times=D))
+result.dyn  &lt;- eblupDyn(Y ~ X, D, TI, vardir = diag(100), data=data)
+result.dyn$fit
+
+require(sae)
+data(spacetime)      # Load data set from sae package
+data(spacetimeprox)  # Load proximity matrix 
+
+D &lt;- nrow(spacetimeprox)            # number of domains
+TI &lt;- length(unique(spacetime$Time)) # number of time instants
+# Fit model ST with AR(1) time effects for each domain
+resultST &lt;- eblupSTFH(Y ~ X1 + X2, D, TI, Var, spacetimeprox,
+                      data=spacetime)
+resultT  &lt;- eblupDyn(Y ~ X1 + X2, D, TI, vardir = diag(spacetime$Var),
+                      data=spacetime, ids=spacetime$Area)
+resultT.RY  &lt;- eblupRY(Y ~ X1 + X2, D, TI, vardir = diag(spacetime$Var),
+                      data=spacetime, ids=spacetime$Area)
+resultST$fit
+resultT$fit
+resultT.RY$fit
+rowsT &lt;- seq(TI, TI*D, by=TI)
+data.frame(Domain=spacetime$Area[rowsT], Y=spacetime$Y[rowsT], 
+              EBLUP_ST=resultST$eblup[rowsT],
+              EBLUB_Dyn=resultT$eblup[rowsT],
+              EBLUP_RY=resultT.RY$eblup[rowsT])
+</code></pre>
+
+
+</div>

@@ -1,0 +1,234 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fitme</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Fitting function for fixed- and mixed-effect models with GLM response. 
+</h2>
+
+<h3>Description</h3>
+
+<p>This is a common interface for fitting most models that spaMM can fit, from linear models to mixed models with non-gaussian random effects, therefore substituting to <code>corrHLfit</code>, <code>HLCor</code> and <code>HLfit</code>. By default, it uses ML rather than REML (differing in this respect from the other fitting functions). It may use “outer optimization”, i.e., generic optimization methods for estimating all dispersion parameters, rather than the iterative methods implemented in <code>HLfit</code>. The results of REML fits of non-gaussian mixed models by these different methods may (generally slightly) differ. Outer optimization should generally be faster than the alternative algorithms for large data sets when the residual variance model is a single constant term (no structured dispersion). For mixed models, <code>fitme</code> by default tries to select the fastest method when both can be applied, but precise decision criteria are subject to change in the future. <code>corrHLfit</code> (with non-default arguments to control the optimization method most suitable to a particular problem) may be used to ensure better consistency over successive versions of <code>spaMM</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fitme(formula, data, family = gaussian(), init = list(), fixed = list(), 
+      lower = list(), upper = list(), resid.model = ~1, init.HLfit = list(), 
+      control = list(), control.dist = list(), method = "ML", 
+      HLmethod = method, processed = NULL, nb_cores = NULL, objective = NULL, 
+      weights.form = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+
+<p>Either a linear model <code>formula</code> (as handled  by various fitting functions) or a <code>predictor</code>, i.e. a formula with attributes (see <code>Predictor</code> and examples below). See Details in <code>spaMM</code> for allowed terms in the formula.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>A data frame containing the variables in the response and the model formula.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+
+<p>Either a response <code>family</code> or a <code>multi</code> value. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init</code></td>
+<td>
+
+<p>An optional list of initial values for correlation and/or dispersion parameters and/or response family parameters, e.g. 
+<code>list(rho=1,nu=1,lambda=1,phi=1)</code> where <code>rho</code> and <code>nu</code> are parameters of the Matérn family (see <code>Matern</code>), and 
+<code>lambda</code> and <code>phi</code> are dispersion parameters (see Details in <code>spaMM</code> for the meaning of these parameters). 
+All are optional, but giving values for a dispersion parameter changes the ways it is estimated (see Details and Examples).
+<code>rho</code>  may be a vector (see <code>make_scaled_dist</code>) and, in that case, it is possible that some or all of its elements are <code>NA</code>, for which <code>fitme</code> substitutes automatically determined values.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+
+<p>A list similar to <code>init</code>, but specifying fixed values of the parameters not estimated. See <code>fixed</code> for further information; and keep in mind that fixed fixed-effect coefficients can be passed as the <code>etaFix</code> argument as part of the ‘...’.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+
+<p>An optional (sub)list of values of the parameters specified through <code>init</code>, in the same format as  <code>init</code>, used as lower values in calls to <code>optim</code>. See Details for default values.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>Same as <code>lower</code>, but for upper values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resid.model</code></td>
+<td>
+<p> See identically named <code>HLfit</code> argument. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init.HLfit</code></td>
+<td>
+<p> See identically named <code>HLfit</code> argument. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control.dist</code></td>
+<td>
+<p> See <code>control.dist</code> in <code>HLCor</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method, HLmethod</code></td>
+<td>
+<p>Character: the fitting method to be used, such as <code>"ML"</code>, <code>"REML"</code> or <code>"PQL/L"</code>. <code>"ML"</code> is the default, in contrast to <code>"REML"</code> for <code>HLfit</code>, <code>HLCor</code> and <code>corrHLfit</code>. Other possible values of <code>HLfit</code>'s <code>method</code> argument are handled. <code>method=c(&lt;"ML" or "REML"&gt;,"exp")</code> can be distinctly useful for slow fits of models with <code>Gamma(log)</code> response family (see <code>method</code>). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights.form</code></td>
+<td>
+
+<p>Specification of prior weights by a one-sided formula: use <code>weights.form = ~ pw</code> instead of <code>prior.weights = pw</code>. The effect will be the same except that such an argument, known to evaluate to an object of class <code>"formula"</code>, is suitable to enforce safe programming practices (see <code>good-practice</code>).  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>   A list of (rarely needed) control parameters, with possible elements: 
+</p>
+
+<ul>
+<li> <p><code>refit</code>, a boolean, or a <code>list</code> of booleans with possible elements <code>phi</code>, <code>lambda</code> and <code>ranCoefs</code>. If either element is set to TRUE, then the corresponding parameters are refitted by the internal <code>HLfit</code> methods (see Details), unless these methods were already selected for such parameters in the main fitting step. If <code>refit</code> is a single boolean, it affects all parameters. By default no parameter is refitted. 
+</p>
+</li>
+<li> <p><code>optimizer</code>, the numerical optimizer, specified as a string and whose default is controlled by the global <span class="pkg">spaMM</span> option <code>"optimizer"</code>. Possible values are <code>"nloptr"</code>, <code>"bobyqa"</code>, <code>"L-BFGS-B"</code> and <code>".safe_opt"</code>, whose meanings are detailed in the documentation for the <code>optimizer</code> argument of <code>spaMM.options</code>. Better left unchanged unless suspect fits are obtained. 
+</p>
+</li>
+<li> <p><code>nloptr</code>, itself a list of control parameters to be copied in the <code>opts</code> argument of <code>nloptr</code>. Default value is given by <code>spaMM.getOption('nloptr')</code> and possibly other global <span class="pkg">spaMM</span> options. Better left unchanged unless you are ready to inspect source code.
+</p>
+</li>
+<li> <p><code>bobyqa, optim</code>, lists of controls similar to <code>nloptr</code> but for methods <code>"bobyqa"</code> and <code>"L-BFGS-B"</code>, respectively.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_cores</code></td>
+<td>
+<p> For development purpose, not documented.</p>
+</td>
+</tr>
+</table>
+<table>
+<tr style="vertical-align: top;">
+<td><code>processed</code></td>
+<td>
+<p> For programming purpose, not documented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>objective</code></td>
+<td>
+<p> For development purpose, not documented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Optional arguments passed to (or operating as if passed to) <code>HLCor</code>, <code>HLfit</code> or  <code>mat_sqrt</code>, for example <code>rand.family</code>, <code>control.HLfit</code> , <code>verbose</code> or the <code>distMatrix</code> argument of <code>HLCor</code> (so that estimation of Matern or Cauchy parameters can be combined with use of an ad hoc distance matrix). In a <code>fitme</code> call, the <code>verbose</code> vector of booleans may include a <code>TRACE=TRUE</code> element, in which case information is displayed for each set of correlation and dispersion parameter values considered by the optimiser (see <code>verbose</code> for further information, mostly useless except for development purposes). 
+
+
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For approximations of likelihood, see <code>method</code>. For the possible structures of random effects, see <code>random-effects</code>,
+</p>
+<p>For <code>phi</code>, <code>lambda</code>, and <code>ranCoefs</code>, <code>fitme</code> may or may not use the internal fitting methods of <code>HLfit</code>. The latter methods are well suited for structured dispersion models, but require computations which can be slow for large datasets. Therefore, <code>fitme</code> tends to outer-optimize by default for large datasets, unless there is a non-trivial <code>resid.model</code>. The precise criteria for selection of default method by <code>fitme</code> are liable to future changes. 
+</p>
+<p>Further, the internal fitting methods of <code>HLfit</code> also provide some more information such as the “cond. SE” (about which see warning in Details of <code>HLfit</code>). To force the evaluation of such information after an outer-optimization by a <code>fitme</code> call, use the <code>control$refit</code> argument (see Example). Alternatively (and possibly of limited use), one can force inner-optimization of <code>lambda</code> for a given random effect, or of <code>phi</code>, by setting it to <code>NaN</code> in <code>init</code> (see Example using ‘blackcap’ data). The same syntax may be tried for <code>phi</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The return value of an <code>HLCor</code> or an <code>HLfit</code> call, with additional attributes. The <code>HLCor</code> call is evaluated at the estimated correlation parameter values. These values are included in the return object as its <code>$corrPars</code> member. The attributes added by <code>fitme</code> include the original call of the function (which can be retrived by <code>getCall</code>(&lt;fitted object&gt;), and information about the optimization call within <code>fitme</code>. 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Examples with Matern correlations
+## A likelihood ratio test based on the ML fits of a full and of a null model.
+ data("blackcap")
+ (fullfit &lt;- fitme(migStatus ~ means+ Matern(1|longitude+latitude),data=blackcap) )
+ (nullfit &lt;- fitme(migStatus ~ 1 + Matern(1|longitude+latitude),data=blackcap)) 
+ ## p-value:
+ 1-pchisq(2*(logLik(fullfit)-logLik(nullfit)),df=1)
+
+## See ?spaMM for examples of conditional autoregressive model and of non-spatial models. 
+
+## Contrasting different optimization methods:
+# We simulate Gamma deviates with mean mu=3 and variance=2, 
+#  ie. phi= var/mu^2= 2/9 in the (mu, phi) parametrization of a Gamma 
+#  GLM; and shape=9/2, scale=2/3 in the parametrisation of rgamma().
+#  Note that phi is not equivalent to scale: 
+#  shape = 1/phi and scale = mu*phi.
+set.seed(123)
+gr &lt;- data.frame(y=rgamma(100,shape=9/2,scale=2/3))
+# Here fitme uses HLfit methods which provide cond. SE for phi by default:
+fitme(y~1,data=gr,family=Gamma(log))
+# To force outer optimization of phi, use the init argument:
+fitme(y~1,data=gr,family=Gamma(log),init=list(phi=1))
+# To obtain cond. SE for phi after outer optimization, use the 'refit' control:
+fitme(y~1,data=gr,family=Gamma(log),,init=list(phi=1),
+      control=list(refit=list(phi=TRUE))) ## or ...refit=TRUE...
+
+## Outer-optimization is not necessarily the best way to find a global maximum, 
+#  particularly when there is little statistical information in the data:  
+if (spaMM.getOption("example_maxtime")&gt;1.6) {
+  data("blackcap")
+  fitme(migStatus ~ means+ Matern(1|longitude+latitude),data=blackcap) # poor
+  #  Compare with the following two ways of avoiding outer-optimization of lambda:
+  corrHLfit(migStatus ~ means+ Matern(1|longitude+latitude),data=blackcap,
+            method="ML")
+  fitme(migStatus ~ means+ Matern(1|longitude+latitude),data=blackcap, 
+        init=list(lambda=NaN))
+}
+
+## see help("COMPoisson"), help("negbin"), help("Loaloa"), etc., for further examples.
+</code></pre>
+
+
+</div>

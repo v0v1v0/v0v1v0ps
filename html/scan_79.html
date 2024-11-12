@@ -1,0 +1,188 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>moving_median</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Transform every single case of a single case data frame</h2>
+
+<h3>Description</h3>
+
+<p>Takes an scdf and applies transformations to each individual case. This is
+useful to calculate or modify new variables.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">moving_median(x, lag = 1)
+
+moving_mean(x, lag = 1)
+
+local_regression(x, mt = 1:length(x), f = 0.2)
+
+first_of(x, positions = 0)
+
+across_cases(...)
+
+all_cases(...)
+
+## S3 method for class 'scdf'
+transform(`_data`, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A logical vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lag</code></td>
+<td>
+<p>Number of values surrounding a value to calculate the average</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mt</code></td>
+<td>
+<p>A vector with measurement times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+<p>the proportion of surrounding data influencing each data point.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>positions</code></td>
+<td>
+<p>A numeric vector with relative positions to the first
+appearance of a TRUE value in x.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Expressions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>_data</code></td>
+<td>
+<p>An scdf.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is a method of the generic transform function. Unlike the
+generic function, it calculates expressions serially. This means that the
+results of the calculation of one expression are the basis for the following
+computations. The <code>n</code> function returns the number of measurements in a
+case. The <code>all_cases</code> function is a helper function that extracts the
+values of a variable from all cases. It takes an expression as an argument.
+For example, <code>mean(all_cases(values))</code> calculates the mean of the values
+from all cases. <code>mean(all_cases(values[phase == "A"]))</code> will calculate
+the mean of all values where phase is A. The function <code>across_cases</code>
+allows to calculate new variables or replace existing variables across all
+cases. E.g., <code>across_cases(values_ranked = rank(values, na.last =
+"keep"))</code> will calculate a new variable with values ranked across all cases.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An scdf.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other data manipulation functions: 
+<code>add_l2()</code>,
+<code>as.data.frame.scdf()</code>,
+<code>as_scdf()</code>,
+<code>fill_missing()</code>,
+<code>outlier()</code>,
+<code>ranks()</code>,
+<code>scdf()</code>,
+<code>select_cases()</code>,
+<code>set_vars()</code>,
+<code>shift()</code>,
+<code>smooth_cases()</code>,
+<code>standardize()</code>,
+<code>truncate_phase()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Creates a single-case with frequency distributions. The proportion and
+## percentage of the frequencies are calculated with transform:
+design &lt;- design(
+ n = 3,
+ level = 5,
+ distribution = "binomial",
+ n_trials = 20,
+ start_value = 0.5
+)
+study &lt;- random_scdf(design)
+transform(study, proportion = values/trials, percentage = proportion * 100)
+
+## Z standardize the dependent variable and add two new variables:
+exampleAB %&gt;%
+  transform(
+    values = scale(values),
+    mean_values = mean(values),
+    sd_values = sd(values)
+  )
+
+## Use `all` to calculate global variables.
+exampleAB %&gt;%
+  transform(
+    values_center_case = values - mean(values[phase == "A"]),
+    values_center_global = values - mean(all(values[phase == "A"])),
+    value_dif = values_center_case - values_center_global
+  )
+
+## Use `across_cases` to calculate or replace a variable with values from
+## all cases. E.g., standardize the dependent variable:
+exampleABC %&gt;%
+  transform(
+    across_cases(values = scale(values))
+  )
+
+## Rank transform the values based on all cases vs. within each case:
+exampleABC %&gt;%
+  transform(
+    across_cases(values_across = rank(values, na.last="keep")),
+    value_within = rank(values, na.last="keep")
+  )
+
+## Three helper functions to smooth the data
+Huber2014$Berta %&gt;%
+transform(
+  "compliance (moving median)" = moving_median(compliance),
+  "compliance (moving mean)" = moving_mean(compliance),
+  "compliance (local regression)" = local_regression(compliance, mt)
+)
+
+## Function first_of() helps to set NAs for specific phases.
+## E.g., you want to replace the first two values of phase A and the first
+## value of phase B and its preceding value.
+
+byHeart2011 %&gt;%
+  transform(
+    values = replace(values, first_of(phase == "A", 0:1), NA),
+    values = replace(values, first_of(phase == "B", -1:0), NA)
+  )
+</code></pre>
+
+
+</div>

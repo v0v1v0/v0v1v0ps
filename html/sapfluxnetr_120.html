@@ -1,0 +1,128 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>summarise_by_period</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Summaries by period</h2>
+
+<h3>Description</h3>
+
+<p>This function collapse the TIMESTAMP to the desired period (day, month...)
+by setting the same value to all timestamps within the period. This modified
+TIMESTAMP is used to group by and summarise the data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">summarise_by_period(data, period, .funs, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>sapflow or environmental data as obtained by <code>get_sapf_data</code>
+and <code>get_env_data</code>. Must have a column named TIMESTAMP</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>period</code></td>
+<td>
+<p>period to collapse by. See <code>sfn_metrics</code> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.funs</code></td>
+<td>
+<p>funs to summarise the data. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>optional arguments. See details</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function uses internally <code>.collapse_timestamp</code> and
+<code>summarise_all</code>. Arguments to control these functions
+can be passed as '...'. Arguments for each function are spliced and applied
+when needed. Be advised that all arguments passed to the summarise_all function
+will be applied to all the summarising functions used, so it will fail if any
+of that functions does not accept that argument. To complex function-argument
+relationships, indicate each summary function call within the <code>.funs</code>
+argument as explained here <code>summarise_all</code>:
+</p>
+<pre>
+# This will fail beacuse na.rm argument will be also passed to the n function,
+# which does not accept any argument:
+summarise_by_period(
+  data = get_sapf_data(ARG_TRE),
+  period = '7 days',
+  .funs = list(mean, sd, n()),
+  na.rm = TRUE
+)
+
+# to solve this is better to use the .funs argument:
+summarise_by_period(
+  data = get_sapf_data(ARG_TRE),
+  period = '7 days',
+  .funs = list(~ mean(., na.rm = TRUE), ~ sd(., na.rm = TRUE), ~ n())
+)
+</pre>
+
+
+<h3>Value</h3>
+
+<p>A 'tbl_df' object with the metrics results. The names of the columns
+indicate the original variable (tree or environmental variable) and the
+metric calculated (i.e. 'vpd_mean'), separated by underscore
+</p>
+
+
+<h3>TIMESTAMP_coll</h3>
+
+<p>Previously to the collapsing step, a temporal variable called
+<code>TIMESTAMP_coll</code> is created to be able to catch the real timestamp when
+some events happens, for example to use the <code>min_time</code> function. If
+your custom summarise function needs to get the time at which some event
+happens, use TIMESTAMP_coll instead of TIMESTAMP for that:
+</p>
+<pre>
+    min_time &lt;- function(x, time) {
+      time[which.min(x)]
+    }
+
+    summarise_by_period(
+      data = get_sapf_data(ARG_TRE),
+      period = '1 day',
+      .funs = list(~ min_time(., time = TIMESTAMP_coll)) # Not TIMESTAMP
+    )
+  </pre>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(dplyr)
+
+# data
+data('ARG_TRE', package = 'sapfluxnetr')
+
+# simple summary
+summarise_by_period(
+  data = get_sapf_data(ARG_TRE),
+  period = '7 days',
+  .funs = list(~ mean(., na.rm = TRUE), ~ sd(., na.rm = TRUE), ~ n())
+)
+
+</code></pre>
+
+
+</div>

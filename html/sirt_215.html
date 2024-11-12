@@ -1,0 +1,114 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>mcmc.list.descriptives</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Computation of Descriptive Statistics for a <code>mcmc.list</code> Object
+</h2>
+
+<h3>Description</h3>
+
+<p>Computation of descriptive statistics, Rhat convergence statistic
+and MAP for a <code>mcmc.list</code> object. The Rhat statistic
+is computed by splitting one Monte Carlo chain into three segments of equal
+length. The MAP is the mode estimate of the posterior distribution which is
+approximated by the mode of the kernel density estimate.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">mcmc.list.descriptives( mcmcobj, quantiles=c(.025,.05,.1,.5,.9,.95,.975) )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mcmcobj</code></td>
+<td>
+
+<p>Object of class <code>mcmc.list</code>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quantiles</code></td>
+<td>
+<p>Quantiles to be calculated for all parameters</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A data frame with descriptive statistics for all parameters in
+the <code>mcmc.list</code> object.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See <code>mcmclist2coda</code> for writing an object of class <code>mcmc.list</code>
+into a coda file (see also the <span class="pkg">coda</span> package).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+miceadds::library_install("coda")
+miceadds::library_install("R2WinBUGS")
+
+#############################################################################
+# EXAMPLE 1: Logistic regression
+#############################################################################
+
+#***************************************
+# (1) simulate data
+set.seed(8765)
+N &lt;- 500
+x1 &lt;- stats::rnorm(N)
+x2 &lt;- stats::rnorm(N)
+y &lt;- 1*( stats::plogis( -.6 + .7*x1 + 1.1 *x2 ) &gt; stats::runif(N) )
+
+#***************************************
+# (2) estimate logistic regression with glm
+mod &lt;- stats::glm( y ~ x1 + x2, family="binomial" )
+summary(mod)
+
+#***************************************
+# (3) estimate model with rcppbugs package
+b &lt;- rcppbugs::mcmc.normal( stats::rnorm(3),mu=0,tau=0.0001)
+y.hat &lt;- rcppbugs::deterministic(function(x1,x2,b) {
+             stats::plogis( b[1] + b[2]*x1 + b[3]*x2 ) }, x1, x2, b)
+y.lik &lt;- rcppbugs::mcmc.bernoulli( y, p=y.hat, observed=TRUE)
+m &lt;- rcppbugs::create.model(b, y.hat, y.lik)
+
+#*** estimate model in rcppbugs; 5000 iterations, 1000 burnin iterations
+ans &lt;- rcppbugs::run.model(m, iterations=5000, burn=1000, adapt=1000, thin=5)
+print(rcppbugs::get.ar(ans))     # get acceptance rate
+print(apply(ans[["b"]],2,mean))  # get means of posterior
+
+#*** convert rcppbugs into mcmclist object
+mcmcobj &lt;- data.frame( ans$b  )
+colnames(mcmcobj) &lt;- paste0("b",1:3)
+mcmcobj &lt;- as.matrix(mcmcobj)
+class(mcmcobj) &lt;- "mcmc"
+attr(mcmcobj, "mcpar") &lt;- c( 1, nrow(mcmcobj), 1 )
+mcmcobj &lt;- coda::as.mcmc.list( mcmcobj )
+
+# plot results
+plot(mcmcobj)
+
+# summary
+summ1 &lt;-  sirt::mcmc.list.descriptives( mcmcobj )
+summ1
+
+## End(Not run)
+</code></pre>
+
+
+</div>

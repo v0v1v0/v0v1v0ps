@@ -1,0 +1,329 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simode</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Statistical inference of ordinary differential equations using
+separable integral-matching</h2>
+
+<h3>Description</h3>
+
+<p>Estimating the parameters of an ODE system in two stages:
+1) Estimate the parameters using separable integral-matching,
+2) Estimate the parameters using nonlinear least squares
+starting from the values obtained in stage 1.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simode(
+  equations,
+  pars,
+  time,
+  obs,
+  obs_sets = 1,
+  nlin_pars = NULL,
+  likelihood_pars = NULL,
+  fixed = NULL,
+  start = NULL,
+  lower = NULL,
+  upper = NULL,
+  im_method = c("separable", "non-separable"),
+  decouple_equations = F,
+  gen_obs = NULL,
+  calc_nll = NULL,
+  simode_ctrl = simode.control(),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>equations</code></td>
+<td>
+<p>Named vector. The equations describing the ODE system.
+Each element of the vector should contain a character representation
+of the right-hand side of an equation, and should be named according to
+the left-hand side of the equation (i.e., the variable name).
+An equation can contain parameters appearing in <code>pars</code>,
+variables appearing in the equations names, observed non-modeled variables
+appearing in <code>obs</code>, and/or any function of 't',
+which is a reserved symbol for the time domain.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars</code></td>
+<td>
+<p>The names of the parameters and initial conditions
+to be estimated. An initial condition name for a certain variable
+is the name given to the relevant equation in <code>equations</code>
+(e.g., if an equation is named 'x' than its initial condition should be named 'x'
+as well). Note: The symbol 't' is reserved for the time domain and cannot be
+used as a parameter name.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>Time points of the observations. Either a vector,
+if the same time points were used for observing all variables,
+or a list of vectors the length of <code>obs</code>, of which each element
+is the length of the relevant element in <code>obs</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs</code></td>
+<td>
+<p>Named list. The observations. When <code>obs_sets=1</code>, <code>obs</code>
+should contain a list of vectors with observations of either a variable described
+by one of the equations (named according to the relevant equation name)
+or a non-modeled variable appearing in one of the equations.
+Each observations vector should be the length of the relevant time vector.
+When <code>obs_sets&gt;1</code>, <code>obs</code> should contain a list,
+where each list member is a list that fits the description in the case of <code>obs_sets=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs_sets</code></td>
+<td>
+<p>Number of observations sets. When <code>obs_sets&gt;1</code>, the function will
+fit the set of observations according to the value of <code>obs_sets_fit</code> in <code>simode_ctrl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlin_pars</code></td>
+<td>
+<p>Names of parameters or initial conditions
+that will be estimated in stage 1 using nonlinear least squares optimization.
+The parameter names in <code>nlin_pars</code> must appear in <code>pars</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>likelihood_pars</code></td>
+<td>
+<p>Names of likelihood parameters not appearing in the ODE system,
+which are needed for the the user-defined function <code>calc_nll</code>.
+The parameter names in <code>likelihood_pars</code> must appear in <code>pars</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+<p>Named vector. Fixed values for one or more of the ODE system parameters or
+initial conditions. Parameters in this list will not be estimated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Named vector. Starting values for optimization of parameters/initial conditions.
+Must contain starting values for all the parameters in <code>nlin_pars</code>
+and <code>likelihood_pars</code>. If im_method="non-seperable", can optionally contain
+starting values for any other parameter/initial condition.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+<p>Named vector. Lower bounds for any parameter/initial condition.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>Named vector. Upper bounds for any parameter/initial condition.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>im_method</code></td>
+<td>
+<p>The method to use for integral-matching. Default "separable"
+means that linear parameters are estimated directly while "non-separable"
+means that linear parameters are estimated using nonlinear least squares optimization.
+If none of the parameters are linear then the default can be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>decouple_equations</code></td>
+<td>
+<p>Whether to fit each equation separately
+in the integral-matching stage.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gen_obs</code></td>
+<td>
+<p>A user-defined function for completing missing observations (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>calc_nll</code></td>
+<td>
+<p>A user-defined function for calculating negative log-likelihood for
+the model (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simode_ctrl</code></td>
+<td>
+<p>Various control parameters. See <code>simode.control</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments passed to <code>optim</code>, <code>gen_obs</code> and <code>calc_nll</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>gen_obs</code> can be used in cases of a partially observed system,
+for which observations of the missing variables can be generated given values for the
+system parameters. The function will be called during the optimization using integral-matching.<br>
+It must be defined as
+<code>gen_obs &lt;- function(equations, pars, x0, time, obs, ...)</code>, where:
+</p>
+
+<ul>
+<li> <p><code>equations</code> the ODE equations
+</p>
+</li>
+<li> <p><code>pars</code> the parameter values
+</p>
+</li>
+<li> <p><code>x0</code> the initial conditions
+</p>
+</li>
+<li> <p><code>time</code> the timing of the observations (vector or list)
+</p>
+</li>
+<li> <p><code>obs</code> the observations
+</p>
+</li>
+<li> <p><code>...</code> additional parameters passed from the call to <code>simode</code>
+</p>
+</li>
+</ul>
+<p>The function should return a list with two items:
+</p>
+
+<ul>
+<li> <p><code>time</code> the vector or list of time points of the observations
+</p>
+</li>
+<li> <p><code>obs</code> the list of observations with the newly generated observations
+</p>
+</li>
+</ul>
+<p><code>calc_nll</code> allows the user to pass his own likelihood function to be used in the
+optimization in the second stage (if not defined, the default nonlinear least squares
+optimization will be used). The likelihood function will also be used in a following
+call to <code>profile</code>, for the calculation of likelihood profiles.
+It must be defined as
+<code>calc_nll &lt;- function(pars, time, obs, model_out, ...)</code>, where:
+</p>
+
+<ul>
+<li> <p><code>pars</code> the parameter values
+</p>
+</li>
+<li> <p><code>time</code> the timing of the observations (vector or list)
+</p>
+</li>
+<li> <p><code>obs</code> the observations
+</p>
+</li>
+<li> <p><code>model_out</code> the model output returned from a call to <code>solve_ode</code>.
+If <code>time</code> is a list with possibly different times for each variable
+then <code>model_out</code> will contain a union of all these times.
+</p>
+</li>
+<li> <p><code>...</code> additional parameters passed from the call to <code>simode</code>
+</p>
+</li>
+</ul>
+<p>The function should return the negative log-likelihood.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>obs_sets=1</code>, the function returns a <code>simode</code> object containing the
+parameter estimates after integral-matching (stage 1) and after
+nonlinear least squares optimization (stage 2). If <code>obs_sets&gt;1</code> and
+<code>obs_sets_fit!="together"</code> in <code>simode_ctrl</code>, the function
+returns a <code>list.simode</code> object which is a list of <code>simode</code> objects
+the length of <code>obs_sets</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Dattner &amp; Klaassen (2015). Optimal Rate of Direct Estimators in Systems of Ordinary Differential Equations Linear in Functions of the Parameters,
+Electronic Journal of Statistics, Vol. 9, No. 2, 1939-1973.
+</p>
+<p>Dattner, Miller, Petrenko, Kadouriz, Jurkevitch &amp; Huppert (2017). Modelling and Parameter Inference of Predator-prey Dynamics in Heterogeneous Environments Using The Direct Integral Approach,
+Journal of The Royal Society Interface 14.126: 20160525.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## =================================================
+## Predator-Prey Lotka-Volterra model
+## =================================================
+
+## generate model equations and parameters (X=Prey,Y=Predator)
+pars &lt;- c('alpha','beta','gamma','delta')
+vars &lt;- c('X','Y')
+eq_X &lt;- 'alpha*X-beta*X*Y'
+eq_Y &lt;- 'delta*X*Y-gamma*Y'
+equations &lt;- c(eq_X,eq_Y)
+names(equations) &lt;- vars
+x0 &lt;- c(0.9,0.9)
+names(x0) &lt;- vars
+theta &lt;- c(2/3,4/3,1,1)
+names(theta) &lt;- pars
+
+## generate observations
+n &lt;- 50
+time &lt;- seq(0,25,length.out=n)
+model_out &lt;- solve_ode(equations,theta,x0,time)
+x_det &lt;- model_out[,vars]
+set.seed(1000)
+sigma &lt;- 0.05
+obs &lt;- list()
+for(i in 1:length(vars)) {
+  obs[[i]] &lt;- pmax(0, rnorm(n,x_det[,i],sigma))
+}
+names(obs) &lt;- vars
+
+## estimate model parameters with known initial conditions
+simode_fit1 &lt;- simode(equations=equations, pars=pars, fixed=x0, time=time, obs=obs)
+plot(simode_fit1, type='fit', time=seq(0,25,length.out=100), pars_true=theta, mfrow=c(2,1))
+plot(simode_fit1, type='est', pars_true=theta)
+
+
+## estimate model parameters and initial conditions
+simode_fit2 &lt;- simode(equations=equations, pars=c(pars,vars), time=time, obs=obs)
+plot(simode_fit2, type='fit', time=seq(0,25,length.out=100), pars_true=c(theta,x0), mfrow=c(2,1))
+plot(simode_fit2, type='est', pars_true=c(theta,x0))
+
+profiles_fit2 &lt;- profile(simode_fit2,step_size=0.01,max_steps=50)
+plot(profiles_fit2,mfrow=c(2,3))
+ci_fit2 &lt;- confint(profiles_fit2)
+ci_fit2
+plot(ci_fit2,pars_true=c(theta,x0),legend=T)
+
+
+</code></pre>
+
+
+</div>

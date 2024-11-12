@@ -1,0 +1,329 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>seas.norm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate annual and seasonal ‘normal’ statistics, including
+precipitation normals</h2>
+
+<h3>Description</h3>
+
+<p>Calculates annual and seasonal ‘normal’ statistics on a
+<code>seas.sum</code> object, including precipitation normals for
+rain, snow and total precipitation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">seas.norm(x, var, fun = "median", norm = "days", year.filter,
+          ann.only = FALSE, precip.norm = FALSE)
+
+precip.norm(x, fun = "median", norm = "days", year.filter)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code>seas.sum</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var</code></td>
+<td>
+<p>variable name for the ‘normal’; if omitted will
+use <code>x$prime</code> (the prime variable of the
+<code>seas.sum</code> object), or if <code>precip.norm=TRUE</code> will
+be <code>"precip"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>norm</code></td>
+<td>
+<p>variable for normalization of the sum, usually the number
+of "days" in each bin, but it can also be "active" to estimate the
+precipitation normal for days of active precipitation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>year.filter</code></td>
+<td>
+<p>filter specific years for analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p><code>character</code> of an existing <code>function</code>
+object, or a <code>function</code> to operate across the number of
+years of observations, usually <code>"mean"</code> or <code>"median"</code>
+(default); details described below</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ann.only</code></td>
+<td>
+<p>only annual statistics returned (saves time from other
+calculations)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>precip.norm</code></td>
+<td>
+<p><code>logical</code>; computes precipitation
+normal statistics, which is done slightly differently since it
+involves rain, snow and total precipitation; if TRUE,
+<code>x$var</code> must include "rain", "snow" and "precip" summed
+variables</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function calculates the statistics of precipitation data on an
+<em>annual</em> and <em>seasonal</em> scope from a <code>seas.sum</code>
+object.
+</p>
+<p>The seasonal input data are normalized by the number of days in each
+bin, to produce a precipitation rate in ‘mm/day’. This is
+because the number of days in each bin is not equal. The function
+<code>fun</code> is then applied to the normalized precipitation, and
+operates along each bin, across multiple years of data. The supplied
+function is usually <code>"median"</code> or <code>"mean"</code>,
+but it can also be a built in <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> function, such as <code>"var"</code>
+for variance, or a composite such as:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+    <code>function(i, na.rm)(quantile(i, 0.2, na.rm=na.rm, names=F))</code> </td>
+<td style="text-align: left;">
+    the 20% quantile </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>function(i, na.rm)(mean(i, na.rm=na.rm)/(sd(i, na.rm=na.rm)^3))</code> </td>
+<td style="text-align: left;"> skewness
+  </td>
+</tr>
+</table>
+<p>If <code>fun = "mean"</code>, then the statistics are
+straightforward (using <code>apply</code>), however if <code>fun =
+    "median"</code> and there are more than 2 years of data, a different
+approach is taken. The <dfn>median</dfn> is a special case of the
+<dfn>quantile</dfn> function, where the probability is 50% of the
+population. The <code>median</code> and <code>quantile</code>
+functions are more resistant to outliers than <code>mean</code>, and
+can have advantages on precipitation data.  Precipitation occurring
+at a given time of year does not have a normal distribution since it
+is a value that is not always occurring. It often has a left-skewed
+distribution, consisting of many zero measurements, and few extreme
+precipitation events.
+</p>
+<p>In this function, if <code>fun = "median"</code> (default) the
+<code>median</code> function is only used to calculate the median
+annual precipitation. The <code>quantile</code> function is used to
+calculate the seasonal statistics, since the sum of medians applied in
+each bin are less than the median annual precipitation. This is
+because there are usually many measurements of no rain, which skew the
+distribution to the left.  The percentile for the quantile function is
+found using a secant method (Cheny and Kincaid, 1999) such that the
+sum of the quantiles from each bin are equal to the median of the
+annual precipitation.
+</p>
+<p>Snow and rain (which are the two components of precipitation) are
+calculated similarly (if <code>fun = "median"</code>).  The annual total
+rain and snow amounts are determined by finding the percentile of a
+quantile function where the sum is equal to the median of the annual
+precipitation. The seasonal snow and rain amounts are independently
+found using the same method to find the seasonal precipitation. The
+fraction of the snow in each bin,
+<code class="reqn">snow.frac.b=snow.b/(snow.b+rain.b)</code> is multiplied by the seasonal
+precipitation to determine the seasonal rain and snow amounts.  This
+is because the sum of rain and snow in each bin does not equal the
+seasonal precipitation. This way, a figure with
+<code>precip.only = TRUE</code> and <code>= FALSE</code> will have identical daily
+precipitation rates in each bin.
+</p>
+<p>The pitfalls of calculating precipitation ‘normals’ is that it
+assumes that precipitation occurs <em>every</em> day at a constant rate
+within each bin. This is not realistic, as the precipitation rates are
+much higher when it is actually occurring.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a <code>precip.norm</code> object, which is a <code>list</code>
+with the following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>seas</code></td>
+<td>
+
+<p>An <code>array</code> of seasonal precipitation
+statistics: <code>precip</code>, <code>rain</code> and <code>snow</code> (if
+<code>precip.only = FALSE</code>) are in ‘mm/day’; <code>freq</code> and
+<code>na</code> are the fraction of a day in which precipitation is
+occurring and that data is missing.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ann</code></td>
+<td>
+
+<p>Annual precipitation statistics. <code>precip</code>, <code>rain</code> and
+<code>snow</code> (if <code>precip.only = FALSE</code>) are in ‘mm/year’;
+<code>active</code> and <code>na</code> are the number of days per year which
+are active (for example, days with precipitation) and that data are
+missing.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bins</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bin.lengths</code></td>
+<td>
+<p>maximum number of days in each bin</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>year.range</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.day</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var</code></td>
+<td>
+<p>same as input parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>units</code></td>
+<td>
+<p>units for <code>var</code>, usnig <code>attr</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>long.name</code></td>
+<td>
+<p>long name for <code>var</code>, using <code>attr</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ann.only</code></td>
+<td>
+<p>ann.only same as input parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>precip.only</code></td>
+<td>
+<p>from same as input parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a.cut</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p><code>function</code> used in analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>from <code>x</code></p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>Seasonal data are explicitly normalized to a rate <em>per day</em>
+(i.e., mm/day), and not <em>per month</em> (i.e., mm/month). This is
+because a time-derivative <em>per month</em> has unequal intervals of
+time, ranging between 28 to 31 days. This directly creates up to 10%
+error in the analysis between months.
+</p>
+<p>Units for annual normals, however, remain <em>per year</em>, since a
+year is a suitable time derivative.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Mike Toews</p>
+
+
+<h3>References</h3>
+
+<p>Cheny, E. W. and Kincaid, D. 1999, <em>Numerical Mathematics and
+Computing</em>, Pacific Grove: Brooks/Cole Pub., 671 p.
+</p>
+<p>Guttman, N.B. 1989, ‘Statistical descriptors of climate’,
+<em>American Meteorological Society</em>, <b>70</b>, 602–607.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.seas.norm</code>, <code>seas.var.plot</code>,
+<code>precip.dep</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(mscdata)
+
+# calculate precipitation normal
+dat &lt;- mksub(mscdata, id=1108447)
+dat.ss &lt;- seas.sum(dat)
+dat.nm &lt;- precip.norm(dat.ss, fun="mean")
+
+# plot precipitation normal
+plot(dat.nm) # this is the same as plot.precip.norm(dat.nm)
+
+# use precipitation normal
+dat.dep &lt;- precip.dep(dat, dat.nm)
+plot(dep ~ date, dat.dep, type="l",
+     main="CPD from mean normals")
+</code></pre>
+
+
+</div>

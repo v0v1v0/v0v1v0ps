@@ -1,0 +1,216 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>wald.coef</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Wald statistic for variable selection in generalized linear models</h2>
+
+<h3>Description</h3>
+
+<p>Computes the value of Wald's statistic, testing the significance of the excluded 
+variables, in the context of variable subset selection in generalized linear models
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">wald.coef(mat, H, indices,
+tolval=10*.Machine$double.eps, tolsym=1000*.Machine$double.eps)</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mat</code></td>
+<td>
+<p>An estimate (FI) of Fisher's information matrix for the 
+full model variable-coefficient estimates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>H</code></td>
+<td>
+<p>A matrix product of the form <code>FI %*% b %*% t(b) %*% FI</code> 
+where b is a vector of variable-coefficient estimates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>indices</code></td>
+<td>
+<p>a numerical vector, matrix or 3-d array of integers
+giving the indices of the variables in the subset. If a matrix is
+specified, each row is taken to represent a different
+<em>k</em>-variable subset. If a 3-d array is given, it is assumed
+that the third dimension corresponds to different cardinalities.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolval</code></td>
+<td>
+<p>the tolerance level to be used in checks for 
+ill-conditioning and positive-definiteness of the Fisher Information and
+the auxiliar (H) matrices. Values smaller than <code>tolval</code> are
+considered equivalent to zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolsym</code></td>
+<td>
+<p>the tolerance level for symmetry of the
+Fisher Information and the auxiliar (H) matrices. If corresponding 
+matrix entries differ by more than this
+value, the input matrices will be considered asymmetric and execution
+will be aborted. If corresponding entries are different, but by less
+than this value, the input matrix will be replaced by its symmetric
+part, i.e., input matrix A becomes (A+t(A))/2.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Variable selection in the context of generalized linear models is typically based
+on the minimization of statistics that test the significance of excluded variables. 
+In particular, the likelihood ratio, Wald's, Rao's and some adaptations
+of such statistics, are often proposed as comparison criteria for variable subsets
+of the same dimensionality. All these statistics are assympotically equivalent and
+can be converted into information criteria, like the AIC, that are also able to compare 
+subsets of different dimensionalities (see references [1] and [2] for further 
+details).
+</p>
+<p>Among these criteria, Wald's statistic has some computational advantages because it can
+always be derived from the same (concerning the full model) maximum likelihood and Fisher 
+information estimates. In particular, if <code class="reqn">W_{allv}</code> is the value of
+the Wald statistic testing
+the significance of the full covariate vector, b and FI are coefficient and Fisher 
+information estimates and H is an auxiliary rank-one matrix given by
+<code>H =  FI %*% b %*% t(b) %*% FI</code>, it follows that the value of Wald's statistic for the 
+excluded variables (<code class="reqn">W_{excv}</code>) in a given subset  is given by 
+<code class="reqn">W_{excv} = W_{allv} - tr (FI_{indices}^{-1} H_{indices}) ,</code> where
+<code class="reqn">FI_{indices}</code> and <code class="reqn">H_{indices}</code> are the  
+portions of the FI and H matrices associated with the selected variables.
+</p>
+<p>The FI and H matrices can be retrieved (from a glm object) by the <code>glmHmat</code>
+function and may be used as input to the search functions <code>anneal</code>, 
+<code>genetic</code>, <code>improve</code> and <code>eleaps</code>. The Wald function
+computes the value of Wald statistc from these matrices for a subset specified by <code>indices</code>  
+</p>
+<p>The fact that <code>indices</code> can be a matrix or 3-d array allows for
+the computation of the Wald statistic values of subsets produced by the search
+functions <code>anneal</code>, <code>genetic</code>, 
+<code>improve</code> and
+<code>eleaps</code> (whose output option <code>$subsets</code> are
+matrices or 3-d arrays), using a different criterion (see the example
+below).
+</p>
+
+
+<h3>Value</h3>
+
+<p>The value of the Wald statistic.
+</p>
+
+
+<h3>References</h3>
+
+<p>[1] Lawless, J. and Singhal, K. (1978). Efficient Screening of Nonnormal 
+Regression Models, <em>Biometrics</em>, Vol. 34, 318-327.
+</p>
+<p>[2] Lawless, J. and Singhal, K. (1987). ISMOD: An All-Subsets Regression
+Program for Generalized Models I. Statistical and Computational Background, 
+<em>Computer Methods and Programs in Biomedicine</em>, Vol. 24, 117-124.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## ---------------------------------------------------------------
+
+
+##  An example of variable selection in the context of binary response
+##  regression models. The logarithms and original physical measurements
+##  of the "Leptograpsus variegatus crabs" considered in the MASS crabs 
+##  data set are used to fit a logistic model that takes the sex of each crab
+##  as the response variable.
+
+library(MASS)
+data(crabs)
+lFL &lt;- log(crabs$FL)
+lRW &lt;- log(crabs$RW)
+lCL &lt;- log(crabs$CL)
+lCW &lt;- log(crabs$CW)
+logrfit &lt;- glm(sex ~ FL + RW + CL + CW  + lFL + lRW + lCL + lCW,
+crabs,family=binomial) 
+## Warning message:
+## fitted probabilities numerically 0 or 1 occurred in: glm.fit(x = X, y = Y, 
+## weights = weights, start = start, etastart = etastart, 
+
+lHmat &lt;- glmHmat(logrfit) 
+wald.coef(lHmat$mat,lHmat$H,c(1,6,7),tolsym=1E-06)
+## [1] 2.286739
+## Warning message:
+
+## The covariance/total matrix supplied was slightly asymmetric: 
+## symmetric entries differed by up to 6.57252030578093e-14.
+## (less than the 'tolsym' parameter).
+## It has been replaced by its symmetric part.
+## in: validmat(mat, p, tolval, tolsym)
+
+
+## ---------------------------------------------------------------
+
+## 2) An example computing the value of the Wald statistic in a logistic 
+##  model for five subsets produced when a probit model was originally 
+##  considered
+
+library(MASS)
+data(crabs)
+lFL &lt;- log(crabs$FL)
+lRW &lt;- log(crabs$RW)
+lCL &lt;- log(crabs$CL)
+lCW &lt;- log(crabs$CW)
+probfit &lt;- glm(sex ~ FL + RW + CL + CW  + lFL + lRW + lCL + lCW,
+crabs,family=binomial(link=probit)) 
+## Warning message:
+## fitted probabilities numerically 0 or 1 occurred in: glm.fit(x = X, y = Y, 
+## weights = weights, start = start, etastart = etastart) 
+
+pHmat &lt;- glmHmat(probfit) 
+probresults &lt;-eleaps(pHmat$mat,kmin=3,kmax=3,nsol=5,criterion="Wald",H=pHmat$H,
+r=1,tolsym=1E-10)
+## Warning message:
+
+## The covariance/total matrix supplied was slightly asymmetric: 
+## symmetric entries differed by up to 3.14059889205964e-12.
+## (less than the 'tolsym' parameter).
+## It has been replaced by its symmetric part.
+## in: validmat(mat, p, tolval, tolsym) 
+
+logrfit &lt;- glm(sex ~ FL + RW + CL + CW  + lFL + lRW + lCL + lCW,
+crabs,family=binomial) 
+## Warning message:
+## fitted probabilities numerically 0 or 1 occurred in: glm.fit(x = X, y = Y, 
+## weights = weights, start = start, etastart = etastart)
+
+lHmat &lt;- glmHmat(logrfit) 
+wald.coef(lHmat$mat,H=lHmat$H,probresults$subsets,tolsym=1e-06)
+##             Card.3
+## Solution 1 2.286739
+## Solution 2 2.595165
+## Solution 3 2.585149
+## Solution 4 2.669059
+## Solution 5 2.690954
+## Warning message:
+
+## The covariance/total matrix supplied was slightly asymmetric: 
+## symmetric entries differed by up to 6.57252030578093e-14.
+## (less than the 'tolsym' parameter).
+## It has been replaced by its symmetric part.
+## in: validmat(mat, p, tolval, tolsym)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,141 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>AggregatedEffects</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Summarised coefficients conditionally on selection</h2>
+
+<h3>Description</h3>
+
+<p>Computes descriptive statistics (defined by <code>FUN</code>) for coefficients of
+the (calibrated) models conditionally on selection across resampling
+iterations.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">AggregatedEffects(
+  stability,
+  lambda_id = NULL,
+  side = "X",
+  comp = 1,
+  FUN = stats::median,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>stability</code></td>
+<td>
+<p>output of <code>VariableSelection</code> or
+<code>BiSelection</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_id</code></td>
+<td>
+<p>parameter ID with respect to the grid <code>Lambda</code>. If
+<code>NULL</code>, aggregated coefficients across the models run with the
+calibrated parameter are returned.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>side</code></td>
+<td>
+<p>character string indicating if coefficients of predictors
+(<code>side="X"</code>) or outcomes (<code>side="Y"</code>) should be returned. Only
+applicable to PLS models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>comp</code></td>
+<td>
+<p>component ID. Only applicable to PLS models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FUN</code></td>
+<td>
+<p>function to use to aggregate coefficients of visited models over
+resampling iterations. Recommended functions include
+<code>median</code> or <code>mean</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to be passed to <code>FUN</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A matrix of summarised coefficients conditionally on selection across
+resampling iterations. Missing values (<code>NA</code>) are returned for
+variables that are never selected.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>VariableSelection</code>, <code>BiSelection</code>,
+<code>Refit</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Example with univariate outcome
+set.seed(1)
+simul &lt;- SimulateRegression(n = 100, pk = 50, family = "gaussian")
+stab &lt;- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "gaussian")
+median_betas &lt;- AggregatedEffects(stab)
+
+# Comparison with refitted model
+refitted &lt;- Refit(xdata = simul$xdata, ydata = simul$ydata, stability = stab)
+refitted_betas &lt;- coef(refitted)[-1, 1]
+plot(median_betas[names(refitted_betas), ], refitted_betas,
+  panel.first = abline(0, 1, lty = 2)
+)
+
+# Extracting mean betas conditionally on selection
+mean_betas &lt;- AggregatedEffects(stab, FUN = mean)
+plot(median_betas, mean_betas)
+
+# Regression with multivariate outcomes
+set.seed(1)
+simul &lt;- SimulateRegression(n = 100, pk = 50, q = 2, family = "gaussian")
+stab &lt;- VariableSelection(xdata = simul$xdata, ydata = simul$ydata, family = "mgaussian")
+median_betas &lt;- AggregatedEffects(stab)
+dim(median_betas)
+
+# Sparse PLS with multivariate outcome
+if (requireNamespace("sgPLS", quietly = TRUE)) {
+  set.seed(1)
+  simul &lt;- SimulateRegression(n = 50, pk = 15, q = 3, family = "gaussian")
+  x &lt;- simul$xdata
+  y &lt;- simul$ydata
+  stab &lt;- BiSelection(
+    xdata = x, ydata = y,
+    family = "gaussian", ncomp = 3,
+    LambdaX = seq_len(ncol(x) - 1),
+    implementation = SparsePLS
+  )
+  median_betas &lt;- AggregatedEffects(stab)
+  dim(median_betas)
+  median_betas &lt;- AggregatedEffects(stab, side = "Y")
+  dim(median_betas)
+}
+
+
+</code></pre>
+
+
+</div>

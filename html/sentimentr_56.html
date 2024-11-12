@@ -1,0 +1,566 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sentiment</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Polarity Score (Sentiment Analysis)</h2>
+
+<h3>Description</h3>
+
+<p>Approximate the sentiment (polarity) of text by sentence.  This function allows
+the user to easily alter (add, change, replace) the default polarity an 
+valence shifters dictionaries to suit the context dependent needs of a particular
+data set.  See the <code>polarity_dt</code> and <code>valence_shifters_dt</code> arguments
+for more information.  Other hyper-parameters may add additional fine tuned 
+control of the algorithm that may boost performance in different contexts.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sentiment(
+  text.var,
+  polarity_dt = lexicon::hash_sentiment_jockers_rinker,
+  valence_shifters_dt = lexicon::hash_valence_shifters,
+  hyphen = "",
+  amplifier.weight = 0.8,
+  n.before = 5,
+  n.after = 2,
+  question.weight = 1,
+  adversative.weight = 0.25,
+  neutral.nonverb.like = FALSE,
+  missing_value = 0,
+  retention_regex = "\\d:\\d|\\d\\s|[^[:alpha:]',;: ]",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>text.var</code></td>
+<td>
+<p>The text variable.  Can be a <code>get_sentences</code> object or
+a raw character vector though <code>get_sentences</code> is preferred as it avoids
+the repeated cost of doing sentence boundary disambiguation every time
+<code>sentiment</code> is run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>polarity_dt</code></td>
+<td>
+<p>A <span class="pkg">data.table</span> of positive/negative words and
+weights with x and y as column names.  The <span class="pkg">lexicon</span> package has several 
+dictionaries that can be used, including: 
+</p>
+
+<ul>
+<li> <p><code>lexicon::hash_sentiment_jockers_rinker</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_jockers</code>
+</p>
+</li>
+<li> <p><code>lexicon::emojis_sentiment</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_emojis</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_huliu</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_loughran_mcdonald</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_nrc</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_senticnet</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_sentiword</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_slangsd</code>
+</p>
+</li>
+<li> <p><code>lexicon::hash_sentiment_socal_google</code>
+</p>
+</li>
+</ul>
+<p>Additionally, the 
+<code>as_key</code> function can be used to make a sentiment frame suitable for
+<code>polarity_dt</code>.  This takes a 2 column data.frame with the first column
+being words and the second column being polarity values.  Note that as of 
+version 1.0.0 <span class="pkg">sentimentr</span> switched from the Liu &amp; HU (2004) dictionary
+as the default to Jocker's (2017) dictionary from the <span class="pkg">syuzhet</span> package.
+Use <code>lexicon::hash_sentiment_huliu</code> to obtain the old behavior.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>valence_shifters_dt</code></td>
+<td>
+<p>A <span class="pkg">data.table</span> of valence shifters that
+can alter a polarized word's meaning and an integer key for negators (1),
+amplifiers [intensifiers] (2), de-amplifiers [downtoners] (3) and adversative 
+conjunctions (4) with x and y as column names.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyphen</code></td>
+<td>
+<p>The character string to replace hyphens with.  Default replaces
+with nothing so 'sugar-free' becomes 'sugarfree'.  Setting <code>hyphen = " "</code>
+would result in a space between words (e.g., 'sugar free').  Typically use 
+either " " or default "".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amplifier.weight</code></td>
+<td>
+<p>The weight to apply to amplifiers/de-amplifiers 
+[intensifiers/downtoners] (values from 0 to 1).  This value will multiply the 
+polarized terms by 1 + this value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.before</code></td>
+<td>
+<p>The number of words to consider as valence shifters before
+the polarized word.  To consider the entire beginning portion of a sentence
+use <code>n.before = Inf</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.after</code></td>
+<td>
+<p>The number of words to consider as valence shifters after
+the polarized word.  To consider the entire ending portion of a sentence
+use <code>n.after = Inf</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>question.weight</code></td>
+<td>
+<p>The weighting of questions (values from 0 to 1).
+Default is 1.  A 0 corresponds with the belief that questions (pure questions)
+are not polarized.  A weight may be applied based on the evidence that the
+questions function with polarized sentiment.  In an opinion tasks such as a
+course evalaution the questions are more likely polarized, not designed to
+gain information.  On the other hand, in a setting with more natural dialogue,
+the question is less likely polarized and is likely to function as a means
+to gather information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adversative.weight</code></td>
+<td>
+<p>The weight to give to adversative conjunctions or 
+contrasting conjunctions (e.g., "but") that overrule the previous clause 
+(Halliday &amp; Hasan, 2013).  Weighting a contrasting statement stems from the 
+belief that the adversative conjunctions like "but", "however", and "although" 
+amplify the current clause and/or down weight the prior clause.  If an 
+adversative conjunction is located before the polarized word in the context 
+cluster the cluster is up-weighted 1 + number of occurrences of the 
+adversative conjunctions before the polarized word times the
+weight given (<code class="reqn">1 + N_{adversative\,conjunctions} * z_2</code> where <code class="reqn">z_2</code> 
+is the <code>adversative.weight</code>).  Conversely, an adversative conjunction 
+found after the polarized word in a context cluster down weights the cluster 
+1 - number of occurrences of the adversative conjunctions after the polarized 
+word times the weight given (<code class="reqn">1 + N_{adversative\,conjunctions}*-1 * z_2</code>).  
+These are added to the deamplifier and amplifier weights and thus the down 
+weight is constrained to -1 as the lower bound.  Set to zero to remove 
+adversative conjunction weighting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neutral.nonverb.like</code></td>
+<td>
+<p>logical.  If <code>TRUE</code>, and 'like' is found
+in the <code>polarity_dt</code>, when the word 'like' is preceded by one of the 
+following linking verbs: <code>"'s"</code>, <code>"was"</code>, <code>"is"</code>, <code>"has"</code>, 
+<code>"am"</code>, <code>"are"</code>, <code>"'re"</code>, <code>"had"</code>, or <code>"been"</code> it is 
+neutralized as this non-verb form of like is not likely polarized.  This is a 
+poor man's part of speech tagger, maintaining the balance between speed and 
+accuracy.  The word 'like', as a verb, tends to be polarized and is usually 
+preceded by a noun or pronoun, not one of the linking verbs above.  This 
+hyper parameter doesn't always yield improved results depending on the context 
+of where the text data comes from.  For example, it is likely to be more 
+useful in literary works, where like is often used in non-verb form, than 
+product comments.  Use of this parameter will add compute time, this must be 
+weighed against the need for accuracy and the likeliness that more accurate 
+results will come from setting this argument to <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>missing_value</code></td>
+<td>
+<p>A value to replace <code>NA</code>/<code>NaN</code> with.  Use
+<code>NULL</code> to retain missing values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>retention_regex</code></td>
+<td>
+<p>A regex of what characters to keep.  All other 
+characters will be removed.  Note that when this is used all text is lower 
+case format.  Only adjust this parameter if you really understand how it is 
+used.  Note that swapping the <code>\\p{L}</code> for <code>[^[:alpha:];:,\']</code> may 
+retain more alpha letters but will likely decrease speed.  See examples below 
+for how to test the need for <code>\\p{L}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The equation used by the algorithm to assign value to polarity of
+each sentence fist utilizes the sentiment dictionary to tag polarized words.  
+Each paragraph
+(<code class="reqn">p_i = \{s_1, s_2, ..., s_n\}</code>) composed of
+sentences, is broken into element sentences
+(<code class="reqn">s_i,j = \{w_1, w_2, ..., w_n\}</code>) where <code class="reqn">w</code>
+are the words within sentences.  Each sentence (<code class="reqn">s_j</code>) is broken into a
+an ordered bag of words.  Punctuation is removed with the exception of pause
+punctuations (commas, colons, semicolons) which are considered a word within
+the sentence.  I will denote pause words as <code class="reqn">cw</code> (comma words) for
+convenience.  We can represent these words as an i,j,k notation as
+<code class="reqn">w_{i,j,k}</code>.  For example <code class="reqn">w_{3,2,5}</code> would be the fifth word of the
+second sentence of the third paragraph.  While I use the term paragraph this
+merely represent a complete turn of talk.  For example t may be a cell level
+response in a questionnaire composed of sentences.
+</p>
+<p>The words in each sentence (<code class="reqn">w_{i,j,k}</code>) are searched and compared to a
+dictionary of polarized words (e.g., Jockers (2017) dictionary found in 
+the <span class="pkg">lexicon</span> package).  Positive (<code class="reqn">w_{i,j,k}^{+}</code>) and
+negative (<code class="reqn">w_{i,j,k}^{-}</code>) words are tagged with a <code class="reqn">+1</code> 
+and <code class="reqn">-1</code> respectively.  I will denote polarized words as <code class="reqn">pw</code> for 
+convenience. These will form a polar cluster (<code class="reqn">c_{i,j,l}</code>) 
+which is a subset of the a sentence 
+(<code class="reqn">c_{i,j,l} \subseteq s_i,j </code>).
+</p>
+<p>The polarized context cluster (<code class="reqn">c_{i,j,l}</code>) of words is pulled from around
+the polarized word (<code class="reqn">pw</code>) and defaults to 4 words before and two words
+after <code class="reqn">pw</code>) to be considered as valence shifters.  The cluster can be represented as
+(<code class="reqn">c_{i,j,l} = \{pw_{i,j,k - nb}, ..., pw_{i,j,k} , ..., pw_{i,j,k - na}\}</code>),
+where <code class="reqn">nb</code> &amp; <code class="reqn">na</code> are the parameters <code>n.before</code> and <code>n.after</code>
+set by the user.  The words in this polarized context cluster are tagged as
+neutral (<code class="reqn">w_{i,j,k}^{0}</code>), negator (<code class="reqn">w_{i,j,k}^{n}</code>),
+amplifier [intensifier]] (<code class="reqn">w_{i,j,k}^{a}</code>), or de-amplifier
+[downtoner] (<code class="reqn">w_{i,j,k}^{d}</code>). Neutral words hold no value in 
+the equation but do affect word count (<code class="reqn">n</code>).  Each polarized word is then 
+weighted (<code class="reqn">w</code>) based on the weights from the <code>polarity_dt</code> argument 
+and then further weighted by the function and number of the valence shifters 
+directly surrounding the positive or negative word (<code class="reqn">pw</code>).  Pause 
+(<code class="reqn">cw</code>) locations (punctuation that denotes a pause including commas, 
+colons, and semicolons) are indexed and considered in calculating the upper 
+and lower bounds in the polarized context cluster. This is because these marks 
+indicate a change in thought and words prior are not necessarily connected 
+with words after these punctuation marks.  The lower bound of the polarized 
+context cluster is constrained to 
+<code class="reqn">\max \{pw_{i,j,k - nb}, 1, \max \{cw_{i,j,k} &lt; pw_{i,j,k}\}\}</code> and the upper bound is
+constrained to <code class="reqn">\min \{pw_{i,j,k + na}, w_{i,jn}, \min \{cw_{i,j,k} &gt; pw_{i,j,k}\}\}</code>
+where <code class="reqn">w_{i,jn}</code> is the number of words in the sentence.
+</p>
+<p>The core value in the cluster, the polarized word is acted upon by valence
+shifters. Amplifiers (intensifiers) increase the polarity by 1.8 (.8 is the default weight
+(<code class="reqn">z</code>)).  Amplifiers (<code class="reqn">w_{i,j,k}^{a}</code>) become de-amplifiers if the context
+cluster contains an odd number of negators (<code class="reqn">w_{i,j,k}^{n}</code>).  De-amplifiers
+(downtoners) work to decrease the polarity.  Negation (<code class="reqn">w_{i,j,k}^{n}</code>) acts on
+amplifiers/de-amplifiers as discussed but also flip the sign of the polarized
+word.  Negation is determined by raising -1 to the power of the number of
+negators (<code class="reqn">w_{i,j,k}^{n}</code>) + 2.  Simply, this is a result of a belief that two
+negatives equal a positive, 3 negatives a negative and so on.
+</p>
+<p>The adversative conjunctions (i.e., 'but', 'however', and 'although') also 
+weight the context cluster.  A adversative conjunction before the polarized 
+word (<code class="reqn">w_{adversative\,conjunction}, ..., w_{i, j, k}^{p}</code>) up-weights 
+the cluster by 
+<code class="reqn">1 + z_2 * \{|w_{adversative\,conjunction}|, ..., w_{i, j, k}^{p}\}</code> 
+(.85 is the default weight (<code class="reqn">z_2</code>)).  An adversative conjunction after 
+the polarized word down-weights the cluster by
+<code class="reqn">1 + \{w_{i, j, k}^{p}, ..., |w_{adversative\,conjunction}| * -1\} * z_2</code>.  
+The number of occurrences before and after the polarized word are multiplied by
+1 and -1 respectively and then summed within context cluster.  It is this
+value that is multiplied by the weight and added to 1. This
+corresponds to the belief that an adversative conjunction makes the next 
+clause of greater values while lowering the value placed on the prior clause.
+</p>
+<p>The researcher may provide a weight <code class="reqn">z</code> to be utilized with
+amplifiers/de-amplifiers (default is .8; de-amplifier weight is constrained
+to -1 lower bound).  Last, these weighted context clusters (<code class="reqn">c_{i,j,l}</code>) are
+summed (<code class="reqn">c'_{i,j}</code>) and divided by the square root of the word count (<code class="reqn">\sqrt{w_{i,jn}}</code>) yielding an <strong>unbounded
+polarity score</strong> (<code class="reqn">\delta</code>) for each sentence.
+</p>
+<p style="text-align: center;"><code class="reqn">\delta=\frac{c'_{i,j}}{\sqrt{w_{i,jn}}}</code>
+</p>
+
+<p>Where:
+</p>
+<p style="text-align: center;"><code class="reqn">c'_{i,j}=\sum{((1 + w_{amp} + w_{deamp})\cdot w_{i,j,k}^{p}(-1)^{2 + w_{neg}})}</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">w_{amp}= (w_{b} &gt; 1) + \sum{(w_{neg}\cdot (z \cdot w_{i,j,k}^{a}))}</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">w_{deamp} = \max(w_{deamp'}, -1)</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">w_{deamp'}= (w_{b} &lt; 1) + \sum{(z(- w_{neg}\cdot w_{i,j,k}^{a} + w_{i,j,k}^{d}))}</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">w_{b} = 1 + z_2 * w_{b'}</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">w_{b'} = \sum{\\(|w_{adversative\,conjunction}|, ..., w_{i, j, k}^{p}, w_{i, j, k}^{p}, ..., |w_{adversative\,conjunction}| * -1}\\)</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">w_{neg}= \left(\sum{w_{i,j,k}^{n}}\right) \bmod {2}</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>Returns a <span class="pkg">data.table</span> of:
+</p>
+
+<ul>
+<li>
+<p>  element_id - The id number of the original vector passed to <code>sentiment</code>
+</p>
+</li>
+<li>
+<p>  sentence_id - The id number of the sentences within each <code>element_id</code>
+</p>
+</li>
+<li>
+<p>  word_count - Word count
+</p>
+</li>
+<li>
+<p>  sentiment - Sentiment/polarity score (note: sentiments less than zero is negative, 0 is neutral, and greater than zero positive polarity)
+</p>
+</li>
+</ul>
+<h3>Note</h3>
+
+<p>The polarity score is dependent upon the polarity dictionary used.
+This function defaults to a combined and augmented version of Jocker's (2017) 
+[originally exported by the <span class="pkg">syuzhet</span> package] &amp; Rinker's augmented Hu &amp; Liu (2004) 
+dictionaries in the <span class="pkg">lexicon</span> package, however, this may not be appropriate, for 
+example, in the context of children in a classroom.  The user may (is 
+encouraged) to provide/augment the dictionary (see the <code>as_key</code> 
+function).  For instance the word "sick" in a high school setting may mean 
+that something is good, whereas "sick" used by a typical adult indicates 
+something is not right or negative connotation (<strong>deixis</strong>).
+</p>
+
+
+<h3>References</h3>
+
+<p>Jockers, M. L. (2017). Syuzhet: Extract sentiment and plot arcs 
+from text. Retrieved from https://github.com/mjockers/syuzhet
+</p>
+<p>Hu, M., &amp; Liu, B. (2004). Mining opinion features in customer
+reviews. National Conference on Artificial Intelligence.
+</p>
+<p>Halliday, M. A. K. &amp; Hasan, R. (2013). Cohesion in English. New York, NY: Routledge.
+</p>
+<p><a href="https://www.slideshare.net/jeffreybreen/r-by-example-mining-twitter-for">https://www.slideshare.net/jeffreybreen/r-by-example-mining-twitter-for</a>
+</p>
+<p><a href="http://hedonometer.org/papers.html">http://hedonometer.org/papers.html</a> Links to papers on hedonometrics
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Original URL: https://github.com/trestletech/Sermon-Sentiment-Analysis
+</p>
+<p>Other sentiment functions: 
+<code>sentiment_by()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">mytext &lt;- c(
+   'do you like it?  But I hate really bad dogs',
+   'I am the best friend.',
+   "Do you really like it?  I'm not a fan",
+   "It's like a tree."
+)
+
+## works on a character vector but not the preferred method avoiding the 
+## repeated cost of doing sentence boundary disambiguation every time 
+## `sentiment` is run.  For small batches the loss is minimal.
+## Not run: 
+sentiment(mytext)
+
+## End(Not run)
+
+## preferred method avoiding paying the cost 
+mytext &lt;- get_sentences(mytext)
+sentiment(mytext)
+sentiment(mytext, question.weight = 0)
+
+sam_dat &lt;- get_sentences(gsub("Sam-I-am", "Sam I am", sam_i_am))
+(sam &lt;- sentiment(sam_dat))
+plot(sam)
+plot(sam, scale_range = TRUE, low_pass_size = 5)
+plot(sam, scale_range = TRUE, low_pass_size = 10)
+    
+## Not run: ## legacy transform functions from suuzhet
+plot(sam, transformation.function = syuzhet::get_transformed_values)
+plot(sam, transformation.function = syuzhet::get_transformed_values,  
+    scale_range = TRUE, low_pass_size = 5)
+
+## End(Not run)
+
+y &lt;- get_sentences(
+    "He was not the sort of man that one would describe as especially handsome."
+)
+sentiment(y)
+sentiment(y, n.before=Inf)
+
+## Not run: ## Categorize the polarity (tidyverse vs. data.table):
+library(dplyr)
+sentiment(mytext) %&gt;%
+as_tibble() %&gt;%
+    mutate(category = case_when(
+        sentiment &lt; 0 ~ 'Negative', 
+        sentiment == 0 ~ 'Neutral', 
+        sentiment &gt; 0 ~ 'Positive'
+    ) %&gt;%
+    factor(levels = c('Negative', 'Neutral', 'Positive'))
+)
+
+library(data.table)
+dt &lt;- sentiment(mytext)[, category := factor(fcase(
+        sentiment &lt; 0, 'Negative', 
+        sentiment == 0, 'Neutral', 
+        sentiment &gt; 0, 'Positive'
+    ), levels = c('Negative', 'Neutral', 'Positive'))][]
+dt
+
+## End(Not run)
+
+dat &lt;- data.frame(
+    w = c('Person 1', 'Person 2'),
+    x = c(paste0(
+        "Mr. Brown is nasty! He says hello. i give him rage.  i will ",
+        "go at 5 p. m. eastern time.  Angry thought in between!go there"
+    ), "One more thought for the road! I am going now.  Good day and good riddance."),
+    y = state.name[c(32, 38)], 
+    z = c(.456, .124),
+    stringsAsFactors = FALSE
+)
+sentiment(get_sentences(dat$x))
+sentiment(get_sentences(dat))
+
+## Not run: 
+## tidy approach
+library(dplyr)
+library(magrittr)
+
+hu_liu_cannon_reviews %&gt;%
+   mutate(review_split = get_sentences(text)) %$%
+   sentiment(review_split)
+
+## End(Not run)
+
+## Emojis
+## Not run: 
+## Load R twitter data
+x &lt;- read.delim(system.file("docs/r_tweets.txt", package = "textclean"), 
+    stringsAsFactors = FALSE)
+
+x
+
+library(dplyr); library(magrittr)
+
+## There are 2 approaches
+## Approach 1: Replace with words
+x %&gt;%
+    mutate(Tweet = replace_emoji(Tweet)) %$%
+    sentiment(Tweet)
+
+## Approach 2: Replace with identifier token
+combined_emoji &lt;- update_polarity_table(
+    lexicon::hash_sentiment_jockers_rinker,
+    x = lexicon::hash_sentiment_emojis
+)
+
+x %&gt;%
+    mutate(Tweet = replace_emoji_identifier(Tweet)) %$%
+    sentiment(Tweet, polarity_dt = combined_emoji)
+    
+## Use With Non-ASCII
+## Warning: sentimentr has not been tested with languages other than English.
+## The example below is how one might use sentimentr if you believe the 
+## language you are working with are similar enough in grammar to for
+## sentimentr to be viable (likely Germanic languages)
+## english_sents &lt;- c(
+##     "I hate bad people.",
+##     "I like yummy cookie.",
+##     "I don't love you anymore; sorry."
+## )
+
+## Roughly equivalent to the above English
+danish_sents &lt;- stringi::stri_unescape_unicode(c(
+    "Jeg hader d\\u00e5rlige mennesker.", 
+    "Jeg kan godt lide l\\u00e6kker is.", 
+    "Jeg elsker dig ikke mere; undskyld."
+))
+
+danish_sents
+
+## Polarity terms
+polterms &lt;- stringi::stri_unescape_unicode(
+    c('hader', 'd\\u00e5rlige', 'undskyld', 'l\\u00e6kker', 'kan godt', 'elsker')
+)
+
+## Make polarity_dt
+danish_polarity &lt;- as_key(data.frame(
+    x = stringi::stri_unescape_unicode(polterms),
+    y = c(-1, -1, -1, 1, 1, 1)
+))
+
+## Make valence_shifters_dt
+danish_valence_shifters &lt;- as_key(
+    data.frame(x='ikke', y="1"), 
+    sentiment = FALSE, 
+    comparison = NULL
+)
+
+sentiment(
+    danish_sents, 
+    polarity_dt = danish_polarity, 
+    valence_shifters_dt = danish_valence_shifters, 
+    retention_regex = "\\d:\\d|\\d\\s|[^\\p{L}',;: ]"
+)
+
+## A way to test if you need [:alpha:] vs \p{L} in `retention_regex`:
+
+## 1. Does it wreck some of the non-ascii characters by default?
+sentimentr:::make_sentence_df2(danish_sents) 
+
+## 2.Does this?
+sentimentr:::make_sentence_df2(danish_sents, "\\d:\\d|\\d\\s|[^\\p{L}',;: ]")
+
+## If you answer yes to #1 but no to #2 you likely want \p{L}
+
+## End(Not run)
+</code></pre>
+
+
+</div>

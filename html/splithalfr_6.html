@@ -1,0 +1,220 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>by_split</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate split scores per participant</h2>
+
+<h3>Description</h3>
+
+<p>Calculates split scores, by applying <code>fn_score</code> to subsets of
+<code>data</code> as specified via <code>participants</code>. It provides a range of
+additional arguments for different splitting methods and to support parallel
+processing. To learn more about writing scoring algorithms for use with the
+<code>splithalfr</code>, see the included vignettes. <code>by_split</code>
+is modeled after the <code>by</code> function, accepting similar values for
+the first three arguments (<code>data</code>, <code>INDICES</code>, <code>FUN</code>). For more
+information about different metods for splitting data, see
+<code>get_split_indexes_from_stratum</code>. For more information about 
+stratification, see <code>split_df</code>
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">by_split(
+  data,
+  participants,
+  fn_score,
+  stratification = NULL,
+  replications = 1,
+  method = c("random", "odd_even", "first_second"),
+  replace = FALSE,
+  split_p = 0.5,
+  subsample_p = 1,
+  subsample_n = NULL,
+  careful = TRUE,
+  match_participants = FALSE,
+  ncores = detectCores(),
+  seed = NULL,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>(data frame) data frame containing data to score. Data should be
+in long format, with one row per combination of participant and trial or
+item.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>participants</code></td>
+<td>
+<p>(vector) Vector that identifies participants in
+<code>data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fn_score</code></td>
+<td>
+<p>(function) receives full or split sets, should return a
+single number.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratification</code></td>
+<td>
+<p>(vector). Vector that identifies which subsets of
+<code>data</code> should be split separately (denoted as strata in splitting
+functions) in order to ensure they are evenly distributed between parts.
+By default, the dataset of a participant formes a single stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replications</code></td>
+<td>
+<p>(numeric) Number of replications that split scores are
+calculated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>(character) Splitting method. Note that <code>first_second</code> and
+<code>odd_even</code> splitting method will only deliver a valid split with
+default settings for other arguments (<code>split_p = 0.5, replace = FALSE,
+subsample_p = 1</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replace</code></td>
+<td>
+<p>(logical) If TRUE, stratum is sampled with replacement.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>split_p</code></td>
+<td>
+<p>(numeric) Desired length of both parts, expressed as a
+proportion of the length of the data per participant. If <code>split_p</code>
+is larger than 1 and <code>careful</code> is FALSE, then parts are automatically
+sampled with replacement</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subsample_p</code></td>
+<td>
+<p>(numeric) Subsample a proportion of <code>stratum</code> before
+splitting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subsample_n</code></td>
+<td>
+<p>(numeric) Subsample a number of participants before
+splitting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>careful</code></td>
+<td>
+<p>(boolean) If TRUE, stop with an error when called with
+arguments that may yield unexpected splits</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>match_participants</code></td>
+<td>
+<p>(logical) Default FALSE. If FALSE, the split-halves
+are newly randomized for each iteration and participant. If TRUE, the
+split-halves are newly randomized for each replication, but within a
+replication the same randomization is applied across participants. If the
+order of rows of datasets per participant denotes similar observations
+(such as items in a questionnaire), <code>match_participants</code> can be set to
+TRUE to ensure that per iteration, the same items are assigned to each part
+of the split-halves across participants. If <code>method</code> is "odd_even" or
+"first_second", splits are based on row number, so
+<code>match_participants</code> generally has little effects. If TRUE, each 
+stratum
+should have the same number of rows, as checked via 
+<code>check_strata</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>(integer). By default, all available CPU cores are used. If 1,
+split replications are executed serially (via <code>lapply</code>). If
+greater than 1, split replications are executed in parallel, via (via
+<code>parLapply</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>(integer). When split replications are exectured in parallel,
+<code>seed</code> can be used to specificy a random seet to generate random seeds
+from for each worker via <code>clusterSetRNGStream</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>(logical) If TRUE, reports progress. Note that progress across
+split replications is not displayed when these are executed in parallel.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>(data frame) Returns a data frame with a column for
+<code>participant</code>, a column <code>replication</code> that counts split
+replications, and <code>score_1</code> and <code>score_2</code> for the score
+calculated of each part via <code>fn_score</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># N.B. This example uses R script from the vignette: "rapi_sum"
+data("ds_rapi", package = "splithalfr")
+# Convert to long format
+ds_long &lt;- reshape(
+  ds_rapi,
+  varying = paste("V", 1 : 23, sep = ""),
+  v.names = "answer",
+  direction = "long",
+  idvar = "twnr",
+  timevar = "item"
+)
+# Function for RAPI sum score
+rapi_fn_score &lt;- function (data) {
+  return (sum(data$answer))
+}
+# Calculate scores on full data
+by(
+  ds_long,
+  ds_long$twnr,
+  rapi_fn_score
+)
+# Permutation split, one iteration, items matched across participants
+split_scores &lt;- by_split(
+  ds_long,
+  ds_long$twnr,
+  rapi_fn_score,
+  ncores = 1,
+  match_participants = TRUE
+)
+# Mean flanagan-rulon coefficient across splits
+fr &lt;- mean(split_coefs(split_scores, flanagan_rulon))
+</code></pre>
+
+
+</div>

@@ -1,0 +1,381 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sma</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+(Standardized) major axis estimation and testing for one or several samples
+</h2>
+
+<h3>Description</h3>
+
+<p>The <code>sma</code> and <code>ma</code> functions fit SMA and MA respectively, and construct confidence 
+intervals or test hypotheses about slope or elevation in one or several samples, depending on how the arguments 
+are specified. Options exist to force lines through the origin, (approximately) correct for measurement error if the 
+measurement error variance is known, and use robust estimation to ensure that inferences are valid in
+the presence of outliers (currently implemented for single samples only).</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sma(formula, data, subset, na.action, log="",
+	 method=c("SMA","MA","OLS"), type=c("elevation","shift"), 
+   alpha=0.05, slope.test=NA, elev.test=NA, 
+   multcomp=FALSE, multcompmethod=c("default","adjusted"),
+	 robust=FALSE,V=matrix(0,2,2),n_min=3,quiet=FALSE,
+	 ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Formula of the form y ~ x etc. This determines whether a single (S)MA is fitted, or whether several lines are fitted and compared. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataframe with the x and y variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+<p>A subset of the dataframe for fitting; optional.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+<p>What to do with missing values (na.omit, na.fail, etc).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>log</code></td>
+<td>
+<p>One of 'x', 'y', or 'xy' to log10-transform variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>If SMA, standardized major axis, if MA, major axis, and if OLS, ordinary least squares.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>If several lines with common slope are to be compared, do you want to test for a change in 'elevation' or for a 'shift' along a common (S)MA. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>The error rate for confidence intervals. Typically 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slope.test</code></td>
+<td>
+<p>The hypothesised value to be used, if testing for evidence that (S)MA slope(s) are significantly different from a hypothesised value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>elev.test</code></td>
+<td>
+<p>The hypothesised value to be used, if testing for evidence that (S)MA elevation(s) are significantly different from a hypothesised value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>robust</code></td>
+<td>
+<p>If TRUE, uses a new method of robust line fitting. (Currently available for single-sample testing only.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>The estimated variance matrix of measurement error. Average measurement error for Y is in the first row and column, and average measurement error for X is in the second row and column. The default is that there is no measurement error.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_min</code></td>
+<td>
+<p>The minimum sample size for a group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>If TRUE, suppresses all messages.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multcomp</code></td>
+<td>
+<p>Logical. If TRUE, performs pair-wise comparisons between levels of the grouping variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multcompmethod</code></td>
+<td>
+<p>Whether to adjust the P values for multiple comparisons ('adjusted') or not ('default').</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further arguments passed to internal functions (none at the moment?)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is the key function in the <code>smatr-package</code>; all the key estimation and testing 
+functionality in the package can all be accessed using this function, via different usages of 
+the <code>formula</code> and other arguments, as described below.
+</p>
+<p><b>One-sample testing</b>
+The below options allow estimation of a (S)MA, confidence intervals for parameters, and hypothesis testing of parameters, from a single sample of two variables <code>y</code> and <code>x</code>. Use the <code>sma</code> function to fit a standardised major axis (SMA), or use <code>ma</code> in combination with the below options in order to fit major axis (MA) instead.
+</p>
+
+<dl>
+<dt><code>sma(y~x)</code></dt>
+<dd>
+<p> Fits a SMA and constructs confidence intervals for the true slope and elevation. Replaces the <code>line.cis</code> function from previous versions of smatr. </p>
+</dd>
+<dt><code>ma(y~x)</code></dt>
+<dd>
+<p> Fits a MA and constructs confidence intervals for the true slope and elevation. All the below functions also work for MA, if the <code>ma</code> function is called instead of the <code>sma</code> function.</p>
+</dd>
+<dt><code>sma(y~x, slope.test=B)</code></dt>
+<dd>
+<p> Tests if the slope of a SMA equals <code>B</code>. </p>
+</dd>
+<dt><code>sma(y~x, elev.test=A)</code></dt>
+<dd>
+<p> Tests if the elevation of a SMA equals <code>A</code>. </p>
+</dd>
+<dt><code>sma(y~x, robust=T)</code></dt>
+<dd>
+<p> Fits a SMA using Huber's M estimation and constructs confidence intervals for the true slope and elevation. This offers robustness to outliers in estimation and inference, and can be used in combination with the <code>slope.test</code> and <code>elev.test</code> arguments. </p>
+</dd>
+<dt><code>sma(y~x-1)</code></dt>
+<dd>
+<p> Fits a SMA where the line is forced through the origin, and constructs confidence intervals for the true slope. This type of formula can be used in combination with the <code>slope.test</code> argument.</p>
+</dd>
+</dl>
+<p><b>For several samples:</b>
+The below options allow estimation of several (S)MA lines, confidence intervals for parameters, and hypothesis testing of parameters, from two variables <code>y</code> and <code>x</code> for observations that have been classified into several different samples using the factor <code>groups</code>. Use the <code>sma</code> function to fit a standardised major axis (SMA), or use the <code>ma</code> in combination with the below options in order to fir major axis (MA) instead.
+</p>
+
+<dl>
+<dt><code>sma(y~x*groups)</code></dt>
+<dd>
+<p> Test if several SMA lines share a common slope, and construct a confidence interval for the true common slope. </p>
+</dd>
+<dt><code>sma(y~x+groups, type="elevation")</code></dt>
+<dd>
+<p> Test if several common slope SMA lines also share a common elevation, and construct a confidence interval for the true common elevation. </p>
+</dd>
+<dt><code>sma(y~x+groups, type="shift")</code></dt>
+<dd>
+<p> Test if several groups of observations have no shift in location along common slope SMA lines. </p>
+</dd>
+<dt><code>sma(y~x*groups, slope.test=B)</code></dt>
+<dd>
+<p> Test if several SMA lines share a common slope whose true value is exactly equal to <code>B</code>. </p>
+</dd>
+<dt><code>sma(y~x+groups, elev.test=A)</code></dt>
+<dd>
+<p> Test if several common-slope SMA lines share a common elevation whose true value is exactly equal to <code>A</code>. </p>
+</dd>
+<dt><code>sma(y~x*groups-1)</code></dt>
+<dd>
+<p> Test if several SMA lines forced through the origin share a common slope. This can also be used in combination with the <code>slope.test</code> argument or when testing for no shift along common (S)MA lines.</p>
+</dd>
+</dl>
+<p>In all cases, estimates and confidence intervals for key parameters are returned, and if a hypothesis test is done, results will be returned and stored in the <code>slope.test</code> or <code>elev.test</code> output arguments.
+</p>
+<p>The <code>plot</code> function can be applied to objects produced using the <code>sma</code> and <code>ma</code> functions, which is highly recommended to visualise results and check assumptions.
+</p>
+<p><b>Multiple comparisons</b>
+If multcomp=TRUE, pair-wise comparisons are made between levels of the grouping variable for differences in slope, elevation or shift, depending on the formula used.
+The P values can be adjusted for multiple comparisons (using the Sidak correction). See also <code>multcompmatrix</code> for visualization of the results.
+<b>Warning:</b> When using the multiple comparisons (multcomp=TRUE), you must specify a <code>data</code> statement. If your variables are not in a dataframe, simply combine them in a dataframe before calling <code>sma</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>sma</code> or <code>ma</code>, which contains the following output arguments:
+</p>
+
+<dl>
+<dt>coef</dt>
+<dd>
+<p> The coefficients of the fitted (standardised) major axes. If several samples are being compared, this will return parameters from the alternative model, e.g. assuming separate slopes if testing for common slope, or assuming common slope but separate elevations if testing for common elevation. </p>
+</dd>
+<dt>nullcoef</dt>
+<dd>
+<p>The coefficients under the null hypothesis</p>
+</dd>
+<dt>alpha</dt>
+<dd>
+<p> As above. </p>
+</dd>
+<dt>method</dt>
+<dd>
+<p> The method used in fitting lines: 'MA' or 'SMA' </p>
+</dd>
+<dt>intercept</dt>
+<dd>
+<p> Whether or not (S)MA lines were forced through the origin (True or False). </p>
+</dd>
+<dt>call</dt>
+<dd>
+<p> The call to the <code>ma</code> or <code>sma</code> function. </p>
+</dd>
+<dt>data</dt>
+<dd>
+<p> As above. </p>
+</dd>
+<dt>log</dt>
+<dd>
+<p> As above. </p>
+</dd>
+<dt>variables</dt>
+<dd>
+<p> A list of the variables used in fitting (S)MA lines. </p>
+</dd>
+<dt>origvariables</dt>
+<dd>
+<p> A list of the variables prior to transformation (if any) for use in fitting (S)MA lines. </p>
+</dd>
+<dt>groups</dt>
+<dd>
+<p>Levels of the grouping variable, if present in the fit.</p>
+</dd>
+<dt>gt</dt>
+<dd>
+<p>Type of grouptest ("slopecom","elevcom",or "shiftcom"), if it was carried out, or "none" if none.</p>
+</dd>
+<dt>gtr</dt>
+<dd>
+<p>The result of that grouptest.</p>
+</dd>
+<dt>slopetest</dt>
+<dd>
+<p> Output from the hypothesis test of slope(s), if any. Returned as a list of objects, including the P-value (<code>p</code>), the test statistic (<code>r</code> or <code>LR</code>), the (common) slope (<code>b</code>) and its confidence interval (<code>ci</code>). </p>
+</dd>
+<dt>elevtest</dt>
+<dd>
+<p> Output from the hypothesis test of elevation(s), if any. Returned as a list of objects, including the P-value (<code>p</code>), the test statistic (<code>t</code> or <code>stat</code>), the (common) elevation (<code>a</code>) and its confidence interval (<code>ci</code>). </p>
+</dd>
+<dt>slopetestdone</dt>
+<dd>
+<p>Whether a slopetest was actually carried out.</p>
+</dd>
+<dt>elevtestdone</dt>
+<dd>
+<p>Whether an elevation test was actually carried out.</p>
+</dd>
+<dt>n</dt>
+<dd>
+<p>Sample size(s).</p>
+</dd>
+<dt>r2</dt>
+<dd>
+<p>Squared correlation coefficient.</p>
+</dd>
+<dt>pval</dt>
+<dd>
+<p>P-value of the test of correlation coefficient against zero.</p>
+</dd>
+<dt>from,to</dt>
+<dd>
+<p>X values corresponding the maximum and minimum fitted values in each group. Used by plot.sma to determine endpoints for fitted lines).</p>
+</dd>
+<dt>groupsummary</dt>
+<dd>
+<p>Neatly organized dataframe with coefficients by group.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p> Warton, D. I. <a href="mailto:David.Warton@unsw.edu.au">David.Warton@unsw.edu.au</a>, R.A. Duursma, D. Falster, S. Taskinen  </p>
+
+
+<h3>References</h3>
+
+ 
+<p>Warton, D.I., R.A. Duursma, D.S. Falster and S. Taskinen (2012). smatr 3 - an R package for estimation and inference about allometric lines. <em>Methods in Ecology and Evolution</em>. <b>3</b>, 257-259.
+</p>
+<p>Warton D. I. and Weber N. C. (2002) Common slope tests for bivariate structural relationships.  <em>Biometrical Journal</em> <b>44</b>, 161–174.
+</p>
+<p>Warton D. I., Wright I. J., Falster D. S. and Westoby M. (2006) A review of bivariate line-fitting methods for allometry.  <em>Biological Reviews</em> <b>81</b>, 259–291.
+</p>
+<p>Taskinen S. and Warton D. I. (in press) Robust estimation and inference for bivariate line-fitting in allometry.  <em>Biometrical Journal</em>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.sma</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Load leaf lifetime dataset:
+data(leaflife)
+
+### One sample analyses ###
+# Extract only low-nutrient, low-rainfall data:
+leaf.low &lt;- subset(leaflife, soilp == 'low' &amp; rain == 'low')
+
+# Fit a MA for log(leaf longevity) vs log(leaf mass per area):
+ma(longev ~ lma, log='xy', data=leaflife)
+
+# Test if the MA slope is not significantly different from 1:
+ma.test &lt;- ma(longev ~ lma, log='xy', slope.test=1, data=leaflife)
+summary(ma.test)
+
+# Construct a residual plot to check assumptions:
+plot(ma.test,type="residual")
+
+### Several sample analyses ###
+
+# Now consider low-nutrient sites (high and low rainfall):
+leaf.low.soilp &lt;- subset(leaflife, soilp == 'low')
+
+# Fit SMA's separately at each of high and low rainfall sites,
+# and test for common slope:
+com.test &lt;- sma(longev~lma*rain, log="xy", data=leaf.low.soilp)
+com.test
+
+# Plot longevity vs LMA separately for each group:
+plot(com.test)
+
+# Fit SMA's separately at each of high and low rainfall sites,
+# and test if there is a common slope equal to 1:
+sma(longev~lma*rain, log="xy", slope.test=1, data=leaf.low.soilp)
+
+# Fit SMA's with common slope across each of high and low rainfall sites, 
+# and test for common elevation:
+sma(longev~lma+rain, log="xy", data=leaf.low.soilp)
+
+# Fit SMA's with common slope across each of high and low rainfall sites, 
+# and test for no shift along common SMA:
+sma(longev~lma+rain, log="xy", type="shift", data=leaf.low.soilp)
+
+</code></pre>
+
+
+</div>

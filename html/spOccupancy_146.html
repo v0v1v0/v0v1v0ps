@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>updateMCMC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Update a spOccupancy or spAbundance model run with more MCMC iterations</h2>
+
+<h3>Description</h3>
+
+<p>Function for updating a previously run spOccupancy or spAbundance model with 
+additional MCMC iterations. This function is useful for situations where a model
+is run for a long time but convergence/adequate mixing of the MCMC chains is not 
+reached. Instead of re-running the entire model again, this function allows you 
+to pick up where you left off. This function is currently in development, and only currently works 
+with the following spOccupancy and spAbundance model objects: msAbund and sfJSDM. Note that
+cross-validation is not possible when updating the model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">updateMCMC(object, n.batch, n.samples, n.burn = 0, n.thin, 
+           keep.orig = TRUE, verbose = TRUE, n.report = 100, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>a <code>spOccupancy</code> or <code>spAbundance</code> model object. Currently 
+supports objects of class <code>msAbund</code> and <code>sfJSDM</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of additional MCMC batches in each chain 
+to run for the adaptive MCMC sampler. Only valid for model types fit with 
+an adaptive MCMC sampler</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>the number of posterior samples to collect in each chain. Only 
+valid for model types that are run with a fully Gibbs sampler and have 
+<code>n.samples</code> as an argument in the original model fitting function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.batch * batchlength</code> to 
+discard as burn-in for each chain from the updated samples. Note this argument
+does not discard samples from the previous model run, and rather only applies
+to the samples in the updated run of the model. Defaults to 0</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples in 
+the updated model run. The thinning occurs after the <code>n.burn</code> 
+samples are discarded. Default value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.orig</code></td>
+<td>
+<p>A logical value indicating whether or not the samples from 
+the original run of the model should be kept or discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis sampler acceptance and
+MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of the same class as the original model fit provided in the <code>argument</code> object. See the manual page for the original model type for complete details.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">J.x &lt;- 8
+J.y &lt;- 8
+J &lt;- J.x * J.y
+n.rep&lt;- sample(2:4, size = J, replace = TRUE)
+N &lt;- 6
+# Community-level covariate effects
+# Occurrence
+beta.mean &lt;- c(0.2)
+p.occ &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.6)
+# Detection
+alpha.mean &lt;- c(0)
+tau.sq.alpha &lt;- c(1)
+p.det &lt;- length(alpha.mean)
+# Random effects
+psi.RE &lt;- list()
+p.RE &lt;- list()
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = N, ncol = p.occ)
+alpha &lt;- matrix(NA, nrow = N, ncol = p.det)
+for (i in 1:p.occ) {
+  beta[, i] &lt;- rnorm(N, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(N, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+alpha.true &lt;- alpha
+n.factors &lt;- 3
+phi &lt;- rep(3 / .7, n.factors)
+sigma.sq &lt;- rep(2, n.factors)
+nu &lt;- rep(2, n.factors)
+
+dat &lt;- simMsOcc(J.x = J.x, J.y = J.y, n.rep = n.rep, N = N, beta = beta, alpha = alpha,
+                psi.RE = psi.RE, p.RE = p.RE, sp = TRUE, sigma.sq = sigma.sq,
+                phi = phi, nu = nu, cov.model = 'matern', factor.model = TRUE,
+                n.factors = n.factors)
+
+pred.indx &lt;- sample(1:J, round(J * .25), replace = FALSE)
+y &lt;- dat$y[, -pred.indx, , drop = FALSE]
+# Occupancy covariates
+X &lt;- dat$X[-pred.indx, , drop = FALSE]
+coords &lt;- as.matrix(dat$coords[-pred.indx, , drop = FALSE])
+# Prediction covariates
+X.0 &lt;- dat$X[pred.indx, , drop = FALSE]
+coords.0 &lt;- as.matrix(dat$coords[pred.indx, , drop = FALSE])
+# Detection covariates
+X.p &lt;- dat$X.p[-pred.indx, , , drop = FALSE]
+
+y &lt;- apply(y, c(1, 2), max, na.rm = TRUE)
+data.list &lt;- list(y = y, coords = coords)
+# Priors
+prior.list &lt;- list(beta.comm.normal = list(mean = 0, var = 2.72),
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1),
+                   nu.unif = list(0.5, 2.5))
+# Starting values
+inits.list &lt;- list(beta.comm = 0,
+                   beta = 0,
+                   fix = TRUE,
+                   tau.sq.beta = 1)
+# Tuning
+tuning.list &lt;- list(phi = 1, nu = 0.25)
+
+batch.length &lt;- 25
+n.batch &lt;- 2
+n.report &lt;- 100
+formula &lt;- ~ 1
+
+out &lt;- sfJSDM(formula = formula,
+              data = data.list,
+              inits = inits.list,
+              n.batch = n.batch,
+              batch.length = batch.length,
+              accept.rate = 0.43,
+              priors = prior.list,
+              cov.model = "matern",
+              tuning = tuning.list,
+              n.factors = 3,
+              n.omp.threads = 1,
+              verbose = TRUE,
+              NNGP = TRUE,
+              n.neighbors = 5,
+              search.type = 'cb',
+              n.report = 10,
+              n.burn = 0,
+              n.thin = 1,
+              n.chains = 2)
+summary(out)
+
+# Update the initial model fit
+out.new &lt;- updateMCMC(out, n.batch = 1, keep.orig = TRUE, 
+		     verbose = TRUE, n.report = 1) 
+summary(out.new)
+</code></pre>
+
+
+</div>

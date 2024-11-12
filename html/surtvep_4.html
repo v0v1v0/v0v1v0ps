@@ -1,0 +1,341 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>coxtp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>fit a Cox non-proportional hazards model with P-spline or Smoothing-spline, with penalization tuning parameter chosen by information criteria or cross-validation</h2>
+
+<h3>Description</h3>
+
+<p>Fit a Cox non-proportional hazards model via penalized maximum likelihood.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">coxtp(
+  event,
+  z,
+  time,
+  strata = NULL,
+  penalty = "Smooth-spline",
+  nsplines = 8,
+  lambda = c(0.1, 1, 10),
+  degree = 3L,
+  knots = NULL,
+  ties = "Breslow",
+  tol = 1e-06,
+  iter.max = 20L,
+  method = "ProxN",
+  gamma = 1e+08,
+  btr = "dynamic",
+  tau = 0.5,
+  stop = "ratch",
+  parallel = FALSE,
+  threads = 2L,
+  fixedstep = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>event</code></td>
+<td>
+<p>failure event response variable of length <code>nobs</code>, where <code>nobs</code> denotes the number of observations. It should be a vector containing 0 or 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z</code></td>
+<td>
+<p>input covariate matrix, with <code>nobs</code> rows and <code>nvars</code> columns; each row is an observation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>observed event times, which should be a vector with non-negative values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata</code></td>
+<td>
+<p>a vector of indicators for stratification.
+Default = <code>NULL</code> (i.e. no stratification group in the data), an unstratified model is implemented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>a character string specifying the spline term for the penalized Newton method.
+This term is added to the log-partial likelihood, and the penalized log-partial likelihood serves as the new objective function to
+control the smoothness of the time-varying coefficients.
+Default is <code>P-spline</code>. Three options are <code>P-spline</code>, <code>Smooth-spline</code> and <code>NULL</code>.
+If <code>NULL</code>, the method will be the same as <code>coxtv</code> (unpenalized time-varying effects models) and <code>lambda</code> (defined below)
+will be set as 0.
+</p>
+<p><code>P-spline</code> stands for Penalized B-spline. It combines the B-spline basis with a discrete quadratic penalty on the difference of basis coefficients between adjacent knots.
+When <code>lambda</code> goes to infinity, the time-varying effects are reduced to be constant.
+</p>
+<p><code>Smooth-spline</code> refers to the Smoothing-spline, the derivative-based penalties combined with B-splines. See <code>degree</code> for different choices.
+When <code>degree=3</code>, we use the cubic B-spline penalizing the second-order derivative, which reduces the time-varying effect to a linear term when <code>lambda</code> goes to infinity.
+When <code>degree=2</code>, we use the quadratic B-spline penalizing first-order derivative, which reduces the time-varying effect to a constant when <code>lambda</code> goes to infinity. See Wood (2017) for details.
+</p>
+<p>If <code>P-spline</code> or <code>Smooth-spline</code>, then <code>lambda</code> is initialized as a sequence (0.1, 1, 10). Users can modify <code>lambda</code>. See details in <code>lambda</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsplines</code></td>
+<td>
+<p>number of basis functions in the splines to span the time-varying effects. The default value is 8.
+We use the R function <code>splines::bs</code> to generate the B-splines.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>a user-specified <code>lambda</code> sequence as the penalization coefficients in front of the spline term specified by <code>penalty</code>.
+This is the tuning parameter for penalization. The function <code>IC</code> can be used to select the best tuning parameter based on the information criteria.
+Alternatively, cross-validation can be used via the <code>cv.coxtp</code> function.
+When <code>lambda</code> is <code>0</code>, Newton method without penalization is fitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>degree</code></td>
+<td>
+<p>degree of the piecewise polynomial for generating the B-spline basis functions—default is 3 for cubic splines.
+<code>degree = 2</code> results in the quadratic B-spline basis functions.
+</p>
+<p>If the <code>penalty</code> is <code>P-spline</code> or <code>NULL</code>, <code>degree</code>'s default value is 3.
+</p>
+<p>If the <code>penalty</code> is <code>Smooth-spline</code>, <code>degree</code>'s default value is 2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>the internal knot locations (breakpoints) that define the B-splines.
+The number of the internal knots should be <code>nsplines</code>-<code>degree</code>-1.
+If <code>NULL</code>, the locations of knots are chosen as quantiles of distinct failure time points.
+This choice leads to more stable results in most cases.
+Users can specify the internal knot locations by themselves.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ties</code></td>
+<td>
+<p>a character string specifying the method for tie handling. If there are no tied events,
+the methods are equivalent.
+By default <code>"Breslow"</code> uses the Breslow approximation, which can be faster when many ties are present.
+If <code>ties = "none"</code>, no approximation will be used to handle ties.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>tolerance used for stopping the algorithm. See details in <code>stop</code> below.
+The default value is  <code>1e-6</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter.max</code></td>
+<td>
+<p>maximum iteration number if the stopping criterion specified by <code>stop</code> is not satisfied. The default value is  20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a character string specifying whether to use Newton method or proximal Newton method.  If <code>Newton</code> then Hessian is used,
+while the default method <code>"ProxN"</code> implements the proximal Newton which can be faster and more stable when there exists ill-conditioned second-order information of the log-partial likelihood.
+See details in Wu et al. (2022).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gamma</code></td>
+<td>
+<p>parameter for proximal Newton method <code>"ProxN"</code>. The default value is <code>1e8</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>btr</code></td>
+<td>
+<p>a character string specifying the backtracking line-search approach. <code>"dynamic"</code> is a typical way to perform backtracking line-search.
+See details in Convex Optimization by Boyd and Vandenberghe (2004).
+<code>"static"</code> limits Newton's increment and can achieve more stable results in some extreme cases, such as ill-conditioned second-order information of the log-partial likelihood,
+which usually occurs when some predictors are categorical with low frequency for some categories.
+Users should be careful with <code>static</code>, as this may lead to under-fitting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>a positive scalar used to control the step size inside the backtracking line-search. The default value is 0.5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stop</code></td>
+<td>
+<p>a character string specifying the stopping rule to determine convergence.
+<code>"incre"</code> means we stop the algorithm when Newton's increment is less than the <code>tol</code>. See details in Convex Optimization (Chapter 10) by Boyd and Vandenberghe (2004).
+<code>"relch"</code> means we stop the algorithm when the <code class="reqn">(loglik(m)-loglik(m-1))/(loglik(m))</code> is less than the <code>tol</code>,
+where <code class="reqn">loglik(m)</code> denotes the log-partial likelihood at iteration step m.
+<code>"ratch"</code> means we stop the algorithm when <code class="reqn">(loglik(m)-loglik(m-1))/(loglik(m)-loglik(0))</code> is less than the <code>tol</code>.
+<code>"all"</code> means we stop the algorithm when all the stopping rules (<code>"incre"</code>, <code>"relch"</code>, <code>"ratch"</code>) are met.
+The default value is <code>ratch</code>.
+If <code>iter.max</code> is achieved, it overrides any stop rule for algorithm termination.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>if <code>TRUE</code>, then the parallel computation is enabled. The number of threads in use is determined by <code>threads</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>threads</code></td>
+<td>
+<p>an integer indicating the number of threads to be used for parallel computation. The default value is <code>2</code>. If <code>parallel</code> is false, then the value of <code>threads</code> has no effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixedstep</code></td>
+<td>
+<p>if <code>TRUE</code>, the algorithm will be forced to run <code>iter.max</code> steps regardless of the stopping criterion specified.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The sequence of models implied by <code>lambda.spline</code> is fit by the (proximal) Newton method.
+The objective function is </p>
+<p style="text-align: center;"><code class="reqn">loglik - P_{\lambda},</code>
+</p>
+
+<p>where <code class="reqn">P_{\lambda}</code> is a penalty matrix for <code>P-spline</code> or <code>Smooth-spline</code>.
+The <code class="reqn">\lambda</code> is the tuning  parameter (See details in <code>lambda</code>). Users can define the initial sequence.
+The function <code>IC</code> below provides different information criteria to choose the tuning parameter <code class="reqn">\lambda</code>. Another function <code>cv.coxtp</code> uses the cross-validation to choose the tuning parameter.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of objects with S3 class <code>"coxtp"</code>. The length is the same as that of <code>lambda</code>; each represents the model output with each value of the tuning parameter <code>lambda</code>.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>the call that produced this object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>the estimated time-varying coefficient for each predictor at each unique time.
+It is a matrix of dimension <code>len_unique_t</code> by <code>nvars</code>,
+where <code>len_unique_t</code> is the length of unique observed event <code>time</code>s.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bases</code></td>
+<td>
+<p>the basis matrix used in model fitting. If <code>ties="none"</code>, the dimension of the basis matrix is <code>nvars</code> by <code>nsplines</code>;
+if <code>ties="Breslow"</code>, the dimension is <code>len_unique_t</code> by <code>nsplines</code>. The matrix is constructed using the <code>bs::splines</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ctrl.pts</code></td>
+<td>
+<p>estimated coefficient of the basis matrix of dimension <code>nvars</code> by <code>nsplines</code>.
+Each row represents a covariate's coefficient on the <code>nsplines</code>-dimensional basis functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Hessian</code></td>
+<td>
+<p>the Hessian matrix of the log-partial likelihood, of which the dimension is <code>nsplines * nvars</code> by <code>nsplines * nvars</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>internal.knots</code></td>
+<td>
+<p>the internal knot locations (breakpoints) that define the B-splines.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nobs</code></td>
+<td>
+<p>number of observations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>the spline term <code>penalty</code> specified by user.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.list</code></td>
+<td>
+<p>the history of <code>ctrl.pts</code> of length <code>m</code> (the length of algorithm iterations), including <code>ctrl.pts</code> for each algorithm iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>VarianceMatrix</code></td>
+<td>
+<p>the variance matrix of the estimated coefficients of the basis matrix,
+which is the inverse of the negative Hessian matrix.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Boyd, S., and Vandenberghe, L. (2004) Convex optimization.
+<em>Cambridge University Press</em>.
+<br></p>
+<p>Gray, R. J. (1992) Flexible methods for analyzing survival data using splines, with applications to breast cancer prognosis.
+<em>Journal of the American Statistical Association</em>, <strong>87(420)</strong>: 942-951.
+<br></p>
+<p>Gray, R. J. (1994) Spline-based tests in survival analysis.
+<em>Biometrics</em>, <strong>50(3)</strong>: 640-652.
+<br></p>
+<p>Luo, L., He, K., Wu, W., and Taylor, J. M. (2023) Using information criteria to select smoothing parameters when analyzing survival data with time-varying coefficient hazard models.
+<em>Statistical Methods in Medical Research</em>, <strong>in press</strong>.
+<br></p>
+<p>Perperoglou, A., le Cessie, S., and van Houwelingen, H. C. (2006) A fast routine for fitting Cox models with time varying effects of the covariates.
+<em>Computer Methods and Programs in Biomedicine</em>, <strong>81(2)</strong>: 154-161.
+<br></p>
+<p>Wu, W., Taylor, J. M., Brouwer, A. F., Luo, L., Kang, J., Jiang, H., and He, K. (2022) Scalable proximal methods for cause-specific hazard modeling with time-varying coefficients.
+<em>Lifetime Data Analysis</em>, <strong>28(2)</strong>: 194-218.
+<br></p>
+<p>Wood, S. N. (2017) P-splines with derivative based penalties and tensor product smoothing of unevenly distributed data.
+<em>Statistics and Computing</em>, <strong>27(4)</strong>: 985-989.
+<br></p>
+
+
+<h3>See Also</h3>
+
+<p><code>IC</code>, <code>cv.coxtp</code> <code>plot</code>, <code>get.tvcoef</code> and <code>baseline</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(ExampleData)
+z &lt;- ExampleData$z
+time  &lt;- ExampleData$time
+event &lt;- ExampleData$event
+
+lambda  = c(0,1)
+fit   &lt;- coxtp(event = event, z = z, time = time, lambda=lambda)
+
+
+
+</code></pre>
+
+
+</div>

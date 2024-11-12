@@ -1,0 +1,200 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>reduceVar</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Reduce Variables</h2>
+
+<h3>Description</h3>
+
+<p>Remove variables whose importance is less than the given threshold. The
+function removes one variable at time and after trains a new model to get the
+new variable contribution rank. If use_jk is TRUE the function checks if
+after removing the variable the model performance decreases (according to the
+given metric and based on the starting model). In this case the function
+stops removing the variable even if the contribution is lower than the given
+threshold.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">reduceVar(
+  model,
+  th,
+  metric,
+  test = NULL,
+  env = NULL,
+  use_jk = FALSE,
+  permut = 10,
+  use_pc = FALSE,
+  interactive = TRUE,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>SDMmodel or SDMmodelCV object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>th</code></td>
+<td>
+<p>numeric. The contribution threshold used to remove variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>character. The metric used to evaluate the models, possible
+values are: "auc", "tss" and "aicc", used only if use_jk is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test</code></td>
+<td>
+<p>SWD object containing the test dataset used to
+evaluate the model, not used with aicc, and if <code>use_jk = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>rast containing the environmental variables, used
+only with "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_jk</code></td>
+<td>
+<p>Flag to use the Jackknife AUC test during the variable
+selection, if <code>FALSE</code> the function uses the percent variable contribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>permut</code></td>
+<td>
+<p>integer. Number of permutations, used if <code>use_pc = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_pc</code></td>
+<td>
+<p>logical. If <code>TRUE</code> and the model is trained using the
+Maxent method, the algorithm uses the percent contribution
+computed by Maxent software to score the variable importance.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interactive</code></td>
+<td>
+<p>logical. If <code>FALSE</code> the interactive chart is not created.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical. If <code>TRUE</code> prints informative messages.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>An interactive chart showing in real-time the steps performed by the
+algorithm is displayed in the Viewer pane.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The model trained using the selected variables.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sergio Vignali
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Acquire environmental variables
+files &lt;- list.files(path = file.path(system.file(package = "dismo"), "ex"),
+                    pattern = "grd",
+                    full.names = TRUE)
+
+predictors &lt;- terra::rast(files)
+
+# Prepare presence and background locations
+p_coords &lt;- virtualSp$presence
+bg_coords &lt;- virtualSp$background
+
+# Create SWD object
+data &lt;- prepareSWD(species = "Virtual species",
+                   p = p_coords,
+                   a = bg_coords,
+                   env = predictors,
+                   categorical = "biome")
+
+# Split presence locations in training (80%) and testing (20%) datasets
+datasets &lt;- trainValTest(data,
+                         test = 0.2,
+                         only_presence = TRUE)
+train &lt;- datasets[[1]]
+test &lt;- datasets[[2]]
+
+# Train a Maxnet model
+model &lt;- train(method = "Maxnet",
+               data = train,
+               fc = "lq")
+
+# Remove all variables with permuation importance lower than 2%
+output &lt;- reduceVar(model,
+                    th = 2,
+                    metric = "auc",
+                    test = test,
+                    permut = 1)
+
+# Remove variables with permuation importance lower than 3% only if testing
+# TSS doesn't decrease
+## Not run: 
+output &lt;- reduceVar(model,
+                    th = 3,
+                    metric = "tss",
+                    test = test,
+                    permut = 1,
+                    use_jk = TRUE)
+
+# Remove variables with permuation importance lower than 2% only if AICc
+# doesn't increase
+output &lt;- reduceVar(model,
+                    th = 2,
+                    metric = "aicc",
+                    permut = 1,
+                    use_jk = TRUE,
+                    env = predictors)
+
+# Train a Maxent model
+model &lt;- train(method = "Maxent",
+               data = train,
+               fc = "lq")
+
+# Remove all variables with percent contribution lower than 2%
+output &lt;- reduceVar(model,
+                    th = 2,
+                    metric = "auc",
+                    test = test,
+                    use_pc = TRUE)
+## End(Not run)
+</code></pre>
+
+
+</div>

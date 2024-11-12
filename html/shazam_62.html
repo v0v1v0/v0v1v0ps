@@ -1,0 +1,255 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>observedMutations</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate observed numbers of mutations</h2>
+
+<h3>Description</h3>
+
+<p><code>observedMutations</code> calculates the observed number of mutations for each 
+sequence in the input <code>data.frame</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">observedMutations(
+  db,
+  sequenceColumn = "sequence_alignment",
+  germlineColumn = "germline_alignment_d_mask",
+  regionDefinition = NULL,
+  mutationDefinition = NULL,
+  ambiguousMode = c("eitherOr", "and"),
+  frequency = FALSE,
+  combine = FALSE,
+  nproc = 1,
+  cloneColumn = "clone_id",
+  juncLengthColumn = "junction_length"
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>db</code></td>
+<td>
+<p><code>data.frame</code> containing sequence data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sequenceColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing input 
+sequences. IUPAC ambiguous characters for DNA are 
+supported.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>germlineColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing 
+the germline or reference sequence. IUPAC ambiguous 
+characters for DNA are supported.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>regionDefinition</code></td>
+<td>
+<p>RegionDefinition object defining the regions
+and boundaries of the Ig sequences. If NULL, mutations 
+are counted for entire sequence. To use regions definitions,
+sequences in <code>sequenceColum</code> and <code>germlineColumn</code>
+must be aligned, following the IMGT schema.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mutationDefinition</code></td>
+<td>
+<p>MutationDefinition object defining replacement
+and silent mutation criteria. If <code>NULL</code> then 
+replacement and silent are determined by exact 
+amino acid identity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ambiguousMode</code></td>
+<td>
+<p>whether to consider ambiguous characters as 
+<code>"either or"</code> or <code>"and"</code> when determining and 
+counting the type(s) of mutations. Applicable only if
+<code>sequenceColumn</code> and/or <code>germlineColumn</code> 
+contain(s) ambiguous characters. One of 
+<code>c("eitherOr", "and")</code>. Default is <code>"eitherOr"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>frequency</code></td>
+<td>
+<p><code>logical</code> indicating whether or not to calculate
+mutation frequencies. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>combine</code></td>
+<td>
+<p><code>logical</code> indicating whether for each sequence should
+the mutation counts for the different regions (CDR, FWR) and 
+mutation types be combined and return one value of 
+count/frequency per sequence instead of 
+multiple values. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nproc</code></td>
+<td>
+<p>number of cores to distribute the operation over. If the 
+cluster has already been set the call function with 
+<code>nproc</code> = 0 to not reset or reinitialize. Default is 
+<code>nproc</code> = 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cloneColumn</code></td>
+<td>
+<p>clone id column name in <code>db</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>juncLengthColumn</code></td>
+<td>
+<p>junction length column name in <code>db</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Mutation counts are determined by comparing a reference sequence to the input sequences in the 
+column specified by <code>sequenceColumn</code>. See calcObservedMutations for more technical details, 
+<strong>including criteria for which sequence differences are included in the mutation 
+counts and which are not</strong>.
+</p>
+<p>The mutations are binned as either replacement (R) or silent (S) across the different 
+regions of the sequences as defined by <code>regionDefinition</code>. Typically, this would 
+be the framework (FWR) and complementarity determining (CDR) regions of IMGT-gapped 
+nucleotide sequences. Mutation counts are appended to the input <code>db</code> as 
+additional columns.
+</p>
+<p>If <code>db</code> includes lineage information, such as the <code>parent_sequence</code> column created by 
+makeGraphDf, the reference sequence can be set to use that field as reference sequence 
+using the <code>germlineColumn</code> argument.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A modified <code>db</code> <code>data.frame</code> with observed mutation counts for each 
+sequence listed. The columns names are dynamically created based on the
+regions in the <code>regionDefinition</code>. For example, when using the
+IMGT_V definition, which defines positions for CDR and
+FWR, the following columns are added:
+</p>
+
+<ul>
+<li>  <p><code>mu_count_cdr_r</code>:  number of replacement mutations in CDR1 and 
+CDR2 of the V-segment.
+</p>
+</li>
+<li>  <p><code>mu_count_cdr_s</code>:  number of silent mutations in CDR1 and CDR2 
+of the V-segment.
+</p>
+</li>
+<li>  <p><code>mu_count_fwr_r</code>:  number of replacement mutations in FWR1, 
+FWR2 and FWR3 of the V-segment.
+</p>
+</li>
+<li>  <p><code>mu_count_fwr_s</code>:  number of silent mutations in FWR1, FWR2 and
+FWR3 of the V-segment.
+</p>
+</li>
+</ul>
+<p>If <code>frequency=TRUE</code>, R and S mutation frequencies are
+calculated over the number of non-N positions in the specified regions.
+</p>
+
+<ul>
+<li>  <p><code>mu_freq_cdr_r</code>:  frequency of replacement mutations in CDR1 and 
+CDR2 of the V-segment.
+</p>
+</li>
+<li>  <p><code>mu_freq_cdr_s</code>:  frequency of silent mutations in CDR1 and CDR2 
+of the V-segment.
+</p>
+</li>
+<li>  <p><code>mu_freq_fwr_r</code>:  frequency of replacement mutations in FWR1, 
+FWR2 and FWR3 of the V-segment.
+</p>
+</li>
+<li>  <p><code>mu_freq_fwr_s</code>:  frequency of silent mutations in FWR1, FWR2 and
+FWR3 of the V-segment.
+</p>
+</li>
+</ul>
+<p>If <code>frequency=TRUE</code> and <code>combine=TRUE</code>, the mutations and non-N positions
+are aggregated and a single <code>mu_freq</code> value is returned
+</p>
+
+<ul><li>  <p><code>mu_freq</code>:  frequency of replacement and silent mutations in the 
+specified region
+</p>
+</li></ul>
+<h3>See Also</h3>
+
+<p>calcObservedMutations is called by this function to get the number of mutations 
+in each sequence grouped by the RegionDefinition. 
+See IMGT_SCHEMES for a set of predefined RegionDefinition objects.
+See expectedMutations for calculating expected mutation frequencies.
+See makeGraphDf for creating the field <code>parent_sequence</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Subset example data
+data(ExampleDb, package="alakazam")
+db &lt;- ExampleDb[1:10, ]
+
+# Calculate mutation frequency over the entire sequence
+db_obs &lt;- observedMutations(db, sequenceColumn="sequence_alignment",
+                            germlineColumn="germline_alignment_d_mask",
+                            frequency=TRUE,
+                            nproc=1)
+
+# Count of V-region mutations split by FWR and CDR
+# With mutations only considered replacement if charge changes
+db_obs &lt;- observedMutations(db, sequenceColumn="sequence_alignment",
+                            germlineColumn="germline_alignment_d_mask",
+                            regionDefinition=IMGT_V,
+                            mutationDefinition=CHARGE_MUTATIONS,
+                            nproc=1)
+                            
+# Count of VDJ-region mutations, split by FWR and CDR
+db_obs &lt;- observedMutations(db, sequenceColumn="sequence_alignment",
+                            germlineColumn="germline_alignment_d_mask",
+                            regionDefinition=IMGT_VDJ,
+                            nproc=1)
+                            
+# Extend data with lineage information
+data(ExampleTrees, package="alakazam")
+graph &lt;- ExampleTrees[[17]]
+clone &lt;- alakazam::makeChangeoClone(subset(ExampleDb, clone_id == graph$clone))
+gdf &lt;- makeGraphDf(graph, clone)
+
+# Count of mutations between observed sequence and immediate ancenstor
+db_obs &lt;- observedMutations(gdf, sequenceColumn="sequence",
+                            germlineColumn="parent_sequence",
+                            regionDefinition=IMGT_VDJ,
+                            nproc=1)    
+    
+</code></pre>
+
+
+</div>

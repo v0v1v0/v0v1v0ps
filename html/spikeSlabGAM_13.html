@@ -1,0 +1,262 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spikeSlabGAM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate posterior samples for a GAMM with spike-and-slab priors</h2>
+
+<h3>Description</h3>
+
+<p>This function fits structured additive regression models with spike-and-slab
+priors via MCMC. The spike-and-slab prior results in an SSVS-like term
+selection that can be used to aid model choice, e.g. to decide between linear
+and smooth modelling of numeric covariates or which interaction effects are
+relevant. Model terms can be factors (<code>fct</code>), linear/polynomial
+terms (<code>lin</code>),  uni- or bivariate splines (<code>sm</code>,
+<code>srf</code>), random intercepts (<code>rnd</code>) or Markov random
+fields (<code>mrf</code>) and their interactions, i.e. an interaction
+between two smooth terms yields an effect surface, an interaction between a
+linear term and a random intercept yields random slopes, an interaction
+between a linear term and a smooth term yields a varying coefficient term
+etc.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spikeSlabGAM(
+  formula,
+  data,
+  ...,
+  family = "gaussian",
+  hyperparameters = list(),
+  model = list(),
+  mcmc = list(),
+  start = list()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>the model formula (see details below and
+<code>ssGAMDesign</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>the data containing the variables in the function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments for <code>ssGAMDesign</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>(character) the family of the response, defaults to
+normal/Gaussian response, <code>"poisson"</code> and <code>"binomial"</code> are
+implemented as well.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperparameters</code></td>
+<td>
+<p>A list of arguments specifying the prior settings. See
+<code>spikeAndSlab</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>A list of arguments describing the model structure. See
+<code>spikeAndSlab</code>. User-supplied <code>groupIndicators</code> and
+<code>H</code> entries will be overwritten by <code>ssGAMDesign</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc</code></td>
+<td>
+<p>A list of arguments specifying MCMC sampler options. See
+<code>spikeAndSlab</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>A list of starting values for the MCMC sampler. See
+<code>spikeAndSlab</code>. Use <code>start = list(seed =&lt;YOUR_SEED&gt;)</code> to set
+the RNG seed for reproducible results.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Implemented types of terms: </p>
+ <dl>
+<dt><code>u</code></dt>
+<dd>
+<p>unpenalized
+model terms associated with a flat prior (no selection)</p>
+</dd>
+<dt><code>lin</code></dt>
+<dd>
+<p>linear/polynomial terms</p>
+</dd>
+<dt><code>fct</code></dt>
+<dd>
+<p>factors</p>
+</dd> <dt><code>sm</code></dt>
+<dd>
+<p>univariate smooth
+functions</p>
+</dd> <dt><code>rnd</code></dt>
+<dd>
+<p>random intercepts</p>
+</dd>
+<dt><code>mrf</code></dt>
+<dd>
+<p>Markov random fields</p>
+</dd>
+<dt><code>srf</code></dt>
+<dd>
+<p>surface estimation</p>
+</dd> </dl>
+<p> Terms in the formula that are
+not in the list of specials (i.e. the list of term types above) are
+automatically assigned an appropriate special wrapper, i.e. numerical
+covariates <code>x</code> are treated as <code>lin(x) + sm(x)</code>,
+factors <code>f</code> (and numerical covariates with very few distinct values, see
+<code>ssGAMDesign</code>) are treated as <code>fct(f)</code>. Valid model
+formulas have to satisfy the following conditions: </p>
+ <ol>
+<li>
+<p> All
+variables that are involved in interactions have to be present as main
+effects as well, i.e. <code>y ~ x1 + x1:x2</code> will produce an error because
+the main effect of <code>x2</code> is missing. </p>
+</li>
+<li>
+<p> Interactions between
+unpenalized terms not under selection (i.e. terms of type <code>u</code>)
+and penalized terms are not allowed, i.e. <code>y ~ u(x1)* x2</code> will produce an
+error. </p>
+</li>
+<li>
+<p> If main effects are specified as special terms, the interactions
+involving them have to be given as special terms as well, i.e. <code>y ~
+lin(x1) + lin(x2) + x1:x2</code> will produce an error. </p>
+</li>
+</ol>
+<p>The default prior settings for Gaussian data work best for a response with
+unit variance. If your data is scaled very differently, either rescale the
+response (recommended) or adjust the hyperparameters accordingly.
+</p>
+<p>Sampling of the chains is done in parallel using package <code>multicore</code> if
+available. If not, a socket cluster set up with <code>snow</code> is used where
+available. Use <code>options(mc.cores = foo)</code> to set the (maximal) number of
+processes spawned by the parallelization. If <code>options()$mc.cores</code> is
+unspecified, snow uses 8.
+</p>
+
+
+<h3>Value</h3>
+
+<p>an object of class <code>spikeSlabGAM</code> with methods
+<code>summary.spikeSlabGAM</code>, <code>predict.spikeSlabGAM</code>, and
+<code>plot.spikeSlabGAM</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Fabian Scheipl
+</p>
+
+
+<h3>References</h3>
+
+<p>Fabian Scheipl (2011). <code>spikeSlabGAM</code>: Bayesian Variable
+Selection, Model Choice and Regularization for Generalized Additive Mixed
+Models in R. <em>Journal of Statistical Software</em>, <b>43</b>(14), 1–24.
+</p>
+<p>Fabian Scheipl, Ludwig Fahrmeir, Thomas Kneib (2012). Spike-and-Slab Priors
+for Function Selection in Structured Additive Regression Models.
+<em>Journal of the American Statistical Association</em>, <b>107</b>(500),
+1518–1532.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>ssGAMDesign</code> for details on model specification,
+<code>spikeAndSlab</code> for more details on the MCMC sampler and prior
+specification, and <code>ssGAM2Bugs</code> for MCMC diagnostics. Check out
+the vignette for theoretical background and code examples.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+## examples not run due to time constraints on CRAN checks.
+## full examples below should take about 2-4 minutes.
+
+set.seed(91179)
+n &lt;- 400
+d &lt;- data.frame(f1 = sample(gl(3, n/3)), f2 = sample(gl(4,
+						n/4)), x1 = runif(n), x2 = runif(n), x3 = runif(n))
+# true model:
+#   - interaction between f1 and x1
+#   - smooth interaction between x1 and x2,
+#   - x3 and f2 are noise variables without influence on y
+nf1 &lt;- as.numeric(d$f1)
+d$f &lt;- with(d, 5 * (nf1 + 2 * sin(4 * pi * (x1 - 0.2) *
+									(x2 - 0.7)) - nf1 * x1))
+d$y &lt;- with(d, scale(f + rnorm(n)))
+d$yp &lt;- with(d, rpois(n, exp(f/10)))
+
+# fit &amp; display the model:
+m1 &lt;- spikeSlabGAM(y ~ x1 * f1 + f1 * f2 + x3 * f1 +
+				x1 * x2, data = d)
+summary(m1)
+
+# visualize estimates:
+plot(m1)
+plot(m1, cumulative = FALSE)
+(plotTerm("fct(f1):fct(f2)", m1, aggregate = median))
+print(p &lt;- plotTerm("sm(x1):sm(x2)", m1, quantiles = c(0.25,
+						0.75), cumulative = FALSE))
+
+# change MCMC settings and priors:
+mcmc &lt;- list(nChains = 3, burnin = 100, chainLength = 1000,
+		thin = 3, reduceRet = TRUE)
+hyper &lt;- list(gamma = c(v0 = 5e-04), tau2 = c(10,
+				30), w = c(2, 1))
+
+# complicated formula example, poisson response:
+m2 &lt;- spikeSlabGAM(yp ~ x1 * (x2 + f1) + (x2 + x3 + f2)^2 -
+         sm(x2):sm(x3), data = d,
+  				family = "poisson", mcmc = mcmc,
+		      hyperparameters = hyper)
+summary(m2)
+plot(m2)
+
+# quick&amp;dirty convergence diagnostics:
+print(b &lt;- ssGAM2Bugs(m2))
+plot(b)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

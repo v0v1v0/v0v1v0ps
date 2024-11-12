@@ -1,0 +1,177 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Shortcut</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Assessment emulator as a shortcut to model fitting in closed-loop simulation</h2>
+
+<h3>Description</h3>
+
+<p>Functions (class Assessment) that emulate a stock assessment by sampling the operating model biomass, abundance, and
+fishing mortality (with observation error, autocorrelation, and bias) instead of fitting a model. This output can then
+be passed onto a harvest control rule (HCR function). <code>Shortcut</code> is the base function that samples the OM with an error
+distribution. <code>Shortcut2</code>, the more preferable option, fits SCA in the last historical year of the operating
+model, estimates the error parameters using a vector autoregressive model of the residuals, and then generates model "estimates"
+using predict.varest. <code>Perfect</code> assumes no error in the assessment model and is useful for comparing the behavior of
+different harvest control rules. To utilize the shortcut method in closed-loop simulation, use make_MP with these functions as
+the Assessment model. <strong>N.B. the functions do not work with</strong> <code>runMSE(parallel = TRUE)</code> for MSEtool v3.4.0 and earlier.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Shortcut(
+  x = 1,
+  Data,
+  method = c("B", "N", "RF"),
+  B_err = c(0.3, 0.7, 1),
+  N_err = c(0.3, 0.7, 1),
+  R_err = c(0.3, 0.7, 1),
+  F_err = c(0.3, 0.7, 1),
+  VAR_model,
+  ...
+)
+
+Shortcut2(
+  x,
+  Data,
+  method = "N",
+  SCA_args = list(),
+  VAR_args = list(type = "none"),
+  ...
+)
+
+Perfect(x, Data, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An index for the objects in <code>Data</code> when running in runMSE.
+Otherwise, equals to 1 When running an assessment interactively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Data</code></td>
+<td>
+<p>An object of class Data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Indicates where the error in the OM is located. For "B", OM biomass is directly sampled with error.
+For "N", OM abundance-at-age is sampled and biomass subsequently calculated. For "RF", recruitment and F are
+sampled to calculate abundance and biomass. There is no error in biological parameters for "N" and "RF". By default,
+"B" is used for <code>Shortcut</code> and "N" for <code>Shortcut2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B_err</code></td>
+<td>
+<p>If <code>method = "B"</code>, a vector of length three that specifies the standard deviation (in logspace),
+autocorrelation, and bias (1 = unbiased) for biomass.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N_err</code></td>
+<td>
+<p>Same as B_err, but for abundance when <code>method = "N"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R_err</code></td>
+<td>
+<p>Same as B_err, but for recruitment when <code>method = "RF"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>F_err</code></td>
+<td>
+<p>Same as B_err. Always used regardless of <code>method</code> to report F and selectivity for HCR.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>VAR_model</code></td>
+<td>
+<p>An object returned by VAR to generate emulated assessment error. Used by <code>Shortcut2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments (not currently used).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SCA_args</code></td>
+<td>
+<p>Additional arguments to pass to SCA. Currently, arguments <code>SR</code> and <code>vulnerability</code>
+are obtained from the operating model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>VAR_args</code></td>
+<td>
+<p>Additional arguments to pass to VAR. By default, argument <code>type = "none"</code>
+(stationary time series with mean zero is assumed).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Currently there is no error in FMSY (frequently the target F in the HCR).
+</p>
+<p>See Wiedenmann et al. (2015) for guidance on the magnitude of error for the shortcut emulator.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class Assessment.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Q. Huynh
+</p>
+
+
+<h3>References</h3>
+
+<p>Wiedenmann, J., Wilberg, M.J., Sylvia, A., and Miller, T.J. 2015. Autocorrelated error in stock assessment
+estimates: Implications for management strategy evaluation. Fisheries Research 172: 325-334.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">Shortcut_4010 &lt;- make_MP(Shortcut, HCR40_10) 
+Shortcut_Nerr &lt;- make_MP(Shortcut, HCR40_10, method = "N", N_err = c(0.1, 0.1, 1)) # Highly precise!
+
+# Fits SCA first and then emulate it in the projection period 
+Shortcut2_4010 &lt;- make_MP(Shortcut2, HCR40_10) 
+
+
+# Compare the shortcut method vs. fitting an SCA model with a 40-10 control rule
+MSE &lt;- runMSE(testOM, MPs = c("Shortcut_4010", "SCA_4010"))
+
+
+# Compare the performance of three HCRs
+Perfect_4010 &lt;- make_MP(Perfect, HCR40_10)
+Perfect_6020 &lt;- make_MP(Perfect, HCR60_20)
+Perfect_8040MSY &lt;- make_MP(Perfect, HCR_ramp, OCP_type = "SSB_SSBMSY", TOCP = 0.8, LOCP = 0.4)
+
+
+MSE &lt;- runMSE(testOM, MPs = c("Perfect_4010", "Perfect_6020", "Perfect_8040MSY"))
+
+</code></pre>
+
+
+</div>

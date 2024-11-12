@@ -1,0 +1,320 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sample_fiSAN</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sample fiSAN</h2>
+
+<h3>Description</h3>
+
+<p><code>sample_fiSAN</code> is used to perform posterior inference under the finite-infinite shared atoms nested (fiSAN) model with Gaussian likelihood. 
+The model uses a Dirichlet process mixture prior at the distributional level, 
+and Dirichlet mixture with an unknown number of components (following the specification of Frühwirth-Schnatter et al., 2021) at the observational level.
+The algorithm for the nonparametric component is based on the slice sampler for DPM of Kalli, Griffin and Walker (2011).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sample_fiSAN(nrep, burn, y, group, 
+             maxK = 50, maxL = 50, 
+             m0 = 0, tau0 = 0.1, lambda0 = 3, gamma0 = 2,
+             hyp_alpha1 = 1, hyp_alpha2 = 1,
+             hyp_beta1 = 6, hyp_beta2 = 3, 
+             eps_beta = NULL,
+             alpha = NULL, beta = NULL,
+             warmstart = TRUE, nclus_start = NULL,
+             mu_start = NULL, sigma2_start = NULL,
+             M_start = NULL, S_start = NULL,
+             alpha_start = NULL, beta_start = NULL,
+             progress = TRUE, seed = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>nrep</code></td>
+<td>
+<p>Number of MCMC iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>burn</code></td>
+<td>
+<p>Number of discarded iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>Vector of observations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p>Vector of the same length of y indicating the group membership (numeric).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxK</code></td>
+<td>
+<p>Maximum number of distributional clusters <code class="reqn">K</code> (default = 50).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxL</code></td>
+<td>
+<p>Maximum number of observational clusters <code class="reqn">L</code> (default = 50).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m0, tau0, lambda0, gamma0</code></td>
+<td>
+<p>Hyperparameters on <code class="reqn">(\mu, \sigma^2) \sim NIG(m_0, \tau_0, \lambda_0,\gamma_0)</code>. Default is (0, 0.1, 3, 2).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyp_alpha1, hyp_alpha2</code></td>
+<td>
+<p>If a random <code class="reqn">\alpha</code> is used, (<code>hyp_alpha1</code>,<code>hyp_alpha2</code>) specify the hyperparameters (default = (1,1)).
+The prior is <code class="reqn">\alpha</code> ~ Gamma(<code>hyp_alpha1</code>, <code>hyp_alpha2</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyp_beta1, hyp_beta2, eps_beta</code></td>
+<td>
+<p>If a random <code class="reqn">\beta</code> is used, (<code>hyp_beta1</code>,<code>hyp_beta2</code>) specifies the hyperparameter (default = (6,3)). 
+The prior is <code class="reqn">\beta\sim Gamma</code>(<code>hyp_beta1</code>, <code>hyp_beta2</code>). In this case, <code>eps_beta</code> is the tuning parameter of the MH step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Distributional DP parameter if fixed (optional). The distribution is <code class="reqn">\pi\sim GEM (\alpha)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>Observational Dirichlet parameter if fixed (optional). The distribution is Dirichlet( <code>rep(beta/maxL, maxL)</code> ).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>warmstart, nclus_start</code></td>
+<td>
+<p>Initialization of the observational clustering. 
+<code>warmstart</code> is logical parameter (default = <code>TRUE</code>) of whether a kmeans clustering should be used to initialize the chains.
+An initial guess of the number of observational clusters can be passed via the <code>nclus_start</code> parameter (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu_start, sigma2_start, M_start, S_start, alpha_start, beta_start</code></td>
+<td>
+<p>Starting points of the MCMC chains (optional). Default is <code>nclus_start = min(c(maxL, 30))</code>.
+<code>mu_start, sigma2_start</code> are vectors of length <code>maxL</code>. 
+<code>M_start</code> is a vector of observational cluster allocation of length N.
+<code>S_start</code> is a vector of observational cluster allocation of length J.
+<code>alpha_start, alpha_start</code> are numeric.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>show a progress bar? (logical, default TRUE).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>set a fixed seed.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><strong>Data structure</strong>
+</p>
+<p>The finite-infinite common atoms mixture model is used to perform inference in nested settings, where the data are organized into <code class="reqn">J</code> groups. 
+The data should be continuous observations <code class="reqn">(Y_1,\dots,Y_J)</code>, where each <code class="reqn">Y_j = (y_{1,j},\dots,y_{n_j,j})</code> 
+contains the <code class="reqn">n_j</code> observations from group <code class="reqn">j</code>, for <code class="reqn">j=1,\dots,J</code>. 
+The function takes as input the data as a numeric vector <code>y</code> in this concatenated form. Hence <code>y</code> should be a vector of length
+<code class="reqn">n_1+\dots+n_J</code>. The <code>group</code> parameter is a numeric vector of the same size as <code>y</code> indicating the group membership for each
+individual observation. 
+Notice that with this specification the observations in the same group need not be contiguous as long as the correspondence between the variables
+<code>y</code> and <code>group</code> is maintained.
+</p>
+<p><strong>Model</strong>
+</p>
+<p>The data are modeled using a univariate Gaussian likelihood, where both the mean and the variance are observational-cluster-specific, i.e., 
+</p>
+<p style="text-align: center;"><code class="reqn">y_{i,j}\mid M_{i,j} = l \sim N(\mu_l,\sigma^2_l)</code>
+</p>
+
+<p>where <code class="reqn">M_{i,j} \in \{1,\dots,L \}</code> is the observational cluster indicator of observation <code class="reqn">i</code> in group <code class="reqn">j</code>.
+The prior on the model parameters is a Normal-Inverse-Gamma distribution <code class="reqn">(\mu_l,\sigma^2_l)\sim NIG (m_0,\tau_0,\lambda_0,\gamma_0)</code>, 
+i.e., <code class="reqn">\mu_l\mid\sigma^2_l \sim N(m_0, \sigma^2_l / \tau_0)</code>, <code class="reqn">1/\sigma^2_l \sim Gamma(\lambda_0, \gamma_0)</code> (shape, rate).
+</p>
+<p><strong>Clustering</strong>
+</p>
+<p>The model performs a clustering of both observations and groups. 
+The clustering of groups (distributional clustering) is provided by the allocation variables <code class="reqn">S_j \in \{1,2,\dots\}</code>, with 
+</p>
+<p style="text-align: center;"><code class="reqn">Pr(S_j = k \mid \dots ) = \pi_k  \qquad \text{for } \: k = 1,2,\dots</code>
+</p>
+
+<p>The distribution of the probabilities is <code class="reqn"> \{\pi_k\}_{k=1}^{\infty} \sim GEM(\alpha)</code>, 
+where GEM is the Griffiths-Engen-McCloskey distribution of parameter <code class="reqn">\alpha</code>, 
+which characterizes the stick-breaking construction of the DP (Sethuraman, 1994). 
+</p>
+<p>The clustering of observations (observational clustering) is provided by the allocation variables <code class="reqn">M_{i,j} \in \{1,\dots,L\}</code>, with
+</p>
+<p style="text-align: center;"><code class="reqn"> Pr(M_{i,j} = l \mid S_j = k, \dots ) = \omega_{l,k} \qquad \text{for } \: k = 1,2,\dots \, ; \: l = 1,\dots,L. </code>
+</p>
+
+<p>The distribution of the probabilities is <code class="reqn">(\omega_{1,k},\dots,\omega_{L,k})\sim Dirichlet_L(\beta/L,\dots,\beta/L)</code> for all <code class="reqn">k = 1,2,\dots</code>. 
+Moreover, the dimension <code class="reqn">L</code> is random (see Frühwirth-Schnatter et al., 2021).
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>sample_fiSAN</code> returns four objects:
+</p>
+
+<ul>
+<li> <p><code>model</code>: name of the fitted model.
+</p>
+</li>
+<li> <p><code>params</code>: list containing the data and the parameters used in the simulation. Details below.
+</p>
+</li>
+<li> <p><code>sim</code>: list containing the simulated values (MCMC chains). Details below.
+</p>
+</li>
+<li> <p><code>time</code>: total computation time.
+</p>
+</li>
+</ul>
+<p><strong>Data and parameters</strong>:
+<code>params</code> is a list with the following components:
+</p>
+
+<dl>
+<dt><code>nrep</code></dt>
+<dd>
+<p>Number of MCMC iterations.</p>
+</dd>
+<dt><code>y, group</code></dt>
+<dd>
+<p>Data and group vectors.</p>
+</dd>
+<dt><code>maxK, maxL</code></dt>
+<dd>
+<p>Maximum number of distributional and observational clusters.</p>
+</dd>
+<dt><code>m0, tau0, lambda0, gamma0</code></dt>
+<dd>
+<p>Model hyperparameters.</p>
+</dd>
+<dt>(<code>hyp_alpha1,hyp_alpha2</code>) or <code>alpha</code>
+</dt>
+<dd>
+<p>Either the hyperparameters on <code class="reqn">\alpha</code> (if <code class="reqn">\alpha</code> random), or the value for <code class="reqn">\alpha</code> (if fixed).</p>
+</dd>
+<dt>(<code>hyp_beta1, hyp_beta2, eps_beta</code>) or <code>beta</code>
+</dt>
+<dd>
+<p>Either the hyperparameters on <code class="reqn">\beta</code> and MH step size (if <code class="reqn">\beta</code> random), or the value for <code class="reqn">\beta</code> (if fixed).</p>
+</dd>
+</dl>
+<p><strong>Simulated values</strong>:
+<code>sim</code> is a list with the following components:
+</p>
+
+<dl>
+<dt><code>mu</code></dt>
+<dd>
+<p>Matrix of size (<code>nrep</code>, <code>maxL</code>).
+Each row is a posterior sample of the mean parameter for each observational cluster <code class="reqn">(\mu_1,\dots\mu_L)</code>.</p>
+</dd>
+<dt><code>sigma2</code></dt>
+<dd>
+<p>Matrix of size (<code>nrep</code>, <code>maxL</code>). 
+Each row is a posterior sample of the variance parameter for each observational cluster <code class="reqn">(\sigma^2_1,\dots\sigma^2_L)</code>.</p>
+</dd>
+<dt><code>obs_cluster</code></dt>
+<dd>
+<p>Matrix of size (<code>nrep</code>, n), with n = <code>length(y)</code>. 
+Each row is a posterior sample of the observational cluster allocation variables <code class="reqn">(M_{1,1},\dots,M_{n_J,J})</code>. </p>
+</dd>
+<dt><code>distr_cluster</code></dt>
+<dd>
+<p>Matrix of size (<code>nrep</code>, J), with J = <code>length(unique(group))</code>. 
+Each row is a posterior sample of the distributional cluster allocation variables <code class="reqn">(S_1,\dots,S_J)</code>. </p>
+</dd>
+<dt><code>pi</code></dt>
+<dd>
+<p>Matrix of size (<code>nrep</code>, <code>maxK</code>). 
+Each row is a posterior sample of the distributional cluster probabilities <code class="reqn">(\pi_1,\dots,\pi_{maxK})</code>.</p>
+</dd>
+<dt><code>omega</code></dt>
+<dd>
+<p>3-d array of size (<code>maxL</code>, <code>maxK</code>, <code>nrep</code>).
+Each slice is a posterior sample of the observational cluster probabilities. 
+In each slice, each column <code class="reqn">k</code> is a vector (of length <code>maxL</code>) observational cluster probabilities
+<code class="reqn">(\omega_{1,k},\dots,\omega_{L,k})</code> for distributional cluster <code class="reqn">k</code>. </p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>Vector of length <code>nrep</code> of posterior samples of the parameter <code class="reqn">\alpha</code>.</p>
+</dd>
+<dt><code>beta</code></dt>
+<dd>
+<p>Vector of length <code>nrep</code> of posterior samples of the parameter <code class="reqn">\beta</code>.</p>
+</dd>
+<dt><code>maxK</code></dt>
+<dd>
+<p>Vector of length <code>nrep</code> of the number of distributional DP components used by the slice sampler.</p>
+</dd>
+<dt><code>L_plus</code></dt>
+<dd>
+<p>Vector of length <code>nrep</code> of posterior samples of the number of observational clusters.</p>
+</dd>
+<dt><code>L</code></dt>
+<dd>
+<p>Vector of length <code>nrep</code> of posterior samples of the observational Dirichlet dimension.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Frühwirth-Schnatter, S., Malsiner-Walli, G. and Grün, B. (2021).
+Generalized mixtures of finite mixtures and telescoping sampling. <em>Bayesian Analysis</em>, 16(4), 1279–1307. &lt;doi:10.1214/21-BA1294&gt;
+</p>
+<p>Kalli, M., Griffin, J.E., and Walker, S.G. (2011). Slice Sampling Mixture Models, 
+<em>Statistics and Computing</em>, 21, 93–105. &lt;doi:10.1007/s11222-009-9150-y&gt;
+</p>
+<p>Sethuraman, A.J. (1994). A Constructive Definition of Dirichlet Priors, <em>Statistica Sinica</em>, 4, 639–650.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(123)
+y &lt;- c(rnorm(40,0,0.3), rnorm(20,5,0.3))
+g &lt;- c(rep(1,30), rep(2, 30))
+plot(density(y[g==1]), xlim = c(-5,10))
+lines(density(y[g==2]), col = 2)
+out &lt;- sample_fiSAN(nrep = 500, burn = 200, y = y, group = g, 
+                    nclus_start = 2,
+                    maxK = 20, maxL = 20,
+                    beta = 1)
+out 
+
+</code></pre>
+
+
+</div>

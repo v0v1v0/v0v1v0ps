@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simulateTumor</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spatial simulation of tumor growth</h2>
+
+<h3>Description</h3>
+
+<p>Simulate the spatial growth of a tumor with a multi-type branching
+process on the three-dimensional integer lattice.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simulateTumor(
+  max_pop = 250000,
+  div_rate = 0.25,
+  death_rate = 0.18,
+  mut_rate = 0.01,
+  driver_prob = 0.003,
+  selective_adv = 1.05,
+  disease_model = NULL,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>max_pop</code></td>
+<td>
+<p>Number of cells in the tumor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>div_rate</code></td>
+<td>
+<p>Cell division rate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>death_rate</code></td>
+<td>
+<p>Cell death rate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mut_rate</code></td>
+<td>
+<p>Mutation rate. When a cell divides, both daughter cell acquire <code class="reqn">Pois(u)</code> genetic alterations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>driver_prob</code></td>
+<td>
+<p>The probability that a genetic alteration is a driver mutation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>selective_adv</code></td>
+<td>
+<p>The selective advantage conferred to a driver mutation. A cell with k
+driver mutations is given birth rate <code class="reqn">bs^k</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>disease_model</code></td>
+<td>
+<p>Edge list for a directed acyclic graph describing possible transitions between states. See
+<code>progressionChain()</code> for an example of a valid input matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Whether or not to print simulation details to the R console.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The model is based upon Waclaw et. al. (2015), although the simulation algorithm used is different. A growth of a cancerous tumor
+is modeled using an exponential birth-death process on the three-dimensional integer lattice. Each cell is given a birth rate
+<code class="reqn">b</code> and a death rate <code class="reqn">d</code> such that the time until cell division or cell death is exponentially distributed with 
+parameters <code class="reqn">b</code> and <code class="reqn">d</code>, respectively. A cell can replicate if at least one of the six sites adjacent to it is
+unoccupied. Each time cell replication occurs, both daughter cells receive <code class="reqn">Pois(u)</code> genetic alterations. Each 
+alteration is a driver mutation with some probability <code class="reqn">du</code>. A cell with k driver mutations is given birth rate 
+<code class="reqn">bs^k</code>. The simulation begins with a single cell at the origin at time <code class="reqn">t = 0</code>. 
+</p>
+<p>The model is simulated using a Gillespie algorithm. See the package vignette for details on how the algorithm is implemented.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with components 
+</p>
+
+<ul>
+<li> <p><code>cell_ids</code> - A data frame containing the information for the simulated cells. (x,y,z) position, allele ID number
+(note that 0 is the wild-type allele),
+number of genetic alterations, and Euclidean distance from origin are included. 
+</p>
+</li>
+<li> <p><code>muts</code> - A data frame consisting of the mutation ID number, the count of the mutation within the population, 
+and the mutation allele frequency (which is the count divided by N). 
+</p>
+</li>
+<li> <p><code>phylo_tree</code> - A data frame giving all of the information necessary to determine the order of mutations. The parent
+of a mutation is defined to be the most recent mutation that precedes it. Since the ID 0 corresponds to the initial mutation,
+0 does not have any parents and is thus the root of the tree. 
+</p>
+</li>
+<li> <p><code>genotypes</code> - A data frame containing the information about the mutations that make up each allele. The <code class="reqn">i</code>-th 
+row of this data frame corresponds to the allele ID <code class="reqn">i-1</code>. The positive numbers in each row correspond to the IDs of the 
+mutations present in that allele, while a -1 is simply a placeholder and indicates no mutation. The count column gives
+the number of cells which have the specific allele. 
+</p>
+</li>
+<li> <p><code>color_scheme</code> - A vector containing an assignment of a color to each allele.
+</p>
+</li>
+<li> <p><code>drivers</code> - A vector containing the ID numbers for the driver mutations.
+</p>
+</li>
+<li> <p><code>time</code> - The simulated time (in days). 
+</p>
+</li>
+<li> <p><code>params</code> - The parameters used for the simulation. 
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Phillip B. Nicol &lt;philnicol740@gmail.com&gt;
+</p>
+
+
+<h3>References</h3>
+
+<p>B. Waclaw, I. Bozic, M. Pittman, R. Hruban, B. Vogelstein and M. Nowak. A spatial model predicts
+that dispersal and cell turnover limit intratumor heterogeneity. <em>Nature</em>, pages 261-264, 2015. 
+</p>
+<p>D. Gillespie. Exact stochastic simulation of coupled chemical reactions. <em>The Journal of Physical Chemistry</em>,
+volume 81, pages 2340-2361, 1970.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">out &lt;- simulateTumor(max_pop = 1000)
+#Take a look at mutants in order of decreasing MAF
+sig_muts &lt;- out$muts[order(out$muts$MAF, decreasing = TRUE),]
+
+#Specify the disease model
+out &lt;- simulateTumor(max_pop = 1000, disease_model = progressionChain(3))
+
+</code></pre>
+
+
+</div>

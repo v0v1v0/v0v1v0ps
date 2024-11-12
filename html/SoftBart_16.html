@@ -1,0 +1,184 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>softbart_probit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SoftBart Probit Regression</h2>
+
+<h3>Description</h3>
+
+<p>Fits a nonparametric probit regression model with the nonparametric function
+modeled using a SoftBart model. Specifically, the model takes <code class="reqn">\Pr(Y = 1
+\mid X = x) = \Phi\{a + r(x)\}</code> where
+<code class="reqn">a</code> is an offset and <code class="reqn">r(x)</code> is a Soft BART ensemble.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">softbart_probit(
+  formula,
+  data,
+  test_data,
+  num_tree = 20,
+  k = 1,
+  hypers = NULL,
+  opts = NULL,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>A model formula with a binary factor on the left-hand-side and predictors on the right-hand-side.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame consisting of the training data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_data</code></td>
+<td>
+<p>A data frame consisting of the testing data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_tree</code></td>
+<td>
+<p>The number of trees in the ensemble to use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>Determines the standard deviation of the leaf node parameters, which is given by <code>3 / k / sqrt(num_tree)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hypers</code></td>
+<td>
+<p>A list of hyperparameters constructed from the <code>Hypers()</code> function (<code>num_tree</code>, <code>k</code>, and <code>sigma_mu</code> are overridden by this function).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opts</code></td>
+<td>
+<p>A list of options for running the chain constructed from the <code>Opts()</code> function (<code>update_sigma</code> is overridden by this function).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>If <code>TRUE</code>, progress of the chain will be printed to the console.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a list with the following components:
+</p>
+
+<ul>
+<li> <p><code>sigma_mu</code>: samples of the standard deviation of the leaf node parameters
+</p>
+</li>
+<li> <p><code>var_counts</code>: a matrix with a column for each predictor group containing the number of times each predictor is used in the ensemble at each iteration.
+</p>
+</li>
+<li> <p><code>mu_train</code>: samples of the nonparametric function evaluated on the training set; <code>pnorm(mu_train)</code> gives the success probabilities.
+</p>
+</li>
+<li> <p><code>mu_test</code>: samples of the nonparametric function evaluated on the test set; <code>pnorm(mu_train)</code> gives the success probabilities .
+</p>
+</li>
+<li> <p><code>p_train</code>: samples of probabilities on training set.
+</p>
+</li>
+<li> <p><code>p_test</code>: samples of probabilities on test set.
+</p>
+</li>
+<li> <p><code>mu_train_mean</code>: posterior mean of <code>mu_train</code>.
+</p>
+</li>
+<li> <p><code>mu_test_mean</code>: posterior mean of <code>mu_test</code>.
+</p>
+</li>
+<li> <p><code>p_train_mean</code>: posterior mean of <code>p_train</code>.
+</p>
+</li>
+<li> <p><code>p_test_mean</code>: posterior mean of <code>p_test</code>.
+</p>
+</li>
+<li> <p><code>offset</code>: we fit model of the form (offset + BART), with the offset estimated empirically prior to running the chain.
+</p>
+</li>
+<li> <p><code>pnorm_offset</code>: the <code>pnorm</code> of the offset, which is chosen to match the probability of the second factor level.
+</p>
+</li>
+<li> <p><code>formula</code>: the formula specified by the user.
+</p>
+</li>
+<li> <p><code>ecdfs</code>: empirical distribution functions, used by the <code>predict</code> function.
+</p>
+</li>
+<li> <p><code>opts</code>: the options used when running the chain.
+</p>
+</li>
+<li> <p><code>forest</code>: a forest object; see the <code>MakeForest</code> documentation for more details.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## NOTE: SET NUMBER OF BURN IN AND SAMPLE ITERATIONS HIGHER IN PRACTICE
+
+num_burn &lt;- 10 ## Should be ~ 5000
+num_save &lt;- 10 ## Should be ~ 5000
+
+set.seed(1234)
+f_fried &lt;- function(x) 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3] - 0.5)^2 + 
+  10 * x[,4] + 5 * x[,5]
+
+gen_data &lt;- function(n_train, n_test, P, sigma) {
+  X &lt;- matrix(runif(n_train * P), nrow = n_train)
+  mu &lt;- (f_fried(X) - 14) / 5
+  X_test &lt;- matrix(runif(n_test * P), nrow = n_test)
+  mu_test &lt;- (f_fried(X_test) - 14) / 5
+  Y &lt;- factor(rbinom(n_train, 1, pnorm(mu)), levels = c(0,1))
+  Y_test &lt;- factor(rbinom(n_test, 1, pnorm(mu_test)), levels = c(0,1))
+  
+  return(list(X = X, Y = Y, mu = mu, X_test = X_test, Y_test = Y_test, 
+              mu_test = mu_test))
+}
+
+## Simiulate dataset
+sim_data &lt;- gen_data(250, 250, 100, 1)
+
+df &lt;- data.frame(X = sim_data$X, Y = sim_data$Y)
+df_test &lt;- data.frame(X = sim_data$X_test, Y = sim_data$Y_test)
+
+## Fit the model
+
+opts &lt;- Opts(num_burn = num_burn, num_save = num_save)
+fitted_probit &lt;- softbart_probit(Y ~ ., df, df_test, opts = opts)
+
+## Plot results
+
+plot(fitted_probit$mu_test_mean, sim_data$mu_test)
+abline(a = 0, b = 1)
+
+
+</code></pre>
+
+
+</div>

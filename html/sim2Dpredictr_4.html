@@ -1,0 +1,172 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>correlation_builder</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build a Correlation Matrix for 2D Spatial Data</h2>
+
+<h3>Description</h3>
+
+<p>This function "builds" a correlation matrix based on user specifications.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">correlation_builder(
+  corr.structure = "ar1",
+  im.res,
+  corr.min = NULL,
+  neighborhood = "none",
+  rho = NULL,
+  phi = NULL,
+  w = NULL,
+  h = NULL,
+  r = NULL,
+  print.all = FALSE,
+  round.d = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>corr.structure</code></td>
+<td>
+<p>One of <code>"ar1"</code>, <code>exponential</code>, 
+<code>gaussian</code>, or <code>"CS"</code>. Correlations between locations i and j 
+are <code>rho</code><code class="reqn">^{d}</code> for <code>corr.structure = "ar1"</code>, 
+<code class="reqn">exp(-phi * d)</code> for <code>corr.structure = "exponential"</code>,
+<code class="reqn">exp(-phi * d ^ 2)</code> for <code>corr.structure = "gaussian"</code>, and 
+<code>rho</code> when <code>corr.structure = "CS"</code>. Note that <code>d</code> is the
+Euclidean distance between locations i and j.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>im.res</code></td>
+<td>
+<p>A vector defining the dimension of spatial data. The first 
+entry is the number of rows and the second  entry is the number of columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corr.min</code></td>
+<td>
+<p>Scalar value to specify the minimum non-zero correlation. 
+Any correlations below <code>corr.min</code> are set to 0. Especially for high 
+image resolution using this option can result in a sparser covariance 
+matrix, which may significantly speed up draws when using <code>spam</code>. 
+This option is preferred to using <code>neighborhood</code> and associated 
+arguments when the primary concern is to avoid very small correlations 
+and improve computation efficiency. Default is <code>NULL</code>, which places
+no restrictions on the correlations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighborhood</code></td>
+<td>
+<p>Defines the neighborhood within which marginal 
+correlations are non-zero. The default is <code>"none"</code>, which allows 
+marginal correlations to extend indefinitely. <code>neighborhood = "round"</code>
+defines a circular neighborhood about locations and 
+<code>neighborhood = "rectangle"</code> defines a rectangular neighborhood about
+locations. Note that this argument differs from that in 
+<code>precision_builder</code>, in which <code>neighborhood</code> defines conditional non-zero
+correlations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>This is the maximum possible correlation between locations i 
+and j. For all i,j <code>rho</code> MUST be between -1 and 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phi</code></td>
+<td>
+<p>A scalar value greater than 0 that determines the decay rate of
+correlation. This argument is only utilized when <code>corr.structure 
+%in% c("exponential", "gaussian")</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w, h</code></td>
+<td>
+<p>If <code>neighborhood = "rectangle"</code> then w and h are the number
+of locations to the left/right and above/below a location i that define 
+its neighborhood. Any locations outside this neighborhood have have zero 
+correlation with location i.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>If <code>neighborhood = "round"</code>, then if locations i,j are 
+separated by distance <code class="reqn">d \ge r</code>, the correlation between them is zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print.all</code></td>
+<td>
+<p>If <code>print.all = TRUE</code>, then prints each correlation 
+and allows you to check whether the correlations are as you intended. This
+option is NOT recommended for large point lattices/images.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>round.d</code></td>
+<td>
+<p>If <code>round.d = TRUE</code>, then d is rounded to the nearest 
+whole number.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns <code class="reqn">(nr*nc) by (nr*nc)</code> correlation matrix.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Caution is recommended when using <code>corr.min</code> or 
+<code>neighborhood</code> to set many correlations to 0, as not all 
+specifications will result in a positive definite matrix. In particular, 
+sharp drop-offs tend to result in non-positive definite matrices.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## examples
+correlation_builder(corr.structure = "ar1", im.res = c(3, 3), rho = 0.5,
+                    neighborhood = "round", r = 6, print.all = TRUE)
+
+correlation_builder(corr.structure = "exponential", im.res = c(3, 3), 
+                    phi = 0.5,
+                    neighborhood = "round", r = 3, print.all = TRUE)
+
+correlation_builder(corr.structure = "CS", im.res = c(3, 3),
+                    rho = 0.5, print.all = TRUE)
+
+## no "true" zeros, but gets close
+c.nr &lt;- correlation_builder(corr.structure = "ar1", neighborhood = "none",
+                    corr.min = NULL, im.res = c(15, 15), rho = 0.5)
+length(c.nr[c.nr &gt; 0])
+min(c.nr)
+
+## set corr.min gives many zero entries; sparser structure
+c.r &lt;- correlation_builder(corr.structure = "ar1", neighborhood = "none",
+                    corr.min = 0.01, im.res = c(15, 15), rho = 0.5)
+## raw number &gt; 0
+length(c.r[c.r &gt; 0])
+## proportion &gt; 0
+length(c.r[c.r &gt; 0]) / length(c.nr)
+</code></pre>
+
+
+</div>

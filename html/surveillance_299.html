@@ -1,0 +1,496 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hhh4_validation</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Predictive Model Assessment for <code>hhh4</code> Models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>oneStepAhead</code> computes successive one-step-ahead
+predictions for a (random effects) HHH model fitted by <code>hhh4</code>.
+These can be inspected using the <code>quantile</code>, <code>confint</code> or
+<code>plot</code> methods.
+The associated <code>scores</code>-method computes a number of (strictly) proper
+scoring rules based on such one-step-ahead predictions;
+see Paul and Held (2011) for details.
+There are also <code>calibrationTest</code> and <code>pit</code>
+methods for <code>oneStepAhead</code> predictions.
+</p>
+<p>Scores, calibration tests and PIT histograms can also be
+computed for the fitted values of an <code>hhh4</code> model
+(i.e., in-sample/training data evaluation).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">oneStepAhead(result, tp, type = c("rolling", "first", "final"),
+             which.start = c("current", "final"),
+             keep.estimates = FALSE, verbose = type != "final",
+             cores = 1)
+
+## S3 method for class 'oneStepAhead'
+quantile(x, probs = c(2.5, 10, 50, 90, 97.5)/100, ...)
+## S3 method for class 'oneStepAhead'
+confint(object, parm, level = 0.95, ...)
+## S3 method for class 'oneStepAhead'
+plot(x, unit = 1, probs = 1:99/100,
+     start = NULL, means.args = NULL, ...)
+
+## assessment of "oneStepAhead" predictions
+## S3 method for class 'oneStepAhead'
+scores(x, which = c("logs", "rps", "dss", "ses"),
+       units = NULL, sign = FALSE, individual = FALSE, reverse = FALSE, ...)
+## S3 method for class 'oneStepAhead'
+calibrationTest(x, units = NULL, ...)
+## S3 method for class 'oneStepAhead'
+pit(x, units = NULL, ...)
+
+## assessment of the "hhh4" model fit (in-sample predictions)
+## S3 method for class 'hhh4'
+scores(x, which = c("logs", "rps", "dss", "ses"),
+       subset = x$control$subset, units = seq_len(x$nUnit), sign = FALSE, ...)
+## S3 method for class 'hhh4'
+calibrationTest(x,
+                subset = x$control$subset, units = seq_len(x$nUnit), ...)
+## S3 method for class 'hhh4'
+pit(x, subset = x$control$subset, units = seq_len(x$nUnit), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>result</code></td>
+<td>
+<p>fitted <code>hhh4</code> model (class <code>"hhh4"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tp</code></td>
+<td>
+
+<p>numeric vector of length 2 specifying the time range in
+which to compute one-step-ahead predictions (for the time points
+<code>tp[1]+1</code>, ..., <code>tp[2]+1</code>).
+If a single time index is specified, it is interpreted as
+<code>tp[1]</code>, and <code>tp[2]</code> is set to the penultimate time point
+of <code>result$control$subset</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+
+<p>The default <code>"rolling"</code> procedure sequentially 
+refits the model up to each time point in <code>tp</code> and computes
+the one-step-ahead predictions for the respective next time point.
+The alternative <code>type</code>s are no true one-step-ahead predictions
+but much faster:
+<code>"first"</code> will refit the model for the first time point
+<code>tp[1]</code> only and use this specific fit to calculate all
+subsequent predictions, whereas
+<code>"final"</code> will just use <code>result</code> to calculate these.
+The latter case thus gives nothing else than a subset of
+<code>result$fitted.values</code> if the <code>tp</code>'s are part of the
+fitted subset <code>result$control$subset</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which.start</code></td>
+<td>
+
+<p>Which initial parameter values should be used when successively
+refitting the model to subsets of the data (up to time point
+<code>tp[1]</code>, up to <code>tp[1]+1</code>, ...) if <code>type="rolling"</code>?
+Default (<code>"current"</code>) is to use the parameter estimates from the
+previous time point, and <code>"final"</code> means to always
+use the estimates from <code>result</code> as initial values.
+Alternatively, <code>which.start</code> can be a list of <code>start</code>
+values as expected by <code>hhh4</code>, which then replace
+the corresponding estimates from <code>result</code> as initial values.
+This argument is ignored for “non-rolling” <code>type</code>s.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.estimates</code></td>
+<td>
+
+<p>logical indicating if parameter estimates and log-likelihoods from
+the successive fits should be returned.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+
+<p>non-negative integer (usually in the range <code>0:3</code>) specifying
+the amount of tracing information to output.
+During <code>hhh4</code> model updates, the following verbosity is used:
+<code>0</code> if <code>cores &gt; 1</code>, otherwise <code>verbose-1</code> if there
+is more than one time point to predict, otherwise <code>verbose</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>the number of cores to use when computing
+the predictions for the set of time points <code>tp</code> in parallel
+(with <code>mclapply</code>).
+Note that parallelization is not possible in the default setting
+<code>type="rolling"</code> and <code>which.start="current"</code> (use
+<code>which.start="final"</code> for this to work).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class <code>"oneStepAhead"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parm</code></td>
+<td>
+<p>unused (argument of the generic).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>required confidence level of the prediction interval.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probs</code></td>
+<td>
+<p>numeric vector of probabilities with values in [0,1].</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>unit</code></td>
+<td>
+<p>single integer or character selecting a unit for which to
+produce the plot.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+
+<p>x-coordinate of the first prediction. If <code>start=NULL</code>
+(default), this is derived from <code>x</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>means.args</code></td>
+<td>
+
+<p>if a list (of graphical parameters for <code>lines</code>),
+the point predictions (from <code>x$pred</code>) are added to the plot.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an object of class <code>"oneStepAhead"</code> or <code>"hhh4"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+<p>character vector determining which scores to compute.
+The package <span class="pkg">surveillance</span> implements the following proper
+scoring rules: logarithmic score (<code>"logs"</code>), ranked probability
+score (<code>"rps"</code>), Dawid-Sebastiani score (<code>"dss"</code>), and
+squared error score (<code>"ses"</code>). The normalized SES
+(<code>"nses"</code>) is also available but it is improper and hence not
+computed by default.<br>
+It is possible to name own scoring rules in <code>which</code>. These
+must be functions of <code>(x, mu, size)</code>, vectorized in all arguments
+(time x unit matrices) except that <code>size</code> is <code>NULL</code>
+in case of a Poisson model.
+See the available scoring rules for guidance, e.g., <code>dss</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+
+<p>subset of time points for which to calculate the scores
+(or test calibration, or produce the PIT histogram, respectively).
+Defaults to the subset used for fitting the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>units</code></td>
+<td>
+<p>integer or character vector indexing the units for which
+to compute the scores (or the calibration test or the PIT histogram,
+respectively). By default, all units are considered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sign</code></td>
+<td>
+<p>logical indicating if the function should also return
+<code>sign(x-mu)</code>, i.e., the sign of the difference between
+the observed counts and corresponding predictions.
+This does not really make sense when averaging over multiple
+<code>units</code> with <code>individual=FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>individual</code></td>
+<td>
+<p>logical indicating if the individual scores of the
+<code>units</code> should be returned. By default (<code>FALSE</code>), the
+individual scores are averaged over all <code>units</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reverse</code></td>
+<td>
+<p>logical indicating if the rows (time points) should be
+reversed in the result. The long-standing but awkward default was to
+do so for the <code>oneStepAhead</code>-method. This has changed in
+version 1.16.0, so time points are no longer reversed by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Unused by the <code>quantile</code>, <code>confint</code> and
+<code>scores</code> methods.<br>
+The <code>plot</code>-method passes further arguments to the
+<code>fanplot</code> function, e.g., <code>fan.args</code>,
+<code>observed.args</code>, and <code>key.args</code> can be used to modify the
+plotting style.<br>
+For the <code>calibrationTest</code>-method, further arguments are passed
+to <code>calibrationTest.default</code>, e.g., <code>which</code> to
+select a scoring rule.<br>
+For the <code>pit</code>-methods, further arguments are passed to
+<code>pit.default</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p><code>oneStepAhead</code> returns a list (of class <code>"oneStepAhead"</code>)
+with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>pred</code></td>
+<td>
+<p>one-step-ahead predictions in a matrix, where each row
+corresponds to one of the time points requested via the argument
+<code>tp</code>, and which has <code>ncol(result$stsObj)</code>
+unit-specific columns. The rownames indicate the predicted time points
+and the column names are identical to <code>colnames(result$stsObj)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>observed</code></td>
+<td>
+<p>matrix with observed counts at the predicted time
+points. It has the same dimensions and names as <code>pred</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi</code></td>
+<td>
+<p>in case of a negative-binomial model, a matrix of the
+estimated overdispersion parameter(s) at each time point on 
+the internal -log-scale (1 column if <code>"NegBin1"</code>,
+<code>ncol(observed)</code> columns if <code>"NegBinM"</code> or shared overdispersion). 
+For a <code>"Poisson"</code> model, this component is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allConverged</code></td>
+<td>
+<p>logical indicating if all successive fits
+converged.</p>
+</td>
+</tr>
+</table>
+<p>If <code>keep.estimates=TRUE</code>, there are the following additional elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>coefficients</code></td>
+<td>
+<p>matrix of estimated regression parameters from the successive fits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma.orig</code></td>
+<td>
+<p>matrix of estimated variance parameters from the successive fits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logliks</code></td>
+<td>
+<p>matrix with columns <code>"loglikelihood"</code> and
+<code>"margll"</code> with their obvious meanings.</p>
+</td>
+</tr>
+</table>
+<p>The <code>quantile</code>-method computes quantiles of the one-step-ahead
+forecasts. If there is only one unit, it returns a tp x prob matrix,
+otherwise a tp x unit x prob array.
+The <code>confint</code>-method is a convenient wrapper with <code>probs</code> set
+according to the required confidence level.
+</p>
+<p>The function <code>scores</code> computes the scoring rules specified in the
+argument <code>which</code>.
+If multiple <code>units</code> are selected and <code>individual=TRUE</code>, the
+result is an array of dimensions
+<code>c(nrow(pred),length(units),5+sign)</code> (up to <span class="pkg">surveillance</span>
+1.8-0, the first two dimensions were collapsed to give a matrix).
+Otherwise, the result is a matrix with <code>nrow(pred)</code> rows and
+<code>5+sign</code> columns. If there is only one predicted time point, the
+first dimension is dropped in both cases.
+</p>
+<p>The <code>calibrationTest</code>- and <code>pit</code>-methods are
+just convenient wrappers around the respective default methods.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer and Michaela Paul
+</p>
+
+
+<h3>References</h3>
+
+<p>Czado, C., Gneiting, T. and Held, L. (2009):
+Predictive model assessment for count data.
+<em>Biometrics</em>, <b>65</b> (4), 1254-1261.
+<a href="https://doi.org/10.1111/j.1541-0420.2009.01191.x">doi:10.1111/j.1541-0420.2009.01191.x</a>
+</p>
+<p>Paul, M. and Held, L. (2011):
+Predictive assessment of a non-linear random effects model for
+multivariate time series of infectious disease counts.
+<em>Statistics in Medicine</em>, <b>30</b> (10), 1118-1136.
+<a href="https://doi.org/10.1002/sim.4177">doi:10.1002/sim.4177</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>vignette("hhh4")</code> and <code>vignette("hhh4_spacetime")</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### univariate salmonella agona count time series
+
+data("salmonella.agona")
+## convert from old "disProg" to new "sts" class
+salmonella &lt;- disProg2sts(salmonella.agona)
+
+## generate formula for temporal and seasonal trends
+f.end &lt;- addSeason2formula(~1 + t, S=1, period=52)
+model &lt;- list(ar = list(f = ~1), end = list(f = f.end), family = "NegBin1")
+## fit the model
+result &lt;- hhh4(salmonella, model)
+
+## do sequential one-step-ahead predictions for the last 5 weeks
+pred &lt;- oneStepAhead(result, nrow(salmonella)-5, type="rolling",
+                     which.start="final", verbose=FALSE)
+pred
+quantile(pred)
+confint(pred)
+
+## simple plot of the 80% one-week-ahead prediction interval
+## and point forecasts
+if (requireNamespace("fanplot"))
+    plot(pred, probs = c(.1,.9), means.args = list())
+
+
+
+## note: oneStepAhead(..., type="final") just means fitted values
+stopifnot(identical(
+    unname(oneStepAhead(result, nrow(salmonella)-5, type="final")$pred),
+    unname(tail(fitted(result), 5))))
+
+
+## compute scores of the one-step-ahead predictions
+(sc &lt;- scores(pred))
+
+## the above uses the scores-method for "oneStepAhead" predictions,
+## which is a simple wrapper around the default method:
+scores(x = pred$observed, mu = pred$pred, size = exp(pred$psi))
+
+## scores with respect to the fitted values are similar
+(scFitted &lt;- scores(result, subset = nrow(salmonella)-(4:0)))
+
+
+
+
+## test if the one-step-ahead predictions are calibrated
+calibrationTest(pred)  # p = 0.8746
+
+## the above uses the calibrationTest-method for "oneStepAhead" predictions,
+## which is a simple wrapper around the default method:
+calibrationTest(x = pred$observed, mu = pred$pred, size = exp(pred$psi))
+
+## we can also test calibration of the fitted values
+## using the calibrationTest-method for "hhh4" fits
+calibrationTest(result, subset = nrow(salmonella)-(4:0))
+
+
+## plot a (non-randomized) PIT histogram for the predictions
+pit(pred)
+
+## the above uses the pit-method for "oneStepAhead" predictions,
+## which is a simple wrapper around the default method:
+pit(x = pred$observed, pdistr = "pnbinom", mu = pred$pred, size = exp(pred$psi))
+
+
+### multivariate measles count time series
+## (omitting oneStepAhead forecasts here to keep runtime low)
+
+data("measlesWeserEms")
+
+## simple hhh4 model with random effects in the endemic component
+measlesModel &lt;- list(
+    end = list(f = addSeason2formula(~0 + ri(type="iid"))),
+    ar = list(f = ~1),
+    family = "NegBin1")
+measlesFit &lt;- hhh4(measlesWeserEms, control = measlesModel)
+
+## assess overall (in-sample) calibration of the model, i.e.,
+## if the observed counts are from the fitted NegBin distribution
+calibrationTest(measlesFit) # default is DSS (not suitable for low counts)
+calibrationTest(measlesFit, which = "logs") # p = 0.7238
+
+## to assess calibration in the second year for a specific district
+calibrationTest(measlesFit, subset = 53:104, units = "03452", which = "rps")
+pit(measlesFit, subset = 53:104, units = "03452")
+
+
+### For a more sophisticated multivariate analysis of
+### areal time series of influenza counts - data("fluBYBW") -
+### see the (computer-intensive) demo("fluBYBW") script:
+demoscript &lt;- system.file("demo", "fluBYBW.R", package = "surveillance")
+#file.show(demoscript)
+</code></pre>
+
+
+</div>

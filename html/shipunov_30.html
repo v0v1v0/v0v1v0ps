@@ -1,0 +1,200 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>DNN</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Distance matrix based kNN classification</h2>
+
+<h3>Description</h3>
+
+<p><code>DNN</code> uses pre-cooked distance matrix to replace missing values in class labels.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">DNN(dst, cl, k, d, details=FALSE, self=FALSE)
+Dnn(trn, tst, classes, FUN=function(.x) dist(.x), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dst</code></td>
+<td>
+<p>Distance matrix (object of class 'dist').</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>Factor of class labels, should contain NAs to designate testing sub-group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>How many neighbors to select, odd numbers preferable. If specified, do not use "d".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>Distance to consider for neighborhood, in fractions of maximal distance. If specified, do not use "k".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>details</code></td>
+<td>
+<p>If TRUE, function will return voting matrix. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>self</code></td>
+<td>
+<p>Allow self-training? Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trn</code></td>
+<td>
+<p>Data to train from, classes variable out.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tst</code></td>
+<td>
+<p>Data with unknown classes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>classes</code></td>
+<td>
+<p>Classes variable for training data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FUN</code></td>
+<td>
+<p>Function to calculate distances, by default, just dist() (i.e., Euclidean distances).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments from Dnn() to DNN(), note that either 'k' or 'd' must be specified.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If classic kNN is a lazy classifier, DNN is super-lazy because it does
+not even calculate the distance matrix itself. Instead, you supply it
+with distance matrix (object of class 'dist') pre-computed with _any_
+possible tool. This lifts many restrictions. For example, arbitrary
+distance could be used (like Gower distance which allows any type of
+variable). This is also much faster than typical kNN.
+</p>
+<p>In addition to neighbor-based kNN classification, DNN implements
+_neighborhood_ classification when all neighbors within selected
+distance used for voting.
+</p>
+<p>As usual in kNN, ties are broken at random. DNN also controls
+situations when no neighbors are within the given distance (and returns
+NA), and also when all neighbors are relevant (also returns NA).
+</p>
+<p>By default, DNN() returns missing part of class labels, completely or
+partially filled with new (predicted) class labels. If 'cl' has no NAs
+and self=FALSE (default), DNN() returns it back with warning. It allows
+for combined and stepwise extensions (see examples). If 'details=TRUE',
+DNN() will return matrix where each column represents the table used
+for voting. If self=TRUE, DNN() could be used to calculate the class
+proximity surrogate.
+</p>
+<p>Dnn() is based on DNN() but has more class::knn()-like interface (see examples).
+</p>
+
+
+<h3>Value</h3>
+
+<p>Character vector with predicted class labels; or matrix if 'details=TRUE'.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Alexey Shipunov</p>
+
+
+<h3>See Also</h3>
+
+<p>class::<code>knn</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">iris.d &lt;- dist(iris[, -5])
+
+cl1 &lt;- iris$Species
+sam &lt;- c(rep(0, 4), 1) &gt; 0
+cl1[!sam] &lt;- NA
+table(cl1, useNA="ifany")
+
+## based on neighbor number
+iris.pred &lt;- DNN(dst=iris.d, cl=cl1, k=5)
+Misclass(iris$Species[is.na(cl1)], iris.pred)
+
+## based on neighborhood size
+iris.pred &lt;- DNN(dst=iris.d, cl=cl1, d=0.05)
+table(iris.pred, useNA="ifany")
+Misclass(iris$Species[is.na(cl1)], iris.pred)
+
+## protection against "all points relevant"
+DNN(dst=iris.d, cl=cl1, d=1)[1:5]
+## and all are ties:
+DNN(dst=iris.d, cl=cl1, d=1, details=TRUE)[, 1:5]
+
+## any distance works
+iris.d2 &lt;- Gower.dist(iris[, -5])
+iris.pred &lt;- DNN(dst=iris.d2, cl=cl1, k=5)
+Misclass(iris$Species[is.na(cl1)], iris.pred)
+
+## combined
+cl2 &lt;- cl1
+iris.pred &lt;- DNN(dst=iris.d, cl=cl2, d=0.05)
+cl2[is.na(cl2)] &lt;- iris.pred
+table(cl2, useNA="ifany")
+iris.pred2 &lt;- DNN(dst=iris.d, cl=cl2, k=5)
+cl2[is.na(cl2)] &lt;- iris.pred2
+table(cl2, useNA="ifany")
+Misclass(iris$Species, cl2)
+
+## self-training and class proximity surrogate
+cl3 &lt;- iris$Species
+t(DNN(dst=iris.d, cl=cl3, k=5, details=TRUE, self=TRUE))/5
+
+## Dnn() with more class::knn()-like interface
+iris.trn &lt;- iris[sam, ]
+iris.tst &lt;- iris[!sam, ]
+Dnn(iris.trn[, -5], iris.tst[, -5], iris.trn[, 5], k=7)
+
+## stepwise DNN, note the warning when no NAs left
+cl4 &lt;- cl1
+for (d in (5:14)/100) {
+iris.pred &lt;- DNN(dst=iris.d, cl=cl4, d=d)
+cl4[is.na(cl4)] &lt;- iris.pred
+}
+table(cl4, useNA="ifany")
+Misclass(iris$Species, cl4)
+## rushing to d=14% gives much worse results
+iris.pred &lt;- DNN(dst=iris.d, cl=cl1, d=0.14)
+table(iris.pred, useNA="ifany")
+Misclass(iris$Species[is.na(cl1)], iris.pred)
+</code></pre>
+
+
+</div>

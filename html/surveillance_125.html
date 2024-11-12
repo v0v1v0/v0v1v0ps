@@ -1,0 +1,212 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>epidataCS_aggregate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Conversion (aggregation) of <code>"epidataCS"</code> to <code>"epidata"</code> or <code>"sts"</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>Continuous-time continuous-space epidemic data stored in an object of
+class <code>"epidataCS"</code> can be aggregated in space or in space
+and time yielding an object of class <code>"epidata"</code> or
+<code>"sts"</code> for use of <code>twinSIR</code> or
+<code>hhh4</code> modelling, respectively.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## aggregation in space and time over 'stgrid' for use of 'hhh4' models
+epidataCS2sts(object, freq, start, neighbourhood,
+              tiles = NULL, popcol.stgrid = NULL, popdensity = TRUE)
+
+## aggregation in space for use of 'twinSIR' models
+## S3 method for class 'epidataCS'
+as.epidata(data, tileCentroids, eps = 0.001, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object, data</code></td>
+<td>
+<p>an object of class <code>"epidataCS"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>freq,start</code></td>
+<td>
+
+<p>see the description of the <code>"sts"</code> class.
+The <code>start</code> specification should reflect the beginning of
+<code>object$stgrid</code>, i.e., the start of the first time interval.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighbourhood</code></td>
+<td>
+
+<p>binary adjacency or neighbourhood-order matrix of the regions
+(<code>tiles</code>). If missing but <code>tiles</code> is given, a binary
+adjacency matrix will be auto-generated from <code>tiles</code> using
+functionality of the <span class="pkg">spdep</span> package (see
+<code>poly2adjmat</code>).
+Since the <code>"neighbourhood"</code> slot in <code>"sts"</code>
+is actually optional, <code>neighbourhood=NULL</code> also works.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tiles</code></td>
+<td>
+
+<p>object inheriting from <code>"SpatialPolygons"</code>
+representing the regions in <code>object$stgrid</code> (column
+<code>"tile"</code>). It will become the <code>"map"</code> slot of the
+resulting <code>"sts"</code> object.
+Its <code>row.names</code> must match <code>levels(object$stgrid$tile)</code>.
+If <code>neighbourhood</code> is provided, <code>tiles</code> is optional (not
+required for <code>hhh4</code>, but for plots of the resulting
+<code>"sts"</code> object). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>popcol.stgrid</code></td>
+<td>
+
+<p>single character or numeric value indexing the
+column in <code>object$stgrid</code> which contains the population data
+(counts or densities, depending on the <code>popdensity</code> argument).
+This will become the <code>"populationFrac"</code> slot (optional).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>popdensity</code></td>
+<td>
+
+<p>logical indicating if the column referenced by
+<code>popcol.stgrid</code> contains population densities or absolute counts.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tileCentroids</code></td>
+<td>
+
+<p>a coordinate matrix of the region centroids (i.e., the result of
+<code>coordinates(tiles)</code>). Its row names must match
+<code>levels(data$stgrid$tile)</code>.
+This will be the coordinates used for the “population” (i.e.,
+the <code>tiles</code> from <code>"epidataCS"</code>) in the
+discrete-space <code>twinSIR</code> modelling.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps</code></td>
+<td>
+
+<p>numeric scalar for breaking tied removal and infection times between different
+individuals (tiles), which might occur during conversion from
+<code>"epidataCS"</code> to <code>"epidata"</code>. Rather dumb, this is simply done
+by subtracting <code>eps</code> from each tied removal time.
+One should consider other ways of breaking the tied event times.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>unused (argument of the generic).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Conversion to <code>"sts"</code> only makes sense if the time
+intervals (<code>BLOCK</code>s) of the <code>stgrid</code> are regularly spaced
+(to give <code>freq</code> intervals per year). Note that events of the
+prehistory (not covered by <code>stgrid</code>) are not included in the
+resulting <code>sts</code> object.
+</p>
+<p>Some comments on the conversion to <code>"epidata"</code>:
+the conversion results into SIS epidemics only,
+i.e. the at-risk indicator is set to 1 immediately after
+recovery. A tile is considered infective if at least one individual
+within the tile is infective, otherwise it is susceptible.
+The lengths of the infectious periods are taken from
+<code>data$events$eps.t</code>. There will be no <code>f</code> columns in the resulting
+<code>"epidata"</code>. These must be generated by a subsequent call to
+<code>as.epidata</code> with desired <code>f</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>epidataCS2sts</code>: an object of class <code>"sts"</code>
+representing the multivariate time-series of the number of
+cases aggregated over <code>stgrid</code>.
+</p>
+<p><code>as.epidata.epidataCS</code>: an object of class
+<code>"epidata"</code> representing an SIS epidemic in form of a
+multivariate point process (one for each region/<code>tile</code>).
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>epidata</code> and <code>twinSIR</code>
+</p>
+<p><code>linkS4class{sts}</code> and <code>hhh4</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("imdepi")
+load(system.file("shapes", "districtsD.RData", package="surveillance"))
+
+## convert imdepi point pattern into multivariate time series
+imdsts &lt;- epidataCS2sts(imdepi, freq = 12, start = c(2002, 1),
+                        neighbourhood = NULL, # not needed here
+                        tiles = districtsD)
+
+## check the overall number of events by district
+stopifnot(all.equal(colSums(observed(imdsts)),
+                    c(table(imdepi$events$tile))))
+
+## compare plots of monthly number of cases
+opar &lt;- par(mfrow = c(2, 1))
+plot(imdepi, "time")
+plot(imdsts, type = observed ~ time)
+par(opar)
+
+## plot number of cases by district in Bavaria (municipality keys 09xxx)
+imd09 &lt;- imdsts[, grep("^09", colnames(imdsts), value = TRUE), drop = TRUE]
+plot(imd09, type = observed ~ unit)
+
+## also test conversion to an SIS event history ("epidata") of the "tiles"
+if (requireNamespace("intervals")) {
+    imdepi_short &lt;- subset(imdepi, time &lt; 50)  # to reduce the runtime
+    imdepi_short$stgrid &lt;- subset(imdepi_short$stgrid, start &lt; 50)
+    imdepidata &lt;- as.epidata(imdepi_short,
+                             tileCentroids = coordinates(districtsD))
+    summary(imdepidata)
+}
+</code></pre>
+
+
+</div>

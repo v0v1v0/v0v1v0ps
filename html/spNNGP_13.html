@@ -1,0 +1,424 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spConjNNGP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Univariate Bayesian Conjugate Spatial
+Regression Models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>spConjNNGP</code> fits Gaussian univariate Bayesian conjugate spatial
+regression models using Nearest Neighbor Gaussian Processes (NNGP).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">    spConjNNGP(formula, data = parent.frame(), coords, knots, n.neighbors = 15,
+               theta.alpha, sigma.sq.IG, cov.model = "exponential",
+               k.fold = 5, score.rule = "crps",
+               X.0, coords.0, n.omp.threads = 1, search.type = "cb",
+               ord, return.neighbor.info = TRUE, 
+               neighbor.info, fit.rep = FALSE, n.samples, verbose = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the regression model to be
+fit. See example below. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the
+model. If not found in data, the variables are taken from
+<code>environment(formula)</code>, typically the environment from which
+<code>spConjNNGP</code> is called.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>an <code class="reqn">n \times 2</code> matrix of the observation
+coordinates in <code class="reqn">R^2</code> (e.g., easting and northing), or if
+<code>data</code> is a data frame then <code>coords</code> can be a vector of
+length two comprising coordinate column names or indices. There can
+be no duplicate locations. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>an <code class="reqn">r \times 2</code> matrix of the observation coordinates
+in <code class="reqn">R^2</code> (e.g., easting and northing). Adding the
+<code>knots</code> argument invokes SLGP, see Shin et al. (2019) below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.alpha</code></td>
+<td>
+<p>a vector or matrix of parameter values for
+<code>phi</code>, <code>nu</code>, and <code>alpha</code>, where
+<code class="reqn">\alpha=\tau^2/\sigma^2</code> and <code>nu</code> is
+only required if <code>cov.model="matern"</code>. A vector is passed to
+run the model using one set of parameters. The vector elements must
+be named and hold values for <code>phi</code>, <code>nu</code>, and
+<code>alpha</code>. If a matrix is passed, columns must be named and hold
+values for <code>phi</code>, <code>nu</code>, and <code>alpha</code>. Each row in the matrix defines a set of parameters for which the model will be run. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.IG</code></td>
+<td>
+<p>a vector of length two that holds the
+hyperparameters, <em>shape</em> and <em>scale</em> respectively, for the
+inverse-Gamma prior on <code class="reqn">\sigma^2</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.  See below for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold</code></td>
+<td>
+<p>specifies the number of
+<em>k</em> folds for cross-validation. If <code>theta.alpha</code> is a
+vector then cross-validation is not performed and
+<code>k-fold</code> and <code>score.rule</code> are ignored. In <em>k</em>-fold
+cross-validation, the data specified in <code>model</code> is randomly
+partitioned into <em>k</em> equal sized subsamples. Of the <em>k</em>
+subsamples, <em>k</em>-1 subsamples are used to fit the model and the
+remaining <em>k</em> samples are used for prediction. The
+cross-validation process is repeated <em>k</em> times (the folds). Root
+mean squared prediction error (RMSPE) and continuous ranked
+probability score (CRPS; Gneiting and Raftery, 2007) rules are
+averaged over the <em>k</em> fold prediction results and reported for
+the parameter sets defined by <code>theta.alpha</code>. The parameter set
+that yields the <em>best</em> performance based on the scoring rule
+defined by <code>score.rule</code> is used to fit the final model that uses all
+the data and make predictions if <code>X.0</code> and <code>coords.0</code> are
+supplied.  Results from the <em>k</em>-fold cross-validation are returned in
+the <code>k.fold.scores</code> matrix. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>score.rule</code></td>
+<td>
+<p>a quoted keyword <code>"rmspe"</code> or <code>"crps"</code>
+that specifies the scoring rule used to select the <em>best</em>
+parameter set, see argument definition for <code>k.fold</code> for more
+details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X.0</code></td>
+<td>
+<p>the design matrix for prediction locations. An
+intercept should be provided in the first column if one is specified
+in <code>model</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords.0</code></td>
+<td>
+<p>the spatial coordinates corresponding to
+<code>X.0</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating
+the number of threads to use for SMP parallel processing. The package must
+be compiled for OpenMP support. For most Intel-based machines, we recommend setting
+<code>n.omp.threads</code> up to the number of hyperthreaded cores. Note, <code>n.omp.threads</code> &gt; 1 might not
+work on some systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search.type</code></td>
+<td>
+<p>a quoted keyword that specifies type of nearest
+neighbor search algorithm. Supported method key words are: <code>"cb"</code> and
+<code>"brute"</code>. The <code>"cb"</code> should generally be much
+faster. If locations do not have identical coordinate values on
+the axis used for the nearest neighbor ordering (see
+<code>ord</code> argument) then <code>"cb"</code> and <code>"brute"</code> should
+produce identical neighbor sets. However, if there are identical
+coordinate values on the axis used for nearest neighbor ordering,
+then <code>"cb"</code> and <code>"brute"</code> might produce different, but
+equally valid, neighbor sets, e.g., if data are on a grid. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ord</code></td>
+<td>
+<p>an index vector of length <code class="reqn">n</code> used for the nearest neighbor
+search. Internally, this vector is used to order <code>coords</code>,
+i.e., <code>coords[ord,]</code>, and associated data. Nearest neighbor
+candidates for the <em>i</em>-th row in the ordered <code>coords</code> are
+rows <code>1:(i-1)</code>, with the <code>n.neighbors</code> nearest neighbors being
+those with the minimum euclidean distance to the location defined by
+ordered <code>coords[i,]</code>. The default used when <code>ord</code> is not
+specified is x-axis ordering, i.e.,
+<code>order(coords[,1])</code>. This argument should typically be
+left blank. This argument will be ignored if the <code>neighbor.info</code>
+argument is used. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return.neighbor.info</code></td>
+<td>
+<p>if <code>TRUE</code>, a list called
+<code>neighbor.info</code> containing several data structures used for
+fitting the NNGP model is returned. If there is no change in input
+data or <code>n.neighbors</code>, this list can be passed to subsequent
+<code>spNNGP</code> calls via the <code>neighbor.info</code> argument to avoid
+the neighbor search, which can be time consuming if <code class="reqn">n</code> is
+large. In addition to the several cryptic data structures in
+<code>neighbor.info</code> there is a list called <code>n.indx</code> that is of
+length <code class="reqn">n</code>. The <em>i</em>-th element in <code>n.indx</code>
+corresponds to the <em>i</em>-th row in <code>coords[ord,]</code> and holds
+the vector of that location's nearest neighbor indices. This list can be useful for plotting the
+neighbor graph if desired. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighbor.info</code></td>
+<td>
+<p>see the <code>return.neighbor.info</code> argument
+description above.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.rep</code></td>
+<td>
+<p>if <code>TRUE</code>, regression fitted and replicate data will be
+returned. The argument <code>n.samples</code> controls the number of
+fitted and replicated data samples. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>gives the number of posterior samples
+returned. Note, point and associated variance estimates for model
+parameters are not based on posterior samples. Only specify
+<code>n.samples</code> if you wish to generate samples from parameters'
+posteriors (this is an exact sampling algorithm). If
+<code>fit.rep</code> is <code>TRUE</code>, then <code>n.samples</code> also controls
+the number of fitted and replicated data samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, model specification and progress is printed to the screen. Otherwise, nothing is printed to
+the screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments.  </p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>NNGP</code> and <code>conjugate</code>, and, if <code>knots</code>
+is provided, <code>SLGP</code>. Among other elements, the object contains:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>theta.alpha</code></td>
+<td>
+<p>the input <code>theta.alpha</code> vector, or <em>best</em> (according to the selected scoring
+rule) set of parameters in the <code>theta.alpha</code> matrix. All
+subsequent parameter estimates are based on this parameter set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.hat</code></td>
+<td>
+<p>a matrix of regression coefficient estimates
+corresponding to the returned <code>theta.alpha</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.var</code></td>
+<td>
+<p><code>beta.hat</code> variance-covariance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.hat</code></td>
+<td>
+<p>estimate of <code class="reqn">\sigma^2</code> corresponding to the returned <code>theta.alpha</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.var</code></td>
+<td>
+<p><code>sigma.sq.hat</code> variance.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.scores</code></td>
+<td>
+<p>results from the k-fold cross-validation if
+<code>theta.alpha</code> is a matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.0.hat</code></td>
+<td>
+<p>prediction if <code>X.0</code> and <code>coords.0</code> are
+specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.0.var.hat</code></td>
+<td>
+<p><code>y.0.hat</code> variance.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighbor.info</code></td>
+<td>
+<p>returned if <code>return.neighbor.info=TRUE</code> see the <code>return.neighbor.info</code> argument
+description above.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time for parameter estimation reported using
+<code>proc.time()</code>. This time does not include nearest neighbor
+search time for building the neighbor set.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>, <br>
+Abhirup Datta <a href="mailto:abhidatta@jhu.edu">abhidatta@jhu.edu</a>, <br>
+Sudipto Banerjee <a href="mailto:sudipto@ucla.edu">sudipto@ucla.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Datta, A., S. Banerjee, A.O. Finley, and A.E. Gelfand. (2016)
+Hierarchical Nearest-Neighbor Gaussian process models for large
+geostatistical datasets. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1080/01621459.2015.1044091">doi:10.1080/01621459.2015.1044091</a>.
+</p>
+<p>Finley, A.O., A. Datta, S. Banerjee (2022) spNNGP R Package for
+Nearest Neighbor Gaussian Process Models. <em>Journal of Statistical
+Software</em>, <a href="https://doi.org/10.18637/jss.v103.i05">doi:10.18637/jss.v103.i05</a>.
+</p>
+<p>Finley, A.O., A. Datta, B.D. Cook, D.C. Morton, H.E. Andersen, and
+S. Banerjee. (2019) Efficient algorithms for Bayesian Nearest Neighbor
+Gaussian Processes. <em>Journal of Computational and Graphical
+Statistics</em>, <a href="https://doi.org/10.1080/10618600.2018.1537924">doi:10.1080/10618600.2018.1537924</a>.
+</p>
+<p>Gneiting, T and A.E. Raftery. (2007) Strictly proper scoring rules,
+prediction, and estimation. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1198/016214506000001437">doi:10.1198/016214506000001437</a>.
+</p>
+<p>Shirota, S., A.O. Finley, B.D. Cook, and S. Banerjee (2019) Conjugate Nearest Neighbor Gaussian Process models for efficient statistical interpolation of large spatial data. <a href="https://arxiv.org/abs/1907.10109">https://arxiv.org/abs/1907.10109</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+rmvn &lt;- function(n, mu=0, V = matrix(1)){
+  p &lt;- length(mu)
+  if(any(is.na(match(dim(V),p))))
+    stop("Dimension problem!")
+  D &lt;- chol(V)
+  t(matrix(rnorm(n*p), ncol=p)%*%D + rep(mu,rep(n,p)))
+}
+
+##Make some data
+set.seed(1)
+n &lt;- 2000
+coords &lt;- cbind(runif(n,0,1), runif(n,0,1))
+
+x &lt;- cbind(1, rnorm(n))
+
+B &lt;- as.matrix(c(1,5))
+
+sigma.sq &lt;- 5
+tau.sq &lt;- 1
+phi &lt;- 3/0.5
+
+D &lt;- as.matrix(dist(coords))
+R &lt;- exp(-phi*D)
+w &lt;- rmvn(1, rep(0,n), sigma.sq*R)
+y &lt;- rnorm(n, x%*%B + w, sqrt(tau.sq))
+
+ho &lt;- sample(1:n, 1000)
+
+y.ho &lt;- y[ho]
+x.ho &lt;- x[ho,,drop=FALSE]
+w.ho &lt;- w[ho]
+coords.ho &lt;- coords[ho,]
+
+y &lt;- y[-ho]
+x &lt;- x[-ho,,drop=FALSE]
+w &lt;- w[-ho,,drop=FALSE]
+coords &lt;- coords[-ho,]
+
+##Fit a Conjugate NNGP model and predict for the holdout
+sigma.sq.IG &lt;- c(2, sigma.sq)
+
+cov.model &lt;- "exponential"
+
+g &lt;- 10
+theta.alpha &lt;- cbind(seq(phi,30,length.out=g), seq(tau.sq/sigma.sq,5,length.out=g))
+
+colnames(theta.alpha) &lt;- c("phi", "alpha")
+
+m.c &lt;- spConjNNGP(y~x-1, coords=coords, n.neighbors = 10,
+                  X.0 = x.ho, coords.0 = coords.ho,
+                  k.fold = 5, score.rule = "crps",
+                  n.omp.threads = 1,
+                  theta.alpha = theta.alpha, sigma.sq.IG = sigma.sq.IG, cov.model = cov.model)
+
+m.c
+
+
+</code></pre>
+
+
+</div>

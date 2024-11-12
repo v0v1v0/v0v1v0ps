@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>DNF.dynamicsSVM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Discrete Nonlinear Filtering Algorithm for Stochastic Volatility Models
+</h2>
+
+<h3>Description</h3>
+
+<p>The <code>DNF</code> function applies the discrete nonlinear filter (DNF) of Kitagawa (1987) as per the implementation of Bégin &amp; Boudreault (2020) to obtain likelihood evaluations and filtering distribution estimates for a wide class of stochastic volatility models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'dynamicsSVM'
+DNF(dynamics, data, factors = NULL, N = 50, K = 20, R = 1, grids, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dynamics</code></td>
+<td>
+<p>A dynamicsSVM object representing the model dynamics to be used by the DNF.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A series of asset returns for which we want to run the DNF. This should be a vector or an <code>xts</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>factors</code></td>
+<td>
+<p>Series of values taken by <code>d</code> explanatory variables. This should be a matrix or an <code>xts</code> object with <code>d</code> rows and <code>T</code> columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>Number of nodes in the variance grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>Number of nodes in the jump size grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R</code></td>
+<td>
+<p>Maximum number of jumps used in the numerical integration at each timestep.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grids</code></td>
+<td>
+<p>Grids to be used for numerical integration by the <code>DNF</code> function. The <code>DNF</code> function creates grids for built-in models. However, this arguments must be provided for custom models. It should contain a list of three sequences: <code>var_mid_points</code> (variance mid-point sequence), <code>j_nums</code> (sequence for the number of jumps), and <code>jump_mid_points</code> (jump mid-point sequence). If there are no variance jumps in the model, set <code>jump_mid_points</code> equal to zero. If there are no jumps in the model, both <code>j_nums</code> and <code>jump_mid_points</code> should be set to zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further arguments passed to or from other methods.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>log_likelihood</code></td>
+<td>
+<p>Log-likelihood evaluation based on the DNF.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>filter_grid</code></td>
+<td>
+<p>Grid of dimensions <code>N</code> by <code>T+1</code> that stores each time-step's filtering distributions (we assume the filtering distribution is uniform at <code class="reqn">t = 0</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>likelihoods</code></td>
+<td>
+<p>Likelihood contribution at each time-step throughout the series.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grids</code></td>
+<td>
+<p>List of grids used for numerical integration by the DNF.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamics</code></td>
+<td>
+<p>The model dynamics used by the DNF.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The series of asset returns to which the DNF was applied.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Bégin, J.F., Boudreault, M. (2021) Likelihood evaluation of jump-diffusion models using deterministic nonlinear filters. <em>Journal of Computational and Graphical Statistics</em>, 30(2), 452–466.
+</p>
+<p>Kitagawa, G. (1987) Non-Gaussian state-space modeling of nonstationary time series.
+<em>Journal of the American Statistical Association</em>, 82(400), 1032–1041.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(1)
+# Generate 200 returns from the DuffiePanSingleton model
+DuffiePanSingleton_mod &lt;- dynamicsSVM(model = "DuffiePanSingleton") 
+DuffiePanSingleton_sim &lt;- modelSim(t = 200, dynamics = DuffiePanSingleton_mod) 
+
+# Run DNF on the data
+dnf_filter &lt;- DNF(data = DuffiePanSingleton_sim$returns,
+  dynamics = DuffiePanSingleton_mod) 
+
+# Print log-likelihood evaluation.
+logLik(dnf_filter)
+
+# Using a custom model.
+# Here, we define the DuffiePanSingleton model as a custom model
+# to get the same log-likelihood found using the built-in option
+
+# Daily observations
+h &lt;- 1/252
+
+# Parameter values 
+mu &lt;- 0.038; kappa &lt;- 3.689; theta &lt;- 0.032
+sigma &lt;- 0.446; rho &lt;- -0.745; omega &lt;- 5.125
+delta &lt;- 0.03; alpha &lt;- -0.014; rho_z &lt;- -1.809; nu &lt;- 0.004
+
+# Jump compensator
+alpha_bar &lt;- exp(alpha + 0.5 * delta^2) / (1 - rho_z * nu) - 1
+
+# Returns drift and diffusion
+mu_y &lt;- function(x, mu, alpha_bar, omega, h) {
+  return(h * (mu - x / 2 - alpha_bar * omega))
+}
+mu_y_params &lt;- list(mu, alpha_bar, omega, h)
+sigma_y &lt;- function(x, h) {
+  return(sqrt(h * pmax(x, 0)))
+}
+sigma_y_params &lt;- list(h)
+
+# Volatility factor drift and diffusion
+mu_x &lt;- function(x, kappa, theta, h) {
+  return(x + h * kappa * (theta - pmax(0, x)))
+}
+mu_x_params &lt;- list(kappa, theta, h)
+
+sigma_x &lt;- function(x, sigma, h) {
+  return(sigma * sqrt(h * pmax(x, 0)))
+}
+sigma_x_params &lt;- list(sigma, h)
+
+# Jump distribution for the DuffiePanSingleton Model
+jump_density &lt;- dpois
+jump_dist &lt;- rpois
+jump_params &lt;- c(h * omega)
+
+# Create the custom model
+custom_mod &lt;- dynamicsSVM(model = 'Custom',
+  mu_x = mu_x, mu_y = mu_y, sigma_x = sigma_x, sigma_y = sigma_y,
+  mu_x_params = mu_x_params, mu_y_params = mu_y_params,
+  sigma_x_params = sigma_x_params, sigma_y_params = sigma_y_params,
+  jump_params = jump_params, jump_dist = jump_dist, jump_density = jump_density,
+  nu = nu, rho_z = rho_z, rho = rho)
+# Define the grid for DNF
+N &lt;- 50; R &lt;- 1; K &lt;- 20
+var_mid_points &lt;- seq(from = sqrt(0.0000001),
+  to = sqrt(theta + (3 + log(N)) * sqrt(0.5 * theta * sigma^2 / kappa)), length = N)^2
+  
+j_nums &lt;- seq(from = 0, to = R, by = 1)
+
+jump_mid_points &lt;- seq(from = 0.000001, to = (3 + log(K)) * sqrt(R) * nu, length = K)
+
+grids &lt;- list(var_mid_points = var_mid_points,
+  j_nums = j_nums, jump_mid_points = jump_mid_points)
+
+# Run the DNF function with the custom model
+dnf_custom &lt;- DNF(data = DuffiePanSingleton_sim$returns, grids = grids, 
+  dynamics = custom_mod)
+  
+# Check if we get the same log-likelihoods
+dnf_custom$log_likelihood; dnf_filter$log_likelihood 
+</code></pre>
+
+
+</div>

@@ -1,0 +1,215 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>standardize_level</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get standardized estimates using the g-formula with and separate models for each exposure level in the data</h2>
+
+<h3>Description</h3>
+
+<p>Get standardized estimates using the g-formula with and separate models for each exposure level in the data
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">standardize_level(
+  fitter_list,
+  arguments,
+  predict_fun_list,
+  data,
+  values,
+  B = NULL,
+  ci_level = 0.95,
+  contrasts = NULL,
+  reference = NULL,
+  seed = NULL,
+  times = NULL,
+  transforms = NULL,
+  progressbar = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fitter_list</code></td>
+<td>
+<p>The function to call to fit the data (as a list).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>arguments</code></td>
+<td>
+<p>The arguments to be used in the fitter function as a <code>list</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predict_fun_list</code></td>
+<td>
+<p>The function used to predict the means/probabilities
+for a new data set on the response level. For survival data,
+this should be a matrix where each column is the time, and each
+row the data (as a list).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>values</code></td>
+<td>
+<p>A named list or data.frame specifying the variables and values
+at which marginal means of the outcome will be estimated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>Number of nonparametric bootstrap resamples. Default is <code>NULL</code> (no bootstrap).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci_level</code></td>
+<td>
+<p>Coverage probability of confidence intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrasts</code></td>
+<td>
+<p>A vector of contrasts in the following format:
+If set to <code>"difference"</code> or <code>"ratio"</code>, then <code class="reqn">\psi(x)-\psi(x_0)</code>
+or <code class="reqn">\psi(x) / \psi(x_0)</code> are constructed, where <code class="reqn">x_0</code> is a reference
+level specified by the <code>reference</code> argument. Has to be <code>NULL</code>
+if no references are specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reference</code></td>
+<td>
+<p>A vector of reference levels in the following format:
+If <code>contrasts</code> is not <code>NULL</code>, the desired reference level(s). This
+must be a vector or list the same length as <code>contrasts</code>, and if not named,
+it is assumed that the order is as specified in contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>The seed to use with the nonparametric bootstrap.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>times</code></td>
+<td>
+<p>For use with survival data. Set to <code>NULL</code> otherwise.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>transforms</code></td>
+<td>
+<p>A vector of transforms in the following format:
+If set to <code>"log"</code>, <code>"logit"</code>, or <code>"odds"</code>, the standardized
+mean <code class="reqn">\theta(x)</code> is transformed into <code class="reqn">\psi(x)=\log\{\theta(x)\}</code>,
+<code class="reqn">\psi(x)=\log[\theta(x)/\{1-\theta(x)\}]</code>, or
+<code class="reqn">\psi(x)=\theta(x)/\{1-\theta(x)\}</code>, respectively.
+If the vector is <code>NULL</code>, then <code class="reqn">\psi(x)=\theta(x)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progressbar</code></td>
+<td>
+<p>Logical, if TRUE will print bootstrapping progress to the console</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>See <code>standardize</code>. The difference is here that different models
+can be fitted for each value of <code>x</code> in <code>values</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>std_custom</code>.
+This is a list with components estimates and fit for the outcome model.
+</p>
+
+
+<h3>References</h3>
+
+<p>Rothman K.J., Greenland S., Lash T.L. (2008).
+<em>Modern Epidemiology</em>, 3rd edition.
+Lippincott, Williams &amp; Wilkins.
+</p>
+<p>Sjölander A. (2016).
+Regression standardization with the R-package stdReg.
+<em>European Journal of Epidemiology</em> <b>31</b>(6), 563-574.
+</p>
+<p>Sjölander A. (2016).
+Estimation of causal effect measures with the R-package stdReg.
+<em>European Journal of Epidemiology</em> <b>33</b>(9), 847-858.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+require(survival)
+prob_predict.coxph &lt;- function(object, newdata, times) {
+  fit.detail &lt;- suppressWarnings(basehaz(object))
+  cum.haz &lt;- fit.detail$hazard[sapply(times, function(x) max(which(fit.detail$time &lt;= x)))]
+  predX &lt;- predict(object = object, newdata = newdata, type = "risk")
+  res &lt;- matrix(NA, ncol = length(times), nrow = length(predX))
+  for (ti in seq_len(length(times))) {
+    res[, ti] &lt;- exp(-predX * cum.haz[ti])
+  }
+  res
+}
+
+set.seed(68)
+n &lt;- 500
+Z &lt;- rnorm(n)
+X &lt;- rbinom(n, 1, prob = 0.5)
+T &lt;- rexp(n, rate = exp(X + Z + X * Z)) # survival time
+C &lt;- rexp(n, rate = exp(X + Z + X * Z)) # censoring time
+U &lt;- pmin(T, C) # time at risk
+D &lt;- as.numeric(T &lt; C) # event indicator
+dd &lt;- data.frame(Z, X, U, D)
+x &lt;- standardize_level(
+  fitter_list = list("coxph", "coxph"),
+  arguments = list(
+    list(
+      formula = Surv(U, D) ~ X + Z + X * Z,
+      method = "breslow",
+      x = TRUE,
+      y = TRUE
+    ),
+    list(
+      formula = Surv(U, D) ~ X,
+      method = "breslow",
+      x = TRUE,
+      y = TRUE
+    )
+  ),
+  predict_fun_list = list(prob_predict.coxph, prob_predict.coxph),
+  data = dd,
+  times = seq(1, 5, 0.1),
+  values = list(X = c(0, 1)),
+  B = 100,
+  reference = 0,
+  contrasts = "difference"
+)
+print(x)
+</code></pre>
+
+
+</div>

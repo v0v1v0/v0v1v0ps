@@ -1,0 +1,427 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sts-class</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Class <code>"sts"</code> – surveillance time series</h2>
+
+<h3>Description</h3>
+
+<p>This is a lightweight S4 class to implement (multivariate) time
+series of counts, typically from public health surveillance.
+The <code>"sts"</code> class supersedes the informal <code>"disProg"</code> class
+used in early versions of package <span class="pkg">surveillance</span>. Converters are
+available, see <code>disProg2sts</code>.
+</p>
+<p>The constructor function <code>sts</code> can be used to setup an
+<code>"sts"</code> object.
+For areal time series, it can also capture a <code>map</code>
+of the regions, where the counts originate from.
+See Section “Slots” below for a description of all class
+components, and Section “Methods” for a list of extraction,
+conversion and visualization methods.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sts(observed, start = c(2000, 1), frequency = 52,
+    epoch = NULL, population = NULL, map = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>observed</code></td>
+<td>
+<p>a vector (for a single time series) or matrix (one
+time series per column) of counts. A purely numeric data frame will
+also do (transformed via <code>as.matrix</code>). This argument sets the
+<code>observed</code> slot, which is the core element of the resulting
+<code>"sts"</code> object. It determines the dimensions and colnames for
+several other slots. The columns (“units”) typically
+correspond to different regions, diseases, or age groups.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start,frequency</code></td>
+<td>
+<p>basic characteristics of the time series data
+just like for simple <code>"ts"</code> objects. The (historical)
+default values correspond to weekly data starting in the first week
+of 2000. The <code>epoch</code> and <code>epochInYear</code> methods use the ISO
+8601 specification when converting between week numbers and dates,
+see <code>isoWeekYear</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epoch</code></td>
+<td>
+<p>observation times, either as an integer sequence (default)
+or as a <code>Date</code> vector (in which case <code>epochAsDate</code> is
+automatically set to <code>TRUE</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>population</code></td>
+<td>
+<p>a vector of length the number of columns in
+<code>observed</code> or a matrix of the same dimension as
+<code>observed</code>. Especially for multivariate time series, the
+population numbers (or fractions) underlying the counts in each unit
+are relevant for visualization and statistical inference. The
+<code>population</code> argument is an alias for the corresponding slot
+<code>populationFrac</code>. The default <code>NULL</code> value sets
+equal population fractions across all units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>map</code></td>
+<td>
+<p>optional spatial data representing the regions, either of
+class <code>"SpatialPolygons"</code>
+(or <code>"SpatialPolygonsDataFrame"</code>) or of class
+<code>"sf"</code> (requires package <a href="https://CRAN.R-project.org/package=sf"><span class="pkg">sf</span></a>).
+Its <code>row.names()</code> must contain the region IDs to be matched
+against <code>colnames(observed)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further named arguments with names corresponding to slot
+names (see the list below). For instance, in the public health surveillance context,
+the <code>state</code> slot is used to indicate outbreaks (default:
+<code>FALSE</code> for all observations). For areal time series data, the
+<code>map</code> and <code>neighbourhood</code> slots are used to store the
+spatial structure of the observation region.</p>
+</td>
+</tr>
+</table>
+<h3>Slots</h3>
+
+
+<dl>
+<dt>
+<code>epoch</code>:</dt>
+<dd>
+<p>a numeric vector specifying
+the time of observation, typically a week index. Depending on
+the <code>freq</code> slot, it could also index days or months.
+Furthermore, if <code>epochAsDate=TRUE</code> then <code>epoch</code>
+is the integer representation of <code>Date</code>s
+giving the exact date of the observation.</p>
+</dd>
+<dt>
+<code>freq</code>:</dt>
+<dd>
+<p>number of observations per year, e.g.,
+52 for weekly data, 12 for monthly data.</p>
+</dd>
+<dt>
+<code>start</code>:</dt>
+<dd>
+<p>vector of length two denoting the year and the
+sample number (week, month, etc.) of the first observation.</p>
+</dd>
+<dt>
+<code>observed</code>:</dt>
+<dd>
+<p>matrix of size <code>length(epoch)</code> times the
+number of regions containing the weekly/monthly number of counts in
+each region. The colnames of the matrix should match the ID values of
+the shapes in the <code>map</code> slot.</p>
+</dd>
+<dt>
+<code>state</code>:</dt>
+<dd>
+<p>matrix with the same dimensions as <code>observed</code>
+containing Booleans whether at the specific time point there was an
+outbreak in the region.</p>
+</dd>
+<dt>
+<code>alarm</code>:</dt>
+<dd>
+<p>matrix with the same dimensions as
+<code>observed</code> specifying whether an outbreak detection algorithm
+declared a specific time point in the region as having an alarm.</p>
+</dd>
+<dt>
+<code>upperbound</code>:</dt>
+<dd>
+<p>matrix with upper-bound values.</p>
+</dd>
+<dt>
+<code>neighbourhood</code>:</dt>
+<dd>
+<p>symmetric matrix of size
+<code class="reqn">(number of regions)^2</code> describing the neighbourhood structure. It
+may either be a binary adjacency matrix or contain neighbourhood orders
+(see the Examples for how to infer the latter from the <code>map</code>).</p>
+</dd>
+<dt>
+<code>populationFrac</code>:</dt>
+<dd>
+<p><code>matrix</code> of population 
+fractions or absolute numbers (see <code>multinomialTS</code> below)
+with dimensions <code>dim(observed)</code>.</p>
+</dd>
+<dt>
+<code>map</code>:</dt>
+<dd>
+<p>object of class <code>"SpatialPolygons"</code>
+(or <code>"SpatialPolygonsDataFrame"</code>)
+providing a shape of the areas which are monitored or modelled.</p>
+</dd>
+<dt>
+<code>control</code>:</dt>
+<dd>
+<p><code>list</code> of settings; this is a
+rather free data type to be returned by the surveillance algorithms.</p>
+</dd>
+<dt>
+<code>epochAsDate</code>:</dt>
+<dd>
+<p>a Boolean indicating
+if the <code>epoch</code> slot corresponds to <code>Date</code>s.</p>
+</dd>
+<dt>
+<code>multinomialTS</code>:</dt>
+<dd>
+<p>a Boolean
+stating whether to interpret the object as <code>observed</code> out of
+<code>population</code>, i.e. a multinomial interpretation instead of a
+count interpretation.</p>
+</dd>
+</dl>
+<h3>Methods</h3>
+
+
+
+<h4>Extraction of slots</h4>
+
+<p>There is an extraction (and replacement) method for almost every slot.
+The name of the method corresponds to the slot name, with three exceptions:
+the <code>freq</code> slot can be extracted by <code>frequency()</code>,
+the <code>populationFrac</code> slot is accessed by <code>population()</code>,
+and the <code>alarm</code> slot is accessed by <code>alarms()</code>.
+</p>
+
+<dl>
+<dt>epoch</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>epoch</code> slot. If the <code>sts</code> object is indexed
+by dates (<code>epochAsDate</code> = TRUE), the returned vector is of
+class <code>Date</code>, otherwise numeric (usually the integer
+sequence <code>1:nrow(x)</code>).<br>
+By explicitly requesting <code>epoch(x, as.Date = TRUE)</code>, dates
+can also be extracted if the <code>sts</code> object is not internally
+indexed by dates but has a standard frequency of 12 (monthly) or
+52 (weekly). The transformation is based on <code>start</code> and
+<code>freq</code> and will return the first day of each month
+(<code>freq=12</code>) and the Monday of each week (<code>freq=52</code>),
+respectively.</p>
+</dd>
+<dt>frequency</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>freq</code> slot.</p>
+</dd>
+<dt>start</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>start</code> slot.</p>
+</dd>
+<dt>observed</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>observed</code> slot.</p>
+</dd>
+<dt>alarms</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>alarm</code> slot.</p>
+</dd>
+<dt>upperbound</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>upperbound</code> slot.</p>
+</dd>
+<dt>neighbourhood</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>neighbourhood</code> slot.</p>
+</dd>
+<dt>population</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>populationFrac</code> slot.</p>
+</dd>
+<dt>control</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>control</code> slot.</p>
+</dd>
+<dt>multinomialTS</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>multinomialTS</code> slot.</p>
+</dd>
+</dl>
+<h4>Other extraction methods</h4>
+
+
+<dl>
+<dt>dim</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract matrix dimensions of <code>observed</code>.
+This method also enables <code>nrow(x)</code> and <code>ncol(x)</code>.</p>
+</dd>
+<dt>dimnames</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the <code>dimnames</code> of the <code>observed</code> matrix.
+This method also enables <code>rownames(x)</code> and <code>colnames(x)</code>.</p>
+</dd>
+<dt>year</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the corresponding year of each observation.</p>
+</dd>
+<dt>epochInYear</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+extract the epoch number within the year.</p>
+</dd>
+<dt>[</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+subset rows (time points) and/or columns (units),
+see <code>help("[,sts-method")</code>.</p>
+</dd>
+</dl>
+<h4>Transformation methods</h4>
+
+
+<dl>
+<dt>aggregate</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+see <code>aggregate.sts</code>.</p>
+</dd>
+<dt>as.data.frame</dt>
+<dd>
+<p><code>signature(x = "sts")</code>:
+the default <code>as.data.frame</code> call will collect the following
+slots into a data frame: <code>observed</code>, <code>epoch</code>,
+<code>state</code>, <code>alarm</code>, <code>upperbound</code>, and
+<code>populationFrac</code>. Additional columns will be created for
+<code>freq</code> (potentially varying by year for weekly or daily data
+if <code>x@epochAsDate</code> is <code>TRUE</code>) and
+<code>epochInPeriod</code> (the epoch fraction within the current year).<br>
+Calling the <code>as.data.frame</code> method with the argument
+<code>tidy = TRUE</code> will return <code>tidy.sts(x)</code>,
+which reshapes multivariate <code>sts</code> objects to the
+“long” format (one row per epoch and observational unit).
+The tidy format is particularly useful for standard regression
+models and customized plotting.</p>
+</dd>
+<dt>coerce</dt>
+<dd>
+<p><code>signature(from="sts", to="ts")</code> and
+<code>signature(from="ts", to="sts")</code>,
+to be called via <code>as(stsObj, "ts")</code> (or <code>as.ts(stsObj)</code>)
+and <code>as(tsObj, "sts")</code>, respectively.</p>
+</dd>
+<dt>as.xts</dt>
+<dd>
+<p>convert to the <a href="https://CRAN.R-project.org/package=xts"><span class="pkg">xts</span></a> package format.</p>
+</dd>
+</dl>
+<h4>Visualization methods</h4>
+
+
+<dl>
+<dt>plot</dt>
+<dd>
+<p><code>signature(x = "sts", y = "missing")</code>:
+entry point to a collection of plot variants.
+The <code>type</code> of plot is specified using a formula,
+see <code>plot.sts</code> for details.</p>
+</dd>
+<dt>autoplot</dt>
+<dd>
+<p>a <a href="https://CRAN.R-project.org/package=ggplot2"><span class="pkg">ggplot2</span></a> variant of the standard
+time-series-type plot, see <code>autoplot.sts</code>.</p>
+</dd>
+<dt>animate</dt>
+<dd>
+<p>see <code>animate.sts</code>.</p>
+</dd>
+<dt>toLatex</dt>
+<dd>
+<p>see <code>toLatex.sts</code>.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Michael Höhle and Sebastian Meyer</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">showClass("sts")
+
+## create an sts object from time-series data
+salmonellaDF &lt;- read.table(system.file("extdata/salmonella.agona.txt",
+                                       package = "surveillance"), header = TRUE)
+str(salmonellaDF)
+salmonella &lt;- with(salmonellaDF,
+                   sts(observed = observed, state = state,
+                       start = c(1990, 1), frequency = 52))
+salmonella
+plot(salmonella)
+
+## these data are also available as a legacy "disProg" object in the package
+data(salmonella.agona)
+stopifnot(all.equal(salmonella, disProg2sts(salmonella.agona)))
+
+
+## A typical dataset with weekly counts of measles from several districts
+data("measlesWeserEms")
+measlesWeserEms
+
+## reconstruct data("measlesWeserEms") from its components
+counts &lt;- observed(measlesWeserEms)
+map &lt;- measlesWeserEms@map
+populationFrac &lt;- population(measlesWeserEms)
+weserems_nbOrder &lt;- neighbourhood(measlesWeserEms)
+## orders of adjacency can also be determined from the map
+if (requireNamespace("spdep")) {
+    stopifnot(identical(weserems_nbOrder,
+                        nbOrder(poly2adjmat(map))))
+}
+mymeasles &lt;- sts(counts, start = c(2001, 1), frequency = 52,
+                 population = populationFrac,
+                 neighbourhood = weserems_nbOrder, map = map)
+stopifnot(identical(mymeasles, measlesWeserEms))
+
+## convert ts/mts object to sts
+z &lt;- ts(matrix(rpois(300,10), 100, 3), start = c(1961, 1), frequency = 12)
+z.sts &lt;- as(z, "sts")
+plot(z.sts)
+
+## conversion of "sts" objects to the quasi-standard "xts" class
+if (requireNamespace("xts")) {
+    z.xts &lt;- as.xts.sts(z.sts)
+    plot(z.xts)
+}
+</code></pre>
+
+
+</div>

@@ -1,0 +1,205 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cond.reclass</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Test conditions and reclassify</h2>
+
+<h3>Description</h3>
+
+<p>Evaluate conditions for cells of a class and reclassify them if conditions
+are true.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cond.reclass(
+  attTbl,
+  ngbList = NULL,
+  rNumb = FALSE,
+  classVector,
+  class,
+  cond,
+  reclass,
+  peval = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>attTbl</code></td>
+<td>
+<p>data.frame, the attribute table returned by the function
+<code>attTbl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngbList</code></td>
+<td>
+<p>list, the list of neighborhoods returned by the function
+<code>ngbList</code>. Only necessary if using an <em>absolute neighborhood
+condition</em> (see <code>conditions</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rNumb</code></td>
+<td>
+<p>logic, the neighborhoods of the argument <code>ngbList</code> are
+identified by cell numbers (<code>rNumb=FALSE</code>) or by row numbers
+(<code>rNumb=TRUE</code>) (see <code>ngbList</code>). It is advised to use row
+numbers for large rasters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>classVector</code></td>
+<td>
+<p>numeric vector, defines the cells in the attribute table
+that have already been classified. See <code>conditions</code> for more
+information about class vectors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>class</code></td>
+<td>
+<p>numeric or numeric vector, indicates the class(es) for which
+conditions have to be evaluated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond</code></td>
+<td>
+<p>character string, the conditions a cell have to meet to be
+classified as indicated by the argument <code>reclass</code>. See
+<code>conditions</code> for more details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reclass</code></td>
+<td>
+<p>numeric, the classification number to assign to all cells that
+meet the function conditions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>peval</code></td>
+<td>
+<p>numeric value between 0 and 1. If <em>absolute neighborhood
+conditions</em> are considered, test cells are classified if the number of
+positive evaluations is equal or greater than the percentage specified by
+the argument <code>peval</code> (see <code>conditions</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+ <ul>
+<li>
+<p> The function evaluates the conditions of the
+argument <code>cond</code> for all cells in the classes of the
+argument <code>class</code>.
+</p>
+</li>
+<li>
+<p> Cells that meet the function conditions are re-classified as indicted
+by the argument <code>reclass</code>.
+</p>
+</li>
+<li>
+<p> Absolute test cell and neighborhood conditions can be used. The
+condition string can only include one neighborhood condition (<code>'{}'</code>)
+(see <code>conditions</code>).</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Update <code>classVector</code> with the new cells that were classified by
+the function. See <code>conditions</code> for more information about class
+vectors.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>conditions()</code>, <code>attTbl()</code>, <code>ngbList()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># DUMMY DATA
+######################################################################################
+library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r)
+
+################################################################################
+# RECLASS.NBS
+################################################################################
+
+# Compute an example class vector
+cv &lt;- cond.4.all(attTbl = at, cond = "dummy_var &gt; 1", class = 1)
+
+# Reclassify cells
+cr &lt;- cond.reclass(attTbl = at, ngbList = nbs,
+
+                   # CLASS VECTOR COMPUTED WITH THE RULE "dummy_var &gt; 1"
+                   classVector = cv,
+
+                   # CELLS TO RECLASSIFY HAVE THIS CLASS
+                   class = 1,
+
+                   # ABSOLUTE NEIGHBORHOOD CONDITION
+                   cond = "dummy_var{} &gt;= 5", peval = 1,
+
+                   # NEW CLASSIFICATION NUMBER
+                   reclass = 2)
+
+# Convert class vectors to rasters
+r_cv &lt;- cv.2.rast(r, cv)
+r_cr &lt;- cv.2.rast(r, cr)
+
+################################################################################
+# PLOTS
+################################################################################
+oldpar &lt;- par(mfrow = c(1,2))
+m &lt;- c(3, 1, 5, 4)
+
+# 1.
+r_cv[which(is.na(values(r_cv)))] &lt;- 10
+plot(r_cv, type="classes", mar=m, col=c("#78b2c4","#818792"), axes=FALSE,
+     plg=list(x=1, y=1, cex=.80, title="Classes",legend=c("1", "NA")))
+text(r); lines(r)
+mtext(side=3, line=1, adj=0, cex=1, font=2, "1. COND.4.ALL")
+mtext(side=3, line=0, adj=0, cex=0.9, "New class vector")
+mtext(side=1, line=0, cex=1, adj=0, "Class: 1")
+mtext(side=1, line=1, cex=1, adj=0, "Rule: 'dummy_var &gt; 1'")
+
+# 2.
+r_cr[which(is.na(values(r_cr)))] &lt;- 10
+plot(r_cr, type="classes", mar=m, col=c("#78b2c4","#cfad89","#818792"), axes=FALSE,
+     plg=list(x=1, y=1, cex=.80, title="Classes",legend=c("1", "reclass", "NA")))
+text(r); lines(r)
+mtext(side=3, line=1, adj=0, cex=1, font=2, "2. COND.RECLASS")
+mtext(side=3, line=0, adj=0, cex=0.9, "Reclassify cells meeting conditions")
+mtext(side=1, line=0, cex=1, adj=0, "Class: 2")
+mtext(side=1, line=1, cex=1, adj=0, "Rule: 'dummy_var{ } &gt;= 5'; peval = 1")
+par(oldpar)
+</code></pre>
+
+
+</div>

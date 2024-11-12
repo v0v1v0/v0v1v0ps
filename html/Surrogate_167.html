@@ -1,0 +1,115 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>summary.FederatedApproachStage2</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Provides a summary of the surrogacy measures for an object fitted with the 'FederatedApproachStage2()' function.</h2>
+
+<h3>Description</h3>
+
+<p>Provides a summary of the surrogacy measures for an object fitted with the 'FederatedApproachStage2()' function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'FederatedApproachStage2'
+summary(object, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object of class 'FederatedApproachStage2' fitted with the 'FederatedApproachStage2()' function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>...</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The surrogacy measures with their 95% confidence intervals.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+#As an example, the federated data analysis approach can be applied to the Schizo data set
+data(Schizo)
+Schizo &lt;-  Schizo[order(Schizo$InvestId, Schizo$Id),]
+#Create separate datasets for each investigator
+Schizo_datasets &lt;- list()
+
+for (invest_id in 1:198) {
+Schizo_datasets[[invest_id]] &lt;- Schizo[Schizo$InvestId == invest_id, ]
+assign(paste0("Schizo", invest_id), Schizo_datasets[[invest_id]])
+}
+#Fit the first stage model for each dataset separately
+results_stage1 &lt;- list()
+invest_ids &lt;- list()
+i &lt;- 1
+for (invest_id in 1:198) {
+  dataset &lt;- Schizo_datasets[[invest_id]]
+
+  skip_to_next &lt;- FALSE
+  tryCatch(FederatedApproachStage1(dataset, Surr=CGI, True=PANSS, Treat=Treat, Trial.ID = InvestId,
+                                   Min.Treat.Size = 5, Alpha = 0.05),
+                                   error = function(e) { skip_to_next &lt;&lt;- TRUE})
+  #if the trial does not have the minimum required number, skip to the next
+  if(skip_to_next) { next }
+
+  results_stage1[[invest_id]] &lt;- FederatedApproachStage1(dataset, Surr=CGI, True=PANSS, Treat=Treat,
+                                                         Trial.ID = InvestId, Min.Treat.Size = 5,
+                                                         Alpha = 0.05)
+  assign(paste0("stage1_invest", invest_id), results_stage1[[invest_id]])
+  invest_ids[[i]] &lt;- invest_id #keep a list of ids with datasets with required number of patients
+  i &lt;- i+1
+}
+
+invest_ids &lt;- unlist(invest_ids)
+invest_ids
+
+#Combine the results of the first stage models
+for (invest_id in invest_ids) {
+  dataset &lt;- results_stage1[[invest_id]]$Results.Stage.1
+  if (invest_id == invest_ids[1]) {
+    all_results_stage1&lt;- dataset
+ } else {
+    all_results_stage1 &lt;- rbind(all_results_stage1,dataset)
+  }
+}
+
+all_results_stage1 #that combines the results of the first stage models
+
+R.list &lt;- list()
+i &lt;- 1
+for (invest_id in invest_ids) {
+  R &lt;- results_stage1[[invest_id]]$R.i
+  R.list[[i]] &lt;- as.matrix(R[1:4,1:4])
+  i &lt;- i+1
+}
+
+R.list #list that combines all the variance-covariance matrices of the fixed effects
+
+fit &lt;- FederatedApproachStage2(Dataset = all_results_stage1, Intercept.S = Intercept.S,
+                               alpha = alpha, Intercept.T = Intercept.T, beta = beta,
+                               sigma.SS = sigma.SS, sigma.ST = sigma.ST,
+                               sigma.TT = sigma.TT, Obs.per.trial = n,
+                               Trial.ID = Trial.ID, R.list = R.list)
+summary(fit)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

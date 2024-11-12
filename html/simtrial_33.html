@@ -1,0 +1,186 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim_pw_surv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate a stratified time-to-event outcome randomized trial</h2>
+
+<h3>Description</h3>
+
+<p><code>sim_pw_surv()</code> enables simulation of a clinical trial with
+essentially arbitrary patterns of enrollment, failure rates and censoring.
+The piecewise exponential distribution allows a simple method to specify
+a distribution and enrollment pattern where the enrollment, failure,
+and dropout rate changes over time.
+While the main purpose may be to generate a trial that can be analyzed
+at a single point in time or using group sequential methods,
+the routine can also be used to simulate an adaptive trial design.
+Enrollment, failure, and dropout rates are specified by treatment group,
+stratum and time period.
+Fixed block randomization is used; blocks must include treatments provided
+in failure and dropout specification.
+Default arguments are set up to allow very simple implementation of
+a non-proportional hazards assumption for an unstratified design.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim_pw_surv(
+  n = 100,
+  stratum = data.frame(stratum = "All", p = 1),
+  block = c(rep("control", 2), rep("experimental", 2)),
+  enroll_rate = data.frame(rate = 9, duration = 1),
+  fail_rate = data.frame(stratum = rep("All", 4), period = rep(1:2, 2), treatment =
+    c(rep("control", 2), rep("experimental", 2)), duration = rep(c(3, 1), 2), rate =
+    log(2)/c(9, 9, 9, 18)),
+  dropout_rate = data.frame(stratum = rep("All", 2), period = rep(1, 2), treatment =
+    c("control", "experimental"), duration = rep(100, 2), rate = rep(0.001, 2))
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>Number of observations.
+If length(n) &gt; 1, the length is taken to be the number required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratum</code></td>
+<td>
+<p>A data frame with stratum specified in <code>stratum</code>,
+probability (incidence) of each stratum in <code>p</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>block</code></td>
+<td>
+<p>Vector of treatments to be included in each block.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>enroll_rate</code></td>
+<td>
+<p>Enrollment rates; see details and examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fail_rate</code></td>
+<td>
+<p>Failure rates; see details and examples;
+note that treatments need to be the same as input in block.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dropout_rate</code></td>
+<td>
+<p>Dropout rates; see details and examples;
+note that treatments need to be the same as input in block.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A data frame with the following variables for each observation:
+</p>
+
+<ul>
+<li> <p><code>stratum</code>.
+</p>
+</li>
+<li> <p><code>enroll_time</code>: Enrollment time for the observation.
+</p>
+</li>
+<li> <p><code>Treatment</code>: Treatment group; this will be one of the values
+in the input <code>block</code>.
+</p>
+</li>
+<li> <p><code>fail_time</code>: Failure time generated using <code>rpwexp()</code>.
+</p>
+</li>
+<li> <p><code>dropout_time</code>: Dropout time generated using <code>rpwexp()</code>.
+</p>
+</li>
+<li> <p><code>cte</code>: Calendar time of enrollment plot the minimum of
+failure time and dropout time.
+</p>
+</li>
+<li> <p><code>fail</code>: Indicator that <code>cte</code> was set using failure time;
+i.e., 1 is a failure, 0 is a dropout.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(dplyr)
+
+# Example 1
+sim_pw_surv(n = 20)
+
+# Example 2
+# 3:1 randomization
+sim_pw_surv(
+  n = 20,
+  block = c(rep("experimental", 3), "control")
+)
+
+# Example 3
+# Simulate 2 stratum; will use defaults for blocking and enrollRates
+sim_pw_surv(
+  n = 20,
+  # 2 stratum,30% and 70% prevalence
+  stratum = data.frame(stratum = c("Low", "High"), p = c(.3, .7)),
+  fail_rate = data.frame(
+    stratum = c(rep("Low", 4), rep("High", 4)),
+    period = rep(1:2, 4),
+    treatment = rep(c(
+      rep("control", 2),
+      rep("experimental", 2)
+    ), 2),
+    duration = rep(c(3, 1), 4),
+    rate = c(.03, .05, .03, .03, .05, .08, .07, .04)
+  ),
+  dropout_rate = data.frame(
+    stratum = c(rep("Low", 2), rep("High", 2)),
+    period = rep(1, 4),
+    treatment = rep(c("control", "experimental"), 2),
+    duration = rep(1, 4),
+    rate = rep(.001, 4)
+  )
+)
+# Example 4
+# If you want a more rectangular entry for a data.frame
+fail_rate &lt;- bind_rows(
+  data.frame(stratum = "Low", period = 1, treatment = "control", duration = 3, rate = .03),
+  data.frame(stratum = "Low", period = 1, treatment = "experimental", duration = 3, rate = .03),
+  data.frame(stratum = "Low", period = 2, treatment = "experimental", duration = 3, rate = .02),
+  data.frame(stratum = "High", period = 1, treatment = "control", duration = 3, rate = .05),
+  data.frame(stratum = "High", period = 1, treatment = "experimental", duration = 3, rate = .06),
+  data.frame(stratum = "High", period = 2, treatment = "experimental", duration = 3, rate = .03)
+)
+
+dropout_rate &lt;- bind_rows(
+  data.frame(stratum = "Low", period = 1, treatment = "control", duration = 3, rate = .001),
+  data.frame(stratum = "Low", period = 1, treatment = "experimental", duration = 3, rate = .001),
+  data.frame(stratum = "High", period = 1, treatment = "control", duration = 3, rate = .001),
+  data.frame(stratum = "High", period = 1, treatment = "experimental", duration = 3, rate = .001)
+)
+
+sim_pw_surv(
+  n = 12,
+  stratum = data.frame(stratum = c("Low", "High"), p = c(.3, .7)),
+  fail_rate = fail_rate,
+  dropout_rate = dropout_rate
+)
+
+</code></pre>
+
+
+</div>

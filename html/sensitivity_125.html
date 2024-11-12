@@ -1,0 +1,283 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>PoincareChaosSqCoef</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Squared coefficients computation in generalized chaos</h2>
+
+<h3>Description</h3>
+
+<p>This program computes the squared coefficient of the function decomposition in the tensor basis formed by eigenfunctions of Poincare differential operators.
+After division by the variance of the model output, it provides lower bounds of first-order and total Sobol' indices.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">PoincareChaosSqCoef(PoincareEigen, multiIndex, design, output, outputGrad = NULL, 
+                    inputIndex = 1, der = FALSE, method = "unbiased")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>PoincareEigen</code></td>
+<td>
+<p>output list from PoincareOptimal() function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multiIndex</code></td>
+<td>
+<p>vector of indices (l1, ..., ld). A coordinate equal to 0 corresponds to the constant basis function 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>design of experiments (matrix of size n x d) with d the number of inputs and n the number of observations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>vector of length n (y1, ..., yn) of output values at <code>design</code> points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outputGrad</code></td>
+<td>
+<p>matrix n x d whose columns contain the output partial derivatives at <code>design</code> points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inputIndex</code></td>
+<td>
+<p>index of the input variable (between 1 and d)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>der</code></td>
+<td>
+<p>logical (default=FALSE): should we use the formula with derivatives to compute the squared coefficient?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>"biased" or "unbiased" formula when estimating the squared integral. See <code>squaredIntEstim</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Similarly to polynomial chaos, where tensors of polynomials are used, we consider here tensor 
+basis formed by eigenfunctions of Poincare differential operators. This basis is also orthonormal, 
+and Parseval formula lead to lower bound for (unnormalized) Sobol, total Sobol indices, and any variance-based index.
+Denoting by <code class="reqn">(e_{1, l1}... e_{d, ld})</code> one tensor basis, the corresponding coefficient is equal to
+</p>
+<p><code class="reqn">c_{l1, ..., ld} = &lt;f, e_{1, l1}... e_{d, ld}&gt;</code>.
+</p>
+<p>For a given input variable (say <code class="reqn">x1</code> to simplify notations), it can be rewritten with derivatives as:
+</p>
+<p><code class="reqn">c_{l1, ..., ld} = &lt;df/dx1, de_{1, l1}/dx1 e_{2, l2}...e_{d, ld}&gt; / eigenvalue_{1, l1}</code>
+</p>
+<p>The function returns an estimate of <code class="reqn">c_{l1, ..., ld}^2</code>, corresponding to one of these two forms (derivative-free, or derivative-based).
+</p>
+
+
+<h3>Value</h3>
+
+<p>An estimate of the squared coefficient.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Olivier Roustant and Bertrand Iooss
+</p>
+
+
+<h3>References</h3>
+
+<p>O. Roustant, F. Gamboa and B. Iooss, <em>Parseval inequalities and lower bounds for 
+variance-based sensitivity indices</em>, Electronic Journal of Statistics, 14:386-412, 2020
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>PoincareOptimal</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# A simple example
+
+g &lt;- function(x, a){
+  res &lt;- x[, 1] + a*x[, 1]*x[, 2]
+  attr(res, "grad") &lt;- cbind(1 + a * x[, 2], a * x[, 1])
+  return(res)
+}
+
+n &lt;- 1e3
+set.seed(0)
+X &lt;- matrix(runif(2*n, min = -1/2, max = 1/2), nrow = n, ncol = 2)
+a &lt;- 3
+fX &lt;- g(X, a = a)
+
+out_1 &lt;- out_2 &lt;- PoincareOptimal(distr = list("unif", -1/2, 1/2), 
+                                  only.values = FALSE, der = TRUE, 
+                                  method = "quad")
+out &lt;- list(out_1, out_2)
+
+# Lower bounds for X1
+c2_10 &lt;- PoincareChaosSqCoef(PoincareEigen = out, multiIndex = c(1, 0), 
+                             design = X, output = fX, outputGrad = attr(fX, "grad"), 
+                             inputIndex = 1, der = FALSE)
+c2_11 &lt;- PoincareChaosSqCoef(PoincareEigen = out, multiIndex = c(1, 1), 
+                             design = X, output = fX, outputGrad = attr(fX, "grad"), 
+                             inputIndex = 1, der = FALSE)
+c2_10_der &lt;- PoincareChaosSqCoef(PoincareEigen = out, multiIndex = c(1, 0), 
+                                 design = X, output = fX, outputGrad = attr(fX, "grad"), 
+                                 inputIndex = 1, der = TRUE)
+c2_11_der &lt;- PoincareChaosSqCoef(PoincareEigen = out, multiIndex = c(1, 1), 
+                                 design = X, output = fX, outputGrad = attr(fX, "grad"), 
+                                 inputIndex = 1, der = TRUE)
+
+LB1 &lt;- c(8/pi^4, c2_10, c2_10_der)
+LB1tot &lt;- LB1 + c(64/pi^8 * a^2, c2_11, c2_11_der)
+LB &lt;- cbind(LB1, LB1tot)
+rownames(LB) &lt;- c("True lower bound value", 
+                  "Estimated, no derivatives", "Estimated, with derivatives")
+colnames(LB) &lt;- c("D1", "D1tot")
+cat("True values of D1 and D1tot:", c(1/12, 1/12 + a^2 / 144),"\n")
+cat("Sample size: ", n, "\n")
+cat("Lower bounds computed with the first Poincare eigenvalue:\n")
+print(LB)
+cat("\nN.B. Increase the sample size to see the convergence to true lower bound values.\n")
+
+############################################################
+# Flood model example (see Roustant et al., 2017, 2019)
+
+
+
+library(evd) # Gumbel law
+library(triangle) # Triangular law
+
+# Flood model
+Fcrues_full2=function(X,ans=0){ 
+  # ans=1 gives Overflow output; ans=2 gives Cost output; ans=0 gives both
+  mat=matrix(X,ncol=8);
+  if (ans==0){ reponse=matrix(NA,nrow(mat),2);}
+  else{ reponse=rep(NA,nrow(mat));}
+  for (i in 1:nrow(mat)) {
+    H = (mat[i,1] / (mat[i,2]*mat[i,8]*sqrt((mat[i,4] - mat[i,3])/mat[i,7])))^(0.6) ;
+    S = mat[i,3] + H - mat[i,5] - mat[i,6] ;
+    if (S &gt; 0){ Cp = 1 ;}
+    else{ Cp = 0.2 + 0.8 * (1 - exp(-1000 / S^4));}
+    if (mat[i,5]&gt;8){ Cp = Cp + mat[i,5]/20 ;}
+    else{ Cp = Cp + 8/20 ;}
+    if (ans==0){
+      reponse[i,1] = S ;
+      reponse[i,2] = Cp ;
+    }
+    if (ans==1){ reponse[i] = S ;}
+    if (ans==2){ reponse[i] = Cp ;}
+    
+  }
+  return(RES=reponse)
+}
+
+# Flood model derivatives (by finite-differences)
+dFcrues_full2 &lt;- function(X, i, ans, eps){
+  der = X
+  X1 = X
+  X1[,i] = X[,i]+eps
+  der = (Fcrues_full2(X1,ans) - Fcrues_full2(X,ans))/(eps)
+  return(der)
+}
+
+# Function for flood model inputs sampling
+EchantFcrues_full2&lt;-function(taille){
+  X = matrix(NA,taille,8)
+  X[,1] = rgumbel.trunc(taille,loc=1013.0,scale=558.0,min=500,max=3000)
+  X[,2] = rnorm.trunc(taille,mean=30.0,sd=8,min=15.)
+  X[,3] = rtriangle(taille,a=49,b=51,c=50)
+  X[,4] = rtriangle(taille,a=54,b=56,c=55)
+  X[,5] = runif(taille,min=7,max=9)
+  X[,6] = rtriangle(taille,a=55,b=56,c=55.5)
+  X[,7] = rtriangle(taille,a=4990,b=5010,c=5000)
+  X[,8] = rtriangle(taille,a=295,b=305,c=300)
+  return(X)
+}
+
+d &lt;- 8
+n &lt;- 1e3
+eps &lt;- 1e-7 # finite-differences for derivatives
+x &lt;- EchantFcrues_full2(n)
+yy &lt;- Fcrues_full2(x, ans=2)
+y &lt;- scale(yy, center = TRUE, scale = FALSE)[,1]
+dy &lt;- NULL
+for (i in 1:d) dy &lt;- cbind(dy, dFcrues_full2(x, i, ans=2, eps))
+
+method &lt;- "quad"
+out_1 &lt;- PoincareOptimal(distr = list("gumbel", 1013, 558), min=500,max=3000, 
+                         only.values = FALSE, der = TRUE, method = method)
+out_2 &lt;- PoincareOptimal(distr = list("norm", 30, 8), min=15, max=200, 
+                         only.values = FALSE, der = TRUE, method = method)
+out_3 &lt;- PoincareOptimal(distr = list("triangle", 49, 51, 50), 
+                         only.values = FALSE, der = TRUE, method = method)
+out_4 &lt;- PoincareOptimal(distr = list("triangle", 54, 56, 55), 
+                         only.values = FALSE, der = TRUE, method = method)
+out_5 &lt;- PoincareOptimal(distr = list("unif", 7, 9), 
+                         only.values = FALSE, der = TRUE, method = method)
+out_6 &lt;- PoincareOptimal(distr = list("triangle", 55, 56, 55.5), 
+                         only.values = FALSE, der = TRUE, method = method)
+out_7 &lt;- PoincareOptimal(distr = list("triangle", 4990, 5010, 5000), 
+                         only.values = FALSE, der = TRUE, method = method)
+out_8 &lt;- PoincareOptimal(distr = list("triangle", 295, 305, 300), 
+                         only.values = FALSE, der = TRUE, method = method)
+out_ &lt;- list(out_1,out_2,out_3,out_4,out_5,out_6,out_7,out_8)
+
+c2 &lt;- c2der &lt;- c2tot &lt;- c2totder &lt;- rep(0,d)
+
+for (i in 1:d){
+  m &lt;- diag(1,d,d) ; m[,i] &lt;- 1
+  
+  for (j in 1:d){
+    cc &lt;- PoincareChaosSqCoef(PoincareEigen = out_, multiIndex = m[j,], 
+            design = x, output = y, outputGrad = NULL, 
+            inputIndex = i, der = FALSE)
+    c2tot[i] &lt;- c2tot[i] + cc
+    if (j == i) c2[i] &lt;- cc
+    
+    cc &lt;- PoincareChaosSqCoef(PoincareEigen = out_, multiIndex = m[j,], 
+            design = x, output = y, outputGrad = dy, 
+            inputIndex = i, der = TRUE)
+    c2totder[i] &lt;- c2totder[i] + cc
+    if (j == i) c2der[i] &lt;- cc
+  }
+}
+
+print("Lower bounds of first-order Sobol' indices without derivatives:")
+print(c2/var(y))
+print("Lower bounds of first-order Sobol' indices with derivatives:")
+print(c2der/var(y))
+
+print("Lower bounds of total Sobol' indices without derivatives:")
+print(c2tot/var(y))
+print("Lower bounds of total Sobol' indices with derivatives:")
+print(c2totder/var(y))
+
+
+
+</code></pre>
+
+
+</div>

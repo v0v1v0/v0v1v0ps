@@ -1,0 +1,169 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sbsm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Semiparametric Bayesian spline model</h2>
+
+<h3>Description</h3>
+
+<p>Monte Carlo sampling for Bayesian spline regression with an
+unknown (nonparametric) transformation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sbsm(
+  y,
+  x = NULL,
+  x_test = NULL,
+  psi = NULL,
+  laplace_approx = TRUE,
+  approx_g = FALSE,
+  nsave = 1000,
+  ngrid = 100,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code>n x 1</code> response vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code>n x 1</code> vector of observation points; if NULL, assume equally-spaced on [0,1]</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x_test</code></td>
+<td>
+<p><code>n_test x 1</code> vector of testing points; if NULL, assume equal to <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi</code></td>
+<td>
+<p>prior variance (inverse smoothing parameter); if NULL,
+sample this parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>laplace_approx</code></td>
+<td>
+<p>logical; if TRUE, use a normal approximation
+to the posterior in the definition of the transformation;
+otherwise the prior is used</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>approx_g</code></td>
+<td>
+<p>logical; if TRUE, apply large-sample
+approximation for the transformation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsave</code></td>
+<td>
+<p>number of Monte Carlo simulations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngrid</code></td>
+<td>
+<p>number of grid points for inverse approximations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical; if TRUE, print time remaining</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function provides fully Bayesian inference for a
+transformed spline regression model using Monte Carlo (not MCMC) sampling.
+The transformation is modeled as unknown and learned jointly
+with the regression function (unless <code>approx_g</code> = TRUE, which then uses
+a point approximation). This model applies for real-valued data, positive data, and
+compactly-supported data (the support is automatically deduced from the observed <code>y</code> values).
+The results are typically unchanged whether <code>laplace_approx</code> is TRUE/FALSE;
+setting it to TRUE may reduce sensitivity to the prior, while setting it to FALSE
+may speed up computations for very large datasets.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list with the following elements:
+</p>
+
+<ul>
+<li> <p><code>coefficients</code> the posterior mean of the regression coefficients
+</p>
+</li>
+<li> <p><code>fitted.values</code> the posterior predictive mean at the test points <code>x_test</code>
+</p>
+</li>
+<li> <p><code>post_theta</code>: <code>nsave x p</code> samples from the posterior distribution
+of the regression coefficients
+</p>
+</li>
+<li> <p><code>post_ypred</code>: <code>nsave x n_test</code> samples
+from the posterior predictive distribution at <code>x_test</code>
+</p>
+</li>
+<li> <p><code>post_g</code>: <code>nsave</code> posterior samples of the transformation
+evaluated at the unique <code>y</code> values
+</p>
+</li>
+<li> <p><code>model</code>: the model fit (here, <code>sbsm</code>)
+</p>
+</li>
+</ul>
+<p>as well as the arguments passed in.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Simulate some data:
+n = 100 # sample size
+x = sort(runif(n)) # observation points
+
+# Transform a noisy, periodic function:
+y = g_inv_bc(
+  sin(2*pi*x) + sin(4*pi*x) + rnorm(n, sd = .5),
+             lambda = .5) # Signed square-root transformation
+
+# Fit the semiparametric Bayesian spline model:
+fit = sbsm(y = y, x = x)
+names(fit) # what is returned
+
+# Note: this is Monte Carlo sampling, so no need for MCMC diagnostics!
+
+# Plot the model predictions (point and interval estimates):
+pi_y = t(apply(fit$post_ypred, 2, quantile, c(0.05, .95))) # 90% PI
+plot(x, y, type='n', ylim = range(pi_y,y),
+     xlab = 'x', ylab = 'y', main = paste('Fitted values and prediction intervals'))
+polygon(c(x, rev(x)),c(pi_y[,2], rev(pi_y[,1])),col='gray', border=NA)
+lines(x, y, type='p')
+lines(x, fitted(fit), lwd = 3)
+
+</code></pre>
+
+
+</div>

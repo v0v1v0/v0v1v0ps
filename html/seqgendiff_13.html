@@ -1,0 +1,273 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>thin_2group</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Binomial thinning in the two-group model.</h2>
+
+<h3>Description</h3>
+
+<p>Given a matrix of real RNA-seq counts, this function will
+randomly assign samples to one of two groups, draw
+the log2-fold change in expression between two groups for each gene,
+and add this signal to the RNA-seq counts matrix. The user may specify
+the proportion of samples in each group, the proportion of null genes
+(where the log2-fold change is 0),
+and the signal function. This is a specific application of the
+general binomial thinning approach implemented in <code>thin_diff</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">thin_2group(
+  mat,
+  prop_null = 1,
+  signal_fun = stats::rnorm,
+  signal_params = list(mean = 0, sd = 1),
+  group_prop = 0.5,
+  corvec = NULL,
+  alpha = 0,
+  permute_method = c("hungarian", "marriage"),
+  type = c("thin", "mult")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mat</code></td>
+<td>
+<p>A numeric matrix of RNA-seq counts. The rows index the genes and
+the columns index the samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop_null</code></td>
+<td>
+<p>The proportion of genes that are null.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>signal_fun</code></td>
+<td>
+<p>A function that returns the signal. This should take as
+input <code>n</code> for the number of samples to return and then return only
+a vector of samples. Additional parameters may be passed through
+<code>signal_params</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>signal_params</code></td>
+<td>
+<p>A list of additional arguments to pass to
+<code>signal_fun</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_prop</code></td>
+<td>
+<p>The proportion of individuals that are in group 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corvec</code></td>
+<td>
+<p>A vector of target correlations. <code>corvec[i]</code> is the
+target correlation of the latent group assignment vector with the
+<code>i</code>th surrogate variable. The default is to set this to <code>NULL</code>,
+in which case group assignment is made independently of any
+unobserved confounding.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>The scaling factor for the signal distribution from
+Stephens (2016). If <code class="reqn">x_1, x_2, ..., x_n</code> are drawn from
+<code>signal_fun</code>, then the signal is set to
+<code class="reqn">x_1 s_1^{\alpha}, x_2 s_2^{\alpha}, ..., x_n s_n^{\alpha}</code>, where
+<code class="reqn">s_g</code> is the empirical standard deviation of gene <code class="reqn">g</code>.
+Setting this to <code>0</code> means that the effects are exchangeable, setting
+this to <code>1</code> corresponds to the p-value prior of
+Wakefield (2009). You would rarely set this to anything but <code>0</code>
+or <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>permute_method</code></td>
+<td>
+<p>Should we use the Gale-Shapley algorithm
+for stable marriages (<code>"marriage"</code>) (Gale and Shapley, 1962)
+as implemented in the matchingR package, or the Hungarian algorithm
+(Papadimitriou and Steiglitz, 1982) (<code>"hungarian"</code>)
+as implemented in the clue package (Hornik, 2005)? The
+Hungarian method almost always works better, so is the default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Should we apply binomial thinning (<code>type = "thin"</code>) or
+just naive multiplication of the counts (<code>type = "mult"</code>).
+You should always have this set to <code>"thin"</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The specific application of binomial thinning to the two-group model was
+used in Gerard and Stephens (2018) and Gerard and Stephens (2021). This is
+a specific case of the general method described in Gerard (2020).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list-like S3 object of class <code>ThinData</code>.
+Components include some or all of the following:
+</p>
+
+<dl>
+<dt><code>mat</code></dt>
+<dd>
+<p>The modified matrix of counts.</p>
+</dd>
+<dt><code>designmat</code></dt>
+<dd>
+<p>The design matrix of variables used to simulate
+signal. This is made by column-binding <code>design_fixed</code> and the
+permuted version of <code>design_perm</code>.</p>
+</dd>
+<dt><code>coefmat</code></dt>
+<dd>
+<p>A matrix of coefficients corresponding to
+<code>designmat</code>.</p>
+</dd>
+<dt><code>design_obs</code></dt>
+<dd>
+<p>Additional variables that should be included in
+your design matrix in downstream fittings. This is made by
+column-binding the vector of 1's with <code>design_obs</code>.</p>
+</dd>
+<dt><code>sv</code></dt>
+<dd>
+<p>A matrix of estimated surrogate variables. In simulation
+studies you would probably leave this out and estimate your own
+surrogate variables.</p>
+</dd>
+<dt><code>cormat</code></dt>
+<dd>
+<p>A matrix of target correlations between the
+surrogate variables and the permuted variables in the design matrix.
+This might be different from the <code>target_cor</code> you input because
+we pass it through <code>fix_cor</code> to ensure
+positive semi-definiteness of the resulting covariance matrix.</p>
+</dd>
+<dt><code>matching_var</code></dt>
+<dd>
+<p>A matrix of simulated variables used to
+permute <code>design_perm</code> if the <code>target_cor</code> is not
+<code>NULL</code>.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>David Gerard
+</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p>Gale, David, and Lloyd S. Shapley. "College admissions and the stability of marriage." <em>The American Mathematical Monthly</em> 69, no. 1 (1962): 9-15. <a href="https://doi.org/10.1080/00029890.1962.11989827">doi:10.1080/00029890.1962.11989827</a>.
+</p>
+</li>
+<li>
+<p>Gerard, D., and Stephens, M. (2021). "Unifying and Generalizing Methods for Removing Unwanted Variation Based on Negative Controls." <em>Statistica Sinica</em>, 31(3), 1145-1166 <a href="https://doi.org/10.5705/ss.202018.0345">doi:10.5705/ss.202018.0345</a>.
+</p>
+</li>
+<li>
+<p>David Gerard and Matthew Stephens (2018). "Empirical Bayes shrinkage and false discovery rate estimation, allowing for unwanted variation." <em>Biostatistics</em>, <a href="https://doi.org/10.1093/biostatistics/kxy029">doi:10.1093/biostatistics/kxy029</a>.
+</p>
+</li>
+<li>
+<p>Gerard, D (2020). "Data-based RNA-seq simulations by binomial thinning." <em>BMC Bioinformatics</em>. 21(1), 206. <a href="https://doi.org/10.1186/s12859-020-3450-9">doi:10.1186/s12859-020-3450-9</a>.
+</p>
+</li>
+<li>
+<p>Hornik K (2005). "A CLUE for CLUster Ensembles." <em>Journal of Statistical Software</em>, 14(12). <a href="https://doi.org/10.18637/jss.v014.i12">doi:10.18637/jss.v014.i12</a>. <a href="https://doi.org/10.18637/jss.v014.i12">doi:10.18637/jss.v014.i12</a>.
+</p>
+</li>
+<li>
+<p>C. Papadimitriou and K. Steiglitz (1982), Combinatorial Optimization: Algorithms and Complexity. Englewood Cliffs: Prentice Hall.
+</p>
+</li>
+<li>
+<p>Stephens, Matthew. "False discovery rates: a new deal." <em>Biostatistics</em> 18, no. 2 (2016): 275-294. <a href="https://doi.org/10.1093/biostatistics/kxw041">doi:10.1093/biostatistics/kxw041</a>.
+</p>
+</li>
+<li>
+<p>Wakefield, Jon. "Bayes factors for genome-wide association studies: comparison with P-values." <em>Genetic epidemiology</em> 33, no. 1 (2009): 79-86. <a href="https://doi.org/10.1002/gepi.20359">doi:10.1002/gepi.20359</a>.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+
+<dl>
+<dt><code>select_counts</code></dt>
+<dd>
+<p>For subsampling the rows and columns
+of your real RNA-seq count matrix prior to applying binomial thinning.</p>
+</dd>
+<dt><code>thin_diff</code></dt>
+<dd>
+<p>For the more general thinning approach.</p>
+</dd>
+<dt><code>ThinDataToSummarizedExperiment</code></dt>
+<dd>
+<p>For converting a
+ThinData object to a SummarizedExperiment object.</p>
+</dd>
+<dt><code>ThinDataToDESeqDataSet</code></dt>
+<dd>
+<p>For converting a
+ThinData object to a DESeqDataSet object.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Simulate data from given matrix of counts
+## In practice, you would obtain Y from a real dataset, not simulate it.
+set.seed(1)
+nsamp &lt;- 10
+ngene &lt;- 1000
+Y &lt;- matrix(stats::rpois(nsamp * ngene, lambda = 50), nrow = ngene)
+thinout &lt;- thin_2group(mat           = Y,
+                       prop_null     = 0.9,
+                       signal_fun    = stats::rexp,
+                       signal_params = list(rate = 0.5))
+
+## 90 percent of genes are null
+mean(abs(thinout$coef) &lt; 10^-6)
+
+## Check the estimates of the log2-fold change
+Ynew &lt;- log2(t(thinout$mat + 0.5))
+X    &lt;- thinout$designmat
+Bhat &lt;- coef(lm(Ynew ~ X))["X", ]
+plot(thinout$coefmat,
+     Bhat,
+     xlab = "log2-fold change",
+     ylab = "Estimated log2-fold change")
+abline(0, 1, col = 2, lwd = 2)
+
+</code></pre>
+
+
+</div>

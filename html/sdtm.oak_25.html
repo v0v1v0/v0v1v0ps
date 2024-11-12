@@ -1,0 +1,322 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>derive_blfl</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Derive Baseline Flag or Last Observation Before Exposure Flag</h2>
+
+<h3>Description</h3>
+
+<p>Derive the baseline flag variable (<code>--BLFL</code>) or the last observation before
+exposure flag (<code>--LOBXFL</code>), from the observation date/time (<code>--DTC</code>), and a
+DM domain reference date/time.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">derive_blfl(
+  sdtm_in,
+  dm_domain,
+  tgt_var,
+  ref_var,
+  baseline_visits = character(),
+  baseline_timepoints = character()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sdtm_in</code></td>
+<td>
+<p>Input SDTM domain.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dm_domain</code></td>
+<td>
+<p>DM domain with the reference variable <code>ref_var</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tgt_var</code></td>
+<td>
+<p>Name of variable to be derived (<code>--BLFL</code> or
+<code>--LOBXFL</code> where <code style="white-space: pre;">⁠--⁠</code> is domain).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ref_var</code></td>
+<td>
+<p>vector of a date/time from the
+Demographics (DM) dataset, which serves as a point of comparison for other
+observations in the study. Common choices for this reference variable
+include "RFSTDTC" (the date/time of the first study treatment) or
+"RFXSTDTC" (the date/time of the first exposure to the study drug).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baseline_visits</code></td>
+<td>
+<p>A character vector specifying the baseline visits within the study.
+These visits are identified as critical points for data collection at the start of the study,
+before any intervention is applied.  This allows the function to assign the baseline
+flag if the –DTC matches to the reference date.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baseline_timepoints</code></td>
+<td>
+<p>A character vector of timepoints values in –TPT that specifies
+the specific timepoints during the baseline visits when key assessments or measurements were taken.
+This allows the function to assign the baseline flag if the –DTC matches to the reference date.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The derivation is as follows:
+</p>
+
+<ul>
+<li>
+<p> Remove records where the result (<code>--ORRES</code>) is missing. Also, exclude records
+with results labeled as "ND" (No Data) or "NOT DONE" in the <code>--ORRES</code> column,
+which indicate that the measurement or observation was not completed.
+</p>
+</li>
+<li>
+<p> Remove records where the status (<code>--STAT</code>) indicates the observation or test
+was not performed, marked as "NOT DONE".
+</p>
+</li>
+<li>
+<p> Divide the date and time column (<code>--DTC</code>) and the reference date/time
+variable (<code>ref_var</code>) into separate date and time components. Ignore
+any seconds recorded in the time component, focusing only on hours and
+minutes for further calculations.
+</p>
+</li>
+<li>
+<p> Set partial or missing dates to <code>NA</code>.
+</p>
+</li>
+<li>
+<p> Set partial or missing times to <code>NA</code>.
+</p>
+</li>
+<li>
+<p> Filter on rows that have domain and reference dates not equal to
+<code>NA</code>. (Ref to as <strong>X</strong>)
+</p>
+</li>
+<li>
+<p> Filter <strong>X</strong> on rows with domain date (–DTC) prior to (less than)
+reference date. (Ref to as <strong>A</strong>)
+</p>
+</li>
+<li>
+<p> Filter <strong>X</strong> on rows with domain date (–DTC) equal to reference date but
+domain and reference times not equal to <code>NA</code> and domain time prior to (less
+than) reference time. (Ref to as <strong>B</strong>)
+</p>
+</li>
+<li>
+<p> Filter <strong>X</strong> on rows with domain date (–DTC) equal to reference date but
+domain and/or reference time equal to NA and:
+</p>
+
+<ul>
+<li>
+<p> VISIT is in baseline visits list (if it exists) and
+</p>
+</li>
+<li>
+<p> xxTPT is in baseline timepoints list (if it exists).
+(Ref to as <strong>C</strong>)
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> Combine the rows from <strong>A</strong>, <strong>B</strong>, and <strong>C</strong> to get a
+data frame of pre-reference date observations. Sort the rows by <code>USUBJID</code>,
+<code>--STAT</code>, and <code>--ORRES</code>.
+</p>
+</li>
+<li>
+<p> Group by <code>USUBJID</code> and <code>--TESTCD</code> and filter on the rows
+that have maximum value from <code>--DTC</code>. Keep only the oak id variables and
+<code>--TESTCD</code> (because these are the unique values). Remove any duplicate rows.
+Assign the baseline flag variable, <code>--BLFL</code>, the last observation before
+exposure flag (<code>--LOBXFL</code>) variable to these rows.
+</p>
+</li>
+<li>
+<p> Join the baseline flag onto the input dataset based on oak id vars
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Modified input data frame with baseline flag variable <code>--BLFL</code> or
+last observation before exposure flag <code>--LOBXFL</code> added.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">dm &lt;- tibble::tribble(
+  ~USUBJID, ~RFSTDTC, ~RFXSTDTC,
+  "test_study-375", "2020-09-28T10:10", "2020-09-28T10:10",
+  "test_study-376", "2020-09-21T11:00", "2020-09-21T11:00",
+  "test_study-377", NA, NA,
+  "test_study-378", "2020-01-20T10:00", "2020-01-20T10:00",
+  "test_study-379", NA, NA,
+)
+
+dm
+
+sdtm_in &lt;-
+  tibble::tribble(
+    ~DOMAIN,
+    ~oak_id,
+    ~raw_source,
+    ~patient_number,
+    ~USUBJID,
+    ~VSDTC,
+    ~VSTESTCD,
+    ~VSORRES,
+    ~VSSTAT,
+    ~VISIT,
+    "VS",
+    1L,
+    "VTLS1",
+    375L,
+    "test_study-375",
+    "2020-09-01T13:31",
+    "DIABP",
+    "90",
+    NA,
+    "SCREENING",
+    "VS",
+    2L,
+    "VTLS1",
+    375L,
+    "test_study-375",
+    "2020-10-01T11:20",
+    "DIABP",
+    "90",
+    NA,
+    "SCREENING",
+    "VS",
+    1L,
+    "VTLS1",
+    375L,
+    "test_study-375",
+    "2020-09-28T10:10",
+    "PULSE",
+    "ND",
+    NA,
+    "SCREENING",
+    "VS",
+    2L,
+    "VTLS1",
+    375L,
+    "test_study-375",
+    "2020-10-01T13:31",
+    "PULSE",
+    "85",
+    NA,
+    "SCREENING",
+    "VS",
+    1L,
+    "VTLS2",
+    375L,
+    "test_study-375",
+    "2020-09-28T10:10",
+    "SYSBP",
+    "120",
+    NA,
+    "SCREENING",
+    "VS",
+    2L,
+    "VTLS2",
+    375L,
+    "test_study-375",
+    "2020-09-28T10:05",
+    "SYSBP",
+    "120",
+    NA,
+    "SCREENING",
+    "VS",
+    1L,
+    "VTLS1",
+    376L,
+    "test_study-376",
+    "2020-09-20",
+    "DIABP",
+    "75",
+    NA,
+    "SCREENING",
+    "VS",
+    1L,
+    "VTLS1",
+    376L,
+    "test_study-376",
+    "2020-09-20",
+    "PULSE",
+    NA,
+    "NOT DONE",
+    "SCREENING",
+    "VS",
+    2L,
+    "VTLS1",
+    376L,
+    "test_study-376",
+    "2020-09-20",
+    "PULSE",
+    "110",
+    NA,
+    "SCREENING",
+    "VS",
+    2L,
+    "VTLS1",
+    378L,
+    "test_study-378",
+    "2020-01-20T10:00",
+    "PULSE",
+    "110",
+    NA,
+    "SCREENING",
+    "VS",
+    3L,
+    "VTLS1",
+    378L,
+    "test_study-378",
+    "2020-01-21T11:00",
+    "PULSE",
+    "105",
+    NA,
+    "SCREENING"
+  )
+
+sdtm_in
+
+observed_output &lt;- derive_blfl(
+  sdtm_in = sdtm_in,
+  dm_domain = dm,
+  tgt_var = "VSLOBXFL",
+  ref_var = "RFXSTDTC",
+  baseline_visits = c("SCREENING")
+)
+observed_output
+
+</code></pre>
+
+
+</div>

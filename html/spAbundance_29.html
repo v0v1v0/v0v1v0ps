@@ -1,0 +1,449 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>msNMix</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Multi-species N-mixture Models</h2>
+
+<h3>Description</h3>
+
+<p>Function for fitting multi-species N-mixture models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">msNMix(abund.formula, det.formula, data, inits, priors,
+       tuning, n.batch, batch.length, accept.rate = 0.43,
+       family = 'Poisson', n.omp.threads = 1, verbose = TRUE, n.report = 100,
+       n.burn = round(.10 * n.batch * batch.length), n.thin = 1,
+       n.chains = 1, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>abund.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the abundance portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+and slopes are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the detection portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+and slopes are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>abund.covs</code>, <code>det.covs</code>, and <code>offset</code>. <code>y</code>
+is a three-dimensional array of observed count data with first dimension equal to the number
+of species, second dimension equal to the number of sites, and third
+dimension equal to the maximum number of replicates at a given site.
+<code>abund.covs</code> is a matrix or data frame containing the variables
+used in the abundance portion of the model, with <code class="reqn">J</code> rows for
+each column (variable). <code>det.covs</code> is a list of variables included
+in the detection portion of the model. Each list element is a different
+detection covariate, which can be site-level or observational-level.
+Site-level covariates are specified as a vector of length <code class="reqn">J</code> while
+observation-level covariates are specified as a matrix or data frame
+with the number of rows equal to <code class="reqn">J</code> and number of columns equal
+to the maximum number of replicates at a given site. <code>offset</code>
+is an offset to use in the abundance model (e.g., an area offset). This can be either a single
+value or a vector with an offset for each site (e.g., if survey area differed in size).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>alpha.comm</code>, <code>beta.comm</code>, <code>beta</code>,
+<code>alpha</code>, <code>tau.sq.beta</code>, <code>tau.sq.alpha</code>, <code>sigma.sq.mu</code>,
+<code>sigma.sq.p</code>, <code>kappa</code>, and <code>N</code>. <code>sigma.sq.mu</code> and
+<code>sigma.sq.p</code> are only relevant when including random effects in the
+abundance and detection portion of the model, respectively. <code>kappa</code> is
+only relevant when <code>family = 'NB'</code>.
+The value portion of each tag is the parameter's initial value. See
+<code>priors</code> description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code>
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>beta.comm.normal</code>, <code>alpha.comm.normal</code>,
+<code>tau.sq.beta.ig</code>, <code>tau.sq.alpha.ig</code>, <code>sigma.sq.mu.ig</code>,
+<code>sigma.sq.p.ig</code>, and <code>kappa.unif</code>. Community-level abundance
+(<code>beta.comm</code>) and detection (<code>alpha.comm</code>) regression coefficients
+are assumed to follow a normal distribution. The hyperparameters of the
+normal distribution are passed as a list of length two with the first
+and second elements corresponding to the mean and variance of the normal
+distribution, which are each specified as vectors of
+length equal to the number of coefficients to be estimated or of length one
+if priors are the same for all coefficients. If not
+specified, prior means are set to 0 and prior variances for the abundance
+coefficients are set to 100 and for the detection coefficients are set to 2.72.
+Community-level variance parameters for abundance (<code>tau.sq.beta</code>) and
+detection (<code>tau.sq.alpha</code>) are assumed to follow an inverse Gamma
+distribution. The hyperparameters of the inverse gamma distribution are
+passed as a list of length two with the first and second elements
+corresponding to the shape and scale parameters, which are each specified
+as vectors of length equal to the number of coefficients to be estimated
+or a single value if all parameters are assigned the same prior.
+If not specified, prior shape and scale parameters are set to 0.1. <code>sigma.sq.mu</code> and
+<code>sigma.sq.p</code> are the random effect variances for any abundance or
+detection random effects, respectively, and are assumed to follow an inverse
+Gamma distribution. The hyperparameters of the inverse-Gamma distribution
+are passed as a list of length two with first and second elements corresponding
+to the shape and scale parameters, respectively, which are each specified as
+vectors of length equal to the number of random intercepts/slopes or of length one
+if priors are the same for all random effect variances. <code>kappa</code> is the
+negative binomial dispersion parameter for each species and is assumed to
+follow a uniform distribution. The hyperparameters of the uniform distribution
+are passed as a list of length two with first and second elements corresponding to the
+lower and upper bounds of the uniform distribution, respectively, which are each
+specified as vectors of length equal to the number of species or of length one
+if priors are the same for all species-specific dispersion parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name,
+whose value defines the initial variance of the adaptive sampler.
+Valid tags are <code>beta</code>, <code>alpha</code>, <code>beta.star</code> (the abundance
+random effect values), <code>alpha.star</code> (the detection random effect values), and
+<code>kappa</code>. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches in each chain to run for the Adaptive MCMC
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch in each chain to run for the Adaptive
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for Adaptive MCMC. Default is
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>the distribution to use for the latent abundance process. Currently
+supports <code>'NB'</code> (negative binomial) and <code>'Poisson'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating the number of threads
+to use for SMP parallel processing. The package must be compiled for
+OpenMP support. For most Intel-based machines, we recommend setting
+<code>n.omp.threads</code> up to the number of hypterthreaded cores. Note,
+<code>n.omp.threads</code> &gt; 1 might not work on some systems. Currently only
+relevant for spatial models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation,
+model specification, and progress of the sampler are printed to the screen.
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.samples</code> to
+discard as burn-in for each chain. By default, the first 10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>msNMix</code> that is a list comprised of:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level abundance regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level abundance regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level abundance dispersion parameters. Only included
+when <code>family = 'NB'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent abundance values for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent expected abundance values for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.mu.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random effects included in the abundance portion
+of the model. Only included if random effects are specified in
+<code>abund.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.p.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random effects included in the detection portion
+of the model. Only included if random effects are specified in
+<code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance random effects. Only included if random effects
+are specified in <code>abund.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection random effects. Only included if random effects
+are specified in <code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>MCMC sampler execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for
+subsequent prediction and/or model fit evaluation. Note that detection probability
+estimated values are not included in the model object, but can be extracted
+using <code>fitted()</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>References</h3>
+
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Royle, J. A. (2004). N‐mixture models for estimating population size
+from spatially replicated counts. Biometrics, 60(1), 108-115.
+</p>
+<p>Yamaura, Y., Royle, J. A., Shimada, N., Asanuma, S., Sato, T.,
+Taki, H., &amp; Makino, S. I. (2012). Biodiversity of man-made open habitats
+in an underused country: a class of multispecies abundance models for
+count data. Biodiversity and Conservation, 21(6), 1365-1380.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(408)
+J.x &lt;- 8
+J.y &lt;- 8
+J &lt;- J.x * J.y
+n.rep &lt;- sample(5, size = J, replace = TRUE)
+n.sp &lt;- 6
+# Community-level covariate effects
+# Abundance
+beta.mean &lt;- c(0, 0.5)
+p.abund &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.2, 1.2)
+# Detection
+alpha.mean &lt;- c(0, 0.5, 0.8)
+tau.sq.alpha &lt;- c(0.2, 1, 1.5)
+p.det &lt;- length(alpha.mean)
+# Random effects
+mu.RE &lt;- list()
+p.RE &lt;- list()
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = n.sp, ncol = p.abund)
+alpha &lt;- matrix(NA, nrow = n.sp, ncol = p.det)
+for (i in 1:p.abund) {
+  beta[, i] &lt;- rnorm(n.sp, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(n.sp, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+
+dat &lt;- simMsNMix(J.x = J.x, J.y = J.y, n.rep = n.rep, n.sp = n.sp, beta = beta, alpha = alpha,
+                 mu.RE = mu.RE, p.RE = p.RE, sp = FALSE, family = 'Poisson')
+
+y &lt;- dat$y
+X &lt;- dat$X
+X.p &lt;- dat$X.p
+X.re &lt;- dat$X.re
+X.p.re &lt;- dat$X.p.re
+
+# Package all data into a list
+abund.covs &lt;- X
+colnames(abund.covs) &lt;- c('int', 'abund.cov.1')
+det.covs &lt;- list(det.cov.1 = as.data.frame(X.p[, , 2]),
+                 det.cov.2 = as.data.frame(X.p[, , 3]))
+data.list &lt;- list(y = y,
+                  abund.covs = abund.covs,
+                  det.covs = det.covs)
+prior.list &lt;- list(beta.comm.normal = list(mean = rep(0, p.abund),
+                                           var = rep(100, p.abund)),
+                   alpha.comm.normal = list(mean = rep(0, p.det),
+                                            var = rep(2.72, p.det)),
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1),
+                   tau.sq.alpha.ig = list(a = 0.1, b = 0.1))
+inits.list &lt;- list(beta.comm = 0, alpha.comm = 0,
+                   beta = 0, alpha = 0,
+                   tau.sq.beta = 0.5, tau.sq.alpha = 0.5,
+                   N = apply(y, c(1, 2), max, na.rm = TRUE))
+tuning.list &lt;- list(beta = 0.5, alpha = 0.5)
+
+n.batch &lt;- 4
+batch.length &lt;- 25
+n.burn &lt;- 0
+n.thin &lt;- 1
+n.chains &lt;- 1
+
+out &lt;- msNMix(abund.formula = ~ abund.cov.1,
+              det.formula = ~ det.cov.1 + det.cov.2,
+              data = data.list,
+              n.batch = n.batch,
+              inits = inits.list,
+              priors = prior.list,
+              tuning = tuning.list,
+              batch.length = batch.length,
+              n.omp.threads = 1,
+              verbose = TRUE,
+              n.report = 1,
+              n.burn = n.burn,
+              n.thin = n.thin,
+              n.chains = n.chains)
+
+summary(out, level = 'community')
+</code></pre>
+
+
+</div>

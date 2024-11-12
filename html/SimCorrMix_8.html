@@ -1,0 +1,244 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>intercorr2</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate Intermediate MVN Correlation for Ordinal, Continuous, Poisson, or Negative Binomial Variables: Correlation Method 2</h2>
+
+<h3>Description</h3>
+
+<p>This function calculates a <code>k x k</code> intermediate matrix of correlations, where <code>k = k_cat + k_cont +</code>
+<code>k_pois + k_nb</code>, to be used in simulating variables with <code>corrvar2</code>.  The <code>k_cont</code> includes regular continuous variables
+and components of continuous mixture variables.  The ordering of the variables must be
+ordinal, continuous non-mixture, components of continuous mixture variables, regular Poisson, zero-inflated Poisson, regular Negative
+Binomial (NB), and zero-inflated NB (note that it is possible for <code>k_cat</code>, <code>k_cont</code>, <code>k_pois</code>, and/or <code>k_nb</code> to be 0).
+There are no parameter input checks in order to decrease simulation time.  All inputs should be checked prior to simulation with
+<code>validpar</code>.  There is a message given if the calculated
+intermediate correlation matrix <code>Sigma</code> is not positive-definite because it may not be possible to find a MVN correlation
+matrix that will produce the desired marginal distributions.  This function is called by the simulation function
+<code>corrvar2</code>, and would only be used separately if the user wants to first find the intermediate correlation matrix.
+This matrix <code>Sigma</code> can be used as an input to <code>corrvar2</code>.
+</p>
+<p>Please see the <b>Comparison of Correlation Methods 1 and 2</b> vignette for information about calculations by variable pair type and the differences between
+this function and <code>intercorr</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">intercorr2(k_cat = 0, k_cont = 0, k_pois = 0, k_nb = 0,
+  method = c("Fleishman", "Polynomial"), constants = NULL,
+  marginal = list(), support = list(), lam = NULL, p_zip = 0,
+  size = NULL, prob = NULL, mu = NULL, p_zinb = 0, pois_eps = 0.0001,
+  nb_eps = 0.0001, rho = NULL, epsilon = 0.001, maxit = 1000,
+  quiet = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>k_cat</code></td>
+<td>
+<p>the number of ordinal (r &gt;= 2 categories) variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_cont</code></td>
+<td>
+<p>the number of continuous non-mixture variables and components of continuous mixture variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_pois</code></td>
+<td>
+<p>the number of regular and zero-inflated Poisson variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_nb</code></td>
+<td>
+<p>the number of regular and zero-inflated Negative Binomial variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the method used to generate the <code>k_cont</code> continuous variables.  "Fleishman" uses a third-order polynomial transformation
+and "Polynomial" uses Headrick's fifth-order transformation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constants</code></td>
+<td>
+<p>a matrix with <code>k_cont</code> rows, each a vector of constants c0, c1, c2, c3 (if <code>method</code> = "Fleishman") or
+c0, c1, c2, c3, c4, c5 (if <code>method</code> = "Polynomial") like that returned by <code>find_constants</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>marginal</code></td>
+<td>
+<p>a list of length equal to <code>k_cat</code>; the i-th element is a vector of the cumulative
+probabilities defining the marginal distribution of the i-th variable;
+if the variable can take r values, the vector will contain r - 1 probabilities (the r-th is assumed to be 1; default = list())</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>support</code></td>
+<td>
+<p>a list of length equal to <code>k_cat</code>; the i-th element is a vector of containing the r
+ordered support values; if not provided (i.e. <code>support</code> = list()), the default is for the i-th element to be the vector 1, ..., r</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lam</code></td>
+<td>
+<p>a vector of lambda (mean &gt; 0) constants for the regular and zero-inflated Poisson variables (see <code>stats::dpois</code>);
+the order should be 1st regular Poisson variables, 2nd zero-inflated Poisson variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_zip</code></td>
+<td>
+<p>a vector of probabilities of structural zeros (not including zeros from the Poisson distribution) for the
+zero-inflated Poisson variables (see <code>VGAM::dzipois</code>); if <code>p_zip</code> = 0, <code class="reqn">Y_{pois}</code> has a regular Poisson
+distribution; if <code>p_zip</code> is in (0, 1), <code class="reqn">Y_{pois}</code> has a zero-inflated Poisson distribution;
+if <code>p_zip</code> is in <code>(-(exp(lam) - 1)^(-1), 0)</code>, <code class="reqn">Y_{pois}</code> has a zero-deflated Poisson distribution and <code>p_zip</code>
+is not a probability; if <code>p_zip = -(exp(lam) - 1)^(-1)</code>, <code class="reqn">Y_{pois}</code> has a positive-Poisson distribution
+(see <code>VGAM::dpospois</code>); if <code>length(p_zip) &lt; length(lam)</code>, the missing values are set to 0 (and ordered 1st)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>size</code></td>
+<td>
+<p>a vector of size parameters for the Negative Binomial variables (see <code>stats::dnbinom</code>); the order should be
+1st regular NB variables, 2nd zero-inflated NB variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prob</code></td>
+<td>
+<p>a vector of success probability parameters for the NB variables; order the same as in <code>size</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>a vector of mean parameters for the NB variables (*Note: either <code>prob</code> or <code>mu</code> should be supplied for all Negative Binomial variables,
+not a mixture; default = NULL); order the same as in <code>size</code>; for zero-inflated NB this refers to
+the mean of the NB distribution (see <code>VGAM::dzinegbin</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_zinb</code></td>
+<td>
+<p>a vector of probabilities of structural zeros (not including zeros from the NB distribution) for the zero-inflated NB variables
+(see <code>VGAM::dzinegbin</code>); if <code>p_zinb</code> = 0, <code class="reqn">Y_{nb}</code> has a regular NB distribution;
+if <code>p_zinb</code> is in <code>(-prob^size/(1 - prob^size),</code> <code>0)</code>, <code class="reqn">Y_{nb}</code> has a zero-deflated NB distribution and <code>p_zinb</code>
+is not a probability; if <code>p_zinb = -prob^size/(1 - prob^size)</code>, <code class="reqn">Y_{nb}</code> has a positive-NB distribution (see
+<code>VGAM::dposnegbin</code>); if <code>length(p_zinb) &lt; length(size)</code>, the missing values are set to 0 (and ordered 1st)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pois_eps</code></td>
+<td>
+<p>a vector of length <code>k_pois</code> containing total cumulative probability truncation values; if none are provided,
+the default is 0.0001 for each variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_eps</code></td>
+<td>
+<p>a vector of length <code>k_nb</code> containing total cumulative probability truncation values; if none are provided,
+the default is 0.0001 for each variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>the target correlation matrix which must be ordered
+<em>1st ordinal, 2nd continuous non-mixture, 3rd components of continuous mixtures, 4th regular Poisson, 5th zero-inflated Poisson,
+6th regular NB, 7th zero-inflated NB</em>; note that <code>rho</code> is specified in terms of the components of <code class="reqn">Y_{mix}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsilon</code></td>
+<td>
+<p>the maximum acceptable error between the pairwise correlations (default = 0.001)
+in the calculation of ordinal intermediate correlations with <code>ord_norm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxit</code></td>
+<td>
+<p>the maximum number of iterations to use (default = 1000) in the calculation of ordinal
+intermediate correlations with <code>ord_norm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>if FALSE prints simulation messages, if TRUE suppresses message printing</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>the intermediate MVN correlation matrix
+</p>
+
+
+<h3>References</h3>
+
+<p>Please see references for <code>SimCorrMix</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>corrvar2</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">Sigma1 &lt;- intercorr2(k_cat = 1, k_cont = 1, method = "Polynomial",
+  constants = matrix(c(0, 1, 0, 0, 0, 0), 1, 6), marginal = list(0.3),
+  support = list(c(0, 1)), rho = matrix(c(1, 0.4, 0.4, 1), 2, 2),
+  quiet = TRUE)
+## Not run: 
+
+# 1 continuous mixture, 1 binary, 1 zero-inflated Poisson, and
+# 1 zero-inflated NB variable
+# The defaults of pois_eps &lt;- nb_eps &lt;- 0.0001 are used.
+
+# Mixture of N(-2, 1) and N(2, 1)
+constants &lt;- rbind(c(0, 1, 0, 0, 0, 0), c(0, 1, 0, 0, 0, 0))
+
+marginal &lt;- list(0.3)
+support &lt;- list(c(0, 1))
+lam &lt;- 0.5
+p_zip &lt;- 0.1
+size &lt;- 2
+prob &lt;- 0.75
+p_zinb &lt;- 0.2
+
+k_cat &lt;- k_pois &lt;- k_nb &lt;- 1
+k_cont &lt;- 2
+Rey &lt;- matrix(0.35, 5, 5)
+diag(Rey) &lt;- 1
+rownames(Rey) &lt;- colnames(Rey) &lt;- c("O1", "M1_1", "M1_2", "P1", "NB1")
+
+# set correlation between components of the same mixture variable to 0
+Rey["M1_1", "M1_2"] &lt;- Rey["M1_2", "M1_1"] &lt;- 0
+
+Sigma2 &lt;- intercorr2(k_cat, k_cont, k_pois, k_nb, "Polynomial", constants,
+  marginal, support, lam, p_zip, size, prob, mu = NULL, p_zinb, rho = Rey)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,398 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>generateHarmonics</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate harmonics</h2>
+
+<h3>Description</h3>
+
+<p>Internal soundgen function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">generateHarmonics(
+  pitch,
+  glottis = 0,
+  attackLen = 50,
+  nonlinBalance = 0,
+  nonlinDep = 50,
+  nonlinRandomWalk = NULL,
+  jitterDep = 0,
+  jitterLen = 1,
+  vibratoFreq = 5,
+  vibratoDep = 0,
+  shimmerDep = 0,
+  shimmerLen = 1,
+  rolloff = -9,
+  rolloffOct = 0,
+  rolloffKHz = 0,
+  rolloffParab = 0,
+  rolloffParabHarm = 3,
+  rolloff_perAmpl = 0,
+  rolloffExact = NULL,
+  formantLocking = NULL,
+  specEnv = NULL,
+  formantSummary = NULL,
+  temperature = 0.025,
+  pitchDriftDep = 0.5,
+  pitchDriftFreq = 0.125,
+  amplDriftDep = 1,
+  subDriftDep = 4,
+  rolloffDriftDep = 3,
+  randomWalk_trendStrength = 0.1,
+  shortestEpoch = 300,
+  subRatio = 1,
+  subFreq = 100,
+  subDep = 0,
+  subWidth = 10000,
+  ampl = NA,
+  normalize = TRUE,
+  smoothing = list(),
+  overlap = 75,
+  samplingRate = 16000,
+  pitchFloor = 75,
+  pitchCeiling = 3500,
+  pitchSamplingRate = 3500,
+  dynamicRange = 80
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>pitch</code></td>
+<td>
+<p>a contour of fundamental frequency (numeric vector). NB: for
+computational efficiency, provide the pitch contour at a reduced sampling
+rate pitchSamplingRate, eg 3500 points/s. The pitch contour will be
+upsampled before synthesis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glottis</code></td>
+<td>
+<p>anchors for specifying the proportion of a
+glottal cycle with closed glottis, % (0 = no modification, 100 = closed
+phase as long as open phase); numeric vector or dataframe specifying time
+and value (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>attackLen</code></td>
+<td>
+<p>duration of fade-in / fade-out at each end of syllables and
+noise (ms): a vector of length 1 (symmetric) or 2 (separately for fade-in
+and fade-out)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nonlinBalance</code></td>
+<td>
+<p>hyperparameter for regulating the (approximate)
+proportion of sound with different regimes of pitch effects (none /
+subharmonics only / subharmonics and jitter). 0% = no noise; 100% = the
+entire sound has jitter + subharmonics. Ignored if temperature = 0</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nonlinRandomWalk</code></td>
+<td>
+<p>a numeric vector specifying the timing of nonliner
+regimes: 0 = none, 1 = subharmonics, 2 = subharmonics + jitter + shimmer</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jitterDep</code></td>
+<td>
+<p>cycle-to-cycle random pitch variation, semitones (anchor
+format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jitterLen</code></td>
+<td>
+<p>duration of stable periods between pitch jumps, ms. Use a
+low value for harsh noise, a high value for irregular vibrato or shaky
+voice (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vibratoFreq</code></td>
+<td>
+<p>the rate of regular pitch modulation, or vibrato, Hz
+(anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vibratoDep</code></td>
+<td>
+<p>the depth of vibrato, semitones (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shimmerDep</code></td>
+<td>
+<p>random variation in amplitude between individual glottal
+cycles (0 to 100% of original amplitude of each cycle) (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shimmerLen</code></td>
+<td>
+<p>duration of stable periods between amplitude jumps, ms. Use
+a low value for harsh noise, a high value for shaky voice (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloff</code></td>
+<td>
+<p>basic rolloff from lower to upper harmonics, db/octave
+(exponential decay). All rolloff parameters are in anchor format. See
+<code>getRolloff</code> for more details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffOct</code></td>
+<td>
+<p>basic rolloff changes from lower to upper harmonics
+(regardless of f0) by <code>rolloffOct</code> dB/oct. For example, we can get
+steeper rolloff in the upper part of the spectrum</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffKHz</code></td>
+<td>
+<p>rolloff changes linearly with f0 by <code>rolloffKHz</code>
+dB/kHz. For ex., -6 dB/kHz gives a 6 dB steeper basic rolloff as f0 goes up
+by 1000 Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParab</code></td>
+<td>
+<p>an optional quadratic term affecting only the first
+<code>rolloffParabHarm</code> harmonics. The middle harmonic of the first
+<code>rolloffParabHarm</code> harmonics is amplified or dampened by
+<code>rolloffParab</code> dB relative to the basic exponential decay</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParabHarm</code></td>
+<td>
+<p>the number of harmonics affected by
+<code>rolloffParab</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloff_perAmpl</code></td>
+<td>
+<p>as amplitude goes down from max to
+<code>-dynamicRange</code>, <code>rolloff</code> increases by <code>rolloff_perAmpl</code>
+dB/octave. The effect is to make loud parts brighter by increasing energy
+in higher frequencies</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffExact</code></td>
+<td>
+<p>user-specified exact strength of harmonics: a vector or
+matrix with one row per harmonic, scale 0 to 1 (overrides all other rolloff
+parameters)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantLocking</code></td>
+<td>
+<p>the approximate proportion of sound in which one of the
+harmonics is locked to the nearest formant, 0 = none, 1 = the entire sound
+(anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specEnv</code></td>
+<td>
+<p>a matrix representing the filter (only needed for formant
+locking)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>temperature</code></td>
+<td>
+<p>hyperparameter for regulating the amount of stochasticity
+in sound generation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchDriftDep</code></td>
+<td>
+<p>scale factor regulating the effect of temperature on the
+amount of slow random drift of f0 (like jitter, but slower): the higher,
+the more f0 "wiggles" at a given temperature</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchDriftFreq</code></td>
+<td>
+<p>scale factor regulating the effect of temperature on
+the frequency of random drift of f0 (like jitter, but slower): the higher,
+the faster f0 "wiggles" at a given temperature</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amplDriftDep</code></td>
+<td>
+<p>drift of amplitude mirroring pitch drift</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subDriftDep</code></td>
+<td>
+<p>drift of subharmonic frequency and bandwidth mirroring
+pitch drift</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffDriftDep</code></td>
+<td>
+<p>drift of rolloff mirroring pitch drift</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>randomWalk_trendStrength</code></td>
+<td>
+<p>try 0 to 1 - the higher, the more likely rw
+is to get high in the middle and low at the beginning and end (i.e. max
+effect amplitude in the middle of a sound)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shortestEpoch</code></td>
+<td>
+<p>minimum duration of each epoch with unchanging
+subharmonics regime or formant locking, in ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subRatio</code></td>
+<td>
+<p>a positive integer giving the ratio of f0 (the main
+fundamental) to g0 (a lower frequency): 1 = no subharmonics, 2 = period
+doubling regardless of pitch changes, 3 = period tripling, etc; subRatio
+overrides subFreq (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subFreq</code></td>
+<td>
+<p>instead of a specific number of subharmonics (subRatio), we
+can specify the approximate g0 frequency (Hz), which is used only if
+subRatio = 1 and is adjusted to f0 so f0/g0 is always an integer (anchor
+format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subDep</code></td>
+<td>
+<p>the depth of subharmonics relative to the main frequency
+component (f0), %. 0: no subharmonics; 100: g0 harmonics are as strong as
+the nearest f0 harmonic (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subWidth</code></td>
+<td>
+<p>Width of subharmonic sidebands - regulates how rapidly
+g-harmonics weaken away from f-harmonics: large values like the default
+10000 means that all g0 harmonics are equally strong (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ampl</code></td>
+<td>
+<p>amplitude envelope (dB, 0 = max amplitude) (anchor
+format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normalize</code></td>
+<td>
+<p>if TRUE, normalizes to -1...+1 prior to applying attack and
+amplitude envelope. W/o this, sounds with stronger harmonics are louder</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothing</code></td>
+<td>
+<p>a list of parameters passed to
+<code>getSmoothContour</code> to control the interpolation and smoothing
+of contours: interpol (approx / spline / loess), loessSpan, discontThres,
+jumpThres</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>FFT window overlap, %. For allowed values, see
+<code>istft</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling frequency, Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchFloor, pitchCeiling</code></td>
+<td>
+<p>lower &amp; upper bounds of f0</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchSamplingRate</code></td>
+<td>
+<p>sampling frequency of the pitch contour only, Hz.
+Low values reduce processing time. Set to <code>pitchCeiling</code> for optimal
+speed or to <code>samplingRate</code> for optimal quality</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>dynamic range, dB. Harmonics and noise more than
+dynamicRange under maximum amplitude are discarded to save computational
+resources</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Returns one continuous, unfiltered, voiced syllable consisting of several
+sine waves.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">rolloffExact1 = c(.2, .2, 1, .2, .2)
+s1 = soundgen:::generateHarmonics(pitch = seq(400, 530, length.out = 1500),
+                       rolloffExact = rolloffExact1)
+spectrogram(s1, 16000, ylim = c(0, 4))
+# playme(s1, 16000)
+
+rolloffExact2 = matrix(c(.2, .2, 1, .2, .2,
+                         1, .5, .2, .1, .05), ncol = 2)
+s2 = soundgen:::generateHarmonics(pitch = seq(400, 530, length.out = 1500),
+                       rolloffExact = rolloffExact2)
+spectrogram(s2, 16000, ylim = c(0, 4))
+# playme(s2, 16000)
+</code></pre>
+
+
+</div>

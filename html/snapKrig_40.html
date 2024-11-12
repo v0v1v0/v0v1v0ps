@@ -1,0 +1,202 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sk_snap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Snap a set of points to a "sk" grid</h2>
+
+<h3>Description</h3>
+
+<p>Maps the input points in <code>from</code> to the closest grid points in the lattice of which
+<code>g</code> is a sub-grid. In cases of duplicate mappings, the function returns the first
+matches only.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sk_snap(from, g = nrow(from), crop_from = FALSE, crop_g = FALSE, quiet = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>from</code></td>
+<td>
+<p>matrix, data frame, or points object from <code>sp</code> or <code>sf</code>, the source points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>any object accepted or returned by <code>sk</code>, the destination grid</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crop_from</code></td>
+<td>
+<p>logical, indicating to omit points not overlying <code>g</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crop_g</code></td>
+<td>
+<p>logical, indicating to trim <code>g</code> to the extent of <code>from</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>logical, suppresses console output</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>from</code> can be a geometry collection from packages <code>sf</code> or <code>sp</code>, or a matrix or list
+of y and x coordinates. When <code>from</code> is a matrix, its first two columns should be the
+y and x coordinates (in that order), and the (optional) third column should be the
+data. When <code>from</code> is a list, the function expects (two or three) vectors of equal
+length, ordered as above.
+</p>
+<p>When <code>from</code> is a geometry collection with a coordinates reference system (CRS) string,
+points are first transformed to the CRS of <code>g</code>. If one or both of <code>from</code> and <code>g</code> are
+missing a CRS definition, the function assumes the same one is shared in both.
+</p>
+<p><code>g</code> can be a raster geometry object (such as SpatRaster), in which case the function
+behaves like <code>terra::rasterize</code>, or an sk grid object. It can also be a matrix (supplying
+dimensions) or a list containing either <code>gdim</code> or<code>gres</code>, from which an appropriately
+spaced set of grid lines is derived, centered under the bounding box of the points.
+If <code>g</code> is not supplied, it is automatically set to equal <code>nrow(from)</code>, so that there
+there is one grid line along each dimension for each input point.
+</p>
+<p><code>crop_from</code> and <code>crop_g</code> control the extent of the output grid. If both are <code>FALSE</code>
+(the default) the function returns the smallest regular grid containing both <code>g</code>
+and the snapped <code>from</code> points. If <code>crop_from=TRUE</code> and <code>crop_g=FALSE</code> the output
+grid will match <code>g</code> exactly. If <code>crop_from=FALSE</code> and <code>crop_g=TRUE</code> the output
+grid will include all snapped points, and possibly omit some or all of <code>g</code>. And if
+both are <code>TRUE</code>, the output grid encloses the intersection of the points with the
+bounding box of <code>g</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>sk object, a grid containing the snapped points. These are assigned
+the corresponding data value in <code>from</code>, or if  <code>from</code> has no data, an integer mapping
+to the points in <code>from</code>. Un-mapped grid points are set to NA.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>sk sk_coords
+</p>
+<p>Other sk constructors: 
+<code>sk_rescale()</code>,
+<code>sk_sub()</code>,
+<code>sk()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# functions to scale arbitrary inverval to (1, 2,... 100) and make color palettes
+num_to_cent = function(x) 1L + floor(99*( x-min(x) ) / diff(range(x)))
+my_pal = function(x) grDevices::hcl.colors(x, 'Spectral', rev=TRUE)
+my_col = function(x) my_pal(1e2)[ num_to_cent(x) ]
+
+# create a grid object
+gdim = c(40, 30)
+g = sk(gdim=gdim, gres=1.1)
+
+# randomly position points within bounding box of g
+n_pts = 10
+from = lapply(g$gyx, function(yx) runif(n_pts, min(yx), max(yx)) )
+
+# translate away from g (no overlap is required)
+from[['y']] = from[['y']] + 5
+from[['x']] = from[['x']] + 15
+
+# add example data values and plot
+from[['z']] = stats::rnorm(length(from[['y']]))
+plot(g, reset=FALSE)
+graphics::points(from[c('x', 'y')], pch=16, col=my_col(from[['z']]))
+graphics::points(from[c('x', 'y')])
+
+# snap only the points overlying the input grid
+g_snap = sk_snap(from, g, crop_from=TRUE)
+plot(g_snap, col_grid='black', reset=FALSE, leg=FALSE)
+graphics::points(from[c('x', 'y')], pch=16, col=my_col(from[['z']]))
+graphics::points(from[c('x', 'y')])
+
+# snap all points to grid extension (default settings)
+g_snap = sk_snap(from, g, crop_from=FALSE, crop_g=FALSE)
+plot(g_snap, col_grid='black', reset=FALSE)
+graphics::points(from[c('x', 'y')], pch=16, col=my_col(from[['z']]))
+graphics::points(from[c('x', 'y')])
+
+# find smallest subgrid enclosing all snapped grid points
+g_snap = sk_snap(from, g, crop_g=TRUE)
+plot(g_snap, col_grid='black', reset=FALSE)
+graphics::points(from[c('x', 'y')], pch=16, col=my_col(from[['z']]))
+graphics::points(from[c('x', 'y')])
+
+# create a new grid of different resolution enclosing all input points
+g_snap = sk_snap(from, g=list(gres=c(0.5, 0.5)))
+plot(g_snap, reset=FALSE, col_grid='black')
+graphics::points(from[c('x', 'y')], pch=16, col=my_col(from[['z']]))
+graphics::points(from[c('x', 'y')])
+
+if( requireNamespace('sf') ) {
+
+# a different example, snapping mis-aligned subgrid
+g_pts = sk(list(gdim=c(15, 8), gres=1.7), vals=FALSE)
+g_pts[['gyx']][['y']] = g_pts[['gyx']][['y']] + 5
+g_pts[['gyx']][['x']] = g_pts[['gyx']][['x']] + 5
+from = sk_coords(g_pts, out='list')
+
+# convert to sf
+eg_sfc = sf::st_geometry(sk_coords(g_pts, out='sf'))
+plot(g, reset=FALSE)
+plot(eg_sfc, add=TRUE)
+
+# generate example data and plot
+eg_sf = sf::st_sf(data.frame(z=stats::rnorm(length(g_pts))), geometry=eg_sfc)
+plot(g, reset=FALSE)
+plot(eg_sf, pch=16, add=TRUE, pal=my_pal)
+plot(eg_sfc, add=TRUE)
+
+# snap points
+g_snap = sk_snap(from=eg_sf, g)
+plot(g_snap, reset=FALSE, col_grid='black')
+plot(eg_sf, pch=16, add=TRUE, pal=my_pal)
+plot(eg_sfc, add=TRUE)
+
+# snapping points without data produces the mapping (non-NA values index "from")
+g_snap = sk_snap(from=eg_sfc, g)
+plot(g_snap, ij=TRUE, reset=FALSE, col_grid='black')
+plot(eg_sfc, add=TRUE)
+
+# with crop_g=TRUE)
+g_snap = sk_snap(from=eg_sfc, g, crop_g=TRUE)
+plot(g_snap, reset=FALSE, col_grid='black')
+plot(eg_sfc, add=TRUE)
+
+# test with sp class
+eg_sp = as(eg_sf,'Spatial')
+g_snap = sk_snap(from=eg_sp, g)
+plot(g_snap, reset=FALSE, col_grid='black')
+plot(eg_sf, pch=16, add=TRUE, pal=my_pal)
+plot(eg_sfc, add=TRUE)
+
+}
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,228 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>autoini</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Initial Parameter Values for SECR </h2>
+
+<h3>Description</h3>
+
+<p>Find plausible initial parameter values for <code>secr.fit</code>.  A
+simple SECR model is fitted by a fast ad hoc method.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">autoini(capthist, mask, detectfn = 0, thin = 0.2, tol = 0.001, 
+    binomN = 1, adjustg0 = TRUE, adjustsigma = 1.2, ignoreusage = FALSE, 
+    ncores = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>capthist</code></td>
+<td>
+<p><code>capthist</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+<p><code>mask</code> object compatible with the detector layout in
+<code>capthist</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectfn</code></td>
+<td>
+<p>integer code or character string for shape of
+detection function 0 = halfnormal</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thin</code></td>
+<td>
+<p>proportion of points to retain in mask </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>numeric absolute tolerance for numerical root finding </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binomN</code></td>
+<td>
+<p>integer code for distribution of counts (see <code>secr.fit</code>) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjustg0</code></td>
+<td>
+<p>logical for whether to adjust g0 for usage (effort) and
+binomN </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjustsigma</code></td>
+<td>
+<p>numeric scalar applied to RPSV(capthist, CC = TRUE) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ignoreusage</code></td>
+<td>
+<p>logical for whether to discard usage information from
+<code>traps(capthist)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p> integer number of threads to be used for parallel processing</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Plausible starting values are needed to avoid numerical
+problems when fitting SECR models.  Actual models
+to be fitted will usually have more than the three basic parameters
+output by <code>autoini</code>; other initial values can usually be set to
+zero for <code>secr.fit</code>.  If the algorithm encounters problems obtaining
+a value for g0, the default value of 0.1 is returned.
+</p>
+<p>Only the halfnormal detection function is currently available in <code>autoini</code> (cf
+other options in e.g. detectfn and <code>sim.capthist</code>).
+</p>
+<p><code>autoini</code> implements a modified version of the algorithm proposed
+by Efford et al. (2004).  In outline, the algorithm is
+</p>
+
+<ol>
+<li>
+<p> Find value of sigma that predicts the 2-D dispersion of individual locations (see <code>RPSV</code>). 
+</p>
+</li>
+<li>
+<p> Find value of g0 that, with sigma, predicts the observed mean number of captures per individual (by algorithm of Efford et al. (2009, Appendix 2))
+</p>
+</li>
+<li>
+<p> Compute the effective sampling area from g0, sigma, using thinned mask (see <code>esa</code>)
+</p>
+</li>
+<li>
+<p> Compute D = <code class="reqn">n</code>/esa(g0, sigma), where <code class="reqn">n</code> is the number of individuals detected
+</p>
+</li>
+</ol>
+<p>Here ‘find’ means solve numerically for zero difference between the observed and predicted values, using <code>uniroot</code>.
+</p>
+<p>Halfnormal sigma is estimated with <code>RPSV(capthist, CC = TRUE)</code>.  The factor <code>adjustsigma</code> is applied as a crude correction for truncation of movements at the edge of the detector array.
+</p>
+<p>If <code>RPSV</code> cannot be computed the algorithm tries to use observed
+mean recapture distance <code class="reqn">\bar{d}</code>.  Computation of
+<code class="reqn">\bar{d}</code> fails if there no recaptures, and all returned
+values are NA.
+</p>
+<p>If the mask has more than 100 points then a proportion 1–<code>thin</code> of
+points are discarded at random to speed execution.
+</p>
+<p>The argument <code>tol</code> is passed to <code>uniroot</code>.  It may be a
+vector of two values, the first for g0 and the second for sigma.
+</p>
+<p>If <code>traps(capthist)</code> has a usage attribute (defining effort
+on each occasion at each detector) then the value of g0 is divided by
+the mean of the non-zero elements of usage.  This adjustment is not
+precise.
+</p>
+<p>If <code>adjustg0</code> is TRUE then an adjustment is made to g0 depending
+on the value of <code>binomN</code>.  For Poisson counts (<code>binomN = 0</code>)
+the adjustment is linear on effort (adjusted.g0 = g0 /
+usage).  Otherwise, the adjustment is on the hazard scale (adjusted.g0 =
+1 – (1 – g0) ^ (1 / (usage x binomN))).  An arithmetic average is taken
+over all non-zero usage values (i.e. over used detectors and times). If
+usage is not specified it is taken to be 1.0.
+</p>
+<p>Setting <code>ncores = NULL</code> uses the existing value from the environment variable 
+RCPP_PARALLEL_NUM_THREADS (see <code>setNumThreads</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of parameter values :
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code> D </code></td>
+<td>
+<p>Density (animals per hectare)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code> g0 </code></td>
+<td>
+<p>Magnitude (intercept) of detection function </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code> sigma </code></td>
+<td>
+<p>Spatial scale of detection function (m) </p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p><code>autoini</code> always uses the Euclidean distance between detectors and
+mask points.
+</p>
+<p>You may get this message from secr.fit: “'autoini' failed to find g0;
+setting initial g0 = 0.1”.  If the fitted model looks OK (reasonable
+estimates, non-missing SE) there is no reason to worry about the
+starting values.  If you get this message and model fitting fails then
+supply your own values in the start argument of secr.fit.
+</p>
+
+
+<h3>References</h3>
+
+<p>Efford, M. G., Dawson, D. K. and Robbins C. S. (2004) DENSITY: software for analysing capture–recapture data from passive detector arrays. <em>Animal Biodiversity and Conservation</em> <b>27</b>,
+217–228.
+</p>
+<p>Efford, M. G., Dawson, D. K. and Borchers, D. L. (2009) Population
+density estimated from locations of individuals on a passive detector
+array. <em>Ecology</em> <b>90</b>, 2676–2682.
+</p>
+
+
+<h3>See Also</h3>
+
+ <p><code>capthist</code>, <code>mask</code>, <code>secr.fit</code>, <code>dbar</code>  </p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+demotraps &lt;- make.grid()
+demomask &lt;- make.mask(demotraps)
+demoCH &lt;- sim.capthist (demotraps, popn = list(D = 5, buffer = 100), seed = 321)
+autoini (demoCH, demomask)
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

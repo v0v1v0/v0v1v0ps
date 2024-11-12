@@ -1,0 +1,148 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sf_create_metadata</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create Object or Field Metadata in Salesforce</h2>
+
+<h3>Description</h3>
+
+<p><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental"><img src="../help/figures/lifecycle-experimental.svg" alt="[Experimental]"></a>
+</p>
+<p>This function takes a list of Metadata components and sends them
+to Salesforce for creation
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sf_create_metadata(
+  metadata_type,
+  metadata,
+  control = list(...),
+  ...,
+  all_or_none = deprecated(),
+  verbose = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>metadata_type</code></td>
+<td>
+<p><code>character</code>; string on what type of metadata to create.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metadata</code></td>
+<td>
+<p><code>list</code>; metadata components to be created formatted as
+XML before being sent via API.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p><code>list</code>; a list of parameters for controlling the behavior of
+the API call being used. For more information of what parameters are available
+look at the documentation for <code>sf_control</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments passed to <code>sf_control</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>all_or_none</code></td>
+<td>
+<p><code>logical</code>; allows a call to roll back all changes unless all
+records are processed successfully.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p><code>logical</code>; an indicator of whether to print additional
+detail for each API call, which is useful for debugging. More specifically, when
+set to <code>TRUE</code> the URL, header, and body will be printed for each request,
+along with additional diagnostic information where available.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>tbl_df</code> containing the creation result for each submitted metadata component
+</p>
+
+
+<h3>See Also</h3>
+
+<p><a href="https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta">Salesforce Documentation</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# read the metadata of the existing Account object
+# we will use this object as a template to create a custom version
+metadata_info &lt;- sf_read_metadata(metadata_type='CustomObject',
+                                  object_names=c('Account'))
+custom_metadata &lt;- metadata_info[[1]]
+# remove default actionOverrides, this cannot be set during creation
+custom_metadata[which(names(custom_metadata) %in% c("actionOverrides"))] &lt;- NULL
+# remove fields since its a custom object and the standard ones no longer exist
+custom_metadata[which(names(custom_metadata) %in% c("fields"))] &lt;- NULL
+# remove views so that we get the Standard List Views
+custom_metadata[which(names(custom_metadata) %in% c("listViews"))] &lt;- NULL
+# remove links so that we get the Standard Web Links
+custom_metadata[which(names(custom_metadata) %in% c("webLinks"))] &lt;- NULL
+# now make some adjustments to customize the object
+this_label &lt;- 'Custom_Account43'
+custom_metadata$fullName &lt;- paste0(this_label, '__c')
+custom_metadata$label &lt;- this_label
+custom_metadata$pluralLabel &lt;- paste0(this_label, 's')
+custom_metadata$nameField &lt;- list(displayFormat='AN-{0000}',
+                                  label='Account Number',
+                                  type='AutoNumber')
+custom_metadata$fields &lt;- list(fullName="Phone__c",
+                               label="Phone",
+                               type="Phone")
+# set the deployment status, this must be set before creation
+custom_metadata$deploymentStatus &lt;- 'Deployed'
+# make a description to identify this easily in the UI setup tab
+custom_metadata$description &lt;- 'created by the Metadata API'
+new_custom_object &lt;- sf_create_metadata(metadata_type = 'CustomObject',
+                                        metadata = custom_metadata, 
+                                        verbose = TRUE)
+
+# adding custom fields to our object 
+# input formatted as a list
+custom_fields &lt;- list(list(fullName='Custom_Account43__c.CustomField66__c',
+                           label='CustomField66',
+                           length=100,
+                           type='Text'),
+                      list(fullName='Custom_Account43__c.CustomField77__c',
+                           label='CustomField77',
+                           length=100,
+                           type='Text'))
+# formatted as a data.frame
+custom_fields &lt;- data.frame(fullName=c('Custom_Account43__c.CustomField88__c',
+                                       'Custom_Account43__c.CustomField99__c'),
+                            label=c('Test Field1', 'Test Field2'),
+                            length=c(44,45),
+                            type=c('Text', 'Text'))
+new_custom_fields &lt;- sf_create_metadata(metadata_type = 'CustomField', 
+                                        metadata = custom_fields)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

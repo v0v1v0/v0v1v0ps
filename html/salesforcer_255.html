@@ -1,0 +1,310 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sf_run_report</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get a report's data in tabular format</h2>
+
+<h3>Description</h3>
+
+<p><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental"><img src="../help/figures/lifecycle-experimental.svg" alt="[Experimental]"></a>
+</p>
+<p>This function is a convenience wrapper for retrieving the data from a report.
+By default, it executes an asynchronous report and waits for the detailed data
+summarized in a tabular format, before pulling them down and returning as a
+<code>tbl_df</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sf_run_report(
+  report_id,
+  report_filters = NULL,
+  report_boolean_logic = NULL,
+  sort_by = character(0),
+  decreasing = FALSE,
+  top_n = NULL,
+  async = TRUE,
+  interval_seconds = 3,
+  max_attempts = 200,
+  wait_for_results = TRUE,
+  guess_types = TRUE,
+  bind_using_character_cols = deprecated(),
+  fact_map_key = "T!T",
+  verbose = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>report_id</code></td>
+<td>
+<p><code>character</code>; the Salesforce Id assigned to a created
+analytics report. It will start with <code>"00O"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>report_filters</code></td>
+<td>
+<p><code>list</code>; A <code>list</code> of reportFilter specifications.
+Each must be a list with 3 elements: 1) <code>column</code>, 2) <code>operator</code>, and
+3) <code>value</code>. You can find out how certain field types can be filtered by
+reviewing the results of <code>sf_list_report_filter_operators</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>report_boolean_logic</code></td>
+<td>
+<p><code>character</code>; a string of boolean logic to parse
+custom field filters if more than one is specified. For example, if three filters
+are specified, then they can be combined using the logic <code>"(1 OR 2) AND 3"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sort_by</code></td>
+<td>
+<p><code>character</code>; the name of the column(s) used to sort the results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>decreasing</code></td>
+<td>
+<p><code>logical</code>; a indicator of whether the results should be
+ordered by increasing or decreasing values in <code>sort_by</code> column when selecting the
+top N records. Note, this argument will be ignored if not specifying Top N. You can
+sort the records using <code>arrange</code> after the results are returned.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>top_n</code></td>
+<td>
+<p><code>integer</code>; an integer which sets a row limit filter to a report.
+The results will be ordered as they appear in the report unless specified differently
+via the <code>sort_by</code> and <code>decreasing</code> arguments. Note, it is sometimes
+helpful to specify the <code>top_n</code> argument if a report contains many rows, but
+you are only interested in a subset of them. Alternatively, you can limit the count
+of returned rows via the <code>report_filters</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>async</code></td>
+<td>
+<p><code>logical</code>; an indicator, by default set to <code>TRUE</code>, which
+executes the report asynchronously. If executed asynchronously, this function
+will return a list of attributes of the created report instance. The results
+can be pulled down by providing the report id and instance id to
+the function <code>sf_get_report_instance_results</code>. Refer to the details
+of the documentation on why executing a report asynchronously is preferred.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval_seconds</code></td>
+<td>
+<p><code>integer</code>; defines the seconds between attempts to check
+for job completion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_attempts</code></td>
+<td>
+<p><code>integer</code>; defines then max number attempts to check for job
+completion before stopping.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wait_for_results</code></td>
+<td>
+<p><code>logical</code>; indicating whether to wait for the
+report finish running so that data can be obtained. Otherwise, return the
+report instance details which can be used to retrieve the results when the
+async report has finished.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>guess_types</code></td>
+<td>
+<p><code>logical</code>; indicating whether or not to use <code>col_guess()</code>
+to try and cast the data returned in the recordset. If <code>TRUE</code> then
+<code>col_guess()</code> is used, if <code>FALSE</code> then all fields will be returned
+as character. This is helpful when <code>col_guess()</code> will mangle field values
+in Salesforce that you'd like to preserve during translation into a <code>tbl_df</code>,
+like numeric looking values that must be preserved as strings ("48.0").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bind_using_character_cols</code></td>
+<td>
+<p><code>logical</code>; an indicator of whether to
+cast the data to all character columns to ensure that <code>bind_rows</code>
+does not fail because two paginated recordsets have differing datatypes for the
+same column. Set this to <code>TRUE</code> rarely, typically only when having this
+set to <code>FALSE</code> returns an error or you want all columns in the data to be
+character.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fact_map_key</code></td>
+<td>
+<p><code>character</code>; string providing an index into each
+section of a fact map, from which you can access summary and detailed data.
+The pattern for the fact map keys varies by report format so it is important
+to know what the <code>reportFormat</code> property of the target report is. See the
+note below for more details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p><code>logical</code>; an indicator of whether to print additional
+detail for each API call, which is useful for debugging. More specifically, when
+set to <code>TRUE</code> the URL, header, and body will be printed for each request,
+along with additional diagnostic information where available.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is essentially a wrapper around <code>sf_execute_report</code>.
+Please review or use that function and/or <code>sf_query_report</code> if you
+want to have more control over how the report is run and what format should
+be returned. In this case we've forced the <code>reportFormat="TABULAR"</code>
+without total rows and given options to filter, and select the Top N as
+function arguments rather than forcing the user to create an entire list of
+<code>reportMetadata</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>tbl_df</code>
+</p>
+
+
+<h3>Salesforce Documentation</h3>
+
+
+<ul>
+<li> <p><a href="https://developer.salesforce.com/docs/atlas.en-us.api_analytics.meta/api_analytics/sforce_analytics_rest_api_getreportrundata.htm">Sync Documentation</a>
+</p>
+</li>
+<li> <p><a href="https://developer.salesforce.com/docs/atlas.en-us.api_analytics.meta/api_analytics/sforce_analytics_rest_api_get_reportdata.htm#example_sync_reportexecute">Sync Example</a>
+</p>
+</li>
+<li> <p><a href="https://developer.salesforce.com/docs/atlas.en-us.api_analytics.meta/api_analytics/sforce_analytics_rest_api_instances_summaryasync.htm">Async Documentation</a>
+</p>
+</li>
+<li> <p><a href="https://developer.salesforce.com/docs/atlas.en-us.api_analytics.meta/api_analytics/sforce_analytics_rest_api_get_reportdata.htm#example_report_async_instances">Async Example</a>
+</p>
+</li>
+<li> <p><a href="https://developer.salesforce.com/docs/atlas.en-us.api_analytics.meta/api_analytics/sforce_analytics_rest_api_filter_reportdata.htm#example_requestbody_execute_resource">Filtering Results</a>
+</p>
+</li>
+</ul>
+<h3>Note</h3>
+
+<p>Below are the fact map key patterns for three report types:
+</p>
+
+<dl>
+<dt>TABULAR</dt>
+<dd>
+<p><code>T!T</code>: The grand total of a report. Both record data
+values and the grand total are represented by this key.</p>
+</dd>
+<dt>SUMMARY</dt>
+<dd>
+<p><code>&lt;First level row grouping_second level row grouping_third 
+  level row grouping&gt;!T</code>: T refers to the row grand total.</p>
+</dd>
+<dt>MATRIX</dt>
+<dd>
+<p><code>&lt;First level row grouping_second level row grouping&gt;!&lt;First 
+  level column grouping_second level column grouping&gt;.</code></p>
+</dd>
+</dl>
+<p>Each item in a row or column grouping is numbered starting with 0. Here are
+some examples of fact map keys:
+</p>
+
+<dl>
+<dt>0!T</dt>
+<dd>
+<p>The first item in the first-level grouping.</p>
+</dd>
+<dt>1!T</dt>
+<dd>
+<p>The second item in the first-level grouping.</p>
+</dd>
+<dt>0_0!T</dt>
+<dd>
+<p>The first item in the first-level grouping and the first item
+in the second-level grouping.</p>
+</dd>
+<dt>0_1!T</dt>
+<dd>
+<p>The first item in the first-level grouping and the second item
+in the second-level grouping.</p>
+</dd>
+</dl>
+<h3>See Also</h3>
+
+<p>Other Report functions: 
+<code>sf_copy_report()</code>,
+<code>sf_create_report()</code>,
+<code>sf_delete_report()</code>,
+<code>sf_describe_report_type()</code>,
+<code>sf_describe_report()</code>,
+<code>sf_execute_report()</code>,
+<code>sf_list_report_fields()</code>,
+<code>sf_list_report_filter_operators()</code>,
+<code>sf_list_report_types()</code>,
+<code>sf_list_reports()</code>,
+<code>sf_query_report()</code>,
+<code>sf_update_report()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# find a report in your org and run it
+all_reports &lt;- sf_query("SELECT Id, Name FROM Report")
+this_report_id &lt;- all_reports$Id[1]
+results &lt;- sf_run_report(this_report_id)
+
+# apply your own filters to that same report
+# set up some filters, if needed
+# filter records that was created before this month
+filter1 &lt;- list(column = "CREATED_DATE",
+                operator = "lessThan", 
+                value = "THIS_MONTH")
+
+# filter records where the account billing address city is not empty
+filter2 &lt;-  list(column = "ACCOUNT.ADDRESS1_CITY",
+                 operator = "notEqual", 
+                 value = "")
+
+# combine filter1 and filter2 using 'AND' so that records must meet both filters
+results_using_AND &lt;- sf_run_report(my_report_id, 
+                                   report_boolean_logic = "1 AND 2",
+                                   report_filters = list(filter1, filter2))
+
+# combine filter1 and filter2 using 'OR' which means that records must meet one 
+# of the filters but also throw in a row limit based on a specific sort order
+results_using_OR &lt;- sf_run_report(my_report_id, 
+                                  report_boolean_logic = "1 OR 2",
+                                  report_filters = list(filter1, filter2), 
+                                  sort_by = "Contact.test_number__c", 
+                                  decreasing = TRUE, 
+                                  top_n = 5)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

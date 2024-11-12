@@ -1,0 +1,335 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>example_data</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Example Objects</h2>
+
+<h3>Description</h3>
+
+<p>stacks provides some resampling objects and datasets for use in examples
+and vignettes derived from a study on 1212 red-eyed tree frog embryos!
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">reg_res_svm
+
+reg_res_sp
+
+reg_res_lr
+
+reg_folds
+
+class_res_nn
+
+class_res_rf
+
+class_folds
+
+log_res_nn
+
+log_res_rf
+</code></pre>
+
+
+<h3>Format</h3>
+
+<p>An object of class <code>tune_results</code> (inherits from <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+<p>An object of class <code>tune_results</code> (inherits from <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+<p>An object of class <code>resample_results</code> (inherits from <code>tune_results</code>, <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+<p>An object of class <code>vfold_cv</code> (inherits from <code>rset</code>, <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 2 columns.
+</p>
+<p>An object of class <code>resample_results</code> (inherits from <code>tune_results</code>, <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+<p>An object of class <code>tune_results</code> (inherits from <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+<p>An object of class <code>vfold_cv</code> (inherits from <code>rset</code>, <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 2 columns.
+</p>
+<p>An object of class <code>resample_results</code> (inherits from <code>tune_results</code>, <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+<p>An object of class <code>tune_results</code> (inherits from <code>tbl_df</code>, <code>tbl</code>, <code>data.frame</code>) with 5 rows and 5 columns.
+</p>
+
+
+<h3>Details</h3>
+
+<p>Red-eyed tree frog (RETF) embryos can hatch earlier than their normal
+7ish days if they detect potential predator threat. Researchers wanted
+to determine how, and when, these tree frog embryos were able to detect
+stimulus from their environment. To do so, they subjected the embryos
+at varying developmental stages to "predator stimulus" by jiggling
+the embryos with a blunt probe. Beforehand, though some of the embryos
+were treated with gentamicin, a compound that knocks out their lateral
+line (a sensory organ.) Researcher Julie Jung and her crew found that
+these factors inform whether an embryo hatches prematurely or not!
+</p>
+<p>Note that the data included with the stacks package is not necessarily
+a representative or unbiased subset of the complete dataset, and is
+only for demonstrative purposes.
+</p>
+<p><code>reg_folds</code> and <code>class_folds</code> are <code>rset</code> cross-fold validation objects
+from <code>rsample</code>, splitting the training data into for the regression
+and classification model objects, respectively. <code>tree_frogs_reg_test</code> and
+<code>tree_frogs_class_test</code> are the analogous testing sets.
+</p>
+<p><code>reg_res_lr</code>, <code>reg_res_svm</code>, and <code>reg_res_sp</code> contain regression tuning results
+for a linear regression, support vector machine, and spline model, respectively,
+fitting <code>latency</code> (i.e. how long the embryos took to hatch in response
+to the jiggle) in the <code>tree_frogs</code> data, using most all of the other
+variables as predictors. Note that the data underlying these models is
+filtered to include data only from embryos that hatched in response to
+the stimulus.
+</p>
+<p><code>class_res_rf</code> and <code>class_res_nn</code> contain multiclass classification tuning
+results for a random forest and neural network classification model,
+respectively, fitting <code>reflex</code> (a measure of ear function) in the
+data using most all of the other variables as predictors.
+</p>
+<p><code>log_res_rf</code> and <code>log_res_nn</code>, contain binary classification tuning results
+for a random forest and neural network classification model, respectively,
+fitting <code>hatched</code> (whether or not the embryos hatched in response
+to the stimulus) using most all of the other variables as predictors.
+</p>
+<p>The source code for generating these objects is given below.
+</p>
+<div class="sourceCode r"><pre># setup: packages, data, resample, basic recipe ------------------------
+library(stacks)
+library(tune)
+library(rsample)
+library(parsnip)
+library(workflows)
+library(recipes)
+library(yardstick)
+library(workflowsets)
+
+set.seed(1)
+
+ctrl_grid &lt;- 
+  tune::control_grid(
+    save_pred = TRUE,
+    save_workflow = TRUE
+  )
+
+ctrl_res &lt;- 
+  tune::control_resamples(
+    save_pred = TRUE,
+    save_workflow = TRUE
+  )
+
+# for regression, predict latency to hatch (excluding NAs)
+tree_frogs_reg &lt;- 
+  tree_frogs %&gt;% 
+  filter(!is.na(latency)) %&gt;%
+  select(-clutch, -hatched)
+
+set.seed(1)
+tree_frogs_reg_split &lt;- rsample::initial_split(tree_frogs_reg)
+
+set.seed(1)
+tree_frogs_reg_train &lt;- rsample::training(tree_frogs_reg_split)
+
+set.seed(1)
+tree_frogs_reg_test  &lt;- rsample::testing(tree_frogs_reg_split)
+
+set.seed(1)
+reg_folds &lt;- rsample::vfold_cv(tree_frogs_reg_train, v = 5)
+
+tree_frogs_reg_rec &lt;- 
+  recipes::recipe(latency ~ ., data = tree_frogs_reg_train) %&gt;%
+  recipes::step_dummy(recipes::all_nominal()) %&gt;%
+  recipes::step_zv(recipes::all_predictors())
+
+metric &lt;- yardstick::metric_set(yardstick::rmse)
+
+# linear regression ---------------------------------------
+lin_reg_spec &lt;-
+  parsnip::linear_reg() %&gt;%
+  parsnip::set_engine("lm")
+
+reg_wf_lr &lt;- 
+  workflows::workflow() %&gt;%
+  workflows::add_model(lin_reg_spec) %&gt;%
+  workflows::add_recipe(tree_frogs_reg_rec)
+
+set.seed(1)
+reg_res_lr &lt;- 
+  tune::fit_resamples(
+    object = reg_wf_lr,
+    resamples = reg_folds,
+    metrics = metric,
+    control = ctrl_res
+  )
+
+# SVM regression ----------------------------------
+svm_spec &lt;- 
+  parsnip::svm_rbf(
+    cost = tune::tune(), 
+    rbf_sigma = tune::tune()
+  ) %&gt;%
+  parsnip::set_engine("kernlab") %&gt;%
+  parsnip::set_mode("regression")
+
+reg_wf_svm &lt;- 
+  workflows::workflow() %&gt;%
+  workflows::add_model(svm_spec) %&gt;%
+  workflows::add_recipe(tree_frogs_reg_rec)
+
+set.seed(1)
+reg_res_svm &lt;- 
+  tune::tune_grid(
+    object = reg_wf_svm,
+    resamples = reg_folds, 
+    grid = 5,
+    control = ctrl_grid
+  )
+
+# spline regression ---------------------------------------
+spline_rec &lt;- 
+  tree_frogs_reg_rec %&gt;%
+  recipes::step_ns(age, deg_free = tune::tune("age"))
+
+reg_wf_sp &lt;- 
+  workflows::workflow() %&gt;%
+  workflows::add_model(lin_reg_spec) %&gt;%
+  workflows::add_recipe(spline_rec)
+
+set.seed(1)
+reg_res_sp &lt;- 
+  tune::tune_grid(
+    object = reg_wf_sp,
+    resamples = reg_folds,
+    metrics = metric,
+    control = ctrl_grid
+  )
+
+# classification - preliminaries -----------------------------------
+tree_frogs_class &lt;- 
+  tree_frogs %&gt;%
+  dplyr::select(-c(clutch, latency))
+
+set.seed(1)
+tree_frogs_class_split &lt;- rsample::initial_split(tree_frogs_class)
+
+set.seed(1)
+tree_frogs_class_train &lt;- rsample::training(tree_frogs_class_split)
+
+set.seed(1)
+tree_frogs_class_test  &lt;- rsample::testing(tree_frogs_class_split)
+
+set.seed(1)
+class_folds &lt;- rsample::vfold_cv(tree_frogs_class_train, v = 5)
+
+tree_frogs_class_rec &lt;- 
+  recipes::recipe(reflex ~ ., data = tree_frogs_class_train) %&gt;%
+  recipes::step_dummy(recipes::all_nominal(), -reflex) %&gt;%
+  recipes::step_zv(recipes::all_predictors()) %&gt;%
+  recipes::step_normalize(recipes::all_numeric())
+
+# random forest classification --------------------------------------
+rand_forest_spec &lt;- 
+  parsnip::rand_forest(
+    mtry = tune::tune(),
+    trees = 500,
+    min_n = tune::tune()
+  ) %&gt;%
+  parsnip::set_mode("classification") %&gt;%
+  parsnip::set_engine("ranger")
+
+class_wf_rf &lt;-
+  workflows::workflow() %&gt;%
+  workflows::add_recipe(tree_frogs_class_rec) %&gt;%
+  workflows::add_model(rand_forest_spec)
+
+set.seed(1)
+class_res_rf &lt;- 
+  tune::tune_grid(
+    object = class_wf_rf, 
+    resamples = class_folds, 
+    grid = 10,
+    control = ctrl_grid
+  )
+
+# neural network classification -------------------------------------
+nnet_spec &lt;-
+  mlp(hidden_units = 5, penalty = 0.01, epochs = 100) %&gt;%
+  set_mode("classification") %&gt;%
+  set_engine("nnet")
+
+class_wf_nn &lt;- 
+  workflows::workflow() %&gt;%
+  workflows::add_recipe(tree_frogs_class_rec) %&gt;%
+  workflows::add_model(nnet_spec)
+
+set.seed(1)
+class_res_nn &lt;-
+  tune::fit_resamples(
+    object = class_wf_nn, 
+    resamples = class_folds, 
+    control = ctrl_res
+  )
+
+# binary classification --------------------------------
+tree_frogs_2_class_rec &lt;- 
+  recipes::recipe(hatched ~ ., data = tree_frogs_class_train) %&gt;%
+  recipes::step_dummy(recipes::all_nominal(), -hatched) %&gt;%
+  recipes::step_zv(recipes::all_predictors()) %&gt;%
+  recipes::step_normalize(recipes::all_numeric())
+
+set.seed(1)
+rand_forest_spec_2 &lt;- 
+  parsnip::rand_forest(
+    mtry = tune(),
+    trees = 500,
+    min_n = tune()
+  ) %&gt;%
+  parsnip::set_mode("classification") %&gt;%
+  parsnip::set_engine("ranger")
+
+log_wf_rf &lt;-
+  workflows::workflow() %&gt;%
+  workflows::add_recipe(tree_frogs_2_class_rec) %&gt;%
+  workflows::add_model(rand_forest_spec_2)
+
+set.seed(1)
+log_res_rf &lt;- 
+  tune::tune_grid(
+    object = log_wf_rf, 
+    resamples = class_folds, 
+    grid = 10,
+    control = ctrl_grid
+  )
+
+nnet_spec_2 &lt;-
+  parsnip::mlp(epochs = 100, hidden_units = 5, penalty = 0.1) %&gt;%
+  parsnip::set_mode("classification") %&gt;%
+  parsnip::set_engine("nnet", verbose = 0)
+
+log_wf_nn &lt;- 
+  workflows::workflow() %&gt;%
+  workflows::add_recipe(tree_frogs_2_class_rec) %&gt;%
+  workflows::add_model(nnet_spec_2)
+
+set.seed(1)
+log_res_nn &lt;-
+  tune::fit_resamples(
+    object = log_wf_nn, 
+    resamples = class_folds, 
+    control = ctrl_res
+  )
+</pre></div>
+
+
+<h3>Source</h3>
+
+<p>Julie Jung et al. (2020) Multimodal mechanosensing enables treefrog
+embryos to escape egg-predators. <a href="https://doi.org/10.1242/jeb.236141">doi:10.1242/jeb.236141</a>
+</p>
+
+
+</div>

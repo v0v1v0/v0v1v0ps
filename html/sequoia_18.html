@@ -1,0 +1,376 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>EstConf</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Confidence Probabilities</h2>
+
+<h3>Description</h3>
+
+<p>Estimate confidence probabilities ('backward') and assignment
+error rates ('forward') per category (genotyped/dummy) by repeatedly
+simulating genotype data from a reference pedigree using
+<code>SimGeno</code>, reconstruction a pedigree from this using
+<code>sequoia</code>, and counting the number of mismatches using
+<code>PedCompare</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">EstConf(
+  Pedigree = NULL,
+  LifeHistData = NULL,
+  args.sim = list(nSnp = 400, SnpError = 0.001, ParMis = c(0.4, 0.4)),
+  args.seq = list(Module = "ped", Err = 0.001, Tassign = 0.5, CalcLLR = FALSE),
+  nSim = 10,
+  nCores = 1,
+  quiet = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Pedigree</code></td>
+<td>
+<p>reference pedigree from which to simulate, dataframe with
+columns id-dam-sire. Additional columns are ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LifeHistData</code></td>
+<td>
+<p>dataframe with id, sex (1=female, 2=male, 3=unknown),
+birth year, and optionally BY.min - BY.max - YearLast.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args.sim</code></td>
+<td>
+<p>list of arguments to pass to <code>SimGeno</code>, such as
+<code>nSnp</code> (number of SNPs), <code>SnpError</code> (genotyping error rate) and
+<code>ParMis</code> (proportion of non-genotyped parents). Set to <code>NULL</code> to
+use all default values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args.seq</code></td>
+<td>
+<p>list of arguments to pass to <code>sequoia</code>, such as
+<code>Module</code> ('par' or 'ped'), <code>Err</code> (assumed genotyping error rate),
+and <code>Complex</code>. May include (part of) <code>SeqList</code>, a list of sequoia
+output (i.e. as a list-within-a-list). Set to <code>NULL</code> to use all
+default values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nSim</code></td>
+<td>
+<p>number of iterations of simulate - reconstruct - compare to
+perform, i.e. number of simulated datasets.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCores</code></td>
+<td>
+<p>number of computer cores to use. If <code>&gt;1</code>, package
+<span class="pkg">parallel</span> is used. Set to NULL to use all but one of the available
+cores, as detected by <code>parallel::detectCores()</code> (using all cores tends
+to freeze up your computer). With large datasets, the amount of computer
+memory may be the limiting factor for the number of cores you can use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>suppress messages. <code>TRUE</code> runs <code>SimGeno</code> and
+<code>sequoia</code> quietly, <code>'very'</code> also suppresses other messages and
+the iteration counter when <code>nCores=1</code> (there is no iteration counter
+when <code>nCores&gt;1</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The confidence probability is taken as the number of correct
+(matching) assignments, divided by all assignments made in the
+<em>observed</em> (inferred-from-simulated) pedigree. In contrast, the false
+negative &amp; false positive assignment rates are proportions of the number of
+parents in the <em>true</em> (reference) pedigree. Each rate is calculated
+separatedly for dams &amp; sires, and separately for each category
+(<strong>G</strong>enotyped/<strong>D</strong>ummy(fiable)/<strong>X</strong> (none)) of
+individual, parent and co-parent.
+</p>
+<p>This function does not know which individuals in the actual <code>Pedigree</code>
+are genotyped, so the confidence probabilities need to be added to the
+<code>Pedigree</code> as shown in the example at the bottom.
+</p>
+<p>A confidence of <code class="reqn">1</code> means all assignments on simulated data were correct for
+that category-combination. It should be interpreted as (and perhaps modified
+to) <code class="reqn">&gt; 1 - 1/N</code>, where sample size <code>N</code> is given in the last column
+of the <code>ConfProb</code> and <code>PedErrors</code> dataframes in the output. The
+same applies for a false negative/positive rate of <code class="reqn">0</code> (i.e. to be
+interpreted as <code class="reqn">&lt; 1/N</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list, with elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>ConfProb</code></td>
+<td>
+<p>See below</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PedErrors</code></td>
+<td>
+<p>See below</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Pedigree.reference</code></td>
+<td>
+<p>the pedigree from which data was simulated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LifeHistData</code></td>
+<td>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Pedigree.inferred</code></td>
+<td>
+<p>a list with for each iteration the inferred
+pedigree based on the simulated data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SimSNPd</code></td>
+<td>
+<p>a list with for each iteration the IDs of the individuals
+simulated to have been genotyped</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PedComp.fwd</code></td>
+<td>
+<p>array with <code>Counts</code> from the 'forward'
+<code>PedCompare</code>, from which <code>PedErrors</code> is calculated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RunParams</code></td>
+<td>
+<p>a list with the call to <code>EstConf</code> as a semi-nested
+list (args.sim, args.seq, nSim, nCores), as well as the default parameter
+values for <code>SimGeno</code> and <code>sequoia</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RunTime</code></td>
+<td>
+<p><code>sequoia</code> runtime per simulation in seconds, as
+measured by <code>system.time()['elapsed']</code>.</p>
+</td>
+</tr>
+</table>
+<p>Dataframe <code>ConfProb</code> has 7 columns:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>id.cat, dam.cat, sire.cat</code></td>
+<td>
+<p>Category of the focal individual, dam, and
+sire, in the pedigree inferred based on the simulated data. Coded as
+G=genotyped, D=dummy, X=none</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dam.conf</code></td>
+<td>
+<p>Probability that the dam is correct, given the categories of
+the assigned dam and sire (ignoring whether or not the sire is correct)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sire.conf</code></td>
+<td>
+<p>as <code>dam.conf</code>, for the sire</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pair.conf</code></td>
+<td>
+<p>Probability that both dam and sire are correct, given their
+categories</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>Number of individuals per category-combination, across all
+<code>nSim</code> iterations</p>
+</td>
+</tr>
+</table>
+<p>Array <code>PedErrors</code> has three dimensions:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>class</code></td>
+<td>
+
+<ul>
+<li> <p><code>FalseNeg</code>(atives): could have been assigned but was not
+(individual + parent both genotyped or dummyfiable; P1only in
+<code>PedCompare</code>).
+</p>
+</li>
+<li> <p><code>FalsePos</code>(itives): no parent in reference pedigree, but
+one was assigned based on the simulated data (P2only)
+</p>
+</li>
+<li> <p><code>Mismatch</code>: different parents between the pedigrees
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cat</code></td>
+<td>
+<p>Category of individual + parent, as a two-letter code where the
+first letter indicates the focal individual and the second the parent;
+G=Genotyped, D=Dummy, T=Total</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parent</code></td>
+<td>
+<p>dam or sire</p>
+</td>
+</tr>
+</table>
+<h3>Assumptions</h3>
+
+<p>Because the actual true pedigree is (typically) unknown, the provided
+reference pedigree is used as a stand-in and assumed to be the true
+pedigree, with unrelated founders. It is also assumed that the probability
+to be genotyped is equal for all parents; in each iteration, a new random
+set of parents (proportion set by <code>ParMis</code>) is mimicked to be
+non-genotyped. In addition, SNPs are assumed to segregate independently.
+</p>
+<p>An experimental version offering more fine-grained control is available at
+https://github.com/JiscaH/sequoiaExtra .
+</p>
+
+
+<h3>Object size</h3>
+
+<p>The size in Kb of the returned list can become pretty big, as each of the
+inferred pedigrees is included. When running <code>EstConf</code> many times for
+a range of parameter values, it may be prudent to save the required summary
+statistics for each run rather than the full output.
+</p>
+
+
+<h3>Errors</h3>
+
+<p>If you have a large pedigree and try to run this function on multiple
+cores, you may run into "Cannot allocate vector of size ..." errors or even
+unexpected crashes: there is not enough computer memory for each separate
+run. Try reducing 'nCores'.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SimGeno, sequoia, PedCompare</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># estimate proportion of parents that are genotyped (= 1 - ParMis)
+sumry_grif &lt;- SummarySeq(SeqOUT_griffin, Plot=FALSE)
+tmp &lt;- apply(sumry_grif$ParentCount['Genotyped',,,],
+             MARGIN = c('parentSex', 'parentCat'), FUN = sum)
+props &lt;- sweep(tmp, MARGIN='parentCat', STATS = rowSums(tmp), FUN = '/')
+1 - props[,'Genotyped'] / (props[,'Genotyped'] + props[,'Dummy'])
+
+# Example for parentage assignment only
+conf_grif &lt;- EstConf(Pedigree = SeqOUT_griffin$Pedigree,
+               LifeHistData = SeqOUT_griffin$LifeHist,
+               args.sim = list(nSnp = 150,   # no. in actual data, or what-if
+                               SnpError = 5e-3,  # best estimate, or what-if
+                               CallRate=0.9,     # from SnpStats()
+                               ParMis=c(0.39, 0.20)),  # calc'd above
+               args.seq = list(Err=5e-3, Module="par"),  # as in real run
+               nSim = 1,   # try-out, proper run &gt;=20 (10 if huge pedigree)
+               nCores=1)
+
+# parent-pair confidence, per category (Genotyped/Dummy/None)
+conf_grif$ConfProb
+
+# Proportion of true parents that was correctly assigned
+1 - apply(conf_grif$PedErrors, MARGIN=c('cat','parent'), FUN=sum, na.rm=TRUE)
+
+# add columns with confidence probabilities to pedigree
+# first add columns with category (G/D/X)
+Ped.withConf &lt;- getAssignCat(Pedigree = SeqOUT_griffin$Pedigree,
+                             SNPd = SeqOUT_griffin$PedigreePar$id)
+Ped.withConf &lt;- merge(Ped.withConf, conf_grif$ConfProb, all.x=TRUE,
+                      sort=FALSE)  # (note: merge() messes up column order)
+head(Ped.withConf[Ped.withConf$dam.cat=="G", ])
+
+# save output summary
+## Not run: 
+conf_griff[['Note']] &lt;- 'You could add a note'
+saveRDS(conf_grif[c('ConfProb','PedComp.fwd','RunParams','RunTime','Note')],
+   file = 'conf_200SNPs_Err005_Callrate80.RDS')
+
+## End(Not run)
+
+## P(actual FS | inferred as FS) etc.
+## Not run: 
+PairL &lt;- list()
+for (i in 1:length(conf_grif$Pedigree.inferred)) {  # nSim
+  cat(i, "\t")
+  PairL[[i]] &lt;- ComparePairs(conf_grif$Pedigree.reference,
+                             conf_grif$Pedigree.inferred[[i]],
+                             GenBack=1, patmat=TRUE, ExcludeDummies = TRUE,
+                             Return="Counts")
+}
+# P(actual relationship (Ped1) | inferred relationship (Ped2))
+PairRel.prop.A &lt;- plyr::laply(PairL, function(M)
+                     sweep(M, MARGIN='Ped2', STATS=colSums(M), FUN="/"))
+PairRel.prop &lt;- apply(PairRel.prop.A, 2:3, mean, na.rm=TRUE) #avg across sims
+round(PairRel.prop, 3)
+# or: P(inferred relationship | actual relationship)
+PairRel.prop2 &lt;- plyr::laply(PairL, function(M)
+   sweep(M, MARGIN='Ped1', STATS=rowSums(M), FUN="/"))
+
+## End(Not run)
+
+## Not run: 
+# confidence probability vs. sibship size
+source('https://raw.githubusercontent.com/JiscaH/sequoiaExtra/main/conf_vs_sibsize.R')
+conf_grif_nOff &lt;- Conf_by_nOff(conf_grif)
+conf_grif_nOff['conf',,'GD',]
+conf_grif_nOff['N',,'GD',]
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

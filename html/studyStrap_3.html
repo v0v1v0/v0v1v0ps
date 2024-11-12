@@ -1,0 +1,125 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>merged</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Merged Approach for Multi-Study Learning: fits a single model on all studies merged into a single dataframe.</h2>
+
+<h3>Description</h3>
+
+<p>Merged Approach for Multi-Study Learning: fits a single model on all studies merged into a single dataframe.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">merged(formula = Y ~ ., data, sim.covs = NA, ssl.method = list("lm"),
+  ssl.tuneGrid = list(c()), model = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Model formula</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataframe with all the studies has the following columns in this order: "Study", "Y", "V1", ...., "Vp"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim.covs</code></td>
+<td>
+<p>Is a vector of names of covariates or the column numbers of the covariates to be used for the similarity measure. Default is to use all covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ssl.method</code></td>
+<td>
+<p>A list of strings indicating which modeling methods to use</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ssl.tuneGrid</code></td>
+<td>
+<p>A list of the tuning parameters in the format of the caret package. Each element must be a dataframe (as required by caret). If no tuning parameters are required then NA is indicated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Indicates whether to attach training data to model object</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A model object of studyStrap class "ss" that can be used to make predictions.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##########################
+##### Simulate Data ######
+##########################
+
+set.seed(1)
+# create half of training dataset from 1 distribution
+X1 &lt;- matrix(rnorm(2000), ncol = 2) # design matrix - 2 covariates
+B1 &lt;- c(5, 10, 15) # true beta coefficients
+y1 &lt;- cbind(1, X1) %*% B1
+
+# create 2nd half of training dataset from another distribution
+X2 &lt;- matrix(rnorm(2000, 1,2), ncol = 2) # design matrix - 2 covariates
+B2 &lt;- c(10, 5, 0) # true beta coefficients
+y2 &lt;- cbind(1, X2) %*% B2
+
+X &lt;- rbind(X1, X2)
+y &lt;- c(y1, y2)
+
+study &lt;- sample.int(10, 2000, replace = TRUE) # 10 studies
+data &lt;- data.frame( Study = study, Y = y, V1 = X[,1], V2 = X[,2] )
+
+# create target study design matrix for covariate profile similarity weighting and
+# accept/reject algorithm (covaraite-matched study strap)
+target &lt;- matrix(rnorm(1000, 3, 5), ncol = 2) # design matrix
+colnames(target) &lt;- c("V1", "V2")
+
+##########################
+##### Model Fitting #####
+##########################
+
+# Fit model with 1 Single-Study Learner (SSL): PCA Regression
+mrgMod1 &lt;- merged(formula = Y ~.,
+                  data = data,
+                 sim.covs = NA,
+                 ssl.method = list("pcr"),
+                 ssl.tuneGrid = list( data.frame("ncomp" = 2)),
+                 model = FALSE )
+
+# 2 SSLs: Linear Regression and PCA Regression
+mrgMod2 &lt;- merged(formula = Y ~.,
+                  data = data,
+                 sim.covs = NA,
+                 ssl.method = list("lm", "pcr"),
+                 ssl.tuneGrid = list(NA,
+                           data.frame("ncomp" = 2) ),
+                 model = FALSE )
+
+#########################
+#####  Predictions ######
+#########################
+
+preds &lt;- studyStrap.predict(mrgMod2, target)
+</code></pre>
+
+
+</div>

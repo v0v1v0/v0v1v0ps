@@ -1,0 +1,163 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>estimateBin</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Age estimates for the supplied binary systems</h2>
+
+<h3>Description</h3>
+
+<p>The function computes the grid-based estimates of the age for
+the supplied binary systems. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">    estimateBin(data, STAR, sigma, thr, sel, parallel=FALSE)
+     </code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>the matrix estimation grid. The matrix should be sorted according to
+the values in the first column (the stellar effective
+temperature). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>STAR</code></td>
+<td>
+<p>a matrix of 18 columns, containing in each row the
+observational data of the stellar objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>a vector of 14 elements, containing the error on observational
+data. The error on 
+mass and radius are expressed as relative error. If the errors on the
+observables of the two stars are identical, it is possible to provide a
+vector of length 7.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thr</code></td>
+<td>
+<p>the threshold for the selection of cases over which the
+computation of likelihood is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sel</code></td>
+<td>
+<p>a vector of 7 elements, containing 1 or 0 for inclusion or
+exclusion of a observational data from the likelihood computation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>logical flag indicating if the estimations should be
+performed in parallel on a multi-core architecture.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p><code>STAR</code> should contains the observables for primary and
+secondary stars. In order, it should contains the stellar effective
+temperature, 
+the logarithm of the surface gravity, the metallicity [Fe/H], the
+average large frequency separation (in micro Hz), the maximum
+oscillation power (in micro Hz), the mass (in solar units), the radius
+(in solar units), the age (if known), and the relative age (if known).
+Identical quantities for the secondary stars should follows.
+<code>sigma</code> should contain, in the same order, the
+uncertainties on the observational quantities.  
+</p>
+<p><code>estimateBin</code> returns a data frame obtained with the
+estimates
+of stellar parameters for each row of the input matrix <code>STAR</code>.
+In the columns of the data frame there are:
+the identifier <code>id</code>
+of the row of the object matrix adopted for the estimate; the
+independent star estimate of the primary mass
+<code>M1</code> (in solar units), radius <code>R1</code> (in
+solar units), age <code>age1</code> (in Gyr); the corresponding independent
+estimates for the secondary (<code>M2</code>, <code>R2</code>, <code>age2</code>); the
+joint-likelihood estimates of these quantities obtained explicitly assuming
+coevality (<code>M1b</code>, <code>R1b</code>, <code>age1b</code>, <code>M2b</code>,
+<code>R2b</code>, <code>age2b</code>); the relative age <code>r</code> of the primary
+star (0 = ZAMS; 1 = TAMS); the best estimate of the age of the system
+<code>ageBin</code> under coevality assumption; the mean of the age of the two
+independent estimates of the stellar ages.  
+</p>
+<p>Age estimates are obtained by a maximum likelihood
+technique. Details on the technique can
+be found in the references reported below.
+</p>
+
+
+<h3>References</h3>
+
+<p>G. Valle, M. Dell'Omodarme, P.G. Prada Moroni, and S. Degl'Innocenti
+(2014). <em>Uncertainties in grid-based estimates of stellar mass and
+radius. SCEPtER: Stellar CharactEristics Pisa
+Estimation gRid</em>. A&amp;A, 561, A125.
+</p>
+<p>G. Valle, M. Dell'Omodarme, P.G. Prada Moroni, and S. Degl'Innocenti
+(2014). <em>Uncertainties in asteroseismic grid-based estimates of stellar ages. SCEPtER: Stellar CharactEristics Pisa
+Estimation gRid</em>. A&amp;A, accepted.
+</p>
+<p>G. Valle, M. Dell'Omodarme, P.G. Prada Moroni, and S. Degl'Innocenti
+(2014). <em>Grid-based estimates of stellar ages in binary
+systems. SCEPtER: Stellar CharactEristics Pisa Estimation gRid</em>. A&amp;A, submitted.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(SCEPtER)
+data(stdGrid)
+ogrid &lt;- stdGrid[ do.call(order, as.data.frame(stdGrid[,1])), ]
+
+## observational constraint: Teff, [Fe/H], M, R
+vsel &lt;- c(1,0,1,0,0,1,1)
+sigma &lt;- c(100, 0.25, 0.1, 0.025, 0.05, 0.01, 0.005)
+
+## syntetic sample of 10 bynary systems
+bl &lt;- block(stdGrid)
+sam &lt;- sampleBinStar(10, stdGrid, bl, restrict=TRUE)
+
+## add Gaussian noise to the observations
+starbp &lt;- errorObsBin(sigma, sam)
+
+resB &lt;- estimateBin(ogrid, starbp, sigma, 3, vsel, parallel=FALSE)
+
+
+## An observed system: PK Peg
+## observation from Clausen et al. (2010). A&amp;A, 516, A42.
+
+obs &lt;- c(6265,NA,-0.12,NA,NA,1.414,1.988,NA,NA, 6320,NA,-0.12,NA,NA,1.257,1.474,NA,NA)
+sigma &lt;- c(85,0,0.07,0,0,0.007/1.414,0.008/1.988, 90,0,0.07,0,0,0.005/1.257,0.017/1.474)
+
+## for sensible estimate adopt at least nrow=10000
+star &lt;- matrix(obs, nrow=100, ncol=18, byrow=TRUE)
+
+## add Gaussian noise
+starp &lt;- errorObsBin(sigma, star)
+
+resB &lt;- estimateBin(ogrid, starp, sigma, 3, vsel, parallel=FALSE)
+
+quantile(resB$ageBin, c(0.16, 0.5, 0.84))
+</code></pre>
+
+
+</div>

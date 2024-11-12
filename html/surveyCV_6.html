@@ -1,0 +1,106 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>folds.svydesign</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Creating CV folds based on the <code>svydesign</code> object</h2>
+
+<h3>Description</h3>
+
+<p>Wrapper function which takes a <code>svydesign</code> object
+and desired number of CV folds,
+and passes it into <code>folds.svy</code>.
+Returns a vector of fold IDs, which in most cases you will want to append
+to your <code>svydesign</code> object using <code>update.svydesign</code>
+(see Examples below).
+These fold IDs respect any stratification or clustering in the survey design.
+You can then carry out K-fold CV as usual,
+taking care to also use the survey design features and survey weights
+when fitting models in each training set
+and also when evaluating models against each test set.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">folds.svydesign(design_object, nfolds)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design_object</code></td>
+<td>
+<p>Name of a <code>svydesign</code> object created using the <code>survey</code>
+package. The arguments <code>id</code> and <code>strata</code> (if used)
+must be specified as formulas, e.g. <code>svydesign(ids = ~MyPSUs, ...)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nfolds</code></td>
+<td>
+<p>Number of folds to be used during cross validation</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For the special cases of linear or logistic GLMs, use instead
+<code>cv.svydesign</code> or <code>cv.svyglm</code>
+which will automate the whole CV process for you.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Integer vector of fold IDs with length <code>nrow(Data)</code>.
+Most likely you will want to append the returned vector
+to the <code>svydesign</code> object,
+for instance with <code>update.svydesign</code> (see Examples below).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>folds.svy</code>
+</p>
+<p><code>cv.svy</code>, <code>cv.svydesign</code>, or <code>cv.svyglm</code>
+to carry out the whole CV process (not just forming folds but also training
+and testing your models) for linear or logistic regression models
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Set up CV folds for a stratified sample and a one-stage cluster sample,
+# using data from the `survey` package
+library(survey)
+data("api", package = "survey")
+# stratified sample
+dstrat &lt;- svydesign(id = ~1, strata = ~stype, weights = ~pw, data = apistrat,
+                    fpc = ~fpc)
+dstrat &lt;- update(dstrat, .foldID = folds.svydesign(dstrat, nfolds = 5))
+# Each fold will have observations from every stratum
+with(dstrat$variables, table(stype, .foldID))
+# Fold sizes should be roughly equal
+table(dstrat$variables$.foldID)
+#
+# one-stage cluster sample
+dclus1 &lt;- svydesign(id = ~dnum, weights = ~pw, data = apiclus1, fpc = ~fpc)
+dclus1 &lt;- update(dclus1, .foldID = folds.svydesign(dclus1, nfolds = 5))
+# For any given cluster, all its observations will be in the same fold;
+# and each fold should contain roughly the same number of clusters
+with(dclus1$variables, table(dnum, .foldID))
+# But if cluster sizes are unequal,
+# the number of individuals per fold will also vary
+table(dclus1$variables$.foldID)
+# See the end of `intro` vignette for an example of using such folds
+# as part of a custom loop over CV folds
+# to tune parameters in a design-consistent random forest model
+</code></pre>
+
+
+</div>

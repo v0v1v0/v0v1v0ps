@@ -1,0 +1,156 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>genSample</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate synthetic observations using inverse-probability weights</h2>
+
+<h3>Description</h3>
+
+<p>This method corrects a given data set for sample selection bias by
+generating new observations via Stochastic inverse-probability
+oversampling or parametric inverse-probability sampling using
+inverse-probability weights and information on covariance structure of the given strata (Krautenbacher et al, 2017).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">genSample(data, strata.variables = NULL, stratum = NULL, weights = rep(1,
+  nrow(data)), distr = "mvnorm", type = c("parIP", "stochIP"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a data frame containing the observations rowwise, along with their corresponding categorical strata feature.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata.variables</code></td>
+<td>
+<p>a character vector of the names determined by the categorical stratum features.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratum</code></td>
+<td>
+<p>a numerical vector of the length of the number of rows of the data specifying 
+the stratum ID. Either 'strata.variables' or 'stratum' has to be provided.
+This vector will not be included as a column in the resulting data set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>a numerical vector whose length must coincide with the number of the rows of data. The i-th value contains the inverse-probability e.g. determines how often the i-th observation of data shall be replicated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distr</code></td>
+<td>
+<p>character object that describes the distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>character which decides which method is used to correct a given data set for sample selection bias. Stochastic Inverse-Probabiltiy oversampling is applied if type = 'stochIP' or Parametric Inverse-Probability Bagging if type = 'parIP'.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>$data data frame containing synthetic data which is corrected for sample selection bias by generating new observations via Stochastic inverse-probability oversampling or parametric inverse-probability oversampling.
+</p>
+<p>$orig.data original data frame which shall to corrected
+</p>
+<p>$stratum vector containing the stratum of each observation
+</p>
+<p>$method a character indicating which method was used. If method = 'stochIP' then Stochastic Inverse-Probabiltiy oversampling was used, 
+if method = 'parIP' the Parametric Inverse-Probability sampling was used.
+</p>
+<p>$strata.tbl a data frame containing all variables and their feature occurences
+</p>
+<p>$N number of rows in data
+</p>
+<p>$n number of rows in original data
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Norbert Krautenbacher, Kevin Strauss, Maximilian Mandl, Christiane Fuchs
+</p>
+
+
+<h3>References</h3>
+
+<p>Krautenbacher, N., Theis, F. J., &amp; Fuchs, C. (2017). Correcting Classifiers for Sample Selection Bias in Two-Phase Case-Control Studies. Computational and mathematical methods in medicine, 2017.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## simulate data for a population
+require(pROC)
+
+set.seed(1342334)
+N = 100000
+x1 &lt;- rnorm(N, mean=0, sd=1) 
+x2 &lt;- rt(N, df=25)
+x3 &lt;- x1 + rnorm(N, mean=0, sd=.6)
+x4 &lt;- x2 + rnorm(N, mean=0, sd=1.3)
+x5 &lt;- rbinom(N, 1, prob=.6)
+x6 &lt;- rnorm(N, 0, sd = 1) # noise not known as variable
+x7 &lt;- x1*x5 # interaction
+x &lt;- cbind(x1, x2, x3, x4, x5, x6, x7)
+
+## stratum variable (covariate)
+xs &lt;- c(rep(1,0.1*N), rep(0,(1-0.1)*N))
+
+## effects
+beta &lt;- c(-1, 0.2, 0.4, 0.4, 0.5, 0.5, 0.6)
+beta0 &lt;- -2
+
+## generate binary outcome
+linpred.slopes &lt;-  log(0.5)*xs + c(x %*% beta)
+eta &lt;-  beta0 + linpred.slopes
+
+p &lt;- 1/(1+exp(-eta)) # this is the probability P(Y=1|X), we want the binary outcome however:
+y&lt;-rbinom(n=N, size=1, prob=p) #
+
+population &lt;- data.frame(y,xs,x)
+
+#### draw "given" data set 
+sel.prob &lt;- rep(1,N)
+sel.prob[population$xs == 1] &lt;- 9
+sel.prob[population$y == 1] &lt;- 8
+sel.prob[population$y == 1 &amp; population$xs == 1] &lt;- 150
+ind &lt;- sample(1:N, 200, prob = sel.prob)
+
+data = population[ind, ]
+
+## calculate weights from original numbers for xs and y
+w.matrix &lt;- table(population$y, population$xs)/table(data$y, data$xs)
+w &lt;- rep(NA, nrow(data))
+w[data$y==0 &amp; data$xs ==0] &lt;- w.matrix[1,1]
+w[data$y==1 &amp; data$xs ==0] &lt;- w.matrix[2,1]
+w[data$y==0 &amp; data$xs ==1] &lt;- w.matrix[1,2]
+w[data$y==1 &amp; data$xs ==1] &lt;- w.matrix[2,2]
+## parametric IP bootstrap sample
+sample1 &lt;- sambia::genSample(data=data, strata.variables = c('y', 'xs'),
+                          weights = w, type='parIP')
+## stochastic IP oversampling; treating 'y' and 'xs' as usual input variable
+## but using strata info unambiguously defined by the weights w                        
+sample2 &lt;- sambia::genSample(data=data,
+                            weights = w, type='stochIP', stratum= round(w))
+</code></pre>
+
+
+</div>

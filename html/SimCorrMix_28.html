@@ -1,0 +1,405 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>validcorr</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Determine Correlation Bounds for Ordinal, Continuous, Poisson, and/or Negative Binomial Variables: Correlation Method 1</h2>
+
+<h3>Description</h3>
+
+<p>This function calculates the lower and upper correlation bounds for the given distributions and
+checks if a given target correlation matrix <code>rho</code> is within the bounds.  It should be used before simulation with
+<code>corrvar</code>.  However, even if all pairwise correlations fall within the bounds, it is still possible
+that the desired correlation matrix is not feasible.  This is particularly true when ordinal variables (<code class="reqn">r \ge 2</code> categories) are
+generated or negative correlations are desired.  Therefore, this function should be used as a general check to eliminate pairwise correlations that are obviously
+not reproducible.  It will help prevent errors when executing the simulation.  The <em>ordering</em> of the variables in <code>rho</code>
+must be 1st ordinal, 2nd continuous non-mixture, 3rd components of continuous mixture, 4th regular Poisson, 5th zero-inflated
+Poisson, 6th regular NB, and 7th zero-inflated NB.  Note that it is possible for <code>k_cat</code>, <code>k_cont</code>, <code>k_mix</code>,
+<code>k_pois</code>, and/or <code>k_nb</code> to be 0.  The target correlations are specified with respect to the components of the continuous
+mixture variables.  There are no parameter input checks in order to decrease simulation time.  All inputs should be checked prior to simulation with
+<code>validpar</code>.
+</p>
+<p>Please see the <b>Comparison of Correlation Methods 1 and 2</b> vignette for the differences between the two correlation methods, and
+the <b>Variable Types</b> vignette for a detailed explanation of how the correlation boundaries are calculated.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">validcorr(n = 10000, k_cat = 0, k_cont = 0, k_mix = 0, k_pois = 0,
+  k_nb = 0, method = c("Fleishman", "Polynomial"), means = NULL,
+  vars = NULL, skews = NULL, skurts = NULL, fifths = NULL,
+  sixths = NULL, Six = list(), mix_pis = list(), mix_mus = list(),
+  mix_sigmas = list(), mix_skews = list(), mix_skurts = list(),
+  mix_fifths = list(), mix_sixths = list(), mix_Six = list(),
+  marginal = list(), lam = NULL, p_zip = 0, size = NULL, prob = NULL,
+  mu = NULL, p_zinb = 0, rho = NULL, seed = 1234, use.nearPD = TRUE,
+  quiet = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>the sample size (i.e. the length of each simulated variable; default = 10000)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_cat</code></td>
+<td>
+<p>the number of ordinal (r &gt;= 2 categories) variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_cont</code></td>
+<td>
+<p>the number of continuous non-mixture variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_mix</code></td>
+<td>
+<p>the number of continuous mixture variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_pois</code></td>
+<td>
+<p>the number of regular Poisson and zero-inflated Poisson variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k_nb</code></td>
+<td>
+<p>the number of regular Negative Binomial and zero-inflated Negative Binomial variables (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the method used to generate the k_cont non-mixture and k_mix mixture continuous variables.  "Fleishman" uses
+Fleishman's third-order polynomial transformation and "Polynomial" uses Headrick's fifth-order transformation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>means</code></td>
+<td>
+<p>a vector of means for the k_cont non-mixture and k_mix mixture continuous variables
+(i.e. <code>rep(0, (k_cont + k_mix))</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vars</code></td>
+<td>
+<p>a vector of variances for the k_cont non-mixture and k_mix mixture continuous variables
+(i.e. <code>rep(1, (k_cont + k_mix))</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skews</code></td>
+<td>
+<p>a vector of skewness values for the <code>k_cont</code> non-mixture continuous variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skurts</code></td>
+<td>
+<p>a vector of standardized kurtoses (kurtosis - 3, so that normal variables have a value of 0)
+for the <code>k_cont</code> non-mixture continuous variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fifths</code></td>
+<td>
+<p>a vector of standardized fifth cumulants for the <code>k_cont</code> non-mixture continuous variables
+(not necessary for <code>method</code> = "Fleishman")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sixths</code></td>
+<td>
+<p>a vector of standardized sixth cumulants for the <code>k_cont</code> non-mixture continuous variables
+(not necessary for <code>method</code> = "Fleishman")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Six</code></td>
+<td>
+<p>a list of vectors of sixth cumulant correction values for the <code>k_cont</code> non-mixture continuous variables
+if no valid PDF constants are found, <br> ex: <code>Six = list(seq(0.01, 2, 0.01), seq(1, 10, 0.5))</code>;
+if no correction is desired for variable <code class="reqn">Y_{cont_i}</code>, set set the i-th list component equal to <code>NULL</code>;
+if no correction is desired for any of the <code class="reqn">Y_{cont}</code> keep as <code>Six = list()</code>
+(not necessary for <code>method</code> = "Fleishman")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_pis</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of mixing probabilities that sum to 1 for component distributions of <code class="reqn">Y_{mix_i}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_mus</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of means for component distributions of <code class="reqn">Y_{mix_i}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_sigmas</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of standard deviations for component distributions of <code class="reqn">Y_{mix_i}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_skews</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of skew values for component distributions of <code class="reqn">Y_{mix_i}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_skurts</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of standardized kurtoses for component distributions of <code class="reqn">Y_{mix_i}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_fifths</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of standardized fifth cumulants for component distributions of <code class="reqn">Y_{mix_i}</code>
+(not necessary for <code>method</code> = "Fleishman")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_sixths</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a vector of standardized sixth cumulants for component distributions of <code class="reqn">Y_{mix_i}</code>
+(not necessary for <code>method</code> = "Fleishman")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mix_Six</code></td>
+<td>
+<p>a list of length <code>k_mix</code> with i-th component a list of vectors of sixth cumulant correction values
+for component distributions of <code class="reqn">Y_{mix_i}</code>; use <code>NULL</code> if no correction is desired for a given component or
+mixture variable; if no correction is desired for any of the <code class="reqn">Y_{mix}</code> keep as <code>mix_Six = list()</code>
+(not necessary for <code>method</code> = "Fleishman")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>marginal</code></td>
+<td>
+<p>a list of length equal to <code>k_cat</code>; the i-th element is a vector of the cumulative
+probabilities defining the marginal distribution of the i-th variable;
+if the variable can take r values, the vector will contain r - 1 probabilities (the r-th is assumed to be 1);
+for binary variables, these should be input the same as for ordinal variables with more than 2 categories (i.e. the user-specified
+probability is the probability of the 1st category, which has the smaller support value)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lam</code></td>
+<td>
+<p>a vector of lambda (&gt; 0) constants for the Poisson variables (see <code>stats::dpois</code>); the order should be
+1st regular Poisson variables, 2nd zero-inflated Poisson variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_zip</code></td>
+<td>
+<p>a vector of probabilities of structural zeros (not including zeros from the Poisson distribution) for the
+zero-inflated Poisson variables (see <code>VGAM::dzipois</code>); if <code>p_zip</code> = 0, <code class="reqn">Y_{pois}</code> has a regular Poisson
+distribution; if <code>p_zip</code> is in (0, 1), <code class="reqn">Y_{pois}</code> has a zero-inflated Poisson distribution;
+if <code>p_zip</code> is in <code>(-(exp(lam) - 1)^(-1), 0)</code>, <code class="reqn">Y_{pois}</code> has a zero-deflated Poisson distribution and <code>p_zip</code>
+is not a probability; if <code>p_zip = -(exp(lam) - 1)^(-1)</code>, <code class="reqn">Y_{pois}</code> has a positive-Poisson distribution
+(see <code>VGAM::dpospois</code>); if <code>length(p_zip) &lt; length(lam)</code>, the missing values are set to 0 (and ordered 1st)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>size</code></td>
+<td>
+<p>a vector of size parameters for the Negative Binomial variables (see <code>stats::dnbinom</code>); the order should be
+1st regular NB variables, 2nd zero-inflated NB variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prob</code></td>
+<td>
+<p>a vector of success probability parameters for the NB variables; order the same as in <code>size</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>a vector of mean parameters for the NB variables (*Note: either <code>prob</code> or <code>mu</code> should be supplied for all Negative Binomial variables,
+not a mixture; default = NULL); order the same as in <code>size</code>; for zero-inflated NB this refers to
+the mean of the NB distribution (see <code>VGAM::dzinegbin</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_zinb</code></td>
+<td>
+<p>a vector of probabilities of structural zeros (not including zeros from the NB distribution) for the zero-inflated NB variables
+(see <code>VGAM::dzinegbin</code>); if <code>p_zinb</code> = 0, <code class="reqn">Y_{nb}</code> has a regular NB distribution;
+if <code>p_zinb</code> is in <code>(-prob^size/(1 - prob^size),</code> <code>0)</code>, <code class="reqn">Y_{nb}</code> has a zero-deflated NB distribution and <code>p_zinb</code>
+is not a probability; if <code>p_zinb = -prob^size/(1 - prob^size)</code>, <code class="reqn">Y_{nb}</code> has a positive-NB distribution (see
+<code>VGAM::dposnegbin</code>); if <code>length(p_zinb) &lt; length(size)</code>, the missing values are set to 0 (and ordered 1st)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>the target correlation matrix which must be ordered
+<em>1st ordinal, 2nd continuous non-mixture, 3rd components of continuous mixtures, 4th regular Poisson, 5th zero-inflated Poisson,
+6th regular NB, 7th zero-inflated NB</em>; note that <code>rho</code> is specified in terms of the components of <code class="reqn">Y_{mix}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>the seed value for random number generation (default = 1234)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use.nearPD</code></td>
+<td>
+<p>TRUE to convert <code>rho</code> to the nearest positive definite matrix with <code>Matrix::nearPD</code> if necessary</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>if FALSE prints messages, if TRUE suppresses message printing</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with components:
+</p>
+<p><code>rho</code> the target correlation matrix, which will differ from the supplied matrix (if provided) if it was converted to
+the nearest positive-definite matrix
+</p>
+<p><code>L_rho</code> the lower correlation bound
+</p>
+<p><code>U_rho</code> the upper correlation bound
+</p>
+<p>If continuous variables are desired, additional components are:
+</p>
+<p><code>constants</code> the calculated constants
+</p>
+<p><code>sixth_correction</code> a vector of the sixth cumulant correction values
+</p>
+<p><code>valid.pdf</code> a vector with i-th component equal to "TRUE" if variable Y_i has a valid power method PDF, else "FALSE"
+</p>
+<p>If a target correlation matrix <code>rho</code> is provided, each pairwise correlation is checked to see if it is within the lower and upper
+bounds.  If the correlation is outside the bounds, the indices of the variable pair are given.
+</p>
+<p><code>valid.rho</code> TRUE if all entries of <code>rho</code> are within the bounds, else FALSE
+</p>
+
+
+<h3>Reasons for Function Errors</h3>
+
+<p>1) The most likely cause for function errors is that no solutions to <code>fleish</code> or
+<code>poly</code> converged when using <code>find_constants</code>.  If this happens,
+the function will stop.  It may help to first use <code>find_constants</code> for each continuous variable to
+determine if a sixth cumulant correction value is needed.  If the standardized cumulants are obtained from <code>calc_theory</code>,
+the user may need to use rounded values as inputs (i.e. <code>skews = round(skews, 8)</code>).  For example, in order to ensure that skew
+is exactly 0 for symmetric distributions.
+</p>
+<p>2) The kurtosis may be outside the region of possible values.  There is an associated lower boundary for kurtosis associated
+with a given skew (for Fleishman's method) or skew and fifth and sixth cumulants (for Headrick's method).  Use
+<code>calc_lower_skurt</code> to determine the boundary for a given set of cumulants.
+</p>
+
+
+<h3>References</h3>
+
+<p>Please see references for <code>SimCorrMix</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>find_constants</code>, <code>corrvar</code>, <code>validpar</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">validcorr(n = 1000, k_cat = 1, k_cont = 1, method = "Polynomial",
+  means = 0, vars = 1, skews = 0, skurts = 0, fifths = 0, sixths = 0,
+  marginal = list(c(1/3, 2/3)), rho = matrix(c(1, 0.4, 0.4, 1), 2, 2),
+  quiet = TRUE)
+## Not run: 
+
+# 2 continuous mixture, 1 binary, 1 zero-inflated Poisson, and
+# 1 zero-inflated NB variable
+n &lt;- 10000
+seed &lt;- 1234
+
+# Mixture variables: Normal mixture with 2 components;
+# mixture of Logistic(0, 1), Chisq(4), Beta(4, 1.5)
+# Find cumulants of components of 2nd mixture variable
+L &lt;- calc_theory("Logistic", c(0, 1))
+C &lt;- calc_theory("Chisq", 4)
+B &lt;- calc_theory("Beta", c(4, 1.5))
+
+skews &lt;- skurts &lt;- fifths &lt;- sixths &lt;- NULL
+Six &lt;- list()
+mix_pis &lt;- list(c(0.4, 0.6), c(0.3, 0.2, 0.5))
+mix_mus &lt;- list(c(-2, 2), c(L[1], C[1], B[1]))
+mix_sigmas &lt;- list(c(1, 1), c(L[2], C[2], B[2]))
+mix_skews &lt;- list(rep(0, 2), c(L[3], C[3], B[3]))
+mix_skurts &lt;- list(rep(0, 2), c(L[4], C[4], B[4]))
+mix_fifths &lt;- list(rep(0, 2), c(L[5], C[5], B[5]))
+mix_sixths &lt;- list(rep(0, 2), c(L[6], C[6], B[6]))
+mix_Six &lt;- list(list(NULL, NULL), list(1.75, NULL, 0.03))
+Nstcum &lt;- calc_mixmoments(mix_pis[[1]], mix_mus[[1]], mix_sigmas[[1]],
+  mix_skews[[1]], mix_skurts[[1]], mix_fifths[[1]], mix_sixths[[1]])
+Mstcum &lt;- calc_mixmoments(mix_pis[[2]], mix_mus[[2]], mix_sigmas[[2]],
+  mix_skews[[2]], mix_skurts[[2]], mix_fifths[[2]], mix_sixths[[2]])
+means &lt;- c(Nstcum[1], Mstcum[1])
+vars &lt;- c(Nstcum[2]^2, Mstcum[2]^2)
+
+marginal &lt;- list(0.3)
+support &lt;- list(c(0, 1))
+lam &lt;- 0.5
+p_zip &lt;- 0.1
+size &lt;- 2
+prob &lt;- 0.75
+p_zinb &lt;- 0.2
+
+k_cat &lt;- k_pois &lt;- k_nb &lt;- 1
+k_cont &lt;- 0
+k_mix &lt;- 2
+Rey &lt;- matrix(0.39, 8, 8)
+diag(Rey) &lt;- 1
+rownames(Rey) &lt;- colnames(Rey) &lt;- c("O1", "M1_1", "M1_2", "M2_1", "M2_2",
+  "M2_3", "P1", "NB1")
+
+# set correlation between components of the same mixture variable to 0
+Rey["M1_1", "M1_2"] &lt;- Rey["M1_2", "M1_1"] &lt;- 0
+Rey["M2_1", "M2_2"] &lt;- Rey["M2_2", "M2_1"] &lt;- Rey["M2_1", "M2_3"] &lt;- 0
+Rey["M2_3", "M2_1"] &lt;- Rey["M2_2", "M2_3"] &lt;- Rey["M2_3", "M2_2"] &lt;- 0
+
+# check parameter inputs
+validpar(k_cat, k_cont, k_mix, k_pois, k_nb, "Polynomial", means,
+  vars, skews, skurts, fifths, sixths, Six, mix_pis, mix_mus, mix_sigmas,
+  mix_skews, mix_skurts, mix_fifths, mix_sixths, mix_Six, marginal, support,
+  lam, p_zip, size, prob, mu = NULL, rho = Rey)
+
+# check to make sure Rey is within the feasible correlation boundaries
+validcorr(n, k_cat, k_cont, k_mix, k_pois, k_nb, "Polynomial", means,
+  vars, skews, skurts, fifths, sixths, Six, mix_pis, mix_mus, mix_sigmas,
+  mix_skews, mix_skurts, mix_fifths, mix_sixths, mix_Six, marginal,
+  lam, p_zip, size, prob, mu = NULL, p_zinb, Rey, seed)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

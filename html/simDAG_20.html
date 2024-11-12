@@ -1,0 +1,137 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>node_gaussian</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Simulate a Node Using Linear Regression
+</h2>
+
+<h3>Description</h3>
+
+<p>Data from the parents is used to generate the node using linear regression by predicting the covariate specific mean and sampling from a normal distribution with that mean and a specified standard deviation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">node_gaussian(data, parents, formula=NULL, betas, intercept, error)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>A <code>data.table</code> (or something that can be coerced to a <code>data.table</code>) containing all columns specified by <code>parents</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parents</code></td>
+<td>
+
+<p>A character vector specifying the names of the parents that this particular child node has. If non-linear combinations or interaction effects should be included, the user may specify the <code>formula</code> argument instead.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+
+<p>An optional <code>formula</code> object to describe how the node should be generated or <code>NULL</code> (default). If supplied it should start with <code>~</code>, having nothing else on the left hand side. The right hand side may contain any valid formula syntax, such as <code>A + B</code> or <code>A + B + I(A^2)</code>, allowing non-linear effects. If this argument is defined, there is no need to define the <code>parents</code> argument. For example, using <code>parents=c("A", "B")</code> is equal to using <code>formula= ~ A + B</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>betas</code></td>
+<td>
+
+<p>A numeric vector with length equal to <code>parents</code>, specifying the causal beta coefficients used to generate the node.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+
+<p>A single number specifying the intercept that should be used when generating the node.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>error</code></td>
+<td>
+
+<p>A single number specifying the sigma error that should be used when generating the node.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Using the general linear regression equation, the observation-specific value that would be expected given the model is generated for every observation in the dataset generated thus far. We could stop here, but this would create a perfect fit for the node, which is unrealistic. Instead, we add an error term by taking one sample of a normal distribution for each observation with mean zero and standard deviation <code>error</code>. This error term is then added to the predicted mean.
+</p>
+<p><strong><em>Formal Description</em></strong>:
+</p>
+<p>Formally, the data generation can be described as:
+</p>
+<p style="text-align: center;"><code class="reqn">Y \sim \texttt{intercept} + \texttt{parents}_1 \cdot \texttt{betas}_1 + ... + \texttt{parents}_n \cdot \texttt{betas}_n+ N(0, \texttt{error}),</code>
+</p>
+
+<p>where <code class="reqn">N(0, \texttt{error})</code> denotes the normal distribution with mean 0 and a standard deviation of <code>error</code> and <code class="reqn">n</code> is the number of parents (<code>length(parents)</code>).
+</p>
+<p>For example, given <code>intercept=-15</code>, <code>parents=c("A", "B")</code>, <code>betas=c(0.2, 1.3)</code> and <code>error=2</code> the data generation process is defined as:
+</p>
+<p style="text-align: center;"><code class="reqn">Y \sim -15 + A \cdot 0.2 + B \cdot 1.3 + N(0, 2).</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>Returns a numeric vector of length <code>nrow(data)</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Robin Denz
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>empty_dag</code>, <code>node</code>, <code>node_td</code>, <code>sim_from_dag</code>, <code>sim_discrete_time</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(simDAG)
+
+set.seed(12455432)
+
+# define a DAG
+dag &lt;- empty_dag() +
+  node("age", type="rnorm", mean=50, sd=4) +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("bmi", type="gaussian", parents=c("sex", "age"),
+       betas=c(1.1, 0.4), intercept=12, error=2)
+
+# define the same DAG, but with a pretty formula for the child node
+dag &lt;- empty_dag() +
+  node("age", type="rnorm", mean=50, sd=4) +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("bmi", type="gaussian", error=2,
+       formula= ~ 12 + sexTRUE*1.1 + age*0.4)
+
+sim_dat &lt;- sim_from_dag(dag=dag, n_sim=100)
+</code></pre>
+
+
+</div>

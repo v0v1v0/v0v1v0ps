@@ -1,0 +1,152 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>DiagStempCens</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Diagnostic in spatio-temporal model with censored/missing responses</h2>
+
+<h3>Description</h3>
+
+<p>Return measures and graphics for diagnostic analysis in spatio-temporal model with censored/missing responses.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">DiagStempCens(Est.StempCens, type.diag = "individual", diag.plot = TRUE, ck)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Est.StempCens</code></td>
+<td>
+<p>an object of class <code>Est.StempCens</code> given as output by the <code>EstStempCens</code> function. In the <code>EstStempCens</code>function, <code>IMatrix</code> must be <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type.diag</code></td>
+<td>
+<p>type of diagnostic: '<code>individual</code>' is related when one observation is deleted,
+'<code>time</code>' is related when an entire time is deleted, '<code>location</code>' is related when an entire location is deleted and
+'<code>all</code>' the three cases ('<code>individual</code>', '<code>time</code>' and '<code>location</code>').
+By default <code>type.diag</code> is <code>individual</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>diag.plot</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code>. It indicates if diagnostic plots must be showed. By default = <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ck</code></td>
+<td>
+<p>the value for <code>ck</code> considered in the benchmark value for the index plot:
+<code class="reqn">mean(GD)+ck*sd(GD)</code>, where <code class="reqn">GD</code> is the vector with all values of the diagnostic measures.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function uses the case deletion approach to study the impact of deleting one or
+more observations from the dataset on the parameters estimates, using the ideas of
+Cook (1977) and Zhu et al. (2001).
+The measure is defined by
+</p>
+<p><code class="reqn">GD_i(\theta*)=(\theta* - \theta*[i])'[-Q**(\theta|\theta*)](\theta* - \theta*[i]), i=1,....m,</code>
+</p>
+<p>where <code class="reqn">\theta*</code> is the estimate of <code class="reqn">\theta</code> using the complete data, <code class="reqn">\theta*[i]</code>
+are the estimates obtained after deletion of the i-th observation (or group of observations) and
+<code class="reqn">Q**(\theta|\theta*)</code> is the Hessian matrix.
+</p>
+<p>We can eliminate an observation, an entire location or an entire time index.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function returns a list with the diagnostic measures.
+</p>
+
+<dl>
+<dt>If <code>type.diag == individual | time | location</code>:</dt>
+<dd>
+<p><code>GD</code> is a data.frame with the index value of the observation and the GD measure.</p>
+</dd>
+<dt>If <code>type.diag == all</code>:</dt>
+<dd>
+<p><code>GDind</code> is a data.frame with the index value of the observation and the GD measure for individual.
+</p>
+<p><code>GDtime</code> is a data.frame with the time index value and the GD measure for time.
+</p>
+<p><code>GDloc</code> is a data.frame with the side index value and the GD measure for location.
+</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Katherine L. Valeriano, Victor H. Lachos and Larissa A. Matos
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>EstStempCens</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Initial parameter values
+beta &lt;- c(-1,1.5)
+phi &lt;- 3;   rho &lt;- 0.40
+tau2 &lt;- 1;  sigma2 &lt;- 2
+# Simulating data
+n1 &lt;- 5    # Number of spatial locations
+n2 &lt;- 5    # Number of temporal index
+set.seed(98765)
+x.co &lt;- round(runif(n1,0,10),9)   # X coordinate
+y.co &lt;- round(runif(n1,0,10),9)   # Y coordinate
+coord &lt;- cbind(x.co,y.co)         # Cartesian coordinates without repetitions
+coord2 &lt;- cbind(rep(x.co,each=n2),rep(y.co,each=n2)) # Cartesian coordinates with repetitions
+time &lt;- as.matrix(seq(1,n2))      # Time index without repetitions
+time2 &lt;- as.matrix(rep(time,n1))  # Time index with repetitions
+x1 &lt;- rexp(n1*n2,2)
+x2 &lt;- rnorm(n1*n2,2,1)
+x  &lt;- cbind(x1,x2)
+media &lt;- x%*%beta
+# Covariance matrix
+Ms  &lt;- as.matrix(dist(coord))  # Spatial distances
+Mt  &lt;- as.matrix(dist(time))   # Temporal distances
+Cov &lt;- CovarianceM(phi,rho,tau2,sigma2,Ms,Mt,0,"exponential")
+# Data
+require(mvtnorm)
+y &lt;- as.vector(rmvnorm(1,mean=as.vector(media),sigma=Cov))
+perc &lt;- 0.20
+aa &lt;- sort(y); bb &lt;- aa[((1-perc)*n1*n2+1):(n1*n2)]; cutof &lt;- bb[1]
+cc &lt;- matrix(1,(n1*n2),1)*(y&gt;=cutof)
+y[cc==1] &lt;- cutof
+y[17] &lt;- abs(y[17])+2*sd(y)
+LI &lt;- y
+LS &lt;- y; LS[cc==1] &lt;- Inf    # Right-censored
+
+# Estimation
+set.seed(74689)
+est &lt;- EstStempCens(y, x, cc, time2, coord2, LI, LS, init.phi=2.5, init.rho=0.5, init.tau2=0.8,
+          type.Data="balanced", method="nlminb", kappa=0, type.S="exponential",
+          IMatrix=TRUE, lower.lim=c(0.01,-0.99,0.01), upper.lim=c(30,0.99,20), M=20,
+          perc=0.25, MaxIter=300, pc=0.20)
+
+# Diagnostic
+set.seed(12345)
+diag &lt;- DiagStempCens(est, type.diag="time", diag.plot = TRUE, ck=1)
+## End(Not run)
+</code></pre>
+
+
+</div>

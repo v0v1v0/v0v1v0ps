@@ -1,0 +1,159 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sparsedc_cluster</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sparse Differential Clustering</h2>
+
+<h3>Description</h3>
+
+<p>The main SparseDC function. This function clusters the samples from the two
+conditions and links the clusters across the conditions. It also identifies
+marker genes for each of the clusters. There are three types of marker gene
+which SparseDC identifies. Please see the original manuscript for further
+details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sparsedc_cluster(pdat1, pdat2, ncluster, lambda1, lambda2, nitter = 20,
+  nstarts = 50, init_iter = 5)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>pdat1</code></td>
+<td>
+<p>The centered data from condition 1, columns should be
+samples (cells) and rows should be features (genes).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pdat2</code></td>
+<td>
+<p>The centered data from condition 2, columns should be
+samples (cells) and rows should be features (genes). The number of genes
+should be the same as <code>pdat1</code>.
+as in pdat1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncluster</code></td>
+<td>
+<p>The number of clusters present in the data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda1</code></td>
+<td>
+<p>The lambda 1 value to use in the SparseDC function. This
+value controls the number of marker genes detected for each of the clusters
+in the final result. This can be calculated using the "lambda1_calculator"
+function or supplied by the user.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda2</code></td>
+<td>
+<p>The lambda 2 value to use in the SparseDC function. This
+value controls the number of genes that show condition-dependent
+expression within each cell type. This can be calculated using the
+"lambda2_calculator" function or supplied by the user.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nitter</code></td>
+<td>
+<p>The max number of iterations for each of the start values, the
+default value is 20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nstarts</code></td>
+<td>
+<p>The number of start values to use for SparseDC. The default
+value is 50.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init_iter</code></td>
+<td>
+<p>The number of iterations used to generate the starting
+center values.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list containing the clustering solution, cluster centers  and the
+score of each of the starts.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>lambda1_calculator</code>  <code>lambda2_calculator</code>
+<code>update_c</code> <code>update_mu</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(10)
+# Select small dataset for example
+data_test &lt;- data_biase[1:100,]
+# Split data into conditions 1 and 2
+data_1 &lt;- data_test[ , which(condition_biase == "A")]
+data_2 &lt;- data_test[ , which(condition_biase == "B")]
+# Preprocess data (log transform and center)
+pre_data &lt;- pre_proc_data(data_1, data_2, norm = FALSE, log = TRUE,
+center = TRUE)
+# Calculate lambda 1 parameter
+lambda1 &lt;- lambda1_calculator(pdat1 = pre_data[[1]], pdat2 = pre_data[[2]],
+ ncluster=3, alpha1 = 0.5, nboot1 = 1000)
+# Calculate lambda 2 parameter
+lambda2 &lt;- lambda2_calculator(pdat1 = pre_data[[1]], pdat2 = pre_data[[2]],
+ ncluster = 3, alpha2 = 0.5, nboot2 = 1000)
+# Run sparse DC
+sdc_res &lt;- sparsedc_cluster(pdat1 = pre_data[[1]], pdat2 = pre_data[[2]], ncluster = 3,
+lambda1 = lambda1, lambda2 = lambda2, nitter = 20, nstarts =50)
+# Extract results
+clusters_1 &lt;- sdc_res$clusters1  # Clusters for condition 1 data
+clusters_2 &lt;- sdc_res$clusters2  # Clusters for condition 2 data
+centers_1 &lt;- sdc_res$centers1  # Centers for condition 1 data
+centers_2 &lt;- sdc_res$centers2  # Centers for condition 2 data
+# View clusters
+summary(as.factor(clusters_1))
+summary(as.factor(clusters_2))
+# View Marker genes
+gene_names &lt;- row.names(data_test)
+m_gene_c1_up1 &lt;- gene_names[which(centers_1[,1] &gt; 0)]
+m_gene_c1_up2 &lt;- gene_names[which(centers_2[,1] &gt; 0)]
+m_gene_c1_down1 &lt;- gene_names[which(centers_1[,1] &lt; 0)]
+m_gene_c1_down2 &lt;- gene_names[which(centers_2[,1] &lt; 0)]
+m_gene_c2_cond &lt;- gene_names[which(centers_1[,2] != centers_2[,2])]
+
+# Can also run
+
+pre_data &lt;- pre_proc_data(data_1, data_2, norm = FALSE, log = TRUE,
+center = TRUE)
+pdata_A &lt;- pre_data[[1]]
+pdata_B &lt;- pre_data[[2]]
+lambda1 &lt;- lambda1_calculator(pdat1 = pdata_A , pdat2 = pdata_B,
+ncluster=3, alpha1 = 0.5, nboot1 = 1000)
+lambda2 &lt;- lambda2_calculator(pdat1 = pdata_A, pdat2 = pdata_B,
+ ncluster = 3, alpha2 = 0.5, nboot2 = 1000)
+# Run sparse DC
+sdc_res &lt;- sparsedc_cluster(pdat1 = pdata_A, pdat2 = pdata_B, ncluster = 3,
+lambda1 = lambda1, lambda2 = lambda2, nitter = 20, nstarts =50)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,141 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>protect_smooth</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Protect a sdc_raster by smoothing</h2>
+
+<h3>Description</h3>
+
+<p><code>protect_smooth</code> reduces the sensitivity by applying a Gaussian smoother,
+making the values less localized.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">protect_smooth(x, bw = raster::res(x$value), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>raster object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bw</code></td>
+<td>
+<p>bandwidth</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>passed through to <code>focal</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The sensitivity of a raster can be decreased by applying a kernel density smoother as
+argued by de Jonge et al. (2016) and de Wolf et al. (2018). Smoothing spatially spreads
+localized values, reducing the risk for location disclosure. Note that
+smoothing often visually enhances detection of spatial patterns.
+The kernel applied is a Gaussian kernel with a bandwidth <code>bw</code> supplied by the user.
+The smoother acts upon the <code>x$value$count</code> and <code>x$value$sum</code>
+from which a new <code>x$value$mean</code> is derived.
+</p>
+
+
+<h3>References</h3>
+
+<p>de Jonge, E., &amp; de Wolf, P. P. (2016, September).
+Spatial smoothing and statistical disclosure control.
+In International Conference on Privacy in Statistical Databases
+(pp. 107-117). Springer, Cham.
+</p>
+<p>de Wolf, P. P., &amp; de Jonge, E. (2018, September).
+Safely Plotting Continuous Variables on a Map. In International Conference
+on Privacy in Statistical Databases (pp. 347-359). Springer, Cham.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other protection methods: 
+<code>protect_quadtree()</code>,
+<code>remove_sensitive()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(sdcSpatial)
+library(raster)
+
+data(enterprises)
+
+# create a sdc_raster from point data with raster with
+# a resolution of 200m
+production &lt;- sdc_raster(enterprises, variable = "production"
+                        , r = 200, min_count = 3)
+
+print(production)
+
+# plot the raster
+zlim &lt;- c(0, 3e4)
+# show which raster cells are sensitive
+plot(production, zlim=zlim)
+
+# but we can also retrieve directly the raster
+sensitive &lt;- is_sensitive(production, min_count = 3)
+plot(sensitive, col = c('white', 'red'))
+
+# what is the sensitivy fraction?
+sensitivity_score(production)
+# or equally
+cellStats(sensitive, mean)
+
+# let's smooth to reduce the sensitivity
+smoothed &lt;- protect_smooth(production, bw = 400)
+plot(smoothed)
+
+# let's smooth to reduce the sensitivity, with higher resolution
+smoothed &lt;- protect_smooth(production, bw = 400, smooth_fact=4, keep_resolution=FALSE)
+plot(smoothed)
+
+# what is the sensitivy fraction?
+sensitivity_score(smoothed)
+
+# let's remove the sensitive data.
+smoothed_safe &lt;- remove_sensitive(smoothed, min_count = 3)
+plot(smoothed_safe)
+
+# let's communicate!
+production_mean &lt;- mean(smoothed_safe)
+production_total &lt;- sum(smoothed_safe)
+
+# and create a contour plot
+raster::filledContour(production_mean, nlevels = 6, main = "Mean production")
+
+
+# generated with R 3.6 &gt;=
+#col &lt;- hcl.colors(11, rev=TRUE)
+col &lt;- c("#FDE333", "#C2DE34", "#7ED357", "#00C475", "#00B28A", "#009B95"
+        ,  "#008298", "#006791", "#274983", "#44286E", "#4B0055"
+        )
+raster::filledContour(production_total, nlevels = 11
+             , col = col
+             , main="Total production")
+
+</code></pre>
+
+
+</div>

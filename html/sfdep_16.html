@@ -1,0 +1,192 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>emerging_hotspot_analysis</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Emerging Hot Spot Analysis</h2>
+
+<h3>Description</h3>
+
+<p>Emerging Hot Spot Analysis identifies trends in spatial clustering over a
+period of time. Emerging hot spot analysis combines the Getis-Ord Gi* statistic
+with the Mann-Kendall trend test to determine if there is a temporal trend
+associated with local clustering of hot and cold spots.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">emerging_hotspot_analysis(
+  x,
+  .var,
+  k = 1,
+  include_gi = FALSE,
+  nb_col = NULL,
+  wt_col = NULL,
+  nsim = 199,
+  threshold = 0.01,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a spacetime object and must be a spacetime cube see details for more.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.var</code></td>
+<td>
+<p>a numeric vector in the spacetime cube with no missing values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>default <code>1</code>. The number of time lags to include in the neighborhood
+for calculating the local Gi*. See details for more.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_gi</code></td>
+<td>
+<p>default <code>FALSE</code>. If <code>TRUE</code>, includes the local Gi* calculations
+in the attribute <code>gi_star</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_col</code></td>
+<td>
+<p>Optional. Default <code>NULL</code>. The name of the column in the <code>geometry</code>
+context of <code>x</code> containing spatial neighbors. If <code>NULL</code>, Queen's contiguity
+neighbors are identified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wt_col</code></td>
+<td>
+<p>Optional. Default <code>NULL</code>. The name of the column in the <code>geometry</code>
+context of <code>x</code> containing spatial weights. If <code>NULL</code>, row standardized weights
+are used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>default <code>199</code>. The number of simulations to run in calculating the
+simulated p-value for the local Gi*.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>threshold</code></td>
+<td>
+<p>default <code>0.01</code>. The significance threshold to use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>unused.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+
+<h4>How Emerging Hot Spot Analysis Works</h4>
+
+<p>Emerging Hot Spot Analysis is a somewhat simple process. It works by first
+calculating the Gi* statistic for each location in each time period (time-slice).
+Next, for each location across all time-periods, the Mann-Kendall trend test
+is done to identify any temporal trend in Gi* values over all time periods.
+Additionally, each location is classified into one of seventeen categories based
+on <a href="https://pro.arcgis.com/en/pro-app/2.8/tool-reference/space-time-pattern-mining/learnmoreemerging.htm">ESRI's emerging hot spot classification criteria</a>.
+</p>
+<p>The Mann-Kendall trend test is done using <code>Kendall::MannKendall()</code>. <code>Kendall</code>
+is not installed with sfdep and should be installed prior to use.
+</p>
+
+
+
+<h4>Using your own neighbors and weights</h4>
+
+<p>If you would like to use your own neighbors and weights, they must be created
+in the <code>geometry</code> context of a spacetime object. The arguments <code>nb_col</code>
+and <code>wt_col</code> must both be populated in order to use your own neighbor and weights
+definitions.
+</p>
+
+
+
+<h4>Time lagged neighbors</h4>
+
+<p>In addition to identifying neighbors in space, emerging hotspot analysis also
+incorporates the same observations from <code>k</code> periods ago-called a time lag. If
+the time lag k is 1 and the unit of time is month, the neighbors for the
+calculation of Gi* would include the spatial neighbors' values at time <code>t</code>
+and the same spatial neighbors' values at time <code>t-1</code>. If <code>k = 2</code>, it would include
+<code>t</code>, <code>t-1</code>, and <code>t-2</code>.
+</p>
+
+
+
+<h4>Missing values</h4>
+
+<p>Presently, there is no method of missing value handling. If there are missing
+values, the emerging hot spot analysis will fail. Be sure to fill or omit
+time-slices with missing values <em>prior</em> to using emerging hot spot analysis.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>Returns a data.frame.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><a href="https://pro.arcgis.com/en/pro-app/2.8/tool-reference/space-time-pattern-mining/learnmoreemerging.htm">How Emerging Hot Spot Analysis works</a>, <a href="https://pro.arcgis.com/en/pro-app/2.8/tool-reference/space-time-pattern-mining/emerginghotspots.htm">Emerging Hot Spot Analysis (Space Time Pattern Mining)</a>, and the video <a href="https://www.youtube.com/watch?v=0aV6HHwJuo4&amp;t=3848s&amp;ab_channel=EsriEvents">Spatial Data Mining II: A Deep Dive into Space-Time Analysis</a> by ESRI.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+if (requireNamespace("Kendall")) {
+df_fp &lt;- system.file("extdata", "bos-ecometric.csv", package = "sfdep")
+geo_fp &lt;- system.file("extdata", "bos-ecometric.geojson", package = "sfdep")
+
+# read in data
+df &lt;- read.csv(df_fp, colClasses = c("character", "character", "integer", "double", "Date"))
+geo &lt;- sf::st_read(geo_fp)
+
+# Create spacetime object called `bos`
+bos &lt;- spacetime(df, geo,
+                 .loc_col = ".region_id",
+                 .time_col = "time_period")
+
+
+# conduct EHSA
+ehsa &lt;- emerging_hotspot_analysis(
+  x = bos,
+  .var = "value",
+  k = 1,
+  nsim = 9
+)
+
+ehsa
+}
+
+</code></pre>
+
+
+</div>

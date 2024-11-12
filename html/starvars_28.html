@@ -1,0 +1,224 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>VLSTAR</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>VLSTAR- Estimation</h2>
+
+<h3>Description</h3>
+
+<p>This function allows the user to estimate the coefficients of a VLSTAR model with <em>m</em> regimes through maximum likelihood or nonlinear least squares.
+The set of starting values of Gamma and C for the convergence algorithm can be either passed or obtained via searching grid.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">VLSTAR(
+  y,
+  exo = NULL,
+  p = 1,
+  m = 2,
+  st = NULL,
+  constant = TRUE,
+  starting = NULL,
+  method = c("ML", "NLS"),
+  n.iter = 500,
+  singlecgamma = FALSE,
+  epsilon = 10^(-3),
+  ncores = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code>data.frame</code> or <code>matrix</code> of dependent variables of dimension <code>(Txn)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exo</code></td>
+<td>
+<p>(optional) <code>data.frame</code> or <code>matrix</code> of exogenous variables of dimension <code>(Txk)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>lag order</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>number of regimes</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>st</code></td>
+<td>
+<p>single transition variable for all the equation of dimension <code>(Tx1)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constant</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to include or not the constant</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starting</code></td>
+<td>
+<p>set of intial values for Gamma and C, inserted as a list of length <code>m-1</code>.
+Each element of the list should contain a <code>data.frame</code> with 2 columns (one for Gamma and one for c), and <code>n</code> rows.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Fitting method: maximum likelihood or nonlinear least squares.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.iter</code></td>
+<td>
+<p>number of iteration of the algorithm until forced convergence</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>singlecgamma</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to use single gamma and c</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsilon</code></td>
+<td>
+<p>convergence check measure</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>Number of cores used for parallel computation. Set to <code>NULL</code> by default and automatically calculated.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The multivariate smooth transition model is an extension of the smooth transition regression model introduced by Bacon and Watts (1971)  (see also Anderson and Vahid, 1998). The general model is
+</p>
+<p style="text-align: center;"><code class="reqn">y_{t} = \mu_0+\sum_{j=1}^{p}\Phi_{0,j}\,y_{t-j}+A_0 x_t \cdot G_t(s_t;\gamma,c)[\mu_{1}+\sum_{j=1}^{p}\Phi_{1,j}\,y_{t-j}+A_1x_t]+\varepsilon_t</code>
+</p>
+
+<p>where <code class="reqn">\mu_{0}</code> and <code class="reqn">\mu_{1}</code> are the <code class="reqn">\tilde{n} \times 1</code> vectors of intercepts, <code class="reqn">\Phi_{0,j}</code> and <code class="reqn">\Phi_{1,j}</code> are square
+<code class="reqn">\tilde{n}\times\tilde{n}</code> matrices of parameters for lags <code class="reqn">j=1,2,\dots,p</code>, A_0 and A_1 are <code class="reqn">\tilde{n}\times k</code> matrices of parameters,
+x_t is the <code class="reqn">k \times 1</code> vector of exogenous variables and <code class="reqn">\varepsilon_t</code> is the innovation. Finally, <code class="reqn">G_t(s_t;\gamma,c)</code> is a <code class="reqn">\tilde{n}\times \tilde{n}</code> diagonal matrix of transition function at time <em>t</em>, such that
+</p>
+<p style="text-align: center;"><code class="reqn">G_t(s_t;\gamma,c)=\{G_{1,t}(s_{1,t};\gamma_{1},c_{1}),G_{2,t}(s_{2,t};\gamma_{2},c_{2}),
+\dots,G_{\tilde{n},t}(s_{\tilde{n},t};\gamma_{\tilde{n}},c_{\tilde{n}})\}.</code>
+</p>
+
+<p>Each diagonal element <code class="reqn">G_{i,t}^r</code> is specified as a logistic cumulative density functions, i.e.
+</p>
+<p style="text-align: center;"><code class="reqn">G_{i,t}^r(s_{i,t}^r; \gamma_i^r, c_i^r) = \left[1 + \exp\big\{-\gamma_i^r(s_{i,t}^r-c_i^r)\big\}\right]^{-1}</code>
+</p>
+
+<p>for <code class="reqn">latex</code> and <code class="reqn">r=0,1,\dots,m-1</code>, so that the first model is a Vector Logistic Smooth Transition AutoRegressive
+(VLSTAR) model.
+The ML estimator of <code class="reqn">\theta</code> is obtained by solving the optimization problem
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{\theta}_{ML} = arg \max_{\theta}log L(\theta)</code>
+</p>
+
+<p>where <code class="reqn">log L(\theta)</code> is the log-likelihood function of VLSTAR model, given by
+</p>
+<p style="text-align: center;"><code class="reqn">  ll(y_t|I_t;\theta)=-\frac{T\tilde{n}}{2}\ln(2\pi)-\frac{T}{2}\ln|\Omega|-\frac{1}{2}\sum_{t=1}^{T}(y_t-\tilde{G}_tB\,z_t)'\Omega^{-1}(y_t-\tilde{G}_tB\,z_t)</code>
+</p>
+
+<p>The NLS estimators of the VLSTAR model are obtained by solving the optimization problem
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{\theta}_{NLS} = arg \min_{\theta}\sum_{t=1}^{T}(y_t - \Psi_t'B'x_t)'(y_t - \Psi_t'B'x_t).</code>
+</p>
+
+<p>Generally, the optimization algorithm may converge to some local minimum. For this reason, providing valid starting values of <code class="reqn">\theta</code> is crucial. If there is no clear indication on the initial set of parameters, <code class="reqn">\theta</code>, this can be done by implementing a grid search. Thus, a discrete grid in the parameter space of <code class="reqn">\Gamma</code> and C is create to obtain the estimates of B conditionally on each point in the grid. The initial pair of <code class="reqn">\Gamma</code> and C producing the smallest sum of squared residuals is chosen as initial values, then the model is linear in parameters.
+The algorithm is the following:
+</p>
+
+<ol>
+<li>
+<p> Construction of the grid for <code class="reqn">\Gamma</code> and C, computing <code class="reqn">\Psi</code> for each poin in the grid
+</p>
+</li>
+<li>
+<p> Estimation of <code class="reqn">\hat{B}</code> in each equation, calculating the residual sum of squares, <code class="reqn">Q_t</code>
+</p>
+</li>
+<li>
+<p> Finding the pair of <code class="reqn">\Gamma</code> and C providing the smallest <code class="reqn">Q_t</code>
+</p>
+</li>
+<li>
+<p> Once obtained the starting-values, estimation of parameters, <em>B</em>, via nonlinear least squares (NLS)
+</p>
+</li>
+<li>
+<p> Estimation of <code class="reqn">\Gamma</code> and C given the parameters found in step 4
+</p>
+</li>
+<li>
+<p> Repeat step 4 and 5 until convergence.
+</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p>An object of class <code>VLSTAR</code>, with standard methods.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Andrea Bucci
+</p>
+
+
+<h3>References</h3>
+
+<p>Anderson H.M. and Vahid F. (1998), Testing multiple equation systems for common nonlinear components. <em>Journal of Econometrics</em>. 84: 1-36
+</p>
+<p>Bacon D.W. and Watts D.G. (1971), Estimating the transition between two intersecting straight lines. <em>Biometrika</em>. 58: 525-534
+</p>
+<p>Terasvirta T. and Yang Y. (2014), Specification, Estimation and Evaluation of Vector Smooth Transition Autoregressive Models with Applications. <em>CREATES Research Paper 2014-8</em>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(Realized)
+y &lt;- Realized[-1,1:10]
+y &lt;- y[-nrow(y),]
+st &lt;- Realized[-nrow(Realized),1]
+st &lt;- st[-length(st)]
+stvalues &lt;- startingVLSTAR(y, p = 1, n.combi = 3,
+ singlecgamma = FALSE, st = st, ncores = 1)
+fit.VLSTAR &lt;- VLSTAR(y, p = 1, singlecgamma = FALSE, starting = stvalues,
+ n.iter = 1, st = st, method ='NLS', ncores = 1)
+# a few methods for VLSTAR
+print(fit.VLSTAR)
+summary(fit.VLSTAR)
+plot(fit.VLSTAR)
+predict(fit.VLSTAR, st.num = 1, n.ahead = 1)
+logLik(fit.VLSTAR, type = 'Univariate')
+coef(fit.VLSTAR)
+
+</code></pre>
+
+
+</div>

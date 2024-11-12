@@ -1,0 +1,215 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getRolloff</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Control rolloff of harmonics</h2>
+
+<h3>Description</h3>
+
+<p>Harmonics are generated as separate sine waves. But we don't want each
+harmonic to be equally strong, so we normally specify some rolloff function
+that describes the loss of energy in upper harmonics relative to the
+fundamental frequency (f0). <code>getRolloff</code> provides flexible
+control over this rolloff function, going beyond simple exponential decay
+(<code>rolloff</code>). Use quadratic terms to modify the behavior of a few lower
+harmonics, <code>rolloffOct</code> to adjust the rate of decay per
+octave, and <code>rolloffKHz</code> for rolloff correction depending on
+f0. Plot the output with different parameter values and see examples below
+and the vignette to get a feel for how to use <code>getRolloff</code>
+effectively.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getRolloff(
+  pitch_per_gc = c(440),
+  nHarmonics = NULL,
+  rolloff = -6,
+  rolloffOct = 0,
+  rolloffParab = 0,
+  rolloffParabHarm = 3,
+  rolloffParabCeiling = NULL,
+  rolloffKHz = 0,
+  baseline = 200,
+  dynamicRange = 80,
+  samplingRate = 16000,
+  plot = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>pitch_per_gc</code></td>
+<td>
+<p>a vector of f0 per glottal cycle, Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nHarmonics</code></td>
+<td>
+<p>maximum number of harmonics to generate (very weak
+harmonics with amplitude &lt; <code>-dynamicRange</code> will be discarded)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloff</code></td>
+<td>
+<p>basic rolloff from lower to upper harmonics, db/octave
+(exponential decay). All rolloff parameters are in anchor format. See
+<code>getRolloff</code> for more details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffOct</code></td>
+<td>
+<p>basic rolloff changes from lower to upper harmonics
+(regardless of f0) by <code>rolloffOct</code> dB/oct. For example, we can get
+steeper rolloff in the upper part of the spectrum</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParab</code></td>
+<td>
+<p>an optional quadratic term affecting only the first
+<code>rolloffParabHarm</code> harmonics. The middle harmonic of the first
+<code>rolloffParabHarm</code> harmonics is amplified or dampened by
+<code>rolloffParab</code> dB relative to the basic exponential decay</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParabHarm</code></td>
+<td>
+<p>the number of harmonics affected by
+<code>rolloffParab</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffParabCeiling</code></td>
+<td>
+<p>quadratic adjustment is applied only up to
+<code>rolloffParabCeiling</code>, Hz. If not NULL, it overrides
+<code>rolloffParabHarm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rolloffKHz</code></td>
+<td>
+<p>rolloff changes linearly with f0 by <code>rolloffKHz</code>
+dB/kHz. For ex., -6 dB/kHz gives a 6 dB steeper basic rolloff as f0 goes up
+by 1000 Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baseline</code></td>
+<td>
+<p>The "neutral" f0, at which no adjustment of rolloff
+takes place regardless of <code>rolloffKHz</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>dynamic range, dB. Harmonics and noise more than
+dynamicRange under maximum amplitude are discarded to save computational
+resources</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate (needed to stop at Nyquist frequency and
+for plotting purposes)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, produces a plot</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a matrix of amplitude multiplication factors for adjusting
+the amplitude of harmonics relative to f0 (1 = no adjustment, 0 = silent).
+Each row of output contains one harmonic, and each column contains one
+glottal cycle.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>soundgen</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># steady exponential rolloff of -12 dB per octave
+rolloff = getRolloff(pitch_per_gc = 150, rolloff = -12,
+  rolloffOct = 0, rolloffKHz = 0, plot = TRUE)
+# the rate of rolloff slows down by 1 dB each octave
+rolloff = getRolloff(pitch_per_gc = 150, rolloff = -12,
+  rolloffOct = 1, rolloffKHz = 0, plot = TRUE)
+
+# rolloff can be made to depend on f0 using rolloffKHz
+rolloff = getRolloff(pitch_per_gc = c(150, 400, 800),
+  rolloffOct = 0, rolloffKHz = -3, plot = TRUE)
+# without the correction for f0 (rolloffKHz),
+  # high-pitched sounds have the same rolloff as low-pitched sounds,
+  # producing unnaturally strong high-frequency harmonics
+rolloff = getRolloff(pitch_per_gc = c(150, 400, 800),
+  rolloffOct = 0, rolloffKHz = 0, plot = TRUE)
+
+# parabolic adjustment of lower harmonics
+rolloff = getRolloff(pitch_per_gc = 350, rolloffParab = 0,
+  rolloffParabHarm = 2, plot = TRUE)
+# rolloffParabHarm = 1 affects only f0
+rolloff = getRolloff(pitch_per_gc = 150, rolloffParab = 30,
+  rolloffParabHarm = 1, plot = TRUE)
+# rolloffParabHarm=2 or 3 affects only h1
+rolloff = getRolloff(pitch_per_gc = 150, rolloffParab = 30,
+  rolloffParabHarm = 2, plot = TRUE)
+# rolloffParabHarm = 4 affects h1 and h2, etc
+rolloff = getRolloff(pitch_per_gc = 150, rolloffParab = 30,
+  rolloffParabHarm = 4, plot = TRUE)
+# negative rolloffParab weakens lower harmonics
+rolloff = getRolloff(pitch_per_gc = 150, rolloffParab = -20,
+  rolloffParabHarm = 7, plot = TRUE)
+# only harmonics below 2000 Hz are affected
+rolloff = getRolloff(pitch_per_gc = c(150, 600),
+  rolloffParab = -20, rolloffParabCeiling = 2000,
+  plot = TRUE)
+
+# dynamic rolloff (varies over time)
+rolloff = getRolloff(pitch_per_gc = c(150, 250),
+                     rolloff = c(-12, -18, -24), plot = TRUE)
+rolloff = getRolloff(pitch_per_gc = c(150, 250), rolloffParab = 40,
+                    rolloffParabHarm = 1:5, plot = TRUE)
+
+## Not run: 
+# Note: getRolloff() is called internally by soundgen()
+# using the data.frame format for all vectorized parameters
+# Compare:
+s1 = soundgen(sylLen = 1000, pitch = 250,
+              rolloff = c(-24, -2, -18), plot = TRUE)
+s2 = soundgen(sylLen = 1000, pitch = 250,
+              rolloff = data.frame(time = c(0, .2, 1),
+                                   value = c(-24, -2, -18)),
+              plot = TRUE)
+
+# Also works for rolloffOct, rolloffParab, etc:
+s3 = soundgen(sylLen = 1000, pitch = 250,
+             rolloffParab = 20, rolloffParabHarm = 1:15, plot = TRUE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

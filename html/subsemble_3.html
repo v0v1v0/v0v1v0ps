@@ -1,0 +1,394 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>subsemble</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+An Ensemble Method for Combining Subset-Specific Algorithm Fits
+</h2>
+
+<h3>Description</h3>
+
+<p>The Subsemble algorithm partitions the full dataset into subsets of observations, fits a specified underlying algorithm on each subset, and uses a unique form of k-fold cross-validation to output a prediction function that combines the subset-specific fits.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">subsemble(x, y, newx = NULL, family = gaussian(), 
+    learner, metalearner = "SL.glm", subsets = 3, subControl = list(), 
+    cvControl = list(), learnControl = list(), genControl = list(),
+    id = NULL, obsWeights = NULL, seed = 1, parallel = "seq")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+
+<p>The data.frame or matrix of predictor variables.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+
+<p>The outcome in the training data set. Must be a numeric vector.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newx</code></td>
+<td>
+
+<p>The predictor variables in the test data set. The structure should match <code>x</code>. If missing, uses <code>x</code> for <code>newx</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+
+<p>A description of the error distribution and link function to be used in the model. This can be a character string naming a family function, a family function or the result of a call to a family function.  (See '?family' for the  details of family functions.) Currently allows <code>gaussian()</code> or <code>binomial()</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learner</code></td>
+<td>
+
+<p>A string or character vector naming the prediction algorithm(s) used to train a model on each of the subsets of <code>x</code>.  This uses the learning algorithm API provided by the SuperLearner package, so for example, we could use <code>learner = "SL.randomForest"</code> or <code>learner = c("SL.glm","SL.randomForest")</code>.  See the <code>listWrappers</code> function for a full list of available algorithms.  If a single learner is provided, the same algorithm will be used on each of the subsets.  If a vector of learners is provided, then each algorithm will be applied to each of the subsets (default behavior specified by the <code>learnControl$multiType="crossprod"</code>); or alternatively, the multiple algorithms can be applied to different subsets with <code>learnControl$multiType="divisor"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metalearner</code></td>
+<td>
+
+<p>A string specifying the prediction algorithm used to learn the optimal weighted combination of the sublearners (ie. models learned on subsets of the data.)  This uses the API provided by the SuperLearner package, so for example, we could use <code>metalearner = "SL.glmnet"</code>.  See the <code>listWrappers</code> function for a full list of available algorithms.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subsets</code></td>
+<td>
+
+<p>An integer specifying the number of subsets the data should be partitioned into, a vector of subset labels equal to the number of rows of <code>x</code>, or a user-specified list of index vectors equal to the number of subsets.  If subsets is an integer, you can control how the subsets are partitioned (random shuffle, etc) using the <code>subControl</code> argument.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subControl</code></td>
+<td>
+
+<p>A list of parameters to control the data partitioning (subsetting) process. The logical <code>stratifyCV</code> list parameter will stratify the data splits by binary outcome (<code>family=binomial()</code> only), and defaults to <code>TRUE</code>.  The logical <code>shuffle</code> parameter defaults to <code>TRUE</code> to ensure that subsets will be created randomly.  If the user explicitly specifies the subsets via the <code>subsets</code> argument, that will override any parameters in this list.  The last parameter, <code>supervised</code>, currently defaults to <code>NULL</code> and is a place-holder for option to learn the optimal subsets in a supervised manner.  This will be implemented in a future release.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cvControl</code></td>
+<td>
+
+<p>A list of parameters to control the cross-validation process. The <code>V</code> parameter is an integer representing the number of cross-validation folds and defaults to 10.  Each of the subsets will be divided into <code>V</code> cross-validation folds.  The other parameters are <code>stratifyCV</code> and <code>shuffle</code>, which are both logical and default to <code>TRUE</code>.  See above for descriptions of these parameters.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learnControl</code></td>
+<td>
+
+<p>A list of parameters to control the learning process.  Currently, the only parameter is <code>multiType</code>, which is only used if there are multiple learners specified by the <code>learner</code> argument.  The two supported values for <code>multiType</code> are <code>"crossprod"</code> (the default) and <code>"divisor"</code>.  The <code>"crossprod"</code> type will train each of the learners on each of the subsets.  For the <code>"divisor"</code> type, the length of the <code>learners</code> vector must be a divisor of the number of subsets.  If <code>length(learner)</code> equals the number of subsets, each learner will be applied to a single subset.  If <code>length(learner)</code> is a divisor of the number of subsets, then the learners will be repeated as necessary (to equal the number of subsets).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>genControl</code></td>
+<td>
+
+<p>A list of general control parameters.  Currently, the only parameter is <code>saveFits</code>, which defaults to <code>TRUE</code>.  If set to <code>FALSE</code>, then the <code>subfits</code> and <code>metafit</code> output objects will be set to <code>NULL</code>.  This can be used if you want to train and test in one step and do not want to waste disk space storing all the models.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+
+<p>Optional cluster identification variable. Passed to the <code>learner</code> algorithm.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obsWeights</code></td>
+<td>
+
+<p>Optional observation weights vector. As with <code>id</code> above, <code>obsWeights</code> is passed to the prediction and screening algorithms, but many of the built in learner wrappers ignore (or can't use) the information. If you are using observation weights, make sure the learner you specify uses the information, or the weights will be ignored.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+
+<p>A random seed to be set (integer); defaults to 1.  If <code>NULL</code>, then a random seed will not be set.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+
+<p>A character string specifying optional parallelization.  Use <code>"seq"</code> for sequential computation (the default).  Use <code>"multicore"</code> to perform the k-fold (internal) cross-validation step as well as the learning across subsets in parallel over all available cores.  Or <code>parallel</code> can be a snow cluster object.  Both parallel options use the built-in functionality of the core "parallel" package. 
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>subfits</code></td>
+<td>
+
+<p>A list of predictive models, each of which are fit on a subset of the (rows of) data, <code>x</code>.  For <code>learnControl$multiType="crossprod"</code>, the length of this list is equal to the number of subsets times the number of learners in the <code>learner</code> argument.  For <code>learnControl$multiType="divisor"</code>, the length of this list is equal to the number of subsets.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metafit</code></td>
+<td>
+
+<p>The predictive model which is learned by regressing <code>y</code> on <code>Z</code> (see description of <code>Z</code> below).  The type of model is specified using the <code>metalearner</code> argument.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subpred</code></td>
+<td>
+
+<p>A data.frame with the predicted values from each sublearner algorithm for the rows in <code>newx</code>.  If we have L unique learners and there are J subsets of data, then there will be L x J columns when <code>learnControl$multiType=="crossprod"</code> (default) and J columns when <code>learnControl$multiType=="divisor"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred</code></td>
+<td>
+
+<p>A vector containing the predicted values from the subsemble for the rows in <code>newX</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Z</code></td>
+<td>
+
+<p>The Z matrix (the cross-validated predicted values for each sublearner).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cvRisk</code></td>
+<td>
+
+<p>A numeric vector with the k-fold cross-validated risk estimate for each algorithm in learning library. Note that this does not contain the CV risk estimate for the Subsemble, only the individual models in the library.  (Not enabled yet, set to <code>NULL</code>.)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+
+<p>Returns the <code>family</code> argument from above.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subControl</code></td>
+<td>
+
+<p>Returns the <code>subControl</code> argument from above.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cvControl</code></td>
+<td>
+
+<p>Returns the <code>cvControl</code> argument from above.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learnControl</code></td>
+<td>
+
+<p>Returns the <code>learnControl</code> argument from above.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subsets</code></td>
+<td>
+
+<p>The list of subsets, which is a list of vectors of row indicies.  The length of this list equals the number of subsets.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subCVsets</code></td>
+<td>
+
+<p>The list of subsets, further broken down into the cross-validation folds that were used.  Each subset (top level list element) is partitioned into V cross-validation folds.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ylim</code></td>
+<td>
+
+<p>Returns range of <code>y</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+
+<p>An integer. Returns <code>seed</code> argument from above.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>runtime</code></td>
+<td>
+
+<p>An list of runtimes for various steps of the algorithm.  The list contains <code>cv</code>, <code>metalearning</code>, <code>sublearning</code> and <code>total</code> elements.  The <code>cv</code> element is the time it takes to create the <code>Z</code> matrix (see above).  The <code>metalearning</code> element is the training time for the metalearning step.  The <code>sublearning</code> element is a list of training times for each of the models in the ensemble.  The time to run the entire <code>subsemble</code> function is given in <code>total</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Erin LeDell  <a href="mailto:oss@ledell.org">oss@ledell.org</a> 
+</p>
+
+
+<h3>References</h3>
+
+<p>LeDell, E. (2015) Scalable Ensemble Learning and Computationally Efficient Variance Estimation (Doctoral Dissertation).  University of California, Berkeley, USA.<br><a href="https://github.com/ledell/phd-thesis/blob/main/ledell-phd-thesis.pdf">https://github.com/ledell/phd-thesis/blob/main/ledell-phd-thesis.pdf</a><br><br>
+Stephanie Sapp, Mark J. van der Laan &amp; John Canny. (2014) Subsemble: An ensemble method for combining subset-specific algorithm fits.  Journal of Applied Statistics, 41(6):1247-1259<br><a href="https://www.tandfonline.com/doi/abs/10.1080/02664763.2013.864263">https://www.tandfonline.com/doi/abs/10.1080/02664763.2013.864263</a><br><a href="https://biostats.bepress.com/ucbbiostat/paper313/">https://biostats.bepress.com/ucbbiostat/paper313/</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>listWrappers</code>, <code>SuperLearner</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Load some example data.
+
+library(subsemble)
+library(cvAUC)  # &gt;= version 1.0.1
+data(admissions)
+
+# Training data.
+x &lt;- subset(admissions, select = -c(Y))[1:400,]
+y &lt;- admissions$Y[1:400]
+
+# Test data.
+newx &lt;- subset(admissions, select = -c(Y))[401:500,]
+newy &lt;- admissions$Y[401:500]
+
+
+# Set up the Subsemble.
+
+learner &lt;- c("SL.randomForest", "SL.glm")
+metalearner &lt;- "SL.glm"
+subsets &lt;- 2
+
+
+# Train and test the model.
+# With learnControl$multiType="crossprod" (the default), 
+# we ensemble 4 models (2 subsets x 2 learners).
+
+fit &lt;- subsemble(x = x, y = y, newx = newx, family = binomial(), 
+                 learner = learner, metalearner = metalearner,
+                 subsets = subsets)
+
+
+# Evaulate the model by calculating AUC on the test set.
+
+auc &lt;- AUC(predictions = fit$pred, labels = newy)
+print(auc)  # Test set AUC is: 0.937
+
+
+# We can also use the predict method to generate predictions on new data afterwards.
+
+pred &lt;- predict(fit, newx)
+auc &lt;- AUC(predictions = pred$pred, labels = newy)
+print(auc)  # Test set AUC is: 0.937
+
+
+# Modify the learnControl argument and train/eval a new Subsemble.
+# With learnControl$multiType="divisor", 
+# we ensemble only 2 models (one for each subset).
+
+fit &lt;- subsemble(x = x, y = y, newx = newx, family = binomial(), 
+                 learner = learner, metalearner = metalearner,
+                 subsets = subsets,
+                 learnControl = list(multiType = "divisor"))
+
+auc &lt;- AUC(predictions = fit$pred, labels = newy)
+print(auc)  # Test set AUC is: 0.922
+
+
+# An example using a single learner.
+# In this case there are 3 subsets and 1 learner,
+# for a total of 3 models in the ensemble.
+
+learner &lt;- c("SL.randomForest")
+metalearner &lt;- "SL.glmnet"
+subsets &lt;- 3
+
+fit &lt;- subsemble(x = x, y = y, newx = newx, family = binomial(),
+                 learner = learner, metalearner = metalearner,
+                 subsets = subsets)
+                 
+auc &lt;- AUC(predictions = fit$pred, labels = newy)
+print(auc)  # Test set AUC is: 0.925
+
+
+# An example using the full data (i.e. subsets = 1).  
+# Here, we have an ensemble of 2 models (one for each of the 2 learners).
+# This is equivalent to the Super Learner algorithm.
+
+learner &lt;- c("SL.randomForest", "SL.glm")
+metalearner &lt;- "SL.glm"
+subsets &lt;- 1
+
+fit &lt;- subsemble(x = x, y = y, newx = newx, family = binomial(), 
+                 learner = learner, metalearner = metalearner,
+                 subsets = subsets)
+                 
+auc &lt;- AUC(predictions = fit$pred, labels = newy)
+print(auc)  # Test set AUC is: 0.935
+
+
+# Multicore subsemble via the "parallel" package.
+# To perform the cross-validation and training steps using all available cores, 
+# use the parallel = "multicore" option.
+
+# More examples and information at: https://github.com/ledell/subsemble
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,182 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spatial_clustering_cv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spatial Clustering Cross-Validation</h2>
+
+<h3>Description</h3>
+
+<p>Spatial clustering cross-validation splits the data into V groups of
+disjointed sets by clustering points based on their spatial coordinates.
+A resample of the analysis data consists of V-1 of the folds/clusters
+while the assessment set contains the final fold/cluster.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spatial_clustering_cv(
+  data,
+  v = 10,
+  cluster_function = c("kmeans", "hclust"),
+  radius = NULL,
+  buffer = NULL,
+  ...,
+  repeats = 1,
+  distance_function = function(x) as.dist(sf::st_distance(x))
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An <code>sf</code> object (often from <code>sf::read_sf()</code>
+or <code>sf::st_as_sf()</code>) to split into folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>v</code></td>
+<td>
+<p>The number of partitions of the data set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster_function</code></td>
+<td>
+<p>Which function should be used for clustering?
+Options are either <code>"kmeans"</code> (to use <code>stats::kmeans()</code>)
+or <code>"hclust"</code> (to use <code>stats::hclust()</code>). You can also provide your own
+function; see <code>Details</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>radius</code></td>
+<td>
+<p>Numeric: points within this distance of the initially-selected
+test points will be assigned to the assessment set. If <code>NULL</code>, no radius is
+applied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>buffer</code></td>
+<td>
+<p>Numeric: points within this distance of any point in the
+test set (after <code>radius</code> is applied) will be assigned to neither the analysis
+or assessment set. If <code>NULL</code>, no buffer is applied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Extra arguments passed on to <code>stats::kmeans()</code> or
+<code>stats::hclust()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>repeats</code></td>
+<td>
+<p>The number of times to repeat the clustered partitioning.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance_function</code></td>
+<td>
+<p>Which function should be used for distance
+calculations? Defaults to <code>sf::st_distance()</code>, with the output matrix
+converted to a <code>stats::dist()</code> object. You can also provide your own
+function; see Details.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Clusters are created based on the distances between observations
+if <code>data</code> is an <code>sf</code> object. Each cluster is used as a fold for
+cross-validation. Depending on how the data are distributed spatially, there
+may not be an equal number of observations in each fold.
+</p>
+<p>You can optionally provide a custom function to <code>distance_function.</code> The
+function should take an <code>sf</code> object and return a <code>stats::dist()</code> object with
+distances between data points.
+</p>
+<p>You can optionally provide a custom function to <code>cluster_function</code>. The
+function must take three arguments:
+</p>
+
+<ul>
+<li> <p><code>dists</code>, a <code>stats::dist()</code> object with distances between data points
+</p>
+</li>
+<li> <p><code>v</code>, a length-1 numeric for the number of folds to create
+</p>
+</li>
+<li> <p><code>...</code>, to pass any additional named arguments to your function
+</p>
+</li>
+</ul>
+<p>The function should return a vector of cluster assignments of length
+<code>nrow(data)</code>, with each element of the vector corresponding to the matching
+row of the data frame.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A tibble with classes <code>spatial_clustering_cv</code>, <code>spatial_rset</code>,
+<code>rset</code>, <code>tbl_df</code>, <code>tbl</code>, and <code>data.frame</code>.
+The results include a column for the data split objects and
+an identification variable <code>id</code>.
+Resamples created from non-<code>sf</code> objects will not have the
+<code>spatial_rset</code> class.
+</p>
+
+
+<h3>Changes in spatialsample 0.3.0</h3>
+
+<p>As of spatialsample version 0.3.0, this function no longer accepts non-<code>sf</code>
+objects as arguments to <code>data</code>. In order to perform clustering with
+non-spatial data, consider using <code>rsample::clustering_cv()</code>.
+</p>
+<p>Also as of version 0.3.0, this function now calculates edge-to-edge distance
+for non-point geometries, in line with the rest of the package. Earlier
+versions relied upon between-centroid distances.
+</p>
+
+
+<h3>References</h3>
+
+<p>A. Brenning, "Spatial cross-validation and bootstrap for the assessment of
+prediction rules in remote sensing: The R package sperrorest," 2012 IEEE
+International Geoscience and Remote Sensing Symposium, Munich, 2012,
+pp. 5372-5375, doi: 10.1109/IGARSS.2012.6352393.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(Smithsonian, package = "modeldata")
+
+smithsonian_sf &lt;- sf::st_as_sf(
+  Smithsonian,
+  coords = c("longitude", "latitude"),
+  # Set CRS to WGS84
+  crs = 4326
+)
+
+# When providing sf objects, coords are inferred automatically
+spatial_clustering_cv(smithsonian_sf, v = 5)
+
+# Can use hclust instead:
+spatial_clustering_cv(smithsonian_sf, v = 5, cluster_function = "hclust")
+
+</code></pre>
+
+
+</div>

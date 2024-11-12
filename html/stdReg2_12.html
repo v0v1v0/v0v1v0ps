@@ -1,0 +1,285 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>standardize_coxph</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Regression standardization in Cox proportional hazards models</h2>
+
+<h3>Description</h3>
+
+<p><code>standardize_coxph</code> performs regression standardization in Cox proportional
+hazards models at specified values of the exposure over the sample
+covariate distribution. Let <code class="reqn">T</code>, <code class="reqn">X</code>, and <code class="reqn">Z</code> be the survival
+outcome, the exposure, and a vector of covariates, respectively.
+<code>standardize_coxph</code> fits a Cox proportional hazards model and the Breslow estimator
+of the baseline hazard in order to estimate the
+standardized survival function <code class="reqn">\theta(t,x)=E\{S(t|X=x,Z)\}</code> when <code>measure = "survival"</code> or the standardized restricted mean survival up to time t <code class="reqn">\theta(t, x) = E\{\int_0^t S(u|X = x, Z) du\}</code> when <code>measure = "rmean"</code>, where
+<code class="reqn">t</code> is a specific value of <code class="reqn">T</code>, <code class="reqn">x</code> is a specific value of
+<code class="reqn">X</code>, and the expectation is over the marginal distribution of <code class="reqn">Z</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">standardize_coxph(
+  formula,
+  data,
+  values,
+  times,
+  measure = c("survival", "rmean"),
+  clusterid,
+  ci_level = 0.95,
+  ci_type = "plain",
+  contrasts = NULL,
+  family = "gaussian",
+  reference = NULL,
+  transforms = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>The formula which is used to fit the model for the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>values</code></td>
+<td>
+<p>A named list or data.frame specifying the variables and values
+at which marginal means of the outcome will be estimated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>times</code></td>
+<td>
+<p>A vector containing the specific values of <code class="reqn">T</code> at
+which to estimate the standardized survival function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>measure</code></td>
+<td>
+<p>Either "survival" to estimate the survival function at times
+or "rmean" for the restricted mean survival up to the largest of times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clusterid</code></td>
+<td>
+<p>An optional string containing the name of a cluster identification variable
+when data are clustered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci_level</code></td>
+<td>
+<p>Coverage probability of confidence intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci_type</code></td>
+<td>
+<p>A string, indicating the type of confidence intervals.
+Either "plain", which gives untransformed intervals, or "log", which gives
+log-transformed intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrasts</code></td>
+<td>
+<p>A vector of contrasts in the following format:
+If set to <code>"difference"</code> or <code>"ratio"</code>, then <code class="reqn">\psi(x)-\psi(x_0)</code>
+or <code class="reqn">\psi(x) / \psi(x_0)</code> are constructed, where <code class="reqn">x_0</code> is a reference
+level specified by the <code>reference</code> argument. Has to be <code>NULL</code>
+if no references are specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>The family argument which is used to fit the glm model for the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reference</code></td>
+<td>
+<p>A vector of reference levels in the following format:
+If <code>contrasts</code> is not <code>NULL</code>, the desired reference level(s). This
+must be a vector or list the same length as <code>contrasts</code>, and if not named,
+it is assumed that the order is as specified in contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>transforms</code></td>
+<td>
+<p>A vector of transforms in the following format:
+If set to <code>"log"</code>, <code>"logit"</code>, or <code>"odds"</code>, the standardized
+mean <code class="reqn">\theta(x)</code> is transformed into <code class="reqn">\psi(x)=\log\{\theta(x)\}</code>,
+<code class="reqn">\psi(x)=\log[\theta(x)/\{1-\theta(x)\}]</code>, or
+<code class="reqn">\psi(x)=\theta(x)/\{1-\theta(x)\}</code>, respectively.
+If the vector is <code>NULL</code>, then <code class="reqn">\psi(x)=\theta(x)</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>standardize_coxph</code> fits the Cox proportional hazards model
+</p>
+<p style="text-align: center;"><code class="reqn">\lambda(t|X,Z)=\lambda_0(t)\exp\{h(X,Z;\beta)\}.</code>
+</p>
+
+<p>Breslow's estimator of the cumulative baseline hazard
+<code class="reqn">\Lambda_0(t)=\int_0^t\lambda_0(u)du</code> is used together with the partial
+likelihood estimate of <code class="reqn">\beta</code> to obtain estimates of the survival
+function <code class="reqn">S(t|X=x,Z)</code> if <code>measure = "survival"</code>:
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{S}(t|X=x,Z)=\exp[-\hat{\Lambda}_0(t)\exp\{h(X=x,Z;\hat{\beta})\}].</code>
+</p>
+
+<p>For each <code class="reqn">t</code> in the <code>t</code> argument and for each <code class="reqn">x</code> in the
+<code>x</code> argument, these estimates are averaged across all subjects (i.e.
+all observed values of <code class="reqn">Z</code>) to produce estimates
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{\theta}(t,x)=\sum_{i=1}^n \hat{S}(t|X=x,Z_i)/n,</code>
+</p>
+<p> where <code class="reqn">Z_i</code>
+is the value of <code class="reqn">Z</code> for subject <code class="reqn">i</code>, <code class="reqn">i=1,...,n</code>.  The variance
+for <code class="reqn">\hat{\theta}(t,x)</code> is obtained by the sandwich formula.
+</p>
+<p>If <code>measure = "rmean"</code>, then <code class="reqn">\Lambda_0(t)=\int_0^t\lambda_0(u)du</code>
+is used together with the partial
+likelihood estimate of <code class="reqn">\beta</code> to obtain estimates of the restricted mean survival
+up to time t: <code class="reqn">\int_0^t S(u|X=x,Z) du</code> for each element of <code>times</code>. The estimation
+and inference is done using the method described in Chen and Tsiatis 2001.
+Currently, we can only estimate the difference in RMST for a single binary
+exposure. Two separate Cox models are fit for each level of the exposure,
+which is expected to be coded as 0/1.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>std_surv</code>.
+This is basically a list with components estimates and covariance estimates in <code>res</code>
+Results for transformations, contrasts, references are stored in <code>res_contrasts</code>.
+The output contains estimates for contrasts and confidence intervals for all
+combinations of transforms and reference levels.
+Obtain numeric results in a data frame with the tidy function.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Standardized survival functions are sometimes referred to as (direct)
+adjusted survival functions in the literature.
+</p>
+<p><code>standardize_coxph/standardize_parfrailty</code> does not currently handle time-varying exposures or
+covariates.
+</p>
+<p><code>standardize_coxph/standardize_parfrailty</code> internally loops over all values in the <code>t</code> argument.
+Therefore, the function will usually be considerably faster if
+<code>length(t)</code> is small.
+</p>
+<p>The variance calculation performed by <code>standardize_coxph</code> does not condition on
+the observed covariates <code class="reqn">\bar{Z}=(Z_1,...,Z_n)</code>. To see how this
+matters, note that
+</p>
+<p style="text-align: center;"><code class="reqn">var\{\hat{\theta}(t,x)\}=E[var\{\hat{\theta}(t,x)|\bar{Z}\}]+var[E\{\hat{\theta}(t,x)|\bar{Z}\}].</code>
+</p>
+
+<p>The usual parameter <code class="reqn">\beta</code> in a Cox proportional hazards model does not
+depend on <code class="reqn">\bar{Z}</code>. Thus, <code class="reqn">E(\hat{\beta}|\bar{Z})</code> is independent
+of <code class="reqn">\bar{Z}</code> as well (since <code class="reqn">E(\hat{\beta}|\bar{Z})=\beta</code>), so that
+the term <code class="reqn">var[E\{\hat{\beta}|\bar{Z}\}]</code> in the corresponding variance
+decomposition for <code class="reqn">var(\hat{\beta})</code> becomes equal to 0. However,
+<code class="reqn">\theta(t,x)</code> depends on <code class="reqn">\bar{Z}</code> through the average over the
+sample distribution for <code class="reqn">Z</code>, and thus the term
+<code class="reqn">var[E\{\hat{\theta}(t,x)|\bar{Z}\}]</code> is not 0, unless one conditions on
+<code class="reqn">\bar{Z}</code>. The variance calculation by Gail and Byar (1986) ignores this
+term, and thus effectively conditions on <code class="reqn">\bar{Z}</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Arvid Sjölander, Adam Brand, Michael Sachs
+</p>
+
+
+<h3>References</h3>
+
+<p>Chang I.M., Gelman G., Pagano M. (1982). Corrected group prognostic curves
+and summary statistics. <em>Journal of Chronic Diseases</em> <b>35</b>,
+669-674.
+</p>
+<p>Gail M.H. and Byar D.P. (1986). Variance calculations for direct adjusted
+survival curves, with applications to testing for no treatment effect.
+<em>Biometrical Journal</em> <b>28</b>(5), 587-599.
+</p>
+<p>Makuch R.W. (1982). Adjusted survival curve estimation using covariates.
+<em>Journal of Chronic Diseases</em> <b>35</b>, 437-443.
+</p>
+<p>Sjölander A. (2016). Regression standardization with the R-package stdReg.
+<em>European Journal of Epidemiology</em> <b>31</b>(6), 563-574.
+</p>
+<p>Sjölander A. (2018). Estimation of causal effect measures with the R-package
+stdReg. <em>European Journal of Epidemiology</em> <b>33</b>(9), 847-858.
+</p>
+<p>Chen, P. Y., Tsiatis, A. A. (2001). Causal inference on the difference of the restricted mean lifetime between two groups. <em>Biometrics</em>, <b>57</b>(4), 1030-1038.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+require(survival)
+set.seed(7)
+n &lt;- 300
+Z &lt;- rnorm(n)
+Zbin &lt;- rbinom(n, 1, .3)
+X &lt;- rnorm(n, mean = Z)
+T &lt;- rexp(n, rate = exp(X + Z + X * Z)) # survival time
+C &lt;- rexp(n, rate = exp(X + Z + X * Z)) # censoring time
+fact &lt;- factor(sample(letters[1:3], n, replace = TRUE))
+U &lt;- pmin(T, C) # time at risk
+D &lt;- as.numeric(T &lt; C) # event indicator
+dd &lt;- data.frame(Z, Zbin, X, U, D, fact)
+fit.std.surv &lt;- standardize_coxph(
+  formula = Surv(U, D) ~ X + Z + X * Z,
+  data = dd,
+  values = list(X = seq(-1, 1, 0.5)),
+  times = 1:5
+)
+print(fit.std.surv)
+plot(fit.std.surv)
+tidy(fit.std.surv)
+
+fit.std &lt;- standardize_coxph(
+  formula = Surv(U, D) ~ X + Zbin + X * Zbin + fact,
+  data = dd,
+  values = list(Zbin = 0:1),
+  times = 1.5,
+  measure = "rmean",
+  contrast = "difference",
+  reference = 0
+)
+print(fit.std)
+tidy(fit.std)
+
+</code></pre>
+
+
+</div>

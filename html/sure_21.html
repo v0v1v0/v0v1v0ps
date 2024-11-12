@@ -1,0 +1,227 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>resids</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Surrogate Residuals</h2>
+
+<h3>Description</h3>
+
+<p>Surrogate-based residuals for cumulative link and general regression models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">resids(object, ...)
+
+## Default S3 method:
+resids(object, method = c("latent", "jitter"),
+  jitter.scale = c("probability", "response"), nsim = 1L, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object of class <code>clm</code>,
+<code>glm</code>, <code>lrm</code>, <code>orm</code>,
+<code>polr</code>, <code>vgam</code> (jittering only), or
+<code>vglm</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional optional arguments. (Currently ignored.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Character string specifying the type of surrogate to use; for
+details, see Liu and Zhang (2017). Can be one of <code>"latent"</code> or
+<code>"jitter"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jitter.scale</code></td>
+<td>
+<p>Character string specifying the scale on which to perform
+the jittering. Should be one of <code>"probability"</code> or <code>"response"</code>.
+(Currently ignored for cumulative link models.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>Integer specifying the number of bootstrap replicates to use.
+Default is <code>1L</code> meaning no bootstrap samples.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A numeric vector of class <code>c("numeric", "resid")</code> containing the
+residuals. Additionally, if <code>nsim</code> &gt; 1, then the result will contain the
+attributes:
+</p>
+
+<dl>
+<dt><code>boot.reps</code></dt>
+<dd>
+<p>A matrix  with <code>nsim</code> columns, one for each
+bootstrap replicate of the residuals. Note, these are random and do not
+correspond to the original ordering of the data;</p>
+</dd>
+<dt><code>boot.id</code></dt>
+<dd>
+<p>A matrix  with <code>nsim</code> columns. Each column
+contains the observation number each residual corresponds to in
+<code>boot.reps</code>. (This is used for plotting purposes.)</p>
+</dd>
+</dl>
+<h3>Note</h3>
+
+<p>Surrogate residuals require sampling from a continuous distribution;
+consequently, the result will be different with every call to <code>resids</code>.
+The internal functions used for sampling from truncated distributions when
+<code>method = "latent"</code> are based on modified versions of
+<code>rtrunc</code> and <code>qtrunc</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Liu, Dungang and Zhang, Heping. Residuals and Diagnostics for Ordinal
+Regression Models: A Surrogate Approach.
+<em>Journal of the American Statistical Association</em> (accepted). URL
+http://www.tandfonline.com/doi/abs/10.1080/01621459.2017.1292915?journalCode=uasa20
+</p>
+<p>Nadarajah, Saralees and Kotz, Samuel. R Programs for Truncated Distributions.
+<em>Journal of Statistical Software, Code Snippet</em>, 16(2), 1-8, 2006. URL
+https://www.jstatsoft.org/v016/c02.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#
+# Residuals for binary GLMs using the jittering method
+#
+
+# Load the MASS package (for the polr function)
+library(MASS)
+
+# Simulated probit data with quadratic trend
+data(df1)
+
+# Fit logistic regression models (with and without quadratic trend)
+fit1 &lt;- polr(y ~ x + I(x ^ 2), data = df1, method = "probit")
+fit2 &lt;- polr(y ~ x, data = df1, method = "probit")
+
+# Construct residuals
+set.seed(102)  # for reproducibility
+res1 &lt;- resids(fit1)
+res2 &lt;- resids(fit2)
+
+# Residual-vs-covariate plots
+par(mfrow = c(1, 2))
+scatter.smooth(df1$x, res1, lpars = list(lwd = 2, col = "red"),
+               xlab = expression(x), ylab = "Surrogate residual",
+               main = "Correct model")
+scatter.smooth(df1$x, res2, lpars = list(lwd = 2, col = "red"),
+               xlab = expression(x), ylab = "Surrogate residual",
+               main = "Incorrect model")
+
+## Not run: 
+#
+# Residuals for cumulative link models using the latent method
+#
+
+# Load required packages
+library(ggplot2)  # for autoplot function
+library(MASS)     # for polr function
+library(ordinal)  # for clm function
+
+#
+# Detecting a misspecified mean structure
+#
+
+# Data simulated from a probit model with a quadratic trend
+data(df1)
+?df1
+
+# Fit a probit model with/without a quadratic trend
+fit.bad &lt;- polr(y ~ x, data = df1, method = "probit")
+fit.good &lt;- polr(y ~ x + I(x ^ 2), data = df1, method = "probit")
+
+# Some residual plots
+p1 &lt;- autoplot(fit.bad, what = "covariate", x = df1$x)
+p2 &lt;- autoplot(fit.bad, what = "qq")
+p3 &lt;- autoplot(fit.good, what = "covariate", x = df1$x)
+p4 &lt;- autoplot(fit.good, what = "qq")
+
+# Display all four plots together (top row corresponds to bad model)
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+#
+# Detecting heteroscedasticity
+#
+
+# Data simulated from a probit model with heteroscedasticity.
+data(df2)
+?df2
+
+# Fit a probit model with/without a quadratic trend
+fit &lt;- polr(y ~ x, data = df2, method = "probit")
+
+# Some residual plots
+p1 &lt;- autoplot(fit, what = "covariate", x = df1$x)
+p2 &lt;- autoplot(fit, what = "qq")
+p3 &lt;- autoplot(fit, what = "fitted")
+
+# Display all three plots together
+grid.arrange(p1, p2, p3, ncol = 3)
+
+#
+# Detecting a misspecified link function
+#
+
+# Data simulated from a log-log model with a quadratic trend.
+data(df3)
+?df3
+
+# Fit models with correctly specified link function
+clm.loglog &lt;- clm(y ~ x + I(x ^ 2), data = df3, link = "loglog")
+polr.loglog &lt;- polr(y ~ x + I(x ^ 2), data = df3, method = "loglog")
+
+# Fit models with misspecified link function
+clm.probit &lt;- clm(y ~ x + I(x ^ 2), data = df3, link = "probit")
+polr.probit &lt;- polr(y ~ x + I(x ^ 2), data = df3, method = "probit")
+
+# Q-Q plots of the residuals (with bootstrapping)
+p1 &lt;- autoplot(clm.probit, nsim = 50, what = "qq") +
+  ggtitle("clm: probit link")
+p2 &lt;- autoplot(clm.loglog, nsim = 50, what = "qq") +
+  ggtitle("clm: log-log link (correct link function)")
+p3 &lt;- autoplot(polr.probit, nsim = 50, what = "qq") +
+  ggtitle("polr: probit link")
+p4 &lt;- autoplot(polr.loglog, nsim = 50, what = "qq") +
+  ggtitle("polr: log-log link (correct link function)")
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+# We can also try various goodness-of-fit tests
+par(mfrow = c(1, 2))
+plot(gof(clm.probit, nsim = 50))
+plot(gof(clm.loglog, nsim = 50))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

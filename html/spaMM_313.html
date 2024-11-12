@@ -1,0 +1,143 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>diallel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Random-effect structures for diallel experiments and other dyadic interactions
+</h2>
+
+<h3>Description</h3>
+
+<p><code>ranGCA</code> and <code>diallel</code> are random-effect structures designed to represent the effet of symmetric interactions between pairs of individuals (order of individuals in the pair does not matter), while <code>antisym</code> represents anti-symmetric interactions (the effect of reciprocal ordered pairs on the outcome are opposite, as in the so-called Bradley-Terry models). These random-effect structures all account for multiple membership, i.e., the fact that the same individual may act as the first or the second individual among different pairs, or even within one pair if this makes sense).   
+</p>
+<p>More formally, the outcome of an interaction between a pair <code class="reqn">i,j</code> of agents is subject to a symmetric overall random effect <code class="reqn">v_{ij}</code> when the effect  “on” individual <code class="reqn">i</code> (or viewed from the perspective of individual <code class="reqn">i</code>) equals the effect on <code class="reqn">j</code>: <code class="reqn">v_{ij}=v_{ji}</code>. This may result from the additive effect of individual random effects <code class="reqn">v_{i}</code> and <code class="reqn">v_{j}</code>:  <code class="reqn">v_{ij}=v_i+v_j</code>, but also from non-additive effects <code class="reqn">v_{ij}=v_i+v_j+a_{ij}</code> if the interaction term  <code class="reqn">a_{ij}</code> is itself symmetric (<code class="reqn">a_{ij}=a_{ji}</code>). <code>ranGCA</code> and <code>diallel</code> effects represent such symmetric effects, additive or non-additive respectively, in a model formula (see Details for the semantic origin of these names and how they can be changed). Conversely, antisymmetry is characterized by <code class="reqn">v_{ij}=v_i-v_j=-v_{ji}</code> and is represented by the <code>antisym</code> formula term.  
+</p>
+<p>If individual-level random effects of the form (1|ID1)+ (1|ID2) were included in the model formula instead of <code>ranGCA(1|ID1+ID2)</code> for symmetric additive interactions, this would result in different variances being fitted for each random effect (breaking the assumption of symmetry), and the value of the random effect would differ for an individual whether it appears as a level of the first random effect or of the second (which is also inconsistent with the idea that the random effect represents a property of the individual). 
+</p>
+<p>When <code>ranGCA</code> or <code>antisym</code> random effects are fitted, the individual effects are inferred. By contrast, when a <code>diallel</code> random effect is fitted, an autocorrelated random effect <code class="reqn">v_{ij}</code> is inferred for each <b>unordered</b> pair (no individual effect is inferred), with correlation <code class="reqn">\rho</code> between levels for pairs sharing one individual. This correlation parameter is fitted and is constrained by <code class="reqn">\rho &lt; 0.5</code> (see Details). <code>ranGCA</code> is equivalent to the case <code class="reqn">\rho= 0.5</code>. <code>diallel</code> fits can be slow for large data if the correlation matrix is large, as this matrix can have a fair proportion of nonzero elements. 
+There may also be identifiability issues for variance parameters: in a LMM as shown in the examples, there will be three parameters for the random variation (<code>phi</code>, <code>lambda</code> and <code>rho</code>) but only two can be estimated if only one observation is made for each dyad.  
+</p>
+
+
+
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## formula terms:
+
+# ranGCA(1| &lt;.&gt; + &lt;.&gt;) 
+# antisym(1| &lt;.&gt; + &lt;.&gt;) 
+# diallel(1|  &lt;.&gt; + &lt;.&gt;, tpar, fixed = NULL, public = NULL)
+
+## where the &lt;.&gt; are two factor identifiers, ** whose levels
+## must be identical when representing the same individual **
+
+## corrFamily constructors:
+ranGCA() # no argument
+antisym() # no argument
+diallel(tpar, fixed = NULL, public = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>tpar</code></td>
+<td>
+
+<p>Numeric: template value of the correlation coefficient for pairs sharing one individual. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+
+<p>NULL or fixed value of the correlation coefficient.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>public</code></td>
+<td>
+<p>NULL, or an environment. When an empty environment is provided, a template <code>CorNA</code> for the correlation matrix (with NA's in place of <code class="reqn">\rho</code>) will be copied therein, for inspection at user level.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Although the symmetric random-effect structures may be used in many different contexts (including social network analysis, or “round robin” experiments in psychology; another possibly relevant literature keyword here is “multi membership”), their present names refer to the semantics established for diallel experiments (e.g., Lynch &amp; Walsh, 1998, p. 611), because it is not easy to find a more general yet intuitive semantics. If the names <code>ranGCA</code> and <code>diallel</code> sound inappropriate for your context of application, you can declare and use an alternative name for them, taking advantage of the fact that they are random-effect structures defined through <code>corrFamily</code> constructors, which are functions named as the formula term. For example, <code>symAdd(1|ID1+ID2)</code> can be used in a model formula after the following two steps:<br></p>
+<pre>
+# Define the 'symAdd' corrFamily constructor (a function) by copy:
+symAdd &lt;- ranGCA     
+# Associate the 'symAdd' function to 'symAdd' formula terms:
+register_cF("symAdd")  
+</pre>
+<p>In diallel experiments, one analyzes the phenotypes of offspring from multiple crosses among which the mother in a cross can be the father in another, so this is an example of multiple-membership. The additive genetic effects of each parent's genotypes are described as “general combining abilities” (GCA). In case of non-additive effect, the half-sib covariance is not half the full-sib covariance and this is represented by the interaction <code class="reqn">a_{ij}</code> described as “specific combining abilities” (SCA). The sum of GCA and SCA defines a synthetic random effect “received” by the offspring, with distinct levels for each unordered parental pair, and with correlation <code class="reqn">\rho</code> between effects received by half-sibs (one shared parent). <code class="reqn">\rho</code> corresponds to var(GCA)/[2*var(GCA)+var(SCA)] and is necessarily <code class="reqn">\le 0.5</code>. 
+</p>
+<p>See the <code>X.GCA</code> documentation for similar constructs for fixed effects.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The functions return corrFamily descriptors whose general format is described in <code>corrFamily</code>. The ones produced by <code>ranGCA</code> and <code>antisym</code> are atypical in that only their <code>Af</code> element is non-trivial.
+</p>
+
+
+<h3>References</h3>
+
+<p>Lynch, M., Walsh, B. (1998) Genetics and analysis of quantitative traits. Sinauer, Sunderland, Mass.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#### Simulate dyadic data
+
+set.seed(123)
+nind &lt;- 10       # Beware data grow as O(nind^2)
+x &lt;- runif(nind^2) 
+id12 &lt;- expand.grid(id1=seq(nind),id2=seq(nind))
+id1 &lt;- id12$id1
+id2 &lt;- id12$id2
+u &lt;-  rnorm(nind,mean = 0, sd=0.5)
+
+## additive individual effects:
+y &lt;-  0.1 + 1*x + u[id1] +  u[id2] + rnorm(nind^2,sd=0.2)
+
+## Same with non-additive individual effects:
+dist.u &lt;- abs(u[id1] -  u[id2])
+z &lt;- 0.1 + 1*x + dist.u + rnorm(nind^2,sd=0.2)
+
+## anti-smmetric individual effects:
+t &lt;-  0.1 + 1*x + u[id1] - u[id2] + rnorm(nind^2,sd=0.2)
+
+dyaddf &lt;- data.frame(x=x, y=y, z=z, t=t, id1=id1,id2=id2)
+# : note that this contains two rows per dyad, which avoids identifiability issues.
+
+# Enforce that interactions are between distinct individuals (not essential for the fit):
+dyaddf &lt;- dyaddf[- seq.int(1L,nind^2,nind+1L),] 
+
+
+# Fits:
+
+(addfit &lt;- fitme(y ~x +ranGCA(1|id1+id2), data=dyaddf))
+#
+# practically equivalent to:
+#
+(fitme(y ~x +diallel(1|id1+id2, fixed=0.49999), data=dyaddf))
+
+(antifit &lt;- fitme(t ~x +antisym(1|id1+id2), data=dyaddf))
+
+(distfit &lt;- fitme(z ~x +diallel(1|id1+id2), data=dyaddf)) 
+     
+</code></pre>
+
+
+</div>

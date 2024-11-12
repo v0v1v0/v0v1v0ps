@@ -1,0 +1,323 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>chat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Overdispersion of Activity Centres</h2>
+
+<h3>Description</h3>
+
+<p>Activity centres may be clumped (overdispersed) relative to a Poisson distribution,
+the model used in <code>secr.fit</code> (Borchers and Efford 2008). This can cause 
+the sampling variance of density estimates to be understated. One solution currently under investigation is to apply a variance inflation factor, a measure of overdispersion, based on the number of individuals detected at each detector (Bischof et al. 2020).
+</p>
+<p>Functions described here compute the observed (nk) or expected (Enk) number of individuals detected at each detector and use that to compute Fletcher's <code class="reqn">\hat c</code> estimate of overdispersion 
+for use as a variance inflation factor. 
+</p>
+<p><code>Enk</code> uses exact formulae for 'multi', 'proximity' and 'count' detector types. Other types may be simulated by setting a positive value for 'nrepl', which should be large (e.g., nrepl = 10000).
+</p>
+<p><code>adjustVarD</code> adjusts the SE and confidence limits of density estimates 
+using Fletcher's <code class="reqn">\hat c</code>. The implementation is limited to simple detection models 
+(see Warnings).
+</p>
+<p>See Cooch and White (2022) for an introduction to measurement of overdispersion 
+in capture–recapture. The focus here is on overdispersion of activity centres 
+relative to a Poisson distribution, rather than on non-independence in the 
+spatial detection process.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+nk(capthist)
+
+Enk(D, mask, traps, detectfn = 0, detectpar = list(g0 = 0.2,
+    sigma = 25, z = 1), noccasions = NULL, binomN = NULL,
+    userdist = NULL, ncores = NULL, nrepl = NULL) 
+
+chat.nk(object, nsim = NULL, ...)
+
+adjustVarD(object, chatmin = 1, alpha = 0.05, chat = NULL)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>capthist</code></td>
+<td>
+<p>secr <code>capthist</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>numeric density, either scalar or vector of length nrow(mask)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+<p>single-session habitat mask</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>traps</code></td>
+<td>
+ <p><code>traps</code> object </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectfn</code></td>
+<td>
+<p> integer code for detection function q.v. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectpar</code></td>
+<td>
+<p> a named list giving a value for each parameter of detection function </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noccasions</code></td>
+<td>
+<p> number of sampling intervals (occasions) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binomN</code></td>
+<td>
+<p> integer code for discrete distribution (see
+<code>secr.fit</code>) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>userdist</code></td>
+<td>
+<p>user-defined distance function or matrix (see userdist)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>integer number of threads</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nrepl</code></td>
+<td>
+<p>integer number of replicates for E(nk) by simulation (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>fitted secr model or dataframe (see Warnings for restrictions)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>integer number of c-hat values to simulate (optional) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments passed to <code>Fletcher.chat</code> (verbose, type)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chatmin</code></td>
+<td>
+<p>minimum value of Fletcher's <code class="reqn">\hat c</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>alpha level for confidence intervals </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chat</code></td>
+<td>
+<p>numeric chat (optional)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <code>traps</code> has a usage attribute then <code>noccasions</code> is
+set accordingly; otherwise it must be provided.
+</p>
+<p>The environment variable RCPP_PARALLEL_NUM_THREADS determines the number of 
+parallel threads. It is set to the value of <code>ncores</code>, unless that is NULL 
+(see <code>setNumThreads</code>).
+</p>
+<p>A conventional variance inflation factor due to Wedderburn (1974) is
+<code class="reqn">\hat c_X = X^2/(K-p)</code> where <code class="reqn">K</code> is the number of detectors,  <code class="reqn">p</code> is the number of estimated parameters, and 
+</p>
+<p style="text-align: center;"><code class="reqn">X^2 = \sum_k (n_k - E (n_k))^2/  E(n_k).</code>
+</p>
+ 
+<p>Fletcher's <code class="reqn">\hat c</code> is an improvement on <code class="reqn">\hat c_X</code> that is less affected 
+by small expected counts. It is defined by
+</p>
+<p style="text-align: center;"><code class="reqn">\hat c = c_X / (1+ \bar s),</code>
+</p>
+ 
+<p>where <code class="reqn">\bar s = \sum_k s_k / K</code> and <code class="reqn">s_k = (n_k - E(n_k)) / E(n_k)</code>.
+</p>
+<p><code>chat.nk</code> may be used to simulate <code class="reqn">\hat c</code> values under the given model (set nsim &gt; 0). The ... argument may include 'ncores = x' (x&gt;1) to specify parallel processing of simulations - the speed up is large on unix-like machines for which the cluster type of <code>makeCluster</code> is "FORK" rather than "PSOCK". If 'ncores' is not provided then the value returned by <code>setNumThreads()</code> is used.
+</p>
+<p>No adjustment is made by <code>adjustVarD</code> when <code class="reqn">\hat c</code> is less than the 
+minimum. <code>adjustVarD</code> by default computes Fletcher's ‘chat’ using <code>chat.nk</code>, 
+but a value may be provided.
+</p>
+<p>If chat has been computed separately and provided in the argument of that name, <code>adjustVarD</code> also accepts a single dataframe as the argument ‘object’; the dataframe should have row ‘D’ and columns ‘link’, ‘estimate’, ‘SE.estimate’ as in the output from <code>predict.secr</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>For <code>nk</code>, a vector of observed counts, one for each detector in <code>traps(capthist)</code>.
+</p>
+<p>For <code>Enk</code>, a vector of expected counts, one for each detector in <code>traps</code>.
+</p>
+<p>For <code>chat.nk</code>, usually a list comprising –
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>expected.nk</code></td>
+<td>
+<p>expected number at each detector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nk</code></td>
+<td>
+<p>observed number at each detector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stats</code></td>
+<td>
+<p>vector of summary statistics: mean(expected.nk), var(expected.nk), mean(nk), var(nk), nu (=df), X2/nu</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chat</code></td>
+<td>
+<p><code class="reqn">\hat c</code> (Fletcher or Wedderburn depending on ‘type’)</p>
+</td>
+</tr>
+</table>
+<p>There are two variations –
+</p>
+<p>If ‘verbose = FALSE’ then only the numeric value of <code class="reqn">\hat c</code> is returned (a vector of 2 values if ‘type = "both"’).
+</p>
+<p>If <code>chat.nk</code> is called with ‘nsim &gt; 0’ then the output is a list comprising –
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim.chat</code></td>
+<td>
+<p>vector of simulated <code class="reqn">\hat c</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chat</code></td>
+<td>
+<p><code class="reqn">\hat c</code> (Fletcher or Wedderburn depending on ‘type’)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>probability of observing <code class="reqn">\hat c</code> as large as this (from rank of chat among sim.chat)</p>
+</td>
+</tr>
+</table>
+<p>For <code>adjustVarD</code>, a dataframe with one row for each session, based on <code>predict.secr</code> or <code>derived.secr</code>, with extra column ‘c-hat’.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>These functions are experimental in secr 4.6, and do not work with 
+polygon-like and single-catch detectors. No allowance is made for modelled variation in 
+detection parameters with respect to occasion, detector or animal; 
+this includes mixture models (e.g., g0~h2).
+</p>
+<p>Versions before 4.5.11 did not correctly compute expected counts for multi-catch detectors. 
+</p>
+<p>Furthermore, we doubt that the adjustment actually solves the problem of 
+overdispersion (Efford and Fletcher unpubl.).
+</p>
+
+
+<h3>References</h3>
+
+<p>Bischof, R., P. Dupont, C. Milleret, J. Chipperfield, and J. A. Royle. 2020. Consequences of ignoring group association in spatial capture–recapture analysis. <em>Wildlife Biology</em> wlb.00649. DOI 10.2981/wlb.00649
+</p>
+<p>Cooch, E. and White, G. (eds) (2022) <em>Program MARK: A Gentle Introduction</em>. 
+22nd edition. Most recent edition available online at www.phidot.org/software/mark/docs/book/.
+</p>
+<p>Fletcher, D. (2012) Estimating overdispersion when fitting a generalized linear model to sparse data.
+<em>Biometrika</em> <b>99</b>, 230–237.
+</p>
+<p>Wedderburn, R. W. M. (1974) Quasi-likelihood functions, generalized linear models, and the Gauss-Newton
+method. <em>Biometrika</em> <b>61</b>, 439–47.
+</p>
+
+
+<h3>See Also</h3>
+
+ 
+<p><code>secr</code>, 
+<code>make.mask</code>,
+<code>Detection functions</code>, 
+<code>Fletcher.chat</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+  temptrap &lt;- make.grid()
+  msk &lt;- make.mask(temptrap)
+  ## expected number of individuals per detector (multi-catch) 
+  Enk (D = 5, msk, temptrap, detectpar = list(g0 = 0.2, sigma = 25),
+    noccasions = 5)
+
+
+
+# useful plotting function for simulated chat (nsim&gt;0)
+plotchat &lt;- function(chat, head = '', breaks = seq(0.5,2.5,0.05)) {
+    hist(chat$sim.chat, xlim = range(breaks), main = head, xlab = 'c-hat',
+        breaks = breaks, cex.main = 1, yaxs = 'i')
+    abline(v = chat$chat, lwd = 1.5, col = 'blue')
+}
+
+</code></pre>
+
+
+</div>

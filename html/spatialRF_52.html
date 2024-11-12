@@ -1,0 +1,185 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rf_compare</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compares models via spatial cross-validation</h2>
+
+<h3>Description</h3>
+
+<p>Uses <code>rf_evaluate()</code> to compare the performance of several models on independent spatial folds via spatial cross-validation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rf_compare(
+  models = NULL,
+  xy = NULL,
+  repetitions = 30,
+  training.fraction = 0.75,
+  metrics = c("r.squared", "pseudo.r.squared", "rmse", "nrmse", "auc"),
+  distance.step = NULL,
+  distance.step.x = NULL,
+  distance.step.y = NULL,
+  fill.color = viridis::viridis(100, option = "F", direction = -1, alpha = 0.8),
+  line.color = "gray30",
+  seed = 1,
+  verbose = TRUE,
+  n.cores = parallel::detectCores() - 1,
+  cluster = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>models</code></td>
+<td>
+<p>Named list with models resulting from <code>rf()</code>, <code>rf_spatial()</code>, <code>rf_tuning()</code>, or <code>rf_evaluate()</code>. Example: <code>models = list(a = model.a, b = model.b)</code>. Default: <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xy</code></td>
+<td>
+<p>Data frame or matrix with two columns containing coordinates and named "x" and "y". Default: <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>repetitions</code></td>
+<td>
+<p>Integer, number of spatial folds to use during cross-validation. Must be lower than the total number of rows available in the model's data. Default: <code>30</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>training.fraction</code></td>
+<td>
+<p>Proportion between 0.5 and 0.9 indicating the proportion of records to be used as training set during spatial cross-validation. Default: <code>0.75</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metrics</code></td>
+<td>
+<p>Character vector, names of the performance metrics selected. The possible values are: "r.squared" (<code>cor(obs, pred) ^ 2</code>), "pseudo.r.squared" (<code>cor(obs, pred)</code>), "rmse" (<code>sqrt(sum((obs - pred)^2)/length(obs))</code>), "nrmse" (<code>rmse/(quantile(obs, 0.75) - quantile(obs, 0.25))</code>). Default: <code>c("r.squared", "pseudo.r.squared", "rmse", "nrmse")</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.step</code></td>
+<td>
+<p>Numeric, argument <code>distance.step</code> of <code>thinning_til_n()</code>. distance step used during the selection of the centers of the training folds. These fold centers are selected by thinning the data until a number of folds equal or lower than <code>repetitions</code> is reached. Its default value is 1/1000th the maximum distance within records in <code>xy</code>. Reduce it if the number of training folds is lower than expected.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.step.x</code></td>
+<td>
+<p>Numeric, argument <code>distance.step.x</code> of <code>make_spatial_folds()</code>. Distance step used during the growth in the x axis of the buffers defining the training folds. Default: <code>NULL</code> (1/1000th the range of the x coordinates).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.step.y</code></td>
+<td>
+<p>Numeric, argument <code>distance.step.x</code> of <code>make_spatial_folds()</code>. Distance step used during the growth in the y axis of the buffers defining the training folds. Default: <code>NULL</code> (1/1000th the range of the y coordinates).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fill.color</code></td>
+<td>
+<p>Character vector with hexadecimal codes (e.g. "#440154FF" "#21908CFF" "#FDE725FF"), or function generating a palette (e.g. <code>viridis::viridis(100)</code>). Default: <code>viridis::viridis(100, option = "F", direction = -1)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>line.color</code></td>
+<td>
+<p>Character string, color of the line produced by <code>ggplot2::geom_smooth()</code>. Default: <code>"gray30"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Integer, random seed to facilitate reproduciblity. If set to a given number, the results of the function are always the same. Default: <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, messages and plots generated during the execution of the function are displayed, Default: <code>TRUE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.cores</code></td>
+<td>
+<p>Integer, number of cores to use for parallel execution. Creates a socket cluster with <code>parallel::makeCluster()</code>, runs operations in parallel with <code>foreach</code> and <code style="white-space: pre;">⁠%dopar%⁠</code>, and stops the cluster with <code>parallel::clusterStop()</code> when the job is done. Default: <code>parallel::detectCores() - 1</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+<p>A cluster definition generated with <code>parallel::makeCluster()</code>. If provided, overrides <code>n.cores</code>. When <code>cluster = NULL</code> (default value), and <code>model</code> is provided, the cluster in <code>model</code>, if any, is used instead. If this cluster is <code>NULL</code>, then the function uses <code>n.cores</code> instead. The function does not stop a provided cluster, so it should be stopped with <code>parallel::stopCluster()</code> afterwards. The cluster definition is stored in the output list under the name "cluster" so it can be passed to other functions via the <code>model</code> argument, or using the <code style="white-space: pre;">⁠%&gt;%⁠</code> pipe. Default: <code>NULL</code></p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with three slots:
+</p>
+
+<ul>
+<li> <p><code>comparison.df</code>: Data frame with one performance value per spatial fold, metric, and model.
+</p>
+</li>
+<li> <p><code>spatial.folds</code>: List with the indices of the training and testing records for each evaluation repetition.
+</p>
+</li>
+<li> <p><code>plot</code>: Violin-plot of <code>comparison.df</code>.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>rf_evaluate()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if(interactive()){
+
+ #loading example data
+ data(distance_matrix)
+ data(plant_richness_df)
+
+ #fitting random forest model
+ rf.model &lt;- rf(
+   data = plant_richness_df,
+   dependent.variable.name = "richness_species_vascular",
+   predictor.variable.names = colnames(plant_richness_df)[5:21],
+   distance.matrix = distance_matrix,
+   distance.thresholds = 0,
+   n.cores = 1
+ )
+
+ #fitting a spatial model with Moran's Eigenvector Maps
+ rf.spatial &lt;- rf_spatial(
+ model = rf.model,
+ n.cores = 1
+ )
+
+ #comparing the spatial and non spatial models
+ comparison &lt;- rf_compare(
+ models = list(
+   `Non spatial` = rf.model,
+   Spatial = rf.spatial
+ ),
+ xy = plant_richness_df[, c("x", "y")],
+ metrics = c("r.squared", "rmse"),
+ n.cores = 1
+ )
+
+}
+</code></pre>
+
+
+</div>

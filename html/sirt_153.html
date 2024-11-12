@@ -1,0 +1,261 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>IRT.mle</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Person Parameter Estimation
+</h2>
+
+<h3>Description</h3>
+
+<p>Computes the maximum likelihood estimate (MLE),
+weighted likelihood estimate (WLE) and maximum aposterior
+estimate (MAP) of ability in unidimensional item response models
+(Penfield &amp; Bergeron, 2005; Warm, 1989). Item response functions can be
+defined by the user.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">IRT.mle(data, irffct, arg.list, theta=rep(0,nrow(data)), type="MLE",
+     mu=0, sigma=1, maxiter=20, maxincr=3, h=0.001, convP=1e-04,
+     maxval=9, progress=TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>Data frame with item responses
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>irffct</code></td>
+<td>
+
+<p>User defined item response (see Examples). Arguments must be
+specified in <code>arg.list</code>. The function must contain <code>theta</code>
+and <code>ii</code> (item index) as arguments.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+
+<p>Initial ability estimate
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>arg.list</code></td>
+<td>
+
+<p>List of arguments for <code>irffct</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Type of ability estimate. It can be <code>"MLE"</code> (the default),
+<code>"WLE"</code> or <code>"MAP"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>Mean of normal prior distribution (for <code>type="MAP"</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>Standard deviation of normal prior distribution (for <code>type="MAP"</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+
+<p>Maximum number of iterations
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxincr</code></td>
+<td>
+
+<p>Maximum increment
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+
+<p>Numerical differentiation parameter
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>convP</code></td>
+<td>
+
+<p>Convergence criterion
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxval</code></td>
+<td>
+
+<p>Maximum ability value to be estimated
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+
+<p>Logical indicating whether iteration progress should be displayed
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Data frame with estimated abilities (<code>est</code>) and its standard error
+(<code>se</code>).
+</p>
+
+
+<h3>References</h3>
+
+<p>Penfield, R. D., &amp; Bergeron, J. M. (2005). Applying a weighted
+maximum likelihood latent trait estimator to the generalized
+partial credit model. <em>Applied Psychological Measurement,
+29</em>, 218-233.
+</p>
+<p>Warm, T. A. (1989). Weighted likelihood estimation of ability in item response theory.
+<em>Psychometrika, 54</em>, 427-450.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See also the <span class="pkg">PP</span> package for further person parameter
+estimation methods.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+#############################################################################
+# EXAMPLE 1: Generalized partial credit model
+#############################################################################
+
+data(data.ratings1)
+dat &lt;- data.ratings1
+
+# estimate model
+mod1 &lt;- sirt::rm.facets( dat[, paste0( "k",1:5) ], rater=dat$rater,
+             pid=dat$idstud, maxiter=15)
+# extract dataset and item parameters
+data &lt;- mod1$procdata$dat2.NA
+a &lt;- mod1$ipars.dat2$a
+b &lt;- mod1$ipars.dat2$b
+theta0 &lt;- mod1$person$EAP
+# define item response function for item ii
+calc.pcm &lt;- function( theta, a, b, ii ){
+    K &lt;- ncol(b)
+    N &lt;- length(theta)
+    matrK &lt;- matrix( 0:K, nrow=N, ncol=K+1, byrow=TRUE)
+    eta &lt;- a[ii] * theta * matrK - matrix( c(0,b[ii,]), nrow=N, ncol=K+1, byrow=TRUE)
+    eta &lt;- exp(eta)
+    probs &lt;- eta / rowSums(eta, na.rm=TRUE)
+    return(probs)
+}
+arg.list &lt;- list("a"=a, "b"=b )
+
+# MLE
+abil1 &lt;- sirt::IRT.mle( data, irffct=calc.pcm, theta=theta0, arg.list=arg.list )
+str(abil1)
+# WLE
+abil2 &lt;- sirt::IRT.mle( data, irffct=calc.pcm, theta=theta0, arg.list=arg.list, type="WLE")
+str(abil2)
+# MAP with prior distribution N(.2, 1.3)
+abil3 &lt;- sirt::IRT.mle( data, irffct=calc.pcm, theta=theta0, arg.list=arg.list,
+              type="MAP", mu=.2, sigma=1.3 )
+str(abil3)
+
+#############################################################################
+# EXAMPLE 2: Rasch model
+#############################################################################
+
+data(data.read)
+dat &lt;- data.read
+I &lt;- ncol(dat)
+
+# estimate Rasch model
+mod1 &lt;- sirt::rasch.mml2( dat )
+summary(mod1)
+
+# define item response function
+irffct &lt;- function( theta, b, ii){
+    eta &lt;- exp( theta - b[ii] )
+    probs &lt;- eta / ( 1 + eta )
+    probs &lt;- cbind( 1 - probs, probs )
+    return(probs)
+}
+# initial person parameters and item parameters
+theta0 &lt;- mod1$person$EAP
+arg.list &lt;- list( "b"=mod1$item$b  )
+
+# estimate WLE
+abil &lt;- sirt::IRT.mle( data=dat, irffct=irffct, arg.list=arg.list,
+            theta=theta0, type="WLE")
+# compare with wle.rasch function
+theta &lt;- sirt::wle.rasch( dat, b=mod1$item$b )
+cbind( abil[,1], theta$theta, abil[,2], theta$se.theta )
+
+#############################################################################
+# EXAMPLE 3: Ramsay quotient model
+#############################################################################
+
+data(data.read)
+dat &lt;- data.read
+I &lt;- ncol(dat)
+
+# estimate Ramsay model
+mod1 &lt;- sirt::rasch.mml2( dat, irtmodel="ramsay.qm" )
+summary(mod1)
+# define item response function
+irffct &lt;- function( theta, b, K, ii){
+    eta &lt;- exp( theta / b[ii] )
+    probs &lt;- eta / ( K[ii] + eta )
+    probs &lt;- cbind( 1 - probs, probs )
+    return(probs)
+}
+# initial person parameters and item parameters
+theta0 &lt;- exp( mod1$person$EAP )
+arg.list &lt;- list( "b"=mod1$item2$b, "K"=mod1$item2$K )
+# estimate MLE
+res &lt;- sirt::IRT.mle( data=dat, irffct=irffct, arg.list=arg.list, theta=theta0,
+            maxval=20, maxiter=50)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

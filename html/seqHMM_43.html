@@ -1,0 +1,177 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simulate_mhmm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate Mixture Hidden Markov Models</h2>
+
+<h3>Description</h3>
+
+<p>Simulate sequences of observed and hidden states given the parameters of a mixture
+hidden Markov model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simulate_mhmm(
+  n_sequences,
+  initial_probs,
+  transition_probs,
+  emission_probs,
+  sequence_length,
+  formula,
+  data,
+  coefficients
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n_sequences</code></td>
+<td>
+<p>The number of simulations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initial_probs</code></td>
+<td>
+<p>A list containing vectors of initial state probabilities
+for the submodel of each cluster.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>transition_probs</code></td>
+<td>
+<p>A list of matrices of transition probabilities
+for the submodel of each cluster.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>emission_probs</code></td>
+<td>
+<p>A list which contains matrices of emission
+probabilities or a list of such objects (one for each channel) for
+the submodel of each cluster. Note that the matrices must have
+dimensions <code class="reqn">s x m</code> where <code class="reqn">s</code> is the number of hidden states
+and <code class="reqn">m</code> is the number of unique symbols (observed states) in the
+data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sequence_length</code></td>
+<td>
+<p>The length of the simulated sequences.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Covariates as an object of class <code>formula</code>,
+left side omitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An optional data frame, a list or an environment containing
+the variables in the model. If not found in data, the variables are
+taken from <code>environment(formula)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coefficients</code></td>
+<td>
+<p>An optional <code class="reqn">k x l</code> matrix of regression
+coefficients for time-constant covariates for mixture probabilities,
+where <code class="reqn">l</code> is the number of clusters and <code class="reqn">k</code> is the number of
+covariates. A logit-link is used for mixture probabilities. The first
+column is set to zero.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of state sequence objects of class <code>stslist</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>build_mhmm</code> and <code>fit_model</code> for building
+and fitting mixture hidden Markov models; <code>ssplot</code> for plotting
+multiple sequence data sets; <code>seqdef</code> for more
+information on state sequence objects; and <code>simulate_hmm</code>
+for simulating hidden Markov models.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">emission_probs_1 &lt;- matrix(c(0.75, 0.05, 0.25, 0.95), 2, 2)
+emission_probs_2 &lt;- matrix(c(0.1, 0.8, 0.9, 0.2), 2, 2)
+colnames(emission_probs_1) &lt;- colnames(emission_probs_2) &lt;-
+  c("heads", "tails")
+
+transition_probs_1 &lt;- matrix(c(9, 0.1, 1, 9.9) / 10, 2, 2)
+transition_probs_2 &lt;- matrix(c(35, 1, 1, 35) / 36, 2, 2)
+rownames(emission_probs_1) &lt;- rownames(transition_probs_1) &lt;-
+  colnames(transition_probs_1) &lt;- c("coin 1", "coin 2")
+rownames(emission_probs_2) &lt;- rownames(transition_probs_2) &lt;-
+  colnames(transition_probs_2) &lt;- c("coin 3", "coin 4")
+
+initial_probs_1 &lt;- c(1, 0)
+initial_probs_2 &lt;- c(1, 0)
+
+n &lt;- 30
+set.seed(123)
+covariate_1 &lt;- runif(n)
+covariate_2 &lt;- sample(c("A", "B"),
+  size = n, replace = TRUE,
+  prob = c(0.3, 0.7)
+)
+dataf &lt;- data.frame(covariate_1, covariate_2)
+
+coefs &lt;- cbind(cluster_1 = c(0, 0, 0), cluster_2 = c(-1.5, 3, -0.7))
+rownames(coefs) &lt;- c("(Intercept)", "covariate_1", "covariate_2B")
+
+sim &lt;- simulate_mhmm(
+  n = n, initial_probs = list(initial_probs_1, initial_probs_2),
+  transition_probs = list(transition_probs_1, transition_probs_2),
+  emission_probs = list(emission_probs_1, emission_probs_2),
+  sequence_length = 20, formula = ~ covariate_1 + covariate_2,
+  data = dataf, coefficients = coefs
+)
+
+ssplot(sim$observations,
+  hidden.paths = sim$states, plots = "both",
+  sortv = "from.start", sort.channel = 0, type = "I"
+)
+
+hmm &lt;- build_mhmm(sim$observations,
+  initial_probs = list(initial_probs_1, initial_probs_2),
+  transition_probs = list(transition_probs_1, transition_probs_2),
+  emission_probs = list(emission_probs_1, emission_probs_2),
+  formula = ~ covariate_1 + covariate_2,
+  data = dataf
+)
+
+fit &lt;- fit_model(hmm)
+fit$model
+
+paths &lt;- hidden_paths(fit$model)
+
+ssplot(list(estimates = paths, true = sim$states),
+  sortv = "from.start",
+  sort.channel = 2, ylab = c("estimated paths", "true (simulated)"),
+  type = "I"
+)
+
+</code></pre>
+
+
+</div>

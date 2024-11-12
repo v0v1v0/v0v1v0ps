@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim_fixed_n</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulation of fixed sample size design for time-to-event endpoint</h2>
+
+<h3>Description</h3>
+
+<p><code>sim_fixed_n()</code> provides simulations of a single endpoint two-arm trial
+where the enrollment, hazard ratio, and failure and dropout rates change
+over time.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim_fixed_n(
+  n_sim = 1000,
+  sample_size = 500,
+  target_event = 350,
+  stratum = data.frame(stratum = "All", p = 1),
+  enroll_rate = data.frame(duration = c(2, 2, 10), rate = c(3, 6, 9)),
+  fail_rate = data.frame(stratum = "All", duration = c(3, 100), fail_rate = log(2)/c(9,
+    18), hr = c(0.9, 0.6), dropout_rate = rep(0.001, 2)),
+  total_duration = 30,
+  block = rep(c("experimental", "control"), 2),
+  timing_type = 1:5,
+  rho_gamma = data.frame(rho = 0, gamma = 0)
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n_sim</code></td>
+<td>
+<p>Number of simulations to perform.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample_size</code></td>
+<td>
+<p>Total sample size per simulation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target_event</code></td>
+<td>
+<p>Targeted event count for analysis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratum</code></td>
+<td>
+<p>A data frame with stratum specified in <code>stratum</code>,
+probability (incidence) of each stratum in <code>p</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>enroll_rate</code></td>
+<td>
+<p>Piecewise constant enrollment rates by time period.
+Note that these are overall population enrollment rates and the <code>stratum</code>
+argument controls the random distribution between stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fail_rate</code></td>
+<td>
+<p>Piecewise constant control group failure rates, hazard ratio
+for experimental vs. control, and dropout rates by stratum and time period.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>total_duration</code></td>
+<td>
+<p>Total follow-up from start of enrollment to data cutoff.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>block</code></td>
+<td>
+<p>As in <code>sim_pw_surv()</code>. Vector of treatments to be included
+in each block.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timing_type</code></td>
+<td>
+<p>A numeric vector determining data cutoffs used;
+see details. Default is to include all available cutoff methods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho_gamma</code></td>
+<td>
+<p>A data frame with variables
+<code>rho</code> and <code>gamma</code>, both greater than equal to zero,
+to specify one Fleming-Harrington weighted logrank test per row.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>timing_type</code> has up to 5 elements indicating different options
+for data cutoff:
+</p>
+
+<ul>
+<li> <p><code>1</code>: Uses the planned study duration.
+</p>
+</li>
+<li> <p><code>2</code>: The time the targeted event count is achieved.
+</p>
+</li>
+<li> <p><code>3</code>: The planned minimum follow-up after enrollment is complete.
+</p>
+</li>
+<li> <p><code>4</code>: The maximum of planned study duration and targeted event count cuts
+(1 and 2).
+</p>
+</li>
+<li> <p><code>5</code>: The maximum of targeted event count and minimum follow-up cuts
+(2 and 3).
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>A data frame including columns:
+</p>
+
+<ul>
+<li> <p><code>event</code>: Event count.
+</p>
+</li>
+<li> <p><code>ln_hr</code>: Log-hazard ratio.
+</p>
+</li>
+<li> <p><code>z</code>: Normal test statistic; &lt; 0 favors experimental.
+</p>
+</li>
+<li> <p><code>cut</code>: Text describing cutoff used.
+</p>
+</li>
+<li> <p><code>duration</code>: Duration of trial at cutoff for analysis.
+</p>
+</li>
+<li> <p><code>sim</code>: Sequential simulation ID.
+</p>
+</li>
+</ul>
+<p>One row per simulated dataset per cutoff specified in <code>timing_type</code>,
+per test statistic specified.
+If multiple Fleming-Harrington tests are specified in <code>rho_gamma</code>,
+then columns <code>rho</code> and <code>gamma</code> are also included.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(dplyr)
+library(future)
+
+# Example 1: logrank test ----
+x &lt;- sim_fixed_n(n_sim = 10, timing_type = 1, rho_gamma = data.frame(rho = 0, gamma = 0))
+# Get power approximation
+mean(x$z &lt;= qnorm(.025))
+
+# Example 2: WLR with FH(0,1) ----
+sim_fixed_n(n_sim = 1, timing_type = 1, rho_gamma = data.frame(rho = 0, gamma = 1))
+# Get power approximation
+mean(x$z &lt;= qnorm(.025))
+
+
+# Example 3: MaxCombo, i.e., WLR-FH(0,0)+ WLR-FH(0,1)
+# Power by test
+# Only use cuts for events, events + min follow-up
+x &lt;- sim_fixed_n(
+  n_sim = 10,
+  timing_type = 2,
+  rho_gamma = data.frame(rho = 0, gamma = c(0, 1))
+)
+
+# Get power approximation
+x |&gt;
+  group_by(sim) |&gt;
+  filter(row_number() == 1) |&gt;
+  ungroup() |&gt;
+  summarize(power = mean(p_value &lt; .025))
+
+# Example 4
+# Use two cores
+set.seed(2023)
+plan("multisession", workers = 2)
+sim_fixed_n(n_sim = 10)
+plan("sequential")
+
+
+</code></pre>
+
+
+</div>

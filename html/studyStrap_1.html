@@ -1,0 +1,231 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cmss</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Covariate-Matched Study Strap for Multi-Study Learning: Fits accept/reject algorithm based on covariate similarity measure</h2>
+
+<h3>Description</h3>
+
+<p>Covariate-Matched Study Strap for Multi-Study Learning: Fits accept/reject algorithm based on covariate similarity measure
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cmss(formula = Y ~ ., data, target.study, sim.fn = NA,
+  converge.lim = 50000, bag.size = length(unique(data$Study)),
+  max.straps = 150, paths = 5, stack = "standard", sim.covs = NA,
+  ssl.method = list("lm"), ssl.tuneGrid = list(c()), sim.mets = TRUE,
+  model = FALSE, meanSampling = FALSE, customFNs = list(),
+  stack.standardize = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Model formula</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataframe with all the studies has the following columns in this order: "Study", "Y", "V1", ...., "Vp"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target.study</code></td>
+<td>
+<p>Dataframe of the design matrix (just covariates) of study one aims to make predictions on</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim.fn</code></td>
+<td>
+<p>Optional function to be used as similarity measure for accept/reject step. Default function is: |cor( barx^(r)|,~ barx_target ) |</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>converge.lim</code></td>
+<td>
+<p>Integer indicating the number of consecutive rejected study straps to reach convergence criteria.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bag.size</code></td>
+<td>
+<p>Integer indicating the bag size tuning parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.straps</code></td>
+<td>
+<p>Integer indicating the maximum number of accepted straps that can be fit across all paths before the algorithm stops accepting new study straps.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>paths</code></td>
+<td>
+<p>Integer indicating the number of paths (an accept/reject path is all of the models accepted before reaching one convergence criteria).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stack</code></td>
+<td>
+<p>String determining whether stacking matrix made on training studies "standard" or on the accepted study straps "ss." Default: "standard."</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim.covs</code></td>
+<td>
+<p>Is a vector of names of covariates or the column numbers of the covariates to be used for the similarity measure. Default is to use all covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ssl.method</code></td>
+<td>
+<p>A list of strings indicating which modeling methods to use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ssl.tuneGrid</code></td>
+<td>
+<p>A list of the tuning parameters in the format of the caret package. Each element must be a dataframe (as required by caret). If no tuning parameters are required then NA is indicated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim.mets</code></td>
+<td>
+<p>Boolean indicating whether to calculate default covariate profile similarity measures.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Indicates whether to attach training data to model object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meanSampling</code></td>
+<td>
+<p>= FALSE Boolean determining whether to use mean covariates for similarity measure. This can be much quicker.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>customFNs</code></td>
+<td>
+<p>Optional list of functions that can be used to add custom covaraite profile similarity measures.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stack.standardize</code></td>
+<td>
+<p>Boolean determining whether stacking weights are standardized to sum to 1. Default is FALSE</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A model object of studyStrap class "ss" that can be used to make predictions.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##########################
+##### Simulate Data ######
+##########################
+
+set.seed(1)
+# create half of training dataset from 1 distribution
+X1 &lt;- matrix(rnorm(2000), ncol = 2) # design matrix - 2 covariates
+B1 &lt;- c(5, 10, 15) # true beta coefficients
+y1 &lt;- cbind(1, X1) %*% B1
+
+# create 2nd half of training dataset from another distribution
+X2 &lt;- matrix(rnorm(2000, 1,2), ncol = 2) # design matrix - 2 covariates
+B2 &lt;- c(10, 5, 0) # true beta coefficients
+y2 &lt;- cbind(1, X2) %*% B2
+
+X &lt;- rbind(X1, X2)
+y &lt;- c(y1, y2)
+
+study &lt;- sample.int(10, 2000, replace = TRUE) # 10 studies
+data &lt;- data.frame( Study = study, Y = y, V1 = X[,1], V2 = X[,2] )
+
+# create target study design matrix for covariate profile similarity weighting and
+# accept/reject algorithm (covaraite-matched study strap)
+target &lt;- matrix(rnorm(1000, 3, 5), ncol = 2) # design matrix
+colnames(target) &lt;- c("V1", "V2")
+
+##########################
+##### Model Fitting #####
+##########################
+
+# Fit model with 1 Single-Study Learner (SSL): PCA Regression
+arMod1 &lt;-  cmss(formula = Y ~.,
+               data = data,
+               target.study = target,
+               converge.lim = 10,
+               bag.size = length(unique(data$Study)),
+               max.straps = 50,
+               paths = 2,
+               ssl.method = list("pcr"),
+               ssl.tuneGrid = list(data.frame("ncomp" = 2))
+               )
+
+# Fit model with 2 SSLs: Linear Regression and PCA Regression
+arMod2 &lt;-  cmss(formula = Y ~.,
+               data = data,
+               target.study = target,
+               converge.lim = 20,
+               bag.size = length(unique(data$Study)),
+               max.straps = 50,
+               paths = 2,
+               ssl.method = list("lm", "pcr"),
+               ssl.tuneGrid = list(NA, data.frame("ncomp" = 2))
+               )
+
+
+
+# Fit model with custom similarity function for
+# accept/reject step and 2 custom function for Covariate
+# Profile Similarity weights
+
+# custom function for CPS
+
+fn1 &lt;- function(x1,x2){
+return( abs( cor( colMeans(x1), colMeans(x2) )) )
+}
+
+fn2 &lt;- function(x1,x2){
+return( sum ( ( colMeans(x1) - colMeans(x2) )^2 ) )
+}
+
+arMod3 &lt;-  cmss(formula = Y ~.,
+               data = data,
+               target.study = target,
+               sim.fn = fn1,
+               customFNs = list(fn1, fn2),
+               converge.lim = 50,
+               bag.size = length(unique(data$Study)),
+               max.straps = 50,
+               paths = 2,
+               ssl.method = list("lm", "pcr"),
+               ssl.tuneGrid = list(NA, data.frame("ncomp" = 2))
+               )
+
+#########################
+#####  Predictions ######
+#########################
+
+preds &lt;- studyStrap.predict(arMod1, target)
+</code></pre>
+
+
+</div>

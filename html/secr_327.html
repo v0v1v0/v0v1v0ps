@@ -1,0 +1,780 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>secr.fit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Spatially Explicit Capture–Recapture </h2>
+
+<h3>Description</h3>
+
+<p>Estimate animal population density with data from an array of passive
+detectors (traps) by fitting a spatial detection model by maximizing the
+likelihood. Data must have been assembled as an object of class
+<code>capthist</code>. Integration is by summation over the grid of points in
+<code>mask</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+secr.fit (capthist, model = list(D~1, g0~1, sigma~1), mask = NULL, buffer = NULL,
+    CL = FALSE, detectfn = NULL, binomN = NULL, start = NULL, link = list(),
+    fixed = list(), timecov = NULL, sessioncov = NULL, hcov = NULL,
+    groups = NULL, dframe = NULL, details = list(), method =
+    "Newton-Raphson", verify = TRUE, biasLimit = 0.01, trace = NULL,
+    ncores = NULL, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>capthist</code></td>
+<td>
+ <p><code>capthist</code> object including capture data and detector (trap) layout </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+ <p><code>mask</code> object or (for a multi-session analysis) a list of <code>mask</code> objects, one for each session</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>buffer</code></td>
+<td>
+<p> scalar mask buffer radius if <code>mask</code> not specified
+(default 100 m)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CL</code></td>
+<td>
+<p> logical, if true then the model is fitted by maximizing the conditional likelihood </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectfn</code></td>
+<td>
+<p>integer code or character string for shape of
+detection function 0 = halfnormal, 1 = hazard rate etc. – see
+detectfn</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binomN</code></td>
+<td>
+<p> integer code for distribution of counts (see Details) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p> vector of initial values for beta parameters, or <code>secr</code> object from which they may be derived </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>link</code></td>
+<td>
+<p> list with optional components corresponding to ‘real’
+parameters (e.g., ‘D’, ‘g0’, ‘sigma’), each a character string in
+{"log", "logit", "identity", "sin"} for the link function of one real parameter </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+<p> list with optional components corresponding to real parameters giving the scalar value to which the parameter is to be fixed </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p> list with optional components each symbolically defining a linear predictor for one real parameter using <code>formula</code> notation </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timecov</code></td>
+<td>
+<p> optional dataframe of values of time (occasion-specific) covariate(s). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sessioncov</code></td>
+<td>
+<p> optional dataframe of values of session-specific covariate(s). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hcov</code></td>
+<td>
+<p> character name of individual covariate for known
+membership of mixture classes. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groups</code></td>
+<td>
+<p> optional vector of one or more variables with which to form groups. Each element should be the name of a factor variable in the <code>covariates</code> attribute of <code>capthist</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dframe</code></td>
+<td>
+<p> optional data frame of design data for detection parameters </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>details</code></td>
+<td>
+<p> list of additional settings, mostly model-specific (see Details) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p> character string giving method for maximizing log likelihood </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verify</code></td>
+<td>
+<p> logical, if TRUE the input data are checked with <code>verify</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>biasLimit</code></td>
+<td>
+<p> numeric threshold for predicted relative bias due to
+buffer being too small </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p> logical, if TRUE then output each evaluation of the likelihood, and other messages</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p> integer number of threads to use for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p> other arguments passed to the maximization function </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>secr.fit</code> fits a SECR model by maximizing the likelihood. The
+likelihood depends on the detector type ("multi", "proximity", "count",
+"polygon" etc.) of the <code>traps</code> attribute of <code>capthist</code>
+(Borchers and Efford 2008, Efford, Borchers and Byrom 2009, Efford,
+Dawson and Borchers 2009, Efford 2011). The ‘multi’ form of the
+likelihood is also used, with a warning, when detector type = "single"
+(see Efford et al. 2009 for justification).
+</p>
+<p>The default <code>model</code> is null (<code>model = list(D~1, g0~1,
+sigma~1)</code> for <code>detectfn = 'HN'</code> and <code>CL = FALSE</code>), meaning
+constant density and detection probability). The set of variables
+available for use in linear predictors includes some that are
+constructed automatically (t, T, b, B, bk, Bk, k, K), group (g), and
+others that appear in the <code>covariates</code> of the input data. See also
+<code>usage</code> for varying effort, <code>timevaryingcov</code> to
+construct other time-varying detector covariates, and <a href="https://www.otago.ac.nz/density/pdfs/secr-models.pdf">secr-models.pdf</a>
+and <a href="../doc/secr-overview.pdf">secr-overview.pdf</a> for more on
+defining models.
+</p>
+<p><code>buffer</code> and <code>mask</code> are alternative ways to define the region
+of integration (see mask). If <code>mask</code> is not specified then a
+mask of type "trapbuffer" will be constructed automatically using the
+specified buffer width in metres.
+</p>
+<p><code>hcov</code> is used to define a hybrid mixture model, used especially to
+model sex differences (see <code>hcov</code>). (Allows some animals to
+be of unknown class).
+</p>
+<p>The length of <code>timecov</code> should equal the number of sampling
+occasions (<code>ncol(capthist)</code>). Arguments <code>timecov</code>,
+<code>sessioncov</code> and <code>groups</code> are used only when needed for terms
+in one of the model specifications. Default <code>link</code> is <code>list(D="log",
+g0="logit", sigma="log")</code>.
+</p>
+<p>If <code>start</code> is missing then <code>autoini</code> is used for D, g0
+and sigma, and other beta parameters are set initially to arbitrary
+values, mostly zero. <code>start</code> may be a previously fitted model. In
+this case, a vector of starting beta values is constructed from the old
+(usually nested) model and additional betas are set to zero. Mapping of
+parameters follows the default in <code>score.test</code>, but user
+intervention is not allowed. From 2.10.0 the new and old models need not
+share all the same ‘real’ parameters, but any new real parameters, such
+as ‘pmix’ for finite mixture models, receive a starting value of 0 on
+the link scale (remembering e.g., invlogit(0) = 0.5 for parameter ‘pmix’).
+</p>
+<p><code>binomN</code> (previously a component of <code>details</code>) determines the
+distribution that is fitted for the number of detections of an individual
+at a particular detector, on a particular occasion, when the detectors
+are of type ‘count’, ‘polygon’ or ‘transect’:
+</p>
+
+<ul>
+<li>
+<p>binomN &gt; 1  — binomial with size binomN
+</p>
+</li>
+<li>
+<p>binomN = 1  — binomial with size determined by usage
+</p>
+</li>
+<li>
+<p>binomN = 0  — Poisson
+
+
+</p>
+</li>
+</ul>
+<p>The default with these detectors is to fit a Poisson distribution.
+
+
+</p>
+<p><code>details</code> is used for various specialized settings listed below. These are
+described separately - see <code>details</code>.
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+autoini </td>
+<td style="text-align: left;"> session to use for starting values (default 1) </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+centred </td>
+<td style="text-align: left;"> centre x-y coordinates</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+chat </td>
+<td style="text-align: left;"> overdispersion of sighting counts Tu, Tm </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+chatonly </td>
+<td style="text-align: left;"> compute overdispersion for Tu and Tm, then exit </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+contrasts </td>
+<td style="text-align: left;"> coding of factor predictors </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+convexpolygon </td>
+<td style="text-align: left;"> allows non-convex polygons (slower) </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+Dfn </td>
+<td style="text-align: left;"> reparameterization of density model (seldom used directly) </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+Dlambda </td>
+<td style="text-align: left;"> switch density reparameterization to trend model </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+distribution </td>
+<td style="text-align: left;"> binomial vs Poisson N</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+fastproximity </td>
+<td style="text-align: left;"> special handling of binary proximity detectors </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+fixedbeta </td>
+<td style="text-align: left;"> specify fixed beta parameter(s)</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+grain </td>
+<td style="text-align: left;"> grain argument of RcppParallel::parallelFor </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+hessian </td>
+<td style="text-align: left;"> variance method</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+ignoreusage </td>
+<td style="text-align: left;"> override usage in traps object of capthist</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+intwidth2 </td>
+<td style="text-align: left;"> controls optimise when only one parameter</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+knownmarks </td>
+<td style="text-align: left;"> known or unknown number of marked animals in sighting-only model </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+LLonly </td>
+<td style="text-align: left;"> compute one likelihood for values in <code>start</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+maxdistance </td>
+<td style="text-align: left;"> distance threshold for selective mask </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+miscparm </td>
+<td style="text-align: left;"> starting values for extra parameters fitted via userdist function </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+newdetector </td>
+<td style="text-align: left;"> detector type to override detector(traps(capthist)) </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+nsim </td>
+<td style="text-align: left;"> number of simulations to compute overdispersion </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+param </td>
+<td style="text-align: left;"> optional parameterisation code</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+relativeD </td>
+<td style="text-align: left;"> optional relative density conditional on <code class="reqn">n</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+savecall </td>
+<td style="text-align: left;"> optionally suppress saving of call</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+telemetrytype </td>
+<td style="text-align: left;"> treat telemetry data as independent, dependent or concurrent</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+normalize </td>
+<td style="text-align: left;"> rescale detection to individual range use </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+usecov </td>
+<td style="text-align: left;"> spatial covariate of use for normalization </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+userdist </td>
+<td style="text-align: left;"> user-provided distance function or matrix </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+
+</td>
+</tr>
+</table>
+<p>Setting <code>ncores = NULL</code> uses the existing value from the environment variable 
+RCPP_PARALLEL_NUM_THREADS (see <code>setNumThreads</code>).
+</p>
+<p>A mark-resight model is fitted if the <code>markocc</code> attribute of the capthist 
+‘traps’ object includes sighting occasions. See the vignette 
+<a href="https://www.otago.ac.nz/density/pdfs/secr-markresight.pdf">secr-markresight.pdf</a> 
+for a full account.
+</p>
+<p>If <code>method = "Newton-Raphson"</code> then <code>nlm</code> is
+used to maximize the log likelihood (minimize the negative log
+likelihood); otherwise <code>optim</code> is used with the
+chosen method ("BFGS", "Nelder-Mead", etc.).  If maximization fails a
+warning is given appropriate to the method.
+</p>
+<p>From secr 2.5.1, <code>method = "none"</code> may be used to skip likelihood
+maximization and compute only the hessian for the current dataset at the
+values in start, and the corresponding variance-covariance matrix of
+beta parameters. The computation uses fdHess from <span class="pkg">nlme</span>.
+</p>
+<p>If <code>verify</code> = TRUE then <code>verify</code> is called to check
+capthist and mask; analysis is aborted if "errors" are found. Some
+conditions that trigger an "error" are benign (e.g., no detections in
+some sessions of a multi-session study of a sparse population); use
+<code>verify = FALSE</code> to avoid the check. See also Note.
+</p>
+<p>If <code>buffer</code> is used rather than <code>mask</code>, and <code>biasLimit</code>
+is valid, then the estimated density is checked for bias due to the
+choice of buffer. A warning is generated when <code>buffer</code> appears
+to be too small (predicted RB(D-hat) &gt; <code>biasLimit</code>, default 1%
+relative bias). The prediction uses <code>bias.D</code>. No check
+is performed when <code>mask</code> is specified, when <code>biasLimit</code> is 0,
+negative or NA, or when the detector type is "polygon", "transect",
+"polygonX" or "transectX".
+</p>
+<p>Function <code>list.secr.fit</code> is a way to fit several models at once.
+</p>
+
+
+<h3>Value</h3>
+
+<p>When <code>details$LLonly = TRUE</code> a single log-likelihood is returned, with attributes 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>npar</code></td>
+<td>
+<p> number of parameters to be estimated,</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>preptime</code></td>
+<td>
+<p> elapsed setup time in seconds,</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LLtime</code></td>
+<td>
+<p> elapsed time for single likelihood evaluation, exclusive of setup.</p>
+</td>
+</tr>
+</table>
+<p>Otherwise, <code>secr.fit</code> returns an object of class secr representing the fitted SECR model.  This has
+components
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call </code></td>
+<td>
+<p>function call) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>capthist </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectfn </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CL </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timecov </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sessioncov </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hcov </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groups </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dframe </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>designD </code></td>
+<td>
+<p>design matrix for density model; may be NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>designNE </code></td>
+<td>
+<p>design matrix for noneuc model; may be NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design </code></td>
+<td>
+<p>reduced design matrices for detection parameters, parameter table and parameter
+index array for actual animals (see <code>secr.design.MS</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design0 </code></td>
+<td>
+<p>reduced design matrices for detection parameters, parameter table and parameter
+index array for ‘naive’ animal (see <code>secr.design.MS</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start </code></td>
+<td>
+<p>vector of starting values for beta parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>link </code></td>
+<td>
+<p>list with one component for each real parameter
+(typically ‘D’, ‘g0’, ‘sigma’),giving the name of the link function
+used for each real parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parindx </code></td>
+<td>
+<p>list with one component for each real parameter giving
+the indices of the ‘beta’ parameters associated with each real
+parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>details </code></td>
+<td>
+<p>saved input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vars </code></td>
+<td>
+<p>vector of unique variable names in <code>model</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>betanames </code></td>
+<td>
+<p>names of beta parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>realnames </code></td>
+<td>
+<p>names of fitted (real) parameters </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit </code></td>
+<td>
+<p>list describing the fit (output from <code>nlm</code> or
+<code>optim</code>) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.vcv </code></td>
+<td>
+<p>variance-covariance matrix of beta parameters </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothsetup</code></td>
+<td>
+<p>list of objects specifying smooths in <span class="pkg">mgcv</span></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learnedresponse</code></td>
+<td>
+<p> logical; TRUE if any learned response in detection model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>version </code></td>
+<td>
+<p>secr version number </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starttime </code></td>
+<td>
+<p>character string of date and time at start of fit </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proctime </code></td>
+<td>
+<p>processor time for model fit, in seconds </p>
+</td>
+</tr>
+</table>
+<p>The environment variable RCPP_PARALLEL_NUM_THREADS is updated if an integer value is provided for <code>ncores</code>.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>** Mark-resight data formats and models are experimental in secr 2.10.0 and subject to change **</p>
+
+
+<h3>Note</h3>
+
+<p>One system of units is used throughout <span class="pkg">secr</span>. Distances are in metres and
+areas are in hectares (ha). The unit of density is animals per
+hectare. 1 ha = 10000 m^2 = 0.01 km^2. To convert density to animals /
+km^2, multiply by 100.
+</p>
+<p>When you display an ‘secr’ object by typing its name at the command
+prompt, you implicitly call its ‘print’ method <code>print.secr</code>, which
+in turn calls <code>predict.secr</code> to tabulate estimates of the ‘real’
+parameters. Confidence limits (lcl, ucl) are for a 100(1-alpha)%
+interval, where alpha defaults to 0.05 (95% interval); alpha may be
+varied in <code>print.secr</code> or <code>predict.secr</code>.
+</p>
+<p><code>AIC</code>, <code>logLik</code> and <code>vcov</code> methods are also
+provided. Take care with using AIC: not all models are comparable (see
+Notes section of <code>AIC.secr</code>) and large differences in AIC
+may relate to trivial differences in estimated density.
+</p>
+<p><code>derived</code> is used to compute the derived parameters ‘esa’
+(effective sampling area) and ‘D’ (density) for models fitted by
+maximizing the conditional likelihood (CL = TRUE).
+</p>
+<p>Components ‘version’ and ‘starttime’ were introduced in version 1.2.7,
+and recording of the completion time in ‘fitted’ was discontinued.
+</p>
+<p>The Newton-Raphson algorithm is fast, but it sometimes fails to compute
+the information matrix correctly, causing some or all standard errors to
+be set to NA. This usually indicates a major problem in fitting the
+model, and parameter estimates should not be trusted. See
+Troubleshooting.
+</p>
+<p>The component D in output was replaced with N from version 2.3. Use
+<code>region.N</code> to obtain SE or confidence intervals for N-hat,
+or to infer N for a different region.
+</p>
+<p>Prior to version 2.3.2 the buffer bias check could be switched off by
+setting <code>verify = FALSE</code>. This is now done by setting
+<code>biasLimit = 0</code> or <code>biasLimit = NA</code> .
+</p>
+
+
+<h3>References</h3>
+
+<p>Borchers, D. L. and Efford, M. G. (2008) Spatially explicit maximum
+likelihood methods for capture–recapture studies. <em>Biometrics</em>
+<b>64</b>, 377–385.
+</p>
+<p>Efford, M. G. (2004) Density estimation in live-trapping studies.
+<em>Oikos</em> <b>106</b>, 598–610.
+</p>
+<p>Efford, M. G. (2011) Estimation of population density by spatially
+explicit capture–recapture with area searches. <em>Ecology</em>
+<b>92</b>, 2202–2207.
+</p>
+<p>Efford, M. G., Borchers D. L. and Byrom, A. E. (2009) Density estimation
+by spatially explicit capture–recapture: likelihood-based methods. In:
+D. L. Thompson, E. G. Cooch and M. J. Conroy (eds) <em>Modeling
+Demographic Processes in Marked Populations</em>. Springer. Pp. 255–269.
+</p>
+<p>Efford, M. G., Dawson, D. K. and Borchers, D. L. (2009) Population
+density estimated from locations of individuals on a passive detector
+array. <em>Ecology</em> <b>90</b>, 2676–2682.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Detection functions,
+<code>AIC.secr</code>,
+<code>capthist</code>,
+<code>details</code>,
+<code>derived</code>,
+<code>hcov</code>,
+<code>mask</code>,
+<code>list.secr.fit</code>,
+<code>predict.secr</code>,
+<code>print.secr</code>,
+<code>region.N</code>,
+Speed tips
+Troubleshooting
+userdist
+<code>usage</code>,
+<code>vcov.secr</code>,
+<code>verify</code>,
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+## construct test data (array of 48 `multi-catch' traps)
+
+detectors &lt;- make.grid (nx = 6, ny = 8, detector = "multi")
+detections &lt;- sim.capthist (detectors, popn = list(D = 10,
+    buffer = 100), detectpar = list(g0 = 0.2, sigma = 25))
+
+## fit &amp; print null (constant parameter) model
+secr0 &lt;- secr.fit (detections)
+secr0   ## uses print method for secr
+
+## compare fit of null model with learned-response model for g0
+
+secrb &lt;- secr.fit (detections, model = g0~b)
+AIC (secr0, secrb)
+
+## typical result
+
+##                  model   detectfn npar    logLik     AIC    AICc dAIC   AICwt
+## secr0 D~1 g0~1 sigma~1 halfnormal    3 -347.1210 700.242 700.928 0.000 0.7733
+## secrb D~1 g0~b sigma~1 halfnormal    4 -347.1026 702.205 703.382 2.454 0.2267
+
+## End(Not run)
+</code></pre>
+
+
+</div>

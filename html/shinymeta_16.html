@@ -1,0 +1,149 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>metaRender</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create a meta-reactive output</h2>
+
+<h3>Description</h3>
+
+<p>Create a meta-reactive output that, when invoked with meta-mode activated
+(i.e. called within <code>expandChain()</code> or <code>withMetaMode()</code>), returns a
+code expression (instead of evaluating that expression and returning the value).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">metaRender(
+  renderFunc,
+  expr,
+  ...,
+  env = parent.frame(),
+  quoted = FALSE,
+  localize = "auto",
+  bindToReturn = FALSE
+)
+
+metaRender2(renderFunc, expr, ..., env = parent.frame(), quoted = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>renderFunc</code></td>
+<td>
+<p>A reactive output function (e.g., shiny::renderPlot, shiny::renderText, shiny::renderUI, etc).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expr</code></td>
+<td>
+<p>An expression that generates given output expected by <code>renderFunc</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments passed along to <code>renderFunc</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>The parent environment for the reactive expression. By default,
+this is the calling environment, the same as when defining an ordinary
+non-reactive expression. If <code>x</code> is a quosure and <code>quoted</code> is <code>TRUE</code>,
+then <code>env</code> is ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quoted</code></td>
+<td>
+<p>If it is <code>TRUE</code>, then the <code>quote()</code>ed value of <code>x</code>
+will be used when <code>x</code> is evaluated. If <code>x</code> is a quosure and you
+would like to use its expression as a value for <code>x</code>, then you must set
+<code>quoted</code> to <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>localize</code></td>
+<td>
+<p>Whether or not to wrap the returned expression in <code>local()</code>.
+The default, <code>"auto"</code>, only wraps expressions with a top-level <code>return()</code>
+statement (i.e., return statements in anonymized functions are ignored).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bindToReturn</code></td>
+<td>
+<p>For non-<code>localize</code>d expressions, should an assignment
+of a meta expression be applied to the <em>last child</em> of the top-level <code style="white-space: pre;">⁠\{⁠</code> call?</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If you wish to capture specific code inside of <code>expr</code> (e.g. ignore code
+that has no meaning outside shiny, like <code>req()</code>), use <code>metaRender2()</code> in combination
+with <code>metaExpr()</code>. When using <code>metaRender2()</code>, <code>expr</code> must return a <code>metaExpr()</code>.
+</p>
+<p>Since package authors are allowed to create their own output rendering functions,
+creating a meta-counterpart of an output renderer (e.g. <code>renderPlot()</code>) needs to be
+more general than prefixing <code>meta</code> to the function name (as with <code>metaReactive()</code> and <code>metaObserve()</code>).
+<code>metaRender()</code> makes some assumptions about the arguments taken by the render function,
+assumptions that we believe are true for all existing render functions.
+If you encounter a render function that doesn't seem to work properly,
+please let us know by <a href="https://github.com/rstudio/shinymeta/issues">filing an issue on GitHub</a>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An annotated render function, ready to be assigned to an output slot.
+The function may also be called in meta mode (i.e., inside <code>expandChain()</code>)
+to return the code in quoted form.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>metaExpr()</code>, <code>..</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+if (interactive()) {
+  library(shiny)
+  library(shinymeta)
+
+  ui &lt;- fluidPage(
+    selectInput("var", label = "Choose a variable", choices = names(cars)),
+    verbatimTextOutput("Summary"),
+    verbatimTextOutput("code")
+  )
+
+  server &lt;- function(input, output) {
+    var &lt;- metaReactive({
+      cars[[..(input$var)]]
+    })
+    output$Summary &lt;- metaRender(renderPrint, {
+      summary(..(var()))
+    })
+    output$code &lt;- renderPrint({
+      expandChain(output$Summary())
+    })
+  }
+
+  shinyApp(ui, server)
+}
+
+</code></pre>
+
+
+</div>

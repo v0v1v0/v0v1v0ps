@@ -1,0 +1,425 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>as_gen_boot_design</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Convert a survey design object to a generalized bootstrap replicate design</h2>
+
+<h3>Description</h3>
+
+<p>Converts a survey design object to a replicate design object
+with replicate weights formed using the generalized bootstrap method.
+The generalized survey bootstrap is a method for forming bootstrap replicate weights
+from a textbook variance estimator, provided that the variance estimator
+can be represented as a quadratic form whose matrix is positive semidefinite
+(this covers a large class of variance estimators).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">as_gen_boot_design(
+  design,
+  variance_estimator = NULL,
+  aux_var_names = NULL,
+  replicates = 500,
+  tau = "auto",
+  exact_vcov = FALSE,
+  psd_option = "warn",
+  mse = getOption("survey.replicates.mse"),
+  compress = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>A survey design object created using the 'survey' (or 'srvyr') package,
+with class <code>'survey.design'</code> or <code>'svyimputationList'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variance_estimator</code></td>
+<td>
+<p>The name of the variance estimator
+whose quadratic form matrix should be created.
+See variance-estimators for a
+detailed description of each variance estimator.
+Options include:
+</p>
+
+<ul>
+<li> <p><strong>"Yates-Grundy"</strong>: <br> The Yates-Grundy variance estimator based on
+first-order and second-order inclusion probabilities.
+</p>
+</li>
+<li> <p><strong>"Horvitz-Thompson"</strong>: <br> The Horvitz-Thompson variance estimator based on
+first-order and second-order inclusion probabilities.
+</p>
+</li>
+<li> <p><strong>"Poisson Horvitz-Thompson"</strong>: <br> The Horvitz-Thompson variance estimator
+based on assuming Poisson sampling, with first-order inclusion probabilities
+inferred from the sampling probabilities of the survey design object.
+</p>
+</li>
+<li> <p><strong>"Stratified Multistage SRS"</strong>: <br> The usual stratified multistage variance estimator
+based on estimating the variance of cluster totals within strata at each stage.
+</p>
+</li>
+<li> <p><strong>"Ultimate Cluster"</strong>: <br> The usual variance estimator based on estimating
+the variance of first-stage cluster totals within first-stage strata.
+</p>
+</li>
+<li> <p><strong>"Deville-1"</strong>: <br> A variance estimator for unequal-probability
+sampling without replacement, described in Matei and Tillé (2005)
+as "Deville 1".
+</p>
+</li>
+<li> <p><strong>"Deville-2"</strong>: <br> A variance estimator for unequal-probability
+sampling without replacement, described in Matei and Tillé (2005) as "Deville 2".
+</p>
+</li>
+<li> <p><strong>"Deville-Tille": </strong> <br> A variance estimator useful
+for balanced sampling designs, proposed by Deville and Tillé (2005).
+</p>
+</li>
+<li> <p><strong>"SD1"</strong>: <br> The non-circular successive-differences variance estimator described by Ash (2014),
+sometimes used for variance estimation for systematic sampling.
+</p>
+</li>
+<li>
+<p><strong>"SD2"</strong>:  <br> The circular successive-differences variance estimator described by Ash (2014).
+This estimator is the basis of the "successive-differences replication" estimator commonly used
+for variance estimation for systematic sampling.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>aux_var_names</code></td>
+<td>
+<p>(Only used if <code>variance_estimator = "Deville-Tille")</code>.
+A vector of the names of auxiliary variables used in sampling.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replicates</code></td>
+<td>
+<p>Number of bootstrap replicates (should be as large as possible, given computer memory/storage limitations).
+A commonly-recommended default is 500.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>Either <code>"auto"</code>, or a single number. This is the rescaling constant
+used to avoid negative weights through the transformation <code class="reqn">\frac{w + \tau - 1}{\tau}</code>,
+where <code class="reqn">w</code> is the original weight and <code class="reqn">\tau</code> is the rescaling constant <code>tau</code>. <br>
+If <code>tau="auto"</code>, the rescaling factor is determined automatically as follows:
+if all of the adjustment factors are nonnegative, then <code>tau</code> is set equal to 1;
+otherwise, <code>tau</code> is set to the smallest value needed to rescale
+the adjustment factors such that they are all at least <code>0.01</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exact_vcov</code></td>
+<td>
+<p>If <code>exact_vcov=TRUE</code>, the replicate factors will be generated
+such that variance estimates for totals exactly match the results from the target variance estimator.
+This requires that <code>num_replicates</code> exceeds the rank of <code>Sigma</code>.
+The replicate factors are generated by applying PCA-whitening to a collection of draws
+from a multivariate Normal distribution, then applying a coloring transformation
+to the whitened collection of draws.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psd_option</code></td>
+<td>
+<p>Either <code>"warn"</code> (the default) or <code>"error"</code>.
+This option specifies what will happen if the target variance estimator
+has a quadratic form matrix which is not positive semidefinite. This
+can occasionally happen, particularly for two-phase designs. <br>
+If <code>psd_option="error"</code>, then an error message will be displayed. <br>
+If <code>psd_option="warn"</code>, then a warning message will be displayed,
+and the quadratic form matrix will be approximated by the most similar
+positive semidefinite matrix.
+This approximation was suggested by Beaumont and Patak (2012),
+who note that this is conservative in the sense of producing
+overestimates of variance.
+Beaumont and Patak (2012) argue that this overestimation is expected to be
+small in magnitude. See <code>get_nearest_psd_matrix</code>
+for details of the approximation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mse</code></td>
+<td>
+<p>If <code>TRUE</code>, compute variances from sums of squares around the point estimate from the full-sample weights,
+If <code>FALSE</code>, compute variances from sums of squares around the mean estimate from the replicate weights.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compress</code></td>
+<td>
+<p>This reduces the computer memory required to represent the replicate weights and has no
+impact on estimates.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A replicate design object, with class <code>svyrep.design</code>, which can be used with the usual functions,
+such as <code>svymean()</code> or <code>svyglm()</code>.
+</p>
+<p>Use <code>weights(..., type = 'analysis')</code> to extract the matrix of replicate weights.
+</p>
+<p>Use <code>as_data_frame_with_weights()</code> to convert the design object to a data frame with columns
+for the full-sample and replicate weights.
+</p>
+
+
+<h3>Statistical Details</h3>
+
+<p>Let <code class="reqn">v( \hat{T_y})</code> be the textbook variance estimator for an estimated population total <code class="reqn">\hat{T}_y</code> of some variable <code class="reqn">y</code>.
+The base weight for case <code class="reqn">i</code> in our sample is <code class="reqn">w_i</code>, and we let <code class="reqn">\breve{y}_i</code> denote the weighted value <code class="reqn">w_iy_i</code>.
+Suppose we can represent our textbook variance estimator as a quadratic form: <code class="reqn">v(\hat{T}_y) = \breve{y}\Sigma\breve{y}^T</code>,
+for some <code class="reqn">n \times n</code> matrix <code class="reqn">\Sigma</code>.
+The only constraint on <code class="reqn">\Sigma</code> is that, for our sample, it must be symmetric and positive semidefinite.
+</p>
+<p>The bootstrapping process creates <code class="reqn">B</code> sets of replicate weights, where the <code class="reqn">b</code>-th set of replicate weights is a vector of length <code class="reqn">n</code> denoted <code class="reqn">\mathbf{a}^{(b)}</code>, whose <code class="reqn">k</code>-th value is denoted <code class="reqn">a_k^{(b)}</code>.
+This yields <code class="reqn">B</code> replicate estimates of the population total, <code class="reqn">\hat{T}_y^{*(b)}=\sum_{k \in s} a_k^{(b)} \breve{y}_k</code>, for <code class="reqn">b=1, \ldots B</code>, which can be used to estimate sampling variance.
+</p>
+<p style="text-align: center;"><code class="reqn">
+  v_B\left(\hat{T}_y\right)=\frac{\sum_{b=1}^B\left(\hat{T}_y^{*(b)}-\hat{T}_y\right)^2}{B}
+</code>
+</p>
+
+<p>This bootstrap variance estimator can be written as a quadratic form:
+</p>
+<p style="text-align: center;"><code class="reqn">
+    v_B\left(\hat{T}_y\right) =\mathbf{\breve{y}}^{\prime}\Sigma_B \mathbf{\breve{y}}
+  </code>
+</p>
+
+<p>where
+</p>
+<p style="text-align: center;"><code class="reqn">
+    \boldsymbol{\Sigma}_B = \frac{\sum_{b=1}^B\left(\mathbf{a}^{(b)}-\mathbf{1}_n\right)\left(\mathbf{a}^{(b)}-\mathbf{1}_n\right)^{\prime}}{B}
+  </code>
+</p>
+
+<p>Note that if the vector of adjustment factors <code class="reqn">\mathbf{a}^{(b)}</code> has expectation <code class="reqn">\mathbf{1}_n</code> and variance-covariance matrix <code class="reqn">\boldsymbol{\Sigma}</code>,
+then we have the bootstrap expectation <code class="reqn">E_{*}\left( \boldsymbol{\Sigma}_B \right) = \boldsymbol{\Sigma}</code>. Since the bootstrap process takes the sample values <code class="reqn">\breve{y}</code> as fixed, the bootstrap expectation of the variance estimator is <code class="reqn">E_{*} \left( \mathbf{\breve{y}}^{\prime}\Sigma_B \mathbf{\breve{y}}\right)= \mathbf{\breve{y}}^{\prime}\Sigma \mathbf{\breve{y}}</code>.
+Thus, we can produce a bootstrap variance estimator with the same expectation as the textbook variance estimator simply by randomly generating <code class="reqn">\mathbf{a}^{(b)}</code> from a distribution with the following two conditions:
+<br><strong>Condition 1</strong>: <code class="reqn">\quad \mathbf{E}_*(\mathbf{a})=\mathbf{1}_n</code>
+<br><strong>Condition 2</strong>: <code class="reqn">\quad \mathbf{E}_*\left(\mathbf{a}-\mathbf{1}_n\right)\left(\mathbf{a}-\mathbf{1}_n\right)^{\prime}=\mathbf{\Sigma}</code>
+<br><br>
+While there are multiple ways to generate adjustment factors satisfying these conditions,
+the simplest general method is to simulate from a multivariate normal distribution: <code class="reqn">\mathbf{a} \sim MVN(\mathbf{1}_n, \boldsymbol{\Sigma})</code>.
+This is the method used by this function.
+</p>
+
+
+<h3>Details on Rescaling to Avoid Negative Adjustment Factors</h3>
+
+<p>Let <code class="reqn">\mathbf{A} = \left[ \mathbf{a}^{(1)} \cdots \mathbf{a}^{(b)} \cdots \mathbf{a}^{(B)} \right]</code> denote the <code class="reqn">(n \times B)</code> matrix of bootstrap adjustment factors.
+To eliminate negative adjustment factors, Beaumont and Patak (2012) propose forming a rescaled matrix of nonnegative replicate factors <code class="reqn">\mathbf{A}^S</code> by rescaling each adjustment factor <code class="reqn">a_k^{(b)}</code> as follows:
+</p>
+<p style="text-align: center;"><code class="reqn">
+   a_k^{S,(b)} = \frac{a_k^{(b)} + \tau - 1}{\tau}
+ </code>
+</p>
+
+<p>where <code class="reqn">\tau \geq 1 - a_k^{(b)} \geq 1</code> for all <code class="reqn">k</code> in <code class="reqn">\left\{ 1,\ldots,n \right\}</code> and all <code class="reqn">b</code> in <code class="reqn">\left\{1, \ldots, B\right\}</code>.
+</p>
+<p>The value of <code class="reqn">\tau</code> can be set based on the realized adjustment factor matrix <code class="reqn">\mathbf{A}</code> or by choosing <code class="reqn">\tau</code> prior to generating the adjustment factor matrix <code class="reqn">\mathbf{A}</code> so that <code class="reqn">\tau</code> is likely to be large enough to prevent negative bootstrap weights.
+</p>
+<p>If the adjustment factors are rescaled in this manner, it is important to adjust the scale factor used in estimating the variance with the bootstrap replicates, which becomes <code class="reqn">\frac{\tau^2}{B}</code> instead of <code class="reqn">\frac{1}{B}</code>.
+</p>
+<p style="text-align: center;"><code class="reqn">
+ \textbf{Prior to rescaling: } v_B\left(\hat{T}_y\right) = \frac{1}{B}\sum_{b=1}^B\left(\hat{T}_y^{*(b)}-\hat{T}_y\right)^2
+ </code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">
+ \textbf{After rescaling: } v_B\left(\hat{T}_y\right) = \frac{\tau^2}{B}\sum_{b=1}^B\left(\hat{T}_y^{S*(b)}-\hat{T}_y\right)^2
+</code>
+</p>
+
+<p>When sharing a dataset that uses rescaled weights from a generalized survey bootstrap, the documentation for the dataset should instruct the user to use replication scale factor <code class="reqn">\frac{\tau^2}{B}</code> rather than <code class="reqn">\frac{1}{B}</code> when estimating sampling variances.
+</p>
+
+
+<h3>Two-Phase Designs</h3>
+
+<p>For a two-phase design, <code>variance_estimator</code> should be a list of variance estimators' names,
+with two elements, such as <code>list('Ultimate Cluster', 'Poisson Horvitz-Thompson')</code>.
+In two-phase designs, only the following estimators may be used for the second phase:
+</p>
+
+<ul>
+<li>
+<p> "Ultimate Cluster"
+</p>
+</li>
+<li>
+<p> "Stratified Multistage SRS"
+</p>
+</li>
+<li>
+<p> "Poisson Horvitz-Thompson"
+</p>
+</li>
+</ul>
+<p>For statistical details on the handling of two-phase designs,
+see the documentation for make_twophase_quad_form.
+</p>
+
+
+<h3>References</h3>
+
+<p>The generalized survey bootstrap was first proposed by Bertail and Combris (1997).
+See Beaumont and Patak (2012) for a clear overview of the generalized survey bootstrap.
+The generalized survey bootstrap represents one strategy for forming replication variance estimators
+in the general framework proposed by Fay (1984) and Dippo, Fay, and Morganstein (1984).
+<br><br>
+- Ash, S. (2014). "<em>Using successive difference replication for estimating variances</em>."
+<strong>Survey Methodology</strong>, Statistics Canada, 40(1), 47–59.
+<br><br>
+- Bellhouse, D.R. (1985). "<em>Computing Methods for Variance Estimation in Complex Surveys</em>."
+<strong>Journal of Official Statistics</strong>, Vol.1, No.3.
+<br><br>
+- Beaumont, Jean-François, and Zdenek Patak. 2012. “On the Generalized Bootstrap for Sample Surveys with Special Attention to Poisson Sampling: Generalized Bootstrap for Sample Surveys.” International Statistical Review 80 (1): 127–48. https://doi.org/10.1111/j.1751-5823.2011.00166.x.
+<br><br>
+- Bertail, and Combris. 1997. “Bootstrap Généralisé d’un Sondage.” Annales d’Économie Et de Statistique, no. 46: 49. https://doi.org/10.2307/20076068.
+<br><br>
+- Deville, J.‐C., and Tillé, Y. (2005). "<em>Variance approximation under balanced sampling.</em>"
+<strong>Journal of Statistical Planning and Inference</strong>, 128, 569–591.
+<br><br>
+- Dippo, Cathryn, Robert Fay, and David Morganstein. 1984. “Computing Variances from Complex Samples with Replicate Weights.” In, 489–94. Alexandria, VA: American Statistical Association. http://www.asasrms.org/Proceedings/papers/1984_094.pdf.
+<br><br>
+- Fay, Robert. 1984. “Some Properties of Estimates of Variance Based on Replication Methods.” In, 495–500. Alexandria, VA: American Statistical Association. http://www.asasrms.org/Proceedings/papers/1984_095.pdf.
+<br><br>
+- Matei, Alina, and Yves Tillé. (2005).
+“<em>Evaluation of Variance Approximations and Estimators
+in Maximum Entropy Sampling with Unequal Probability and Fixed Sample Size.</em>”
+<strong>Journal of Official Statistics</strong>, 21(4):543–70.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Use <code>estimate_boot_reps_for_target_cv</code> to help choose the number of bootstrap replicates. <br></p>
+<p>For greater customization of the method, <code>make_quad_form_matrix</code> can be used to
+represent several common variance estimators as a quadratic form's matrix,
+which can then be used as an input to <code>make_gen_boot_factors</code>.
+The function <code>rescale_reps</code> is used to implement
+the rescaling of the bootstrap adjustment factors.
+</p>
+<p>See variance-estimators for a
+description of each variance estimator.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+library(survey)
+
+# Example 1: Bootstrap based on the Yates-Grundy estimator ----
+   set.seed(2014)
+
+   data('election', package = 'survey')
+
+   ## Create survey design object
+   pps_design_yg &lt;- svydesign(
+     data = election_pps,
+     id = ~1, fpc = ~p,
+     pps = ppsmat(election_jointprob),
+     variance = "YG"
+   )
+
+   ## Convert to generalized bootstrap replicate design
+   gen_boot_design_yg &lt;- pps_design_yg |&gt;
+     as_gen_boot_design(variance_estimator = "Yates-Grundy",
+                        replicates = 1000, tau = "auto")
+
+   svytotal(x = ~ Bush + Kerry, design = pps_design_yg)
+   svytotal(x = ~ Bush + Kerry, design = gen_boot_design_yg)
+
+# Example 2: Bootstrap based on the successive-difference estimator ----
+
+   data('library_stsys_sample', package = 'svrep')
+
+   ## First, ensure data are sorted in same order as was used in sampling
+   library_stsys_sample &lt;- library_stsys_sample[
+     order(library_stsys_sample$SAMPLING_SORT_ORDER),
+   ]
+
+   ## Create a survey design object
+   design_obj &lt;- svydesign(
+     data = library_stsys_sample,
+     strata = ~ SAMPLING_STRATUM,
+     ids = ~ 1,
+     fpc = ~ STRATUM_POP_SIZE
+   )
+
+   ## Convert to generalized bootstrap replicate design
+   gen_boot_design_sd2 &lt;- as_gen_boot_design(
+     design = design_obj,
+     variance_estimator = "SD2",
+     replicates = 2000
+   )
+
+   ## Estimate sampling variances
+   svytotal(x = ~ TOTSTAFF, na.rm = TRUE, design = gen_boot_design_sd2)
+   svytotal(x = ~ TOTSTAFF, na.rm = TRUE, design = design_obj)
+
+# Example 3: Two-phase sample ----
+# -- First stage is stratified systematic sampling,
+# -- second stage is response/nonresponse modeled as Poisson sampling
+
+  nonresponse_model &lt;- glm(
+    data = library_stsys_sample,
+    family = quasibinomial('logit'),
+    formula = I(RESPONSE_STATUS == "Survey Respondent") ~ 1,
+    weights = 1/library_stsys_sample$SAMPLING_PROB
+  )
+
+  library_stsys_sample[['RESPONSE_PROPENSITY']] &lt;- predict(
+    nonresponse_model,
+    newdata = library_stsys_sample,
+    type = "response"
+  )
+
+  twophase_design &lt;- twophase(
+    data = library_stsys_sample,
+    # Identify cases included in second phase sample
+    subset = ~ I(RESPONSE_STATUS == "Survey Respondent"),
+    strata = list(~ SAMPLING_STRATUM, NULL),
+    id = list(~ 1, ~ 1),
+    probs = list(NULL, ~ RESPONSE_PROPENSITY),
+    fpc = list(~ STRATUM_POP_SIZE, NULL),
+  )
+
+  twophase_boot_design &lt;- as_gen_boot_design(
+    design = twophase_design,
+    variance_estimator = list(
+      "SD2", "Poisson Horvitz-Thompson"
+    )
+  )
+
+  svytotal(x = ~ LIBRARIA, design = twophase_boot_design)
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

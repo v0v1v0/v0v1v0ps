@@ -1,0 +1,128 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sampleStrat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Stratified randomization</h2>
+
+<h3>Description</h3>
+
+<p>This function scrambles values of a given column of a data frame in a stratified manner with respect to one or more other "covariate" columns. The covariate columns can be specified, as well as the width of the range of each covariate around each focal value from which to sample candidates for swapping.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sampleStrat(
+  x,
+  col,
+  w = function(x) stats::sd(x, na.rm = TRUE)/(max(x, na.rm = TRUE) - min(x, na.rm =
+    TRUE)),
+  d = 0.1,
+  by = "all",
+  permuteBy = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Data frame containing at least two columns, one with numeric values and at least one more with numeric or factor values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>col</code></td>
+<td>
+<p>Character or integer, name or number of column in <code>x</code> to swap values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w</code></td>
+<td>
+<p>Function or numeric value &gt;0, sets window size of <em>non-factor</em> covariates as a <em>proportion</em> of their range. If using a function it must work on a list of values. It can be helpful if this function accepts the argument <code>'na.rm=T'</code> to avoid problems with <code>NA</code>s in the column specified by <code>col</code>. The default is the standard deviation divided by the range. This reduces the correlation between erstwhile perfectly correlated variables to ~0.80 (on average). Ignored for covariates that are factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>Numeric &gt; 0, if no swappable value is found within <code>w * (max(col) - min(col))</code>, then <code>w</code> is expanded by <code>1 + d</code> iteratively until a value is found. Ignored for covariates that are factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by</code></td>
+<td>
+<p>Character vector or integers. Name(s) or columns numbers of covariates by which to stratify the target column. Can also specify <code>'all'</code> (default) to stratify by all columns with a numeric/integer/factor class except the target column.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>permuteBy</code></td>
+<td>
+<p>Logical, if <code>TRUE</code> then in each step scramble the order of values in <code>by</code>. If <code>FALSE</code> then strata are considered for each covariate in teh order listed by <code>by</code>. This argument has no effect if <code>by</code> has just one value.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The script starts by randomly selecting a value <code>v_i</code> from the target column. It then finds the value of covariate <code>c_j</code>, that is associated with <code>v_i</code>. Call the particular value of <code>c_j</code> associated with <code>v_i</code> <code>c_j:i</code>. If <code>c_j</code> is a continuous variable it then finds all values <code>c_{v}</code> that fall within <code>c_j:i - w, c_j:i + w</code> where <code>w</code> is a proportion of the range of <code>c_j</code>. <br>
+The function then randomly selects a value of <code>v_k</code> from those associated with this range of <code>c_j</code> and swaps <code>v_i</code> with this value. Depending on the random number generator, <code>v_i</code> can = <code>v_k</code> and in fact be the same value. If no values of <code>c_j</code> other than the one associated with <code>v_i</code> are found within this range, then the window is expanded iteratively by a factor of <code>w * (1 + d)</code> until at least one more values that have yet to be swapped have been found. The procedure then finds a window around <code>v_k</code> as described above (or randomly selects a new <code>v_i</code> if <code>v_i</code> was <code>v_k</code>) and continues. If there is an odd number of values then the last value is kept as is (not scrambled).
+If <code>c_j</code> is a categorical variable (a factor), then the script finds all values of of <code>v</code> in same factor level as <code>v_i</code>. Swaps of <code>v</code> occur within this level of <code>c_j</code>. However, if there are &lt;2 of values in the level (including the value associated with <code>v_i</code>), then the script looks to the next factor level. The "next" is taken to be the factor level with the least difference between <code>v_i</code> and the average of values of <code>v</code> associated with the potential "next" factor level. The "window" for a factor level is thus the level plus one or more levels with the closest average values of <code>v</code> given that there is &gt;1 value of <code>v</code> within this group that has yet to be swapped. <br>
+If there is more than one covariate, then these steps are repeated iteratively for each covariate (i.e., selecting values of <code>v</code> given the stratum identified in covariate <code>c_j</code>, then among these values those also in the stratum identified in covariate <code>c_k</code>, and so on). In this case the order in which the covariates are listed in <code>by</code> can affect the outcome. The order can be permuted each values of <code>v_i</code> if <code>permuteBy</code> is <code>TRUE</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data frame with one column swapped in a stratified manner relative another column or set of columns.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sample</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Example #1: Scramble column 1 with respect to columns 2 and 3.
+# Note in the output high values of "a" tend to be associated with
+# high values of "b" and low values of "c". This tendency decreases as "w" increases.
+
+x &lt;- data.frame(a=1:20, b=1:20, c=20:1, d=c(rep('a', 10), rep('b', 10)))
+x$d &lt;- as.factor(x$d)
+x
+
+# scramble by all other columns
+sampleStrat(x=x, col=1, w=0.2, by='all', d=0.1)
+
+# scramble by column "d"
+sampleStrat(x=x, col=1, w=0.2, by='d', d=0.1)
+
+# Example #2: The target variable and covariate are equal
+# (perfectly collinear). How wide must the window (set by
+# argument "w'" be to reduce the average correlation
+# between them to an arbitrary low level?
+
+df &lt;- data.frame(a=1:100, b=1:100)
+cor(df) # perfect correlation
+
+corFrame &lt;- data.frame()
+for (w in seq(0.1, 1, 0.1)) {
+    for (countRep in 1:10) {
+       df2 &lt;- sampleStrat(x=df, col=1, w=w)
+       corFrame &lt;- rbind(corFrame, data.frame(w=w, cor=cor(df2)[1, 2]))
+    }
+}
+
+boxplot(cor ~ w, data=corFrame, xlab='w', ylab='correlation coefficient')
+
+</code></pre>
+
+
+</div>

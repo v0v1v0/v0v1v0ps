@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fast_spike_slab_beta</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute marginal posterior estimates for beta-spike-and-slab prior</h2>
+
+<h3>Description</h3>
+
+<p>Computes marginal posterior probabilities (slab probabilities) that data points have
+non-zero mean for the spike-and-slab prior with a Beta(beta_kappa,beta_lambda) prior
+on the mixing parameter. The posterior mean is also provided.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fast_spike_slab_beta(
+  x,
+  sigma = 1,
+  m = 20,
+  slab = "Laplace",
+  Laplace_lambda = 0.5,
+  Cauchy_gamma = 1,
+  beta_kappa = 1,
+  beta_lambda,
+  show_progress = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Vector of n data points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>Standard deviation of the Gaussian noise in the data. May also be set to "auto",
+in which case sigma is estimated using the estimateSigma function from the selectiveInference
+package</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>The number of discretization points used is proportional to m*sqrt(n). The larger m, the
+better the approximation, but the runtime also increases linearly with m. The default m=20 usually
+gives sufficient numerical precision.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slab</code></td>
+<td>
+<p>Slab distribution. Must be either "Laplace" or "Cauchy".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Laplace_lambda</code></td>
+<td>
+<p>Parameter of the Laplace slab</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Cauchy_gamma</code></td>
+<td>
+<p>Parameter of the Cauchy slab</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_kappa</code></td>
+<td>
+<p>Parameter of the beta-distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_lambda</code></td>
+<td>
+<p>Parameter of the beta-distribution. Default value=n+1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>show_progress</code></td>
+<td>
+<p>Boolean that indicates whether to show a progress bar</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The run-time is O(m*n^(3/2)) on n data points, which means that doubling the size of the data
+leads to an increase in computation time by approximately a factor of 2*sqrt(2)=2.8. Data sets of
+size n=100,000 should be feasible within approximately 30 minutes.
+</p>
+
+
+<h3>Value</h3>
+
+<p>list (postprobs, postmean, sigma), where postprobs is a vector of marginal posterior slab
+probabilities that <code class="reqn">x[i]</code> has non-zero mean for <code class="reqn">i=1,...,n</code>; postmean is a vector with
+the posterior mean for the <code class="reqn">x[i]</code>; and sigma is the value of sigma (this may be of
+interest when the sigma="auto" option is used)
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Illustrate that fast_spike_slab_beta is a faster way to compute the same results as
+# general_sequence_model on the beta-binomial prior
+
+# Generate data
+n &lt;- 500          # sample size
+n_signal &lt;- 25    # number of non-zero theta
+A &lt;- 5            # signal strength
+theta &lt;- c(rep(A,n_signal), rep(0,n-n_signal))
+x &lt;- theta + rnorm(n, sd=1)
+
+# Choose slab
+slab &lt;- "Cauchy"
+Cauchy_gamma &lt;- 1
+
+cat("Running fast_spike_slab_beta (fast for very large n)...\n")
+res_fss &lt;- fast_spike_slab_beta(x, sigma=1, slab=slab, Cauchy_gamma=Cauchy_gamma)
+
+cat("Running general_sequence_model (slower for very large n)...\n")
+res_gsm &lt;- general_sequence_model(x, sigma=1, slab=slab,
+                                  log_prior="beta-binomial", Cauchy_gamma=Cauchy_gamma)
+
+cat("Maximum difference in marginal posterior slab probabilities:",
+    max(abs(res_gsm$postprobs - res_fss$postprobs)))
+cat("\nMaximum difference in posterior means:",
+    max(abs(res_gsm$postmean - res_fss$postmean)), "\n")
+
+# Plot means
+M=max(abs(x))+1
+plot(1:n, x, pch=20, ylim=c(-M,M), col='green', xlab="", ylab="",
+     main="Posterior Means (Same for Both Methods)")
+points(1:n, theta, pch=20, col='blue')
+points(1:n, res_gsm$postmean, pch=20, col='black', cex=0.6)
+points(1:n, res_fss$postmean, pch=20, col='magenta', cex=0.6)
+legend("topright", legend=c("general_sequence_model", "fast_spike_slab_beta",
+                            "data", "truth"),
+       col=c("black", "magenta", "green", "blue"), pch=20, cex=0.7)
+</code></pre>
+
+
+</div>

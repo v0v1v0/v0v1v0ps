@@ -1,0 +1,133 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sped</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Smoothness-Penalized Deconvolution</h2>
+
+<h3>Description</h3>
+
+<p><code>sped()</code> computes the Smoothness-Penalized Deconvolution estimate on the provided data and error distribution
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sped(
+  Y,
+  gtwid,
+  alpha,
+  constraint = "constrainedQP",
+  spline_dim = 30,
+  hn = NULL,
+  ephemera = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>Numeric vector of data from the model <code class="reqn">Y = X + Z</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gtwid</code></td>
+<td>
+<p>Object of class spedecon_gtwid describing the density of <code class="reqn">Z</code> in the model <code class="reqn">Y = X + Z</code>. It should almost always be created by one of the helper functions <code>gaussian_gtwid()</code>, <code>laplace_gtwid()</code>, or <code>uniform_gtwid()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Positive numeric penalty parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraint</code></td>
+<td>
+<p>String, controls whether and how the solution is constrained to be a pdf. One of <code>"constrainedQP"</code>, <code>"projection"</code>, or <code>"unconstrained"</code> for constrained quadratic program, metric projection, or unconstrained, respectively</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spline_dim</code></td>
+<td>
+<p>Numeric integer, dimension of spline space</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hn</code></td>
+<td>
+<p>(optional) Object of class <code>histogram</code> holding pre-computed histogram computed from the data <code class="reqn">Y</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ephemera</code></td>
+<td>
+<p>(optional) Object of class <code>spedecon_ephemera</code> holding pre-computed computational bits</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>(optional) Other arguments</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function computes the "Smoothness-Penalized Deconvolution" (SPeD) estimate of a density under additive measurement error.
+The essential inputs to the function are the data <code>Y</code>, the Fourier transform <code>gtwid</code> of the error density, and the penalty parameter <code>alpha</code>; more details follow here, but for a full description of the estimator please consult Kent and Ruppert (2023).
+</p>
+<p>The data model is that we observe an iid sample distributed like <code class="reqn">Y = X + Z</code>, with <code class="reqn">Z</code> an error independent of <code class="reqn">X</code>.
+We wish to estimate the density <code class="reqn">f(x)</code> of <code class="reqn">X</code>.
+It is assumed that we know the probability density of the errors <code class="reqn">Z</code>, call it <code class="reqn">g(z)</code>.
+</p>
+<p>The estimator begins with a density estimate <code class="reqn">h_n(y)</code> of the density of <code class="reqn">Y</code>, and minimizes the objective function
+</p>
+<p style="text-align: center;"><code class="reqn">\|g*v - h_n\|^2 + \alpha \|v^{(2)}\|^2</code>
+</p>
+
+<p>in <code class="reqn">v</code>, with <code class="reqn">v</code> ranging over a space of cubic splines with equally-spaced knots; the dimension of this space can be adjusted with the argument <code>spline_dim</code>.
+The SPeD estimate is not naturally a pdf, so it must be constrained.
+When <code>constraint = "constrainedQP"</code>, the constraint is imposed directly into quadratic program minimizing the objective; when <code>constraint = "projection"</code>, the unconstrained estimate is computed and then projected onto the space of pdfs.
+The preliminary density estimate <code class="reqn">h_n</code> is computed internally as a histogram using Freedman-Diaconis choice of bin width, but a user-supplied histogram computed with <code>hist()</code> may be provided via the <code>hn</code> argument.
+</p>
+<p>The computations require the <em>Fourier transform</em> <code class="reqn">\tilde g(t)</code> of the probability density, and this must be supplied as an object of type <code>spedecon_gtwid</code>, which can be produced for common error densities using the helper functions <code>gaussian_gtwid()</code>, <code>laplace_gtwid()</code>, and <code>uniform_gtwid()</code>.
+</p>
+<p>If the estimator will be re-computed many times for many realizations of data, substantial time can be saved by pre-computing all the auxiliary matrices and vectors one time, and supplying them through the <code>ephemera</code> argument.
+This can be done whenever the repeated computations all use the same error density, same histogram bins, and same spline space, as those are what define the required matrices and vectors.
+A helper function <code>compute_ephemera()</code> is provided to pre-compute these.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object of class spedecon_spline_sped_fit
+</p>
+
+
+<h3>References</h3>
+
+<p>Kent D, Ruppert D (2023). “Smoothness-Penalized Deconvolution (SPeD) of a Density Estimate.” <em>Journal of the American Statistical Association</em>, to appear. ISSN 0162-1459, <a href="https://doi.org/10.1080/01621459.2023.2259028">doi:10.1080/01621459.2023.2259028</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">alpha &lt;- 1e-3
+n &lt;- 1e3; s &lt;- 0.3
+Y &lt;- rgamma(n,5,2) + rnorm(n,0,s) # Data, contaminated with Gaussian errors
+sol &lt;- sped(Y,gtwid=gaussian_gtwid(sd=s),1e-3)
+plot(sol,n=1e3) # Plot the resulting estimate
+curve(dgamma(x,5,2),col=2,n=1e3,add=TRUE) # The target density f() of X
+sol(c(2,3,4)) # We can evaluate sol; it is a function
+</code></pre>
+
+
+</div>

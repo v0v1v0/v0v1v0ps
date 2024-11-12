@@ -1,0 +1,164 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SPCAvRP_subspace</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Computes the leading eigenspace using 
+the SPCAvRP algorithm for the eigenspace estimation</h2>
+
+<h3>Description</h3>
+
+<p>Computes <code>m</code> leading eigenvectors of the sample covariance matrix which are sparse and orthogonal, using <code>A x B</code> random axis-aligned projections of dimension <code>d</code>.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SPCAvRP_subspace(data, cov = FALSE, m, l, d = 20, 
+A = 600, B = 200, center_data = TRUE)</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Either the data matrix (<code>p x n</code>) or the sample covariance matrix (<code>p x p</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov</code></td>
+<td>
+<p><code>TRUE</code> if data is given as a sample covariance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>The dimension of the eigenspace, i.e the number of principal components to compute.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>l</code></td>
+<td>
+<p>Desired sparsity level of the eigenspace (i.e. the number of non-zero rows in <code>output$vector</code>) (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>The dimension of the random projections (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A</code></td>
+<td>
+<p>Number of projections over which to aggregate (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>Number of projections in a group from which to select (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>center_data</code></td>
+<td>
+<p><code>TRUE</code> if the data matrix should be centered (see Details).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function implements the SPCAvRP algorithm for the eigenspace estimation (Algorithm 3 in the reference given below). 
+</p>
+<p>If the true sparsity level <code>k</code> of the eigenspace is known, use <code>l = k</code> and <code>d = k</code>. 
+</p>
+<p>If the true sparsity level <code>k</code> of the eigenspace is unknown, the appropriate choice of <code>l</code> can be done, for example, by running the algorithm (for any <code>l</code>) and inspecting the computed output <code>importance_scores</code>. The default choice for <code>d</code> is <code>20</code>, but we suggest choosing <code>d</code> equal to or slightly larger than <code>l</code>.  
+</p>
+<p>It is desirable to choose <code>A</code> (and <code>B = ceiling(A/3)</code>) as big as possible subject to the computational budget. In general, we suggest using <code>A = 300</code> and <code>B = 100</code> when the dimension of data is a few hundreds, while <code>A = 600</code> and <code>B = 200</code> when the dimension is on order of <code>1000</code>. 
+</p>
+<p>If <code>center_data == TRUE</code> and <code>data</code> is given as a data matrix, the first step is to center it by executing <code>scale(data, center_data, FALSE)</code>, which subtracts the column means of <code>data</code> from their corresponding columns.</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list of two elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>vector</code></td>
+<td>
+<p>A matrix whose <code>m</code> columns are the estimated eigenvectors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>value</code></td>
+<td>
+<p>An array with <code>m</code> estimated eigenvalues.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>importance_scores</code></td>
+<td>
+<p>An array of length p with importance scores for each variable 1 to p.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Milana Gataric, Tengyao Wang and Richard J. Samworth</p>
+
+
+<h3>References</h3>
+
+<p>Milana Gataric, Tengyao Wang and Richard J. Samworth (2018) Sparse principal component analysis via random projections
+<a href="https://arxiv.org/abs/1712.05630">https://arxiv.org/abs/1712.05630</a></p>
+
+
+<h3>See Also</h3>
+
+<p><code>SPCAvRP</code>, <code>SPCAvRP_deflation</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">p &lt;- 50 # data dimension
+k1 &lt;- 8 # sparsity of each induvidual component
+v1 &lt;- 1/sqrt(k1)*c(rep(1, k1), rep(0, p-k1)) # first principal compnent (PC)
+v2 &lt;- 1/sqrt(k1)*c(rep(0,4), 1, -1, 1, -1, rep(1,4), rep(0,p-12)) # 2nd PC
+v3 &lt;- 1/sqrt(k1)*c(rep(0,6), 1, -rep(1,4), rep(1,3), rep(0,p-14)) # 3rd PC
+Sigma &lt;- diag(p) + 40*tcrossprod(v1) + 20*tcrossprod(v2) + 5*tcrossprod(v3) # population covariance 
+mu &lt;- rep(0, p) # pupulation mean
+n &lt;- 2000 # number of observations
+loss = function(u,v){
+  sqrt(abs(1-sum(v*u)^2))
+}
+loss_sub = function(U,V){
+  U&lt;-qr.Q(qr(U)); V&lt;-qr.Q(qr(V))
+  norm(tcrossprod(U)-tcrossprod(V),"2")
+}
+set.seed(1)
+X &lt;- mvrnorm(n, mu, Sigma) # data matrix
+
+
+spcavrp.sub &lt;- SPCAvRP_subspace(data = X, cov = FALSE, m = 2, l = 12, d = 12,
+                             A = 200, B = 70, center_data = FALSE)
+
+subspace_estimation&lt;-data.frame(
+  loss_sub(matrix(c(v1,v2),ncol=2),spcavrp.sub$vector),
+  loss(spcavrp.sub$vector[,1],v1),
+  loss(spcavrp.sub$vector[,2],v2),
+  crossprod(spcavrp.sub$vector[,1],spcavrp.sub$vector[,2]))
+colnames(subspace_estimation)&lt;-c("loss_sub","loss_v1","loss_v2","inner_prod")
+rownames(subspace_estimation)&lt;-c("")
+print(subspace_estimation)
+
+plot(1:p,spcavrp.sub$importance_scores,xlab='variable',ylab='w',
+     main='importance scores w \n (may use to choose l when k unknown)')
+</code></pre>
+
+
+</div>

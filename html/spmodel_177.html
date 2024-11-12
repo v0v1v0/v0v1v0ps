@@ -1,0 +1,445 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spgautor</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit spatial generalized autoregressive models</h2>
+
+<h3>Description</h3>
+
+<p>Fit spatial generalized linear models for areal data
+(i.e., spatial generalized autoregressive models)
+using a variety of estimation methods, allowing for random effects,
+partition factors, and row standardization.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spgautor(
+  formula,
+  family,
+  data,
+  spcov_type,
+  spcov_initial,
+  dispersion_initial,
+  estmethod = "reml",
+  random,
+  randcov_initial,
+  partition_factor,
+  W,
+  row_st = TRUE,
+  M,
+  range_positive = TRUE,
+  cutoff,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>A two-sided linear formula describing the fixed effect structure
+of the model, with the response to the left of the <code>~</code> operator and
+the terms, separated by <code>+</code> operators, on the right.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>The generalized linear model family describing the distribution
+of the response variable to be used. Available options
+<code>"poisson"</code>, <code>"nbinomial"</code>, <code>"binomial"</code>,
+<code>"beta"</code>, <code>"Gamma"</code>, and <code>"inverse.gaussian"</code>.
+Can be quoted or unquoted. Note that the <code>family</code> argument
+only takes a single value, rather than the list structure used by stats::glm.
+See Details for more.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame or <code>sf</code> object that contains
+the variables in <code>fixed</code>, <code>random</code>, and <code>partition_factor</code>,
+as well as potentially geographical information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spcov_type</code></td>
+<td>
+<p>The spatial covariance type. Available options include
+<code>"car"</code> and <code>"sar"</code>. Parameterizations of each spatial covariance type are
+available in Details. When <code>spcov_type</code> is specified, relevant spatial
+covariance parameters are assumed unknown, requiring estimation.
+<code>spcov_type</code> is not required (and is
+ignored) if <code>spcov_initial</code> is provided.  Multiple values can be
+provided in a character vector. Then <code>spgautor()</code> is called iteratively
+for each element and a list is returned for each model fit.
+The default for <code>spcov_type</code> is <code>"car"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spcov_initial</code></td>
+<td>
+<p>An object from <code>spcov_initial()</code> specifying initial and/or
+known values for the spatial covariance parameters.
+Not required if <code>spcov_type</code> is provided. Multiple <code>spcov_initial()</code>
+objects can be provided in a list. Then <code>spgautor()</code> is called iteratively
+for each element and a list is returned for each model fit.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dispersion_initial</code></td>
+<td>
+<p>An object from <code>dispersion_initial()</code> specifying
+initial and/or known values for the dispersion parameter for the
+<code>"nbinomial"</code>, <code>"beta"</code>, <code>"Gamma"</code>, and <code>"inverse.gaussian"</code> families.
+<code>family</code> is ignored if <code>dispersion_initial</code> is provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estmethod</code></td>
+<td>
+<p>The estimation method. Available options include
+<code>"reml"</code> for restricted maximum likelihood and <code>"ml"</code> for maximum
+likelihood The default is
+<code>"reml"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>random</code></td>
+<td>
+<p>A one-sided linear formula describing the random effect structure
+of the model. Terms are specified to the right of the <code>~ operator</code>.
+Each term has the structure <code>x1 + ... + xn | g1/.../gm</code>, where <code>x1 + ... + xn</code>
+specifies the model for the random effects and <code>g1/.../gm</code> is the grouping
+structure. Separate terms are separated by <code>+</code> and must generally
+be wrapped in parentheses. Random intercepts are added to each model
+implicitly when at least  one other variable is defined.
+If a random intercept is not desired, this must be explicitly
+defined (e.g., <code>x1 + ... + xn - 1 | g1/.../gm</code>). If only a random intercept
+is desired for a grouping structure, the random intercept must be specified
+as <code>1 | g1/.../gm</code>. Note that <code>g1/.../gm</code> is shorthand for <code>(1 | g1/.../gm)</code>.
+If only random intercepts are desired and the shorthand notation is used,
+parentheses can be omitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>randcov_initial</code></td>
+<td>
+<p>An optional object specifying initial and/or
+known values for the random effect variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>partition_factor</code></td>
+<td>
+<p>A one-sided linear formula with a single term
+specifying the partition factor.  The partition factor assumes observations
+from different levels of the partition factor are uncorrelated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>Weight matrix specifying the neighboring structure used.
+Not required if <code>data</code> is an <code>sf</code> object wtih <code>POLYGON</code> geometry,
+as <code>W</code> is calculated internally using queen contiguity. If calculated internally,
+<code>W</code> is computed using <code>sf::st_intersects()</code>. Also not required if <code>data</code>
+is an <code>sf</code> object with <code>POINT</code> geometry as long as <code>cutoff</code> is specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>row_st</code></td>
+<td>
+<p>A logical indicating whether row standardization be performed on
+<code>W</code>. The default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M</code></td>
+<td>
+<p><code>M</code> matrix satisfying the car symmetry condition. The car
+symmetry condition states that <code class="reqn">(I - range * W)^{-1}M</code> is symmetric, where
+<code class="reqn">I</code> is an identity matrix, <code class="reqn">range</code> is a constant that controls the
+spatial dependence, <code>W</code> is the weights matrix,
+and <code class="reqn">^{-1}</code> represents the inverse operator.
+<code>M</code> is required for car models
+when <code>W</code> is provided and <code>row_st</code> is <code>FALSE</code>.  When <code>M</code>,
+is required, the default is the identity matrix. <code>M</code> must be diagonal
+or given as a vector or one-column matrix assumed to be the diagonal.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>range_positive</code></td>
+<td>
+<p>Whether the range should be constrained to be positive.
+The default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutoff</code></td>
+<td>
+<p>The numeric, distance-based cutoff used to determine <code>W</code>
+when <code>W</code> is not specified. For an <code>sf</code> object with <code>POINT</code> geometry,
+two locations are considered neighbors if the distance between them is less
+than or equal to <code>cutoff</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments to <code>stats::optim()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The spatial generalized linear model for areal data
+(i.e., spatial generalized autoregressive model) can be written as
+<code class="reqn">g(\mu) = \eta = X \beta + \tau + \epsilon</code>, where <code class="reqn">\mu</code> is the expectation
+of the response (<code class="reqn">y</code>) given the random errors, <code class="reqn">g(.)</code> is called
+a link function which links together the <code class="reqn">\mu</code> and <code class="reqn">\eta</code>,
+<code class="reqn">X</code> is the fixed effects design
+matrix, <code class="reqn">\beta</code> are the fixed effects, <code class="reqn">\tau</code> is random error that is
+spatially dependent, and <code class="reqn">\epsilon</code> is random error that is spatially
+independent.
+</p>
+<p>There are six generalized linear model
+families available: <code>poisson</code> assumes <code class="reqn">y</code> is a Poisson random variable
+<code>nbinomial</code> assumes <code class="reqn">y</code> is a negative binomial random
+variable, <code>binomial</code> assumes <code class="reqn">y</code> is a binomial random variable,
+<code>beta</code> assumes <code class="reqn">y</code> is a beta random variable,
+<code>Gamma</code> assumes <code class="reqn">y</code> is a gamma random
+variable, and <code>inverse.gaussian</code> assumes <code class="reqn">y</code> is an inverse Gaussian
+random variable.
+</p>
+<p>The supports for <code class="reqn">y</code> for each family are given below:
+</p>
+
+<ul>
+<li>
+<p> family: support of <code class="reqn">y</code>
+</p>
+</li>
+<li>
+<p> poisson: <code class="reqn">0 \le y</code>; <code class="reqn">y</code> an integer
+</p>
+</li>
+<li>
+<p> nbinomial: <code class="reqn">0 \le y</code>; <code class="reqn">y</code> an integer
+</p>
+</li>
+<li>
+<p> binomial: <code class="reqn">0 \le y</code>; <code class="reqn">y</code> an integer
+</p>
+</li>
+<li>
+<p> beta: <code class="reqn">0 &lt; y &lt; 1</code>
+</p>
+</li>
+<li>
+<p> Gamma: <code class="reqn">0 &lt; y</code>
+</p>
+</li>
+<li>
+<p> inverse.gaussian: <code class="reqn">0 &lt; y</code>
+</p>
+</li>
+</ul>
+<p>The generalized linear model families
+and the parameterizations of their link functions are given
+below:
+</p>
+
+<ul>
+<li>
+<p> family: link function
+</p>
+</li>
+<li>
+<p> poisson: <code class="reqn">g(\mu) = log(\eta)</code> (log link)
+</p>
+</li>
+<li>
+<p> nbinomial: <code class="reqn">g(\mu) = log(\eta)</code> (log link)
+</p>
+</li>
+<li>
+<p> binomial: <code class="reqn">g(\mu) = log(\eta / (1 - \eta))</code> (logit link)
+</p>
+</li>
+<li>
+<p> beta: <code class="reqn">g(\mu) = log(\eta / (1 - \eta))</code> (logit link)
+</p>
+</li>
+<li>
+<p> Gamma: <code class="reqn">g(\mu) = log(\eta)</code> (log link)
+</p>
+</li>
+<li>
+<p> inverse.gaussian: <code class="reqn">g(\mu) = log(\eta)</code> (log link)
+</p>
+</li>
+</ul>
+<p>The variance function of an individual <code class="reqn">y</code> (given <code class="reqn">\mu</code>)
+for each generalized linear model family is given below:
+</p>
+
+<ul>
+<li>
+<p> family: <code class="reqn">Var(y)</code>
+</p>
+</li>
+<li>
+<p> poisson: <code class="reqn">\mu \phi</code>
+</p>
+</li>
+<li>
+<p> nbinomial: <code class="reqn">\mu + \mu^2 / \phi</code>
+</p>
+</li>
+<li>
+<p> binomial: <code class="reqn">n \mu (1 - \mu) \phi</code>
+</p>
+</li>
+<li>
+<p> beta: <code class="reqn">\mu (1 - \mu) / (1 + \phi)</code>
+</p>
+</li>
+<li>
+<p> Gamma: <code class="reqn">\mu^2 / \phi</code>
+</p>
+</li>
+<li>
+<p> inverse.gaussian: <code class="reqn">\mu^2 / \phi</code>
+</p>
+</li>
+</ul>
+<p>The parameter <code class="reqn">\phi</code> is a dispersion parameter that influences <code class="reqn">Var(y)</code>.
+For the <code>poisson</code> and <code>binomial</code> families, <code class="reqn">\phi</code> is always
+one. Note that this inverse Gaussian parameterization is different than a
+standard inverse Gaussian parameterization, which has variance <code class="reqn">\mu^3 / \lambda</code>.
+Setting <code class="reqn">\phi = \lambda / \mu</code> yields our parameterization, which is
+preferred for computational stability. Also note that the dispersion parameter
+is often defined in the literature as <code class="reqn">V(\mu) \phi</code>, where <code class="reqn">V(\mu)</code> is the variance
+function of the mean. We do not use this parameterization, which is important
+to recognize while interpreting dispersion parameter estimates.
+For more on generalized linear model constructions, see McCullagh and
+Nelder (1989).
+</p>
+<p>Together, <code class="reqn">\tau</code> and <code class="reqn">\epsilon</code> are modeled using
+a spatial covariance function, expressed as
+<code class="reqn">de * R + ie * I</code>, where <code class="reqn">de</code> is the dependent error variance, <code class="reqn">R</code>
+is a matrix that controls the spatial dependence structure among observations,
+<code class="reqn">ie</code> is the independent error variance, and <code class="reqn">I</code> is
+an identity matrix. Note that <code class="reqn">de</code> and <code class="reqn">ie</code> must be non-negative while <code class="reqn">range</code>
+must be between the reciprocal of the maximum
+eigenvalue of <code>W</code> and the reciprocal of the minimum eigenvalue of
+<code>W</code>. Recall that <code class="reqn">\tau</code> and <code class="reqn">\epsilon</code> are modeled on the link scale,
+not the inverse link (response) scale. Random effects are also modeled on the link scale.
+</p>
+<p><code>spcov_type</code> Details: Parametric forms for <code class="reqn">R</code> are given below:
+</p>
+
+<ul>
+<li>
+<p> car: <code class="reqn">(I - range * W)^{-1}M</code>, weights matrix <code class="reqn">W</code>,
+symmetry condition matrix <code class="reqn">M</code>
+</p>
+</li>
+<li>
+<p> sar: <code class="reqn">[(I - range * W)(I - range * W)^T]^{-1}</code>,
+weights matrix <code class="reqn">W</code>, <code class="reqn">^T</code> indicates matrix transpose
+</p>
+</li>
+</ul>
+<p>If there are observations with no neighbors, they are given a unique variance
+parameter called <code>extra</code>, which must be non-negative.
+</p>
+<p><code>estmethod</code> Details: The various estimation methods are
+</p>
+
+<ul>
+<li> <p><code>reml</code>: Maximize the restricted log-likelihood.
+</p>
+</li>
+<li> <p><code>ml</code>: Maximize the log-likelihood.
+</p>
+</li>
+</ul>
+<p>Note that the likelihood being optimized is obtained using the Laplace approximation.
+</p>
+<p>By default, all spatial covariance parameters except <code>ie</code>
+as well as all random effect variance parameters
+are assumed unknown, requiring estimation. <code>ie</code> is assumed zero and known by default
+(in contrast to models fit using <code>spglm()</code>, where <code>ie</code> is assumed
+unknown by default). To change this default behavior, specify <code>spcov_initial</code>
+(an <code>NA</code> value for <code>ie</code> in <code>spcov_initial</code> to assume
+<code>ie</code> is unknown, requiring estimation).
+</p>
+<p><code>random</code> Details: If random effects are used, the model
+can be written as <code class="reqn">y = X \beta + Z1u1 + ... Zjuj + \tau + \epsilon</code>,
+where each Z is a random effects design matrix and each u is a random effect.
+</p>
+<p><code>partition_factor</code> Details:  The partition factor can be represented in matrix form as <code class="reqn">P</code>, where
+elements of <code class="reqn">P</code> equal one for observations in the same level of the partition
+factor and zero otherwise. The covariance matrix involving only the
+spatial and random effects components is then multiplied element-wise
+(Hadmard product) by <code class="reqn">P</code>, yielding the final covariance matrix.
+</p>
+<p>Observations with <code>NA</code> response values are removed for model
+fitting, but their values can be predicted afterwards by running
+<code>predict(object)</code>. This is the only way to perform prediction for
+<code>spgautor()</code> models (i.e., the prediction locations must be known prior
+to estimation).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with many elements that store information about
+the fitted model object. If <code>spcov_type</code> or <code>spcov_initial</code> are
+length one, the list has class <code>spgautor</code>. Many generic functions that
+summarize model fit are available for <code>spgautor</code> objects, including
+<code>AIC</code>, <code>AICc</code>, <code>anova</code>, <code>augment</code>, <code>AUROC</code>, <code>BIC</code>, <code>coef</code>,
+<code>cooks.distance</code>, <code>covmatrix</code>, <code>deviance</code>, <code>fitted</code>, <code>formula</code>,
+<code>glance</code>, <code>glances</code>, <code>hatvalues</code>, <code>influence</code>,
+<code>labels</code>, <code>logLik</code>, <code>loocv</code>, <code>model.frame</code>, <code>model.matrix</code>,
+<code>plot</code>, <code>predict</code>, <code>print</code>, <code>pseudoR2</code>, <code>summary</code>,
+<code>terms</code>, <code>tidy</code>, <code>update</code>, <code>varcomp</code>, and <code>vcov</code>. If
+<code>spcov_type</code> or <code>spcov_initial</code> are length greater than one, the
+list has class <code>spgautor_list</code> and each element in the list has class
+<code>spgautor</code>. <code>glances</code> can be used to summarize <code>spgautor_list</code>
+objects, and the aforementioned <code>spgautor</code> generics can be used on each
+individual list element (model fit).
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function does not perform any internal scaling. If optimization is not
+stable due to large extremely large variances, scale relevant variables
+so they have variance 1 before optimization.
+</p>
+
+
+<h3>References</h3>
+
+<p>McCullagh P. and Nelder, J. A. (1989) <em>Generalized Linear Models</em>. London: Chapman and Hall.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">spgmod &lt;- spgautor(I(log_trend^2) ~ 1, family = "Gamma", data = seal, spcov_type = "car")
+summary(spgmod)
+</code></pre>
+
+
+</div>

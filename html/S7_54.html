@@ -1,0 +1,117 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>validate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Validate an S7 object</h2>
+
+<h3>Description</h3>
+
+<p><code>validate()</code> ensures that an S7 object is valid by calling the <code>validator</code>
+provided in <code>new_class()</code>. This is done automatically when constructing new
+objects and when modifying properties.
+</p>
+<p><code>valid_eventually()</code> disables validation, modifies the object, then
+revalidates. This is useful when a sequence of operations would otherwise
+lead an object to be temporarily invalid, or when repeated property
+modification causes a performance bottleneck because the validator is
+relatively expensive.
+</p>
+<p><code>valid_implicitly()</code> does the same but does not validate the object at the
+end. It should only be used rarely, and in performance critical code where
+you are certain a sequence of operations cannot produce an invalid object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">validate(object, recursive = TRUE, properties = TRUE)
+
+valid_eventually(object, fun)
+
+valid_implicitly(object, fun)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An S7 object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>recursive</code></td>
+<td>
+<p>If <code>TRUE</code>, calls validator of parent classes recursively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>properties</code></td>
+<td>
+<p>If <code>TRUE</code>, the default, checks property types before
+executing the validator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>A function to call on the object before validation.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Either <code>object</code> invisibly if valid, otherwise an error.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># A range class might validate that the start is less than the end
+Range &lt;- new_class("Range",
+  properties = list(start = class_double, end = class_double),
+  validator = function(self) {
+    if (self@start &gt;= self@end) "start must be smaller than end"
+  }
+)
+# You can't construct an invalid object:
+try(Range(1, 1))
+
+# And you can't create an invalid object with @&lt;-
+r &lt;- Range(1, 2)
+try(r@end &lt;- 1)
+
+# But what if you want to move a range to the right?
+rightwards &lt;- function(r, x) {
+  r@start &lt;- r@start + x
+  r@end &lt;- r@end + x
+  r
+}
+# This function doesn't work because it creates a temporarily invalid state
+try(rightwards(r, 10))
+
+# This is the perfect use case for valid_eventually():
+rightwards &lt;- function(r, x) {
+  valid_eventually(r, function(object) {
+    object@start &lt;- object@start + x
+    object@end &lt;- object@end + x
+    object
+  })
+}
+rightwards(r, 10)
+
+# Alternatively, you can set multiple properties at once using props&lt;-,
+# which validates once at the end
+rightwards &lt;- function(r, x) {
+  props(r) &lt;- list(start = r@start + x, end = r@end + x)
+  r
+}
+rightwards(r, 20)
+</code></pre>
+
+
+</div>

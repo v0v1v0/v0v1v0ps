@@ -1,0 +1,131 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>curve_ext_recon</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Reconstruct Curves</h2>
+
+<h3>Description</h3>
+
+<p>This function reconstructs the curves given by <code>curve_ext</code> or <code>curve_ext_multi</code>.
+</p>
+<p>This code is translated from MATLAB Synchrosqueezing Toolbox, version 1.1 developed by Eugene Brevdo (http://www.math.princeton.edu/~ebrevdo/).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">curve_ext_recon(Tx, fs, Cs, opt=NULL, clwin=4)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Tx</code></td>
+<td>
+<p>same as input to <code>curve_ext_multi</code>. synchrosqueezed output of <code>x</code> (columns associated with time <code>t</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fs</code></td>
+<td>
+<p>same as input to <code>curve_ext_multi</code>. frequencies associated with rows of <code>Tx</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt</code></td>
+<td>
+<p>same as input to <code>synsq_cwt_fw</code> and <code>synsq_cwt_iw</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Cs</code></td>
+<td>
+<p>same as output to <code>curve_ext_multi</code>. <code>[N x nc]</code> matrix of curve indices (<code>N=ncol(Tx)</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clwin</code></td>
+<td>
+<p>same as input to <code>curve_ext_multi</code>. frequency clearing window; after curve extraction, a window
+of frequencies <code>(Cs[,i]-clwin) : (Cs[,i]+clwin)</code> is removed from the
+original representation. (default = 2)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function reconstructs the curves given by <code>curve_ext</code> or <code>curve_ext_multi</code>.
+</p>
+
+
+<h3>Value</h3>
+
+ 
+<table><tr style="vertical-align: top;">
+<td><code>xrs</code></td>
+<td>
+<p><code>[n x Nc]</code> matrix - the <code>Nc</code> reconstructed signals (each length <code>n</code>)</p>
+</td>
+</tr></table>
+<h3>References</h3>
+
+<p>[1] Thakur, G., Brevdo, E., Fuckar, N. S. and Wu, H-T. (2013) The Synchrosqueezing algorithm for time-varying spectral analysis: 
+Robustness properties and new paleoclimate applications. 
+<em>Signal Processing</em>, <b>93</b>, 1079–1094.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>synsq_cwt_fw</code>, <code>curve_ext</code>, <code>curve_ext_multi</code>, <code>curve_ext_recon</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(7)
+tt &lt;- seq(0, 10, , 1024)
+nv &lt;- 32
+f0 &lt;- (1+0.6*cos(2*tt))*cos(4*pi*tt+1.2*tt^2)
+sigma &lt;- 0.5
+f &lt;- f0 + sigma*rnorm(length(tt))
+
+# Continuous wavelet transform
+opt &lt;- list(type = "bump")
+cwtfit &lt;- cwt_fw(f, opt$type, nv, tt[2]-tt[1], opt)
+
+# Hard thresholing
+thresh &lt;- est_riskshrink_thresh(cwtfit$Wx, nv)
+cwtfit$Wx[which(abs(cwtfit$Wx) &lt; thresh)] &lt;- 0.0
+
+# Denoised signal
+opt$gamma &lt;- thresh
+fr &lt;- cwt_iw(cwtfit$Wx, opt$type, opt)
+
+# Synchrosqueezed wavelet transform using denoised signal
+sstfit2 &lt;- synsq_cwt_fw(tt, fr, nv, opt)
+
+# Ridge extraction
+lambda &lt;- 1e+04
+nw &lt;- 16
+imtfit &lt;- curve_ext_multi(sstfit2$Tx, log2(sstfit2$fs), 1, lambda, nw)
+
+# Reconstruction
+curvefit &lt;- curve_ext_recon(sstfit2$Tx, sstfit2$fs, imtfit$Cs, opt, nw)
+
+par(mfrow=c(2,1))
+image.plot(list(x=tt, y=sstfit2$fs, z=t(abs(sstfit2$Tx))), log="y", 
+    xlab="Time", ylab="Frequency", main="Time-Frequency Representation by SST", 
+    col=designer.colors(64, c("azure", "cyan", "blue", "darkblue")), ylim=c(0.5, 25))
+lines(tt, sstfit2$fs[imtfit$Cs[,1]], col="red", lty=3, lwd=2)
+
+plot(tt, f0, type="l")
+lines(tt, curvefit, lty=2)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,278 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>model_interface</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Universal Model Interface to the SPARSE-MOD Models
+</h2>
+
+<h3>Description</h3>
+
+<p><code>model_interface</code> determines which SPARSE-MOD model to run based on the arguments and runs the specified model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">    model_interface(
+        control,
+        arg.list
+    )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+
+<p>Either a <code>covid19_control</code> or <code>seir_control</code> named list. The control used will determine which model to run.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>arg.list</code></td>
+<td>
+
+<p>A named list of arguments used in all models including:
+</p>
+
+<ul>
+<li>
+<p><code>input_dist_mat</code>
+</p>
+</li>
+<li>
+<p><code>input_census_area</code>
+</p>
+</li>
+<li>
+<p><code>input_realz_seeds</code>
+</p>
+</li>
+<li>
+<p><code>input_tw</code>: A time window object (see <code>time_windows</code>)
+</p>
+</li>
+<li>
+<p><code>trans_type</code>: Transmission type (see details below)
+</p>
+</li>
+<li>
+<p><code>dd_trans_monod_k</code>: The Monod equation parameter 'k', for when transmission is density-dependent (see details below)
+</p>
+</li>
+<li>
+<p><code>stoch_sd</code>: The standard deviation of the stochastic transmission rate (see details below)
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+<p>This is the universal interface to all of the SPARSE-MOD models. Currently the models available are the COVID-19 Model, and the SEIR Model.
+</p>
+<p>The SPARSE-MOD COVID-19 Model describes transmission using 11 classes of individuals. Please see the vignettes for a more detailed explanation of the model structure.
+</p>
+<p>The SPARSE-MOD SEIR Model describes transmission using 4 classes of individuals. Please see the vignettes for a more detailed explanation of the model structure.
+</p>
+<p>Transmisison types: The day-specific transmission rate (beta) must be supplied. We allow for two transmission types:
+</p>
+
+<ol>
+<li>
+<p>Frequency-dependent transmission: In this case the transmission function is: </p>
+<p style="text-align: center;"><code class="reqn">beta_scaled = beta / pop_N.</code>
+</p>
+<p> This is calculated per sub-population. 
+
+</p>
+</li>
+<li>
+<p>Density-dependent transmission: In this case, we allow a user-defined Monod equation to scale the beta term by sub-population density, where <code class="reqn">pop_density = pop_N / census_area</code> :
+</p>
+<p style="text-align: center;"><code class="reqn">
+                beta_scaled = (beta * pop_dens / (dd_trans_monod_k + pop_dens)) / pop_N
+            </code>
+</p>
+
+
+</li>
+</ol>
+<p>Stochastic transmission: We implement daily stochastic variation in the transmission rate that scales with the number of infectious individuals in the focal population. In other words, as the number of infectious individuals increases, the variation in transmission rate reduces, emphasizing that stochasticity has larger effects in smaller populations (i.e., larger effects when there are few infectious individuals). To implement this stochasticity, we draw a random variate from a normal distribution with a mean of zero and a standard deviation of <code>stoch_sd</code>, and this random variate is termed <code>noise</code>. We calculate the total number of infectious individuals across infectious sub-classes (e.g., Pre-symptomatic, Hospital, etc.), and this variable is termed <code>infect_sum</code>. The functional form of stochasticity is then:
+</p>
+<p style="text-align: center;"><code class="reqn">beta_realized = | beta_scaled * (1 + (noise / sqrt(infect_sum))) |</code>
+</p>
+
+<p>See <code>Movement</code> for details of how movement dynamics are implemented and controlled in the model.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Two named lists:
+</p>
+
+<ol>
+<li>
+<p><code>pops</code>: Integer vectors that provide the number of individuals in each model class at each time step. Different realizations of the model are distinguised by the user-provided values for the random seeds.
+</p>
+</li>
+<li>
+<p><code>events</code>: Integer vectors that provide the number of individuals that newly transitioned to specific, key model classes at each time step. Different realizations of the model are distinguised by the user-provided values for the random seeds.
+</p>
+<p>For the COVID-19 model, these event vectors are defined as:
+</p>
+
+<ul>
+<li>
+<p><code>pos</code>: Number of newly positive individuals. Sum of new asymptomatic and pre-symptomatic individuals.
+</p>
+</li>
+<li>
+<p><code>sym</code>: Number of newly symptomatic individuals.
+</p>
+</li>
+<li>
+<p><code>total_hosp</code>: Number of newly hospitalized individuals. Sum of new Hospital admits and new Symptomatic-to-ICU1 admits.
+</p>
+</li>
+<li>
+<p><code>total_icu</code>: Number of new ICU admits. Sum of new Symptomatic-to-ICU1 admits and new Hospital-to-ICU1 admits.
+</p>
+</li>
+<li>
+<p><code>n_death</code>: Number of newly deceased individuals.
+</p>
+</li>
+</ul>
+<p>For the SEIR model, these event vectors are defined as:
+</p>
+
+<ul>
+<li>
+<p><code>birth</code>: Number of newly susceptible hosts through the process of reproduction.
+</p>
+</li>
+<li>
+<p><code>exposed</code>: Number of newly exposed hosts.
+</p>
+</li>
+<li>
+<p><code>infectious</code>: Number of newly infectious hosts.
+</p>
+</li>
+<li>
+<p><code>recov</code>: Number of newly recovered hosts.
+</p>
+</li>
+<li>
+<p><code>death</code>: Number of newly deceased hosts.
+</p>
+</li>
+</ul>
+</li>
+</ol>
+<h3>Author(s)</h3>
+
+<p>Joseph Mihaljevic, <a href="mailto:joseph.mihaljevic@nau.edu">joseph.mihaljevic@nau.edu</a><br>
+Seth Borkovec, <a href="mailto:stb224@nau.edu">stb224@nau.edu</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>model_parallel</code>, <code>time_windows</code>, <code>covid19_control</code>, <code>seir_control</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## See vignettes for more detailed work-ups.
+
+##########################################
+## See model_parallel()
+## for an example to run realizations in parallel
+
+##########################################
+# Required for run:
+require(lubridate)
+
+## Using supplied example data:
+
+# Read in the example data:
+ex_dir &lt;- system.file(
+  "extdata", "sparsemodr_example.Rdata", package="SPARSEMODr", mustWork=TRUE)
+load(ex_dir)
+n_pop &lt;- length(dat_list[["pop_N"]])
+
+# Set up realizations:
+realz_seeds &lt;- 1:2
+n_realz &lt;- length(realz_seeds)
+
+# Set up time windows (see time_windows for other ways to do this)
+input_beta &lt;-           c(   0.3,   0.3,  0.08,  0.08,  0.15)
+input_dist_phi &lt;-       c(   200,   200,    20,   150,   150)
+input_m &lt;-              c( 0.002, 0.002, 0.002,  0.02,  0.02)
+input_imm_frac &lt;-       c(   0.0,   0.0,   0.0,  0.02,  0.02)
+# Window intervals
+start_dates = c(mdy("1-1-20"),  mdy("2-1-20"),  mdy("2-16-20"), mdy("3-11-20"),  mdy("3-22-20"))
+end_dates =   c(mdy("1-31-20"), mdy("2-15-20"), mdy("3-10-20"), mdy("3-21-20"), mdy("5-1-20"))
+
+
+# User creates the time_windows object here
+tw &lt;- time_windows(beta = input_beta,
+                   dist_phi = input_dist_phi,
+                   m = input_m,
+                   imm_frac = input_imm_frac,
+                   start_dates = start_dates,
+                   end_dates = end_dates)
+
+# Randomly generate initial conditions for
+# EXPOSED class:
+E_pops &lt;- vector("numeric", length = n_pop)
+n_initial_E &lt;- 40
+# (more exposed in larger populations)
+these_E &lt;- sample.int(n_pop,
+                     size = n_initial_E,
+                     replace = TRUE,
+                     prob = dat_list$pop_N)
+for(i in 1:n_initial_E){
+  E_pops[these_E[i]] &lt;- E_pops[these_E[i]] + 1
+}
+
+# Inputs for the models
+N_pops &lt;- as.integer(dat_list[["pop_N"]])
+S_pops &lt;- N_pops - E_pops
+
+# User created control list of parameters
+covid19_control &lt;- covid19_control(input_N_pops = N_pops,
+                                   input_S_pops = S_pops,
+                                   input_E_pops = E_pops)
+
+arg.list &lt;- list(
+    input_dist_mat =    dat_list$dist_vec,
+    input_census_area = dat_list$census_area,
+    input_tw =          tw,
+    input_realz_seeds = realz_seeds
+)
+
+# Using all default parameter values,
+# these are the minimum inputs
+covid_model_output &lt;-
+  model_interface(
+    control = covid19_control,
+    arg.list
+  )
+
+</code></pre>
+
+
+</div>

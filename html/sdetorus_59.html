@@ -1,0 +1,246 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>mleOptimWrapper</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Optimization wrapper for likelihood-based procedures</h2>
+
+<h3>Description</h3>
+
+<p>A convenient wrapper to perform local optimization of the
+likelihood function via <code>nlm</code> and <code>optim</code> including several
+practical utilities.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">mleOptimWrapper(minusLogLik, region = function(pars) list(pars = pars,
+  penalty = 0), penalty = 1e+10, optMethod = "Nelder-Mead", start,
+  lower = rep(-Inf, ncol(start)), upper = rep(Inf, ncol(start)),
+  selectSolution = "lowestLocMin", checkCircular = TRUE, maxit = 500,
+  tol = 1e-05, verbose = 0, eigTol = 1e-04, condTol = 10000, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>minusLogLik</code></td>
+<td>
+<p>function computing the minus log-likelihood function.
+Must have a single argument containing a vector of length <code>p</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>region</code></td>
+<td>
+<p>function to impose a feasibility region via a penalty. See
+details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>imposed penalty if value is not finite.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>optMethod</code></td>
+<td>
+<p>one of the following strings: <code>"nlm"</code>,
+<code>"Nelder-Mead"</code>, <code>"BFGS"</code>, <code>"CG"</code>, <code>"L-BFGS-B"</code>,
+<code>"SANN"</code>, or <code>"Brent"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>starting values, a matrix with <code>p</code> columns, with each
+entry representing a different starting value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower, upper</code></td>
+<td>
+<p>bound for box constraints as in method <code>"L-BFGS-B"</code>
+of <code>optim</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>selectSolution</code></td>
+<td>
+<p>which criterion is used for selecting a solution
+among possible ones, either <code>"lowest"</code>, <code>"lowestConv"</code> or
+<code>"lowestLocMin"</code>. <code>"lowest"</code> returns the solution with lowest
+value in the <code>minusLogLik</code> function. <code>"lowestConv"</code> restricts
+the search of the best solution among the ones for which the optimizer has
+converged. <code>"lowestLocMin"</code> in addition imposes that the solution is
+guaranteed to be a local minimum by examining the Hessian matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>checkCircular</code></td>
+<td>
+<p>logical indicating whether to automatically treat the
+variables with <code>lower</code> and <code>upper</code> entries equal to <code>-pi</code> and
+<code>pi</code> as circular. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxit</code></td>
+<td>
+<p>maximum number of iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>tolerance for convergence (passed to <code>reltol</code>, <code>pgtol</code>
+or <code>gradtol</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>an integer from <code>0</code> to <code>2</code> if
+<code>optMethod = "Nelder-Mead"</code> or from <code>0</code> to <code>4</code> otherwise
+giving the amount of information displayed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eigTol, condTol</code></td>
+<td>
+<p>eigenvalue and condition number tolerance for the
+Hessian in order to guarantee a local minimum. Used only if
+<code>selectSolution = "lowestLocMin"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments passed to the <code>optMethod</code> selected. See
+options in <code>nlm</code> or <code>optim</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <code>checkCircular = TRUE</code>, then the corresponding <code>lower</code>
+and <code>upper</code> entries of the circular parameters are set to <code>-Inf</code>
+and <code>Inf</code>, respectively, and <code>minusLogLik</code> is called with the
+<em>principal value</em> of the circular argument.
+</p>
+<p>If no solution is found satisfying the criterion in <code>selectSolution</code>,
+NAs are returned in the elements of the main solution.
+</p>
+<p>The Hessian is only computed if <code>selectSolution = "lowestLocMin"</code>.
+</p>
+<p>Region feasibility can be imposed by a function with the same arguments as
+<code>minusLogLik</code> that resets <code>pars</code> in to the boundary of the
+feasibility region and adds a penalty proportional to the violation of the
+feasibility region. Note that this is <em>not the best procedure at all</em>
+to solve the constrained optimization problem, but just a relatively
+flexible and quick approach (for a more advanced treatment of restrictions,
+see <a href="https://CRAN.R-project.org/view=Optimization">
+optimization-focused packages</a>). The value must be a list with objects
+<code>pars</code> and <code>penalty</code>. By default no region is imposed, i.e.,
+<code>region = function(pars) list("pars" = pars, "penalty" = 0)</code>. Note that
+the Hessian is computed from the unconstrained problem, hence
+<code>localMinimumGuaranteed</code> might be <code>FALSE</code> even if a local minimum
+to the constrained problem was found.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list containing the following elements:
+</p>
+
+<ul>
+<li> <p><code>par</code>: estimated minimizing parameters
+</p>
+</li>
+<li> <p><code>value</code>: value of <code>minusLogLik</code> at the minimum.
+</p>
+</li>
+<li> <p><code>convergence</code>: if the optimizer has converged or not.
+</p>
+</li>
+<li> <p><code>message</code>: a character string giving any additional information
+returned by the optimizer.
+</p>
+</li>
+<li> <p><code>eigHessian</code>: eigenvalues of the Hessian at the minimum. Recall
+that for the same solution slightly different outputs may be obtained
+according to the different computations of the Hessian of <code>nlm</code> and
+<code>optim</code>.
+</p>
+</li>
+<li> <p><code>localMinimumGuaranteed</code>: tests if the Hessian is positive
+definite (all eigenvalues larger than the tolerance <code>eigTol</code> and
+condition number smaller than <code>condTol</code>).
+</p>
+</li>
+<li> <p><code>solutionsOutput</code>: a list containing the complete output of
+the selected method for the different starting values. It includes the
+extra objects <code>convergence</code> and <code>localMinimumGuaranteed</code>.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R"># No local minimum
+head(mleOptimWrapper(minusLogLik = function(x) -sum((x - 1:4)^2),
+                     start = rbind(10:13, 1:2), selectSolution = "lowest"))
+head(mleOptimWrapper(minusLogLik = function(x) -sum((x - 1:4)^2),
+                     start = rbind(10:13, 1:2),
+                     selectSolution = "lowestConv"))
+head(mleOptimWrapper(minusLogLik = function(x) -sum((x - 1:4)^2),
+                     start = rbind(10:13, 1:2),
+                     selectSolution = "lowestLocMin"))
+
+# Local minimum
+head(mleOptimWrapper(minusLogLik = function(x) sum((x - 1:4)^2),
+                     start = rbind(10:13), optMethod = "BFGS"))
+head(mleOptimWrapper(minusLogLik = function(x) sum((x - 1:4)^2),
+                     start = rbind(10:13), optMethod = "Nelder-Mead"))
+
+# Function with several local minimum and a 'spurious' one
+f &lt;- function(x)  0.75 * (x[1] - 1)^2 -
+                  10 / (0.1 + 0.1 * ((x[1] - 15)^2 + (x[2] - 2)^2)) -
+                  9.5 / (0.1 + 0.1 * ((x[1] - 15)^2 + (x[2] + 2)^2))
+plotSurface2D(x = seq(0, 20, l = 100), y = seq(-3, 3, l = 100), f = f)
+head(mleOptimWrapper(minusLogLik = f,
+                     start = rbind(c(15, 2), c(15, -2), c(5, 0)),
+                     selectSolution = "lowest"))
+head(mleOptimWrapper(minusLogLik = f,
+                     start = rbind(c(15, 2), c(15, -2), c(5, 0)),
+                     selectSolution = "lowestConv"))
+head(mleOptimWrapper(minusLogLik = f,
+                     start = rbind(c(15, 2), c(15, -2), c(5, 0)),
+                     selectSolution = "lowestLocMin", eigTol = 0.01))
+
+# With constraint region
+head(mleOptimWrapper(minusLogLik = function(x) sum((x - 1:2)^2),
+                     start = rbind(10:11),
+                     region = function(pars) {
+                       x &lt;- pars[1]
+                       y &lt;- pars[2]
+                       if (y &lt;= x^2) {
+                         return(list("pars" = pars, "penalty" = 0))
+                       } else {
+                        return(list("pars" = c(sqrt(y), y),
+                                    "penalty" = y - x^2))
+                       }
+                     }, lower = c(0.5, 1), upper = c(Inf, Inf),
+                optMethod = "Nelder-Mead", selectSolution = "lowest"))
+head(mleOptimWrapper(minusLogLik = function(x) sum((x - 1:2)^2),
+                     start = rbind(10:11), lower = c(0.5, 1),
+                     upper = c(Inf, Inf),optMethod = "Nelder-Mead"))
+</code></pre>
+
+
+</div>

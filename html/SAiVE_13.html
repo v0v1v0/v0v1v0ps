@@ -1,0 +1,224 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spatPredict</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Predict spatial variables using machine learning</h2>
+
+<h3>Description</h3>
+
+<p><a href="https://lifecycle.r-lib.org/articles/stages.html#stable"><img src="../help/figures/lifecycle-stable.svg" alt="[Stable]"></a>
+</p>
+<p>Function to facilitate the prediction of spatial variables using machine learning, including the selection of a particular model and/or model parameters from several user-defined options. Both classification and regression is supported, though please ensure that the models passed to the parameter <code>methods</code> are suitable.
+</p>
+<p>Note that you may need to acquiesce to installing supplementary packages, depending on the model types chosen and whether or not these have been run before; this function may not be 'set and forget'.
+</p>
+<p>It is possible to specify multiple machine learning methods (the <code>methods</code> parameter) as well as method-specific parameters (the <code>trainControl</code> parameter) if you wish to test multiple options and select the best one. To facilitate method selection, refer to function <code>modelMatch()</code>. If you are unsure of the best model to use, you can use the <code>fastCompare</code> parameter to quickly compare models and select the best one based on accuracy. If you wish to use a single model and/or trainControl object, you can pass a single string to <code>methods</code> and a single trainControl object to <code>trainControl</code>.
+</p>
+<p>Warning options are changed for this function only to show all warnings as they occur and reset back to their original state upon function completion (a test is done first to ensure it can be reset). This is to ensure that any warnings when running models are shown in sequence with the messages indicating the progress of the function, especially when running multiple models and/or trainControl options.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spatPredict(
+  features,
+  outcome,
+  poly_sample = 1000,
+  trainControl,
+  methods,
+  fastCompare = TRUE,
+  fastFraction = NULL,
+  thinFeatures = TRUE,
+  predict = FALSE,
+  n.cores = NULL,
+  save_path = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>features</code></td>
+<td>
+<p>Independent variables. Must be either a NAMED list of terra spatRasters or a multi-layer (stacked) spatRaster (c(rast1, rast2). All layers must all have the same cell size, alignment, extent, and crs. These rasters should include the training extent (that covered by the spatVector in <code>outcome</code>) as well as the desired extrapolation extent.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>Dependent variable, as a terra spatVector of points or polygons with a single attribute table column (of class integer, numeric or factor). The class of this column dictates whether the problem is approached as a classification or regression problem; see details. If specifying polygons, stratified random sampling will be done with <code>poly_sample</code> number of points per unique polygon value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>poly_sample</code></td>
+<td>
+<p>If passing a polygon SpatVector to <code>outcome</code>, the number of points to generate from the polygons for each unique polygon value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trainControl</code></td>
+<td>
+<p>Parameters used to control training of the machine learning model, created with <code>caret::trainControl()</code>. Passed to the <code>trControl</code> parameter of <code>caret::train()</code>. If specifying multiple methods in <code>methods</code> you can use a single <code>trainControl</code> which will apply to all <code>methods</code>, or pass multiple variations to this argument as a list with names matching the names of <code>methods</code> (one element for each model specified in methods).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>methods</code></td>
+<td>
+<p>A string specifying one or more classification/regression methods(s) to use. Passed to the <code>method</code> parameter of <code>caret::train()</code>. If specifying more than one method they will all be passed to <code>caret::resamples()</code> to compare method performance. Then, if <code>predict = TRUE</code>, the method with the highest overall accuracy will be selected to predict the raster surface across the exent of <code>features</code>. A different <code>trainControl</code> parameter can be used for each method in <code>methods</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fastCompare</code></td>
+<td>
+<p>If specifying multiple methods in <code>methods</code> or one method with multiple <code>trainControl</code> objects, should the points in <code>outcome</code> be sub-sampled for the comparison step? The selected method will be trained on the full <code>outcome</code> data set after selection. This only applies if <code>methods</code> is length &gt; 3, with behavior further modified by fastFraction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fastFraction</code></td>
+<td>
+<p>The fraction of points to use for the method comparison step (final training and testing is always done on the full data set) if <code>fastCompare</code> is TRUE and multiple methods . Default NULL ranges from 1 for 5000 or fewer points to 0.1 for 50 000 or more points. You can also set this to any value between 0 and 1 to override this behavior.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thinFeatures</code></td>
+<td>
+<p>Should random forest selection using <code>VSURF::VSURF()</code> be used in an attempt to remove irrelevant variables?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predict</code></td>
+<td>
+<p>TRUE will apply the trained model to the full extent of <code>features</code> and return a raster saved to <code>save_path</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.cores</code></td>
+<td>
+<p>The maximum number of cores to use. Leave NULL to use all cores minus 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_path</code></td>
+<td>
+<p>The path (folder) to which you wish to save the predicted raster. Not used unless <code>predict = TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function partly operates as a convenient means of passing various parameters to the <code>caret::train()</code> function, enabling the user to rapidly trial different model types and parameter sets. In addition, pre-processing of data can optionally be done using <code>VSURF::VSURF()</code> (parameter <code>thinFeatures</code>) which can decrease the time to run models by removing superfluous parameters.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If passing only one method to the <code>method</code> argument: the outcome of the VSURF variable selection process (if <code>thinFeatures</code> is TRUE), the training and testing data.frames, the fitted model, model performance statistics, and the final predicted raster (if <code>predict</code> = TRUE).
+</p>
+<p>If passing multiple methods to the <code>method</code> argument: the outcome of the VSURF variable selection process (if <code>thinFeatures</code> is TRUE), the training and testing data.frames, character vectors for failed methods, methods which generated a warning, and what those errors and warnings were,  model performance comparison (if methods includes more than one method), the selected method, the trained model performance statistics, and the final predicted raster (if <code>predict</code> = TRUE).
+</p>
+<p>In either case, the predicted raster is written to disk if <code>save_path</code> is specified.
+</p>
+
+
+<h3>Model testing, comparison, and reported metrics</h3>
+
+<p>After extracting raster values at <em>n</em> points from the <code>features</code> rasters the point values are split spatially into training and testing sets along a 70/30 split. This is accomplished by creating a grid (1000*1000) of polygons over the extent of the points and randomly assigning polygons to training or testing sets. Points within these polygons are then assigned to the corresponding set, ensuring that the training and testing sets are spatially independent.
+</p>
+
+
+<h3>Method for selecting the best model:</h3>
+
+<p>When specifying multiple model types in<code>methods</code>, each model type and <code>trainControl</code> pair (if <code>trainControl</code> is a list of length equal to <code>methods</code>) is run using <code>caret::train()</code>. To speed things up you can use <code>fastCompare</code> = TRUE. Models are then compared on their 'accuracy' metric as output by <code>caret::resamples()</code> when run on the testing partition, and the highest-performing model is selected. If <code>fastCompare</code> is TRUE, this model is then run on the complete data set provided in <code>outcome</code>. Model statistics are returned upon function completion, which allows the user to select their own 'best performing' model based on other criteriaif desired.
+</p>
+
+
+<h3>Balancing classes in outcome (dependent) variable</h3>
+
+<p>Models can be biased if they are given significantly more points in one outcome class vs others, and best practice is to even out the number of points in each class. If extracting point values from a vector or raster object and passing a points vector object to this function, a simple way to do that is by using the "strata" parameter if using <code>terra::spatSample()</code>. If working directly from points, <code>caret::downSample()</code> and <code>caret::upSample()</code> can be used. See <a href="https://topepo.github.io/caret/subsampling-for-class-imbalances.html">this link</a> for more information. Note that if passing a polygons object to this function stratified random sampling will automatically be performed.
+</p>
+
+
+<h3>Classification or regression</h3>
+
+<p>Whether this function treats your inputs as a classification or regression problem depends on the class attached to the outcome variable. A class <code>factor</code> will be treated as a classification problem while all other classes will be treated as regression problems.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Ghislain de Laplante (gdela069@uottawa.ca or ghislain.delaplante@yukon.ca)
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# These examples can take a while to run!
+
+# Install packages underpinning examples
+rlang::check_installed("ranger", reason = "required to run example.")
+rlang::check_installed("Rborist", reason = "required to run example.")
+
+# Single model, single trainControl
+
+trainControl &lt;- caret::trainControl(
+                method = "repeatedcv",
+                number = 2, # 2-fold Cross-validation
+                repeats = 2, # repeated 2 times
+                verboseIter = FALSE,
+                returnResamp = "final",
+                savePredictions = "all",
+                allowParallel = TRUE)
+
+ outcome &lt;- permafrost_polygons
+ outcome$Type &lt;- as.factor(outcome$Type)
+
+result &lt;- spatPredict(features = c(aspect, solrad, slope),
+  outcome = outcome,
+  poly_sample = 100,
+  trainControl = trainControl,
+  methods = "ranger",
+  n.cores = 2,
+  predict = TRUE)
+
+terra::plot(result$prediction)
+
+
+# Multiple models, multiple trainControl
+
+trainControl &lt;- list("ranger" = caret::trainControl(
+                                  method = "repeatedcv",
+                                  number = 2,
+                                  repeats = 2,
+                                  verboseIter = FALSE,
+                                  returnResamp = "final",
+                                  savePredictions = "all",
+                                  allowParallel = TRUE),
+                     "Rborist" = caret::trainControl(
+                                   method = "boot",
+                                   number = 2,
+                                   repeats = 2,
+                                   verboseIter = FALSE,
+                                   returnResamp = "final",
+                                   savePredictions = "all",
+                                   allowParallel = TRUE)
+                                   )
+
+result &lt;- spatPredict(features = c(aspect, solrad, slope),
+  outcome = outcome,
+  poly_sample = 100,
+  trainControl = trainControl,
+  methods = c("ranger", "Rborist"),
+  n.cores = 2,
+  predict = TRUE)
+
+terra::plot(result$prediction)
+
+</code></pre>
+
+
+</div>

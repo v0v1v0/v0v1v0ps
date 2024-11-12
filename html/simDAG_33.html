@@ -1,0 +1,116 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim_from_dag</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Simulate Data from a Given DAG and Node Information
+</h2>
+
+<h3>Description</h3>
+
+<p>This function can be used to generate data from a given DAG. It additionally requires information on node distributions, beta coefficients and, depending on the node type, more parameters such as intercepts.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim_from_dag(dag, n_sim, sort_dag=FALSE, check_inputs=TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dag</code></td>
+<td>
+
+<p>A <code>DAG</code> object created using the <code>empty_dag</code> function with nodes added to it using the <code>+</code> syntax. See details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_sim</code></td>
+<td>
+
+<p>A single number specifying how many observations should be generated.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sort_dag</code></td>
+<td>
+
+<p>Whether to topologically sort the DAG before starting the simulation or not. If the nodes in <code>dag</code> were already added in a topologically sorted manner, this argument can be kept at <code>FALSE</code> to safe some computation time. This usually won't safe too much time though, because it internally uses the <code>topological_sort</code> function from the <span class="pkg">Rfast</span> package, which is very fast.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_inputs</code></td>
+<td>
+
+<p>Whether to perform plausibility checks for the user input or not. Is set to <code>TRUE</code> by default, but can be set to <code>FALSE</code> in order to speed things up when using this function in a simulation study or something similar.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><strong><em>How it Works</em></strong>:
+</p>
+<p>First, <code>n_sim</code> i.i.d. samples from the root nodes are drawn. Children of these nodes are then generated one by one according to specified relationships and causal coefficients. For example, lets suppose there are two root nodes, <code>age</code> and <code>sex</code>. Those are generated from a normal distribution and a bernoulli distribution respectively. Afterward, the child node <code>height</code> is generated using both of these variables as parents according to a linear regression with defined coefficients, intercept and sigma (random error). This works because every DAG has at least one topological ordering, which is a linear ordering of vertices such that for every directed edge <code class="reqn">u</code> <code class="reqn">v</code>, vertex <code class="reqn">u</code> comes before <code class="reqn">v</code> in the ordering. By using <code>sort_dag=TRUE</code> it is ensured that the nodes are processed in such an ordering.
+</p>
+<p>This procedure is simple in theory, but can get very complex when manually coded. This function offers a simplified workflow by only requiring the user to define the <code>dag</code> object with appropriate information (see documentation of <code>node</code> function). A sample of size <code>n_sim</code> is then generated from the DAG specified by those two arguments.
+</p>
+<p><strong><em>Specifying the DAG</em></strong>:
+</p>
+<p>Concrete details on how to specify the needed <code>dag</code> object are given in the documentation page of the <code>node</code> function and in the vignettes of this package.
+</p>
+<p><strong><em>Can this function create longitudinal data?</em></strong>
+</p>
+<p>Yes and no. It theoretically can, but only if the user-specified <code>dag</code> directly specifies a node for each desired point in time. Using the <code>sim_discrete_time</code> is better in some cases. A brief discussion about this topic can be found in the vignettes of this package.
+</p>
+<p>If time-dependent nodes were added to the <code>dag</code> using <code>node_td</code> calls, this function may not be used. Only the <code>sim_discrete_time</code> function will work in that case.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a single <code>data.table</code> including the simulated data with (at least) one column per node specified in <code>dag</code> and <code>n_sim</code> rows.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Robin Denz
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>empty_dag</code>, <code>node</code>, <code>plot.DAG</code>, <code>sim_discrete_time</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(simDAG)
+
+set.seed(345345)
+
+dag &lt;- empty_dag() +
+  node("age", type="rnorm", mean=50, sd=4) +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("bmi", type="gaussian", parents=c("sex", "age"),
+       betas=c(1.1, 0.4), intercept=12, error=2)
+
+sim_dat &lt;- sim_from_dag(dag=dag, n_sim=1000)
+
+# More examples for each directly supported node type as well as for custom
+# nodes can be found in the documentation page of the respective node function
+</code></pre>
+
+
+</div>

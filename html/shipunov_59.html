@@ -1,0 +1,232 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Gen.cl.data</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generates datasets for clustering</h2>
+
+<h3>Description</h3>
+
+<p>Imitation of the Python <code>sklearn.datasets</code> functions.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Gen.cl.data(type=c("blobs", "moons", "circles"), N=100, noise=NULL,
+ shuffle=TRUE, bdim=2, bcenters=3, bnoise=1, bbox=c(-10, 10), cfactor=0.8)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>'blobs' are Gaussian blobs; 'moons' are two interleaving half-circles; 'circles' are two embedded circles</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>Number of data points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shuffle</code></td>
+<td>
+<p>Whether to randomize the output</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise</code></td>
+<td>
+<p>Standard deviation of Gaussian noise applied to point positions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bdim</code></td>
+<td>
+<p>Dimensionality of 'blobs' dataset</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bcenters</code></td>
+<td>
+<p>Number of 'blobs' centers</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bnoise</code></td>
+<td>
+<p>Standard deviation of 'blobs' Gaussian noise: vector of length one or length equal to the number of centers</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bbox</code></td>
+<td>
+<p>The bounding box within which blobs centers will be created</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cfactor</code></td>
+<td>
+<p>Scale factor between 'circles' (should be &gt; 0 and &lt; 1)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Algorihms were taken partly from Python 'scikit-learn' and from Github 'elbamos/clusteringdatasets'.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Alexey Shipunov</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">scikit.palette &lt;- c("#377EB8", "#FF7F00", "#4DAF4A", "#F781BF", "#A65628", "#984EA3",
+"#999999", "#E41A1C", "#DEDE00", "#000000")
+palette(scikit.palette)
+n.samples &lt;- 500
+
+## data
+set.seed(21)
+no.structure &lt;- list(samples=cbind(runif(n.samples), runif(n.samples)),
+ labels=rep(1, n.samples))
+noisy.circles &lt;- Gen.cl.data(type="circles", N=n.samples, cfactor=0.5, noise=0.05)
+noisy.moons &lt;- Gen.cl.data(type="moons", N=n.samples, noise=0.05)
+blobs &lt;- Gen.cl.data(type="blobs", N=n.samples, noise=1)
+## anisotropically distributed data
+aniso &lt;- Gen.cl.data(type="blobs", N=n.samples)
+aniso$samples &lt;- aniso$samples %*% rbind(c(0.6, -0.6), c(-0.4, 0.8))
+## blobs with varied variances
+varied &lt;- Gen.cl.data(type="blobs", N=n.samples, bnoise=c(1, 2.5, 0.5))
+set.seed(NULL)
+
+## single example
+plot(aniso$samples, col=aniso$labels, pch=19)
+
+## all data objects example
+## old.X11.options &lt;- X11.options(width=6, height=6) # to make square cells
+oldpar &lt;- par(mfrow=c(2, 3), mar=c(1, 1, 3, 1))
+for (n in c("noisy.circles", "noisy.moons", "no.structure",
+ "blobs", "aniso", "varied")) {
+ plot(get(n)$samples, col=get(n)$labels, pch=19, main=n, xlab="", ylab="",
+ xaxt="n", yaxt="n")
+}
+par(oldpar)
+## X11.options &lt;- old.X11.options
+
+
+## comparison of clustering techniques example
+## old.X11.options &lt;- X11.options(width=10, height=6)  # to make square cells
+oldpar &lt;- par(mfrow=c(6, 10), mar=rep(0, 4), xaxt="n", yaxt="n")
+COUNT &lt;- 1
+for (n in c("noisy.circles", "noisy.moons", "no.structure", "blobs", "aniso", "varied")) {
+ K &lt;- 3
+ if (n %in% c("noisy.circles", "noisy.moons")) K &lt;- 2
+ TITLE &lt;- function(x) if (COUNT==1) { legend("topleft", legend=x, cex=1.25, bty="n") }
+##
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="ward.D2"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("Ward")
+##
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="average"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("UPGMA")
+##
+ newlabels &lt;- kmeans(round(get(n)$samples, 5), centers=K)$cluster
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("K-means")
+##
+ newlabels &lt;- cutree(as.hclust(cluster::diana(dist(get(n)$samples))), k=K) # slow
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("DIANA")
+##
+ nn &lt;- cluster::fanny(get(n)$samples, k=K) # a bit slow
+ dunn &lt;- apply(nn$membership, 1, function(.x) (sum(.x^2) - 1/K) / (1 - 1/K))
+ fuzzy &lt;- dunn &lt; 0.05
+ plot(get(n)$samples[!fuzzy, ], col=nn$clustering[!fuzzy], pch=19)
+ points(get(n)$samples[fuzzy, ], col="black", pch=1)
+ TITLE("FANNY")
+##
+ newlabels &lt;- kernlab::specc(get(n)$samples, centers=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("spectral")
+##
+ nn &lt;- apcluster::apclusterK(apcluster::negDistMat(), get(n)$samples, K=K) # very slow
+ newlabes &lt;- apply(sapply(nn@clusters,
+  function(.y) 1:nrow(get(n)$samples) %in% .y), 1, which)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("AP") # affinity propagation
+##
+ ## eps values taken out of scikit and 'dbscan::kNNdistplot() "knee"', 'minPts' default
+ EPS &lt;- c(noisy.circles=0.3, noisy.moons=0.3, no.structure=0.3, blobs=1,
+  aniso=0.5, varied=1)
+ nn &lt;- dbscan::dbscan(get(n)$samples, eps=EPS[n])
+ outliers &lt;- nn$cluster == 0
+ plot(get(n)$samples[!outliers, ], col=nn$cluster[!outliers], pch=19)
+ points(get(n)$samples[outliers, ], col="black", pch=1)
+ TITLE("DBSCAN")
+##
+ newlabels &lt;- meanShiftR::meanShift(get(n)$samples, nNeighbors=10)$assignment
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("mean-shift")
+##
+ library(mclust)
+ newlabels &lt;- Mclust(get(n)$samples)$classification
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("Gaussian")
+ COUNT &lt;- COUNT + 1
+}
+par(oldpar)
+## X11.options &lt;- old.X11.options
+
+
+
+## comparison of linkages example
+## old.X11.options &lt;- X11.options(width=8, height=6) # to make square cells
+oldpar &lt;- par(mfrow=c(6, 8), mar=rep(0, 4), xaxt="n", yaxt="n")
+COUNT &lt;- 1
+for (n in c("noisy.circles", "noisy.moons", "no.structure", "blobs", "aniso", "varied")) {
+ K &lt;- 3 ; if (n %in% c("noisy.circles", "noisy.moons")) K &lt;- 2
+ TITLE &lt;- function(x) if (COUNT==1) { legend("topleft", legend=x, cex=1.25, bty="n") }
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="ward.D2"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("Ward orig")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="ward.D"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("Ward")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="average"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("UPGMA")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="single"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("single")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="complete"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("complete")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="mcquitty"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("WPGMA")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="median"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("WPGMC")
+ newlabels &lt;- cutree(hclust(dist(get(n)$samples), method="centroid"), k=K)
+ plot(get(n)$samples, col=newlabels, pch=19)
+ TITLE("UPGMC")
+ COUNT &lt;- COUNT + 1
+}
+par(oldpar)
+## X11.options &lt;- old.X11.options
+
+palette("default")
+</code></pre>
+
+
+</div>

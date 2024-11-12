@@ -1,0 +1,120 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>initiateAgents</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+<code>SELES</code> - Initiate agents</h2>
+
+<h3>Description</h3>
+
+<p>Sets the the number of agents to initiate. THIS IS NOT FULLY IMPLEMENTED.
+</p>
+<p>A <code>SELES</code>-like function to maintain conceptual backwards compatibility
+with that simulation tool. This is intended to ease transitions from
+<a href="http://www.gowlland.ca/">SELES</a>.
+</p>
+<p>You must know how to use SELES for these to be useful.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">initiateAgents(map, numAgents, probInit, asSpatialPoints = TRUE, indices)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>map</code></td>
+<td>
+<p><code>RasterLayer</code> with extent and resolution of desired return object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numAgents</code></td>
+<td>
+<p>numeric resulting from a call to <code>numAgents()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probInit</code></td>
+<td>
+<p>a <code>Raster</code> resulting from a <code>probInit()</code> call</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asSpatialPoints</code></td>
+<td>
+<p>logical or <code>"sf"</code>. Should returned object be <code>RasterLayer</code>
+or <code>SpatVector</code> default (or legacy <code>TRUE</code> <code>SpatialPointsDataFrame</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>indices</code></td>
+<td>
+<p>numeric. Indices of where agents should start</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>SpatialPointsDataFrame</code>, with each row representing an individual agent
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eliot McIntire
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (require("sf", quietly = TRUE)) {
+  library(data.table)
+  library(terra)
+
+  origDTThreads &lt;- data.table::setDTthreads(2L)
+  origNcpus &lt;- options(Ncpus = 2L)
+
+  map &lt;- rast(system.file("extdata", "map.tif", package = "SpaDES.tools"))
+  names(map) &lt;- "layer"
+  pr &lt;- probInit(map, p = (map[] / terra::minmax(map)[2])^2)
+  agents &lt;- initiateAgents(map, 100, pr, asSpatialPoints = "sf")
+  if (interactive()) {
+    terra::plot(map)
+    terra::plot(agents, add = TRUE)
+  }
+  # Test that they are indeed selecting according to probabilities in pr
+  dt1 &lt;- data.table(table(round(extract(map, agents), 0)[, "layer"]))
+  setnames(dt1, old = "N", new = "count")
+  dt2 &lt;- data.table(table(round(map[], 0)))
+  setnames(dt2, old = "N", new = "available")
+  dt &lt;- dt1[dt2, on = "V1"]  # join the counts and available data.tables
+  setnames(dt, old = "V1", new = "mapValue")
+  dt[, selection := count / available]
+  dt[is.na(selection), selection := 0]
+  if (interactive()) {
+    with(dt, plot(mapValue, selection))
+  }
+  #'
+  # Note, can also produce a Raster representing agents,
+  # then the number of points produced can't be more than
+  # the number of pixels:
+  agentsRas &lt;- initiateAgents(map, 30, pr, asSpatialPoints = FALSE)
+  if (interactive()) {
+    terra::plot(agentsRas)
+  }
+  #'
+  # clean up
+  data.table::setDTthreads(origDTThreads)
+  options(Ncpus = origNcpus)
+}
+</code></pre>
+
+
+</div>

@@ -1,0 +1,234 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pi.sgm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Position index segmentation</h2>
+
+<h3>Description</h3>
+
+<p>Segment raster objects based on position index values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">pi.sgm(
+  attTbl,
+  ngbList,
+  rNumb = FALSE,
+  RO,
+  mainPI = NULL,
+  secPI = NULL,
+  cut.mPI = NULL,
+  cut.sPI = NULL,
+  min.N = NULL,
+  plot = FALSE,
+  r = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>attTbl</code></td>
+<td>
+<p>data.frame, the attribute table returned by the function
+<code>attTbl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngbList</code></td>
+<td>
+<p>list, the list of neighborhoods returned by the function
+<code>ngbList</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rNumb</code></td>
+<td>
+<p>logic, the neighborhoods of the argument <code>ngbList</code> are
+identified by cell numbers (<code>rNumb=FALSE</code>) or by row numbers
+(<code>rNumb=TRUE</code>) (see <code>ngbList</code>). It is advised to use row
+numbers for large rasters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RO</code></td>
+<td>
+<p>column name, the name of the column with the raster object IDs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mainPI</code></td>
+<td>
+<p>column name, the name of the column with main position index
+values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>secPI</code></td>
+<td>
+<p>column name, the name of the column with secondary position
+index values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cut.mPI</code></td>
+<td>
+<p>numeric, threshold of main position index values. Cells with
+values below the threshold are excluded from raster objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cut.sPI</code></td>
+<td>
+<p>numeric, threshold of secondary position index values. Cells
+with values below the threshold are excluded from raster objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min.N</code></td>
+<td>
+<p>numeric, the minimum number of cells a raster object has to have
+to be included in the function output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>logic, plot the results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>single or multi-layer raster of the class <code>SpatRaster</code> (see
+<code>help("rast", terra)</code>) used to compute the attribute table. Required
+only if <code>plot = TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Raster objects are segmented based on position index values. Two
+different position indices can be passed to the function (<code>mainPI</code> and
+<code>secPI</code>).
+</p>
+
+<ul>
+<li>
+<p> Input raster objects are assigned to the same class to flag cells that
+are part of raster objects;
+</p>
+</li>
+<li>
+<p> Cells with values below <code>mainPI</code> <strong>OR</strong> below <code>mainPI</code> are
+flagged as not being part of any raster object;
+</p>
+</li>
+<li>
+<p> Each non-continuous group of raster object cells will identify an output
+raster object.
+</p>
+</li>
+<li>
+<p> Only raster objects with at least as many cells as specified by the
+argument <code>min.N</code> are included in the function output.
+</p>
+</li>
+<li>
+<p> If both <code>mainPI</code> and <code>secPI</code> are equal to <code>NULL</code>, the
+function will exclusively filter raster objects based on their size
+(<code>min.N</code>).
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>The function returns a class vector with raster objects IDs. The
+vector has length equal to the number of rows of the attribute table. NA
+values are assigned to cells that do not belong to any raster object.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>attTbl()</code>, <code>ngbList()</code>, <code>rel.pi()</code>, <code>pi.add()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># DUMMY DATA
+######################################################################################
+# LOAD LIBRARIES
+library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r, attTbl=at)
+
+################################################################################
+# COMPUTE RASTER OBJECTS
+################################################################################
+at$RO &lt;- anchor.seed(at, nbs, silent=TRUE, class = NULL, rNumb=TRUE,
+                     cond.filter = "dummy_var &gt; 1",
+                     cond.seed   = "dummy_var==max(dummy_var)",
+                     cond.growth = "dummy_var&lt;dummy_var[]",
+                     lag.growth  = Inf)
+
+# One input raster object
+unique(at$RO)
+
+################################################################################
+# NORMALIZED RELATIVE POSITION INDEX
+################################################################################
+at$relPI &lt;- rel.pi(attTbl = at, RO = "RO", el = "dummy_var", type = "n")
+
+################################################################################
+# POSITION INDEX SEGMENTATION
+################################################################################
+RO1 &lt;- pi.sgm(at, nbs,
+              RO = "RO",        # Raster objects
+              mainPI = "relPI", # PI segmentation layer
+              cut.mPI = 0,      # segment on relPI values &lt;= 0
+              plot = FALSE, r = r)
+
+################################################################################
+# PLOT
+################################################################################
+# Convert class vectors to raster
+r_RO  &lt;- cv.2.rast(r = r, classVector = at$RO)
+r_RO1 &lt;- cv.2.rast(r = r, classVector = RO1)
+
+# Plot
+oldpar &lt;- par(mfrow = c(1,2))
+m &lt;- c(4.5, 0.5, 2, 3.2)
+
+terra::plot(r_RO, type="classes", main="Raster objects - Input", mar=m,
+plg=list(x=1, y=1, cex=0.9))
+
+terra::plot(r_RO1, type="classes", main="Raster objects - Output", mar=m,
+            plg=list(x=1, y=1, cex=0.9))
+text(xyFromCell(r,at$Cell), as.character(round(at$relPI,2))) # visualize relPI
+text(0.01, 1, "Cut on relPI &lt;= 0", adj=c(0,1), cex = 0.8)
+par(oldpar)
+
+# Two output raster objects
+unique(RO1)
+</code></pre>
+
+
+</div>

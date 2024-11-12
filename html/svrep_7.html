@@ -1,0 +1,317 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>as_random_group_jackknife_design</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Convert a survey design object to a random-groups jackknife design</h2>
+
+<h3>Description</h3>
+
+<p>Forms a specified number of jackknife replicates
+based on grouping primary sampling units (PSUs)
+into random, (approximately) equal-sized groups.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">as_random_group_jackknife_design(
+  design,
+  replicates = 50,
+  var_strat = NULL,
+  var_strat_frac = NULL,
+  sort_var = NULL,
+  adj_method = "variance-stratum-psus",
+  scale_method = "variance-stratum-psus",
+  group_var_name = ".random_group",
+  compress = TRUE,
+  mse = getOption("survey.replicates.mse")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>A survey design object created using the 'survey' (or 'srvyr') package,
+with class <code>'survey.design'</code> or <code>'svyimputationList'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replicates</code></td>
+<td>
+<p>The number of replicates to create
+for each variance stratum. The total number of replicates
+created is the number of variance strata times <code>replicates</code>.
+Every design stratum must have at least as many primary sampling units (PSUs),
+as <code>replicates</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var_strat</code></td>
+<td>
+<p>Specifies the name of a variable
+in the data that defines variance strata to use
+for the grouped jackknife. If <code>var_strat = NULL</code>,
+then there is effectively only one variance stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var_strat_frac</code></td>
+<td>
+<p>Specifies the sampling fraction
+to use for finite population corrections in each
+value of <code>var_strat</code>. Can use either a single number
+or a variable in the data corresponding to <code>var_strat</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sort_var</code></td>
+<td>
+<p>(Optional) Specifies the name of a variable
+in the data which should be used to sort the data before
+assigning random groups. If a variable is specified for
+<code>var_strat</code>, the sorting will happen within values of
+that variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adj_method</code></td>
+<td>
+<p>Specifies how to calculate the
+replicate weight adjustment factor.
+Available options for <code>adj_method</code> include:
+</p>
+
+<ul>
+<li> <p><code>"variance-stratum-psus"</code> (the default) <br>
+The replicate weight adjustment for a unit
+is based on the number of PSUs in its variance stratum.
+</p>
+</li>
+<li> <p><code>"variance-units"</code> <br>
+The replicate weight adjustment for a unit
+is based on the number of variance units
+in its variance stratum.
+</p>
+</li>
+</ul>
+<p>See the section "Adjustment and Scale Methods" for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale_method</code></td>
+<td>
+<p>Specifies how to calculate the
+scale factor for each replicate.
+Available options for <code>scale_method</code> include:
+</p>
+
+<ul>
+<li> <p><code>"variance-stratum-psus"</code> <br>
+The scale factor for a variance unit
+is based on its number of PSUs compared
+to the number of PSUs in its variance stratum.
+</p>
+</li>
+<li> <p><code>"variance-units"</code> <br>
+The scale factor for a variance unit is
+based on the number of variance units in
+its variance stratum.
+</p>
+</li>
+</ul>
+<p>See the section "Adjustment and Scale Methods" for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_var_name</code></td>
+<td>
+<p>(Optional) The name of a new variable created to save
+identifiers for which random group each PSU was grouped into
+for the purpose of forming replicates.
+Specify <code>group_var_name = NULL</code> to avoid creating the variable in the data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compress</code></td>
+<td>
+<p>Use a compressed representation of the replicate weights matrix.
+This reduces the computer memory required to represent the replicate weights and has no
+impact on estimates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mse</code></td>
+<td>
+<p>If <code>TRUE</code>, compute variances from sums of squares around the point estimate from the full-sample weights,
+If <code>FALSE</code>, compute variances from sums of squares around the mean estimate from the replicate weights.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A replicate design object, with class <code>svyrep.design</code>, which can be used with the usual functions,
+such as <code>svymean()</code> or <code>svyglm()</code>.
+</p>
+<p>Use <code>weights(..., type = 'analysis')</code> to extract the matrix of replicate weights. <br>
+Use <code>as_data_frame_with_weights()</code> to convert the design object to a data frame with columns
+for the full-sample and replicate weights.
+</p>
+
+
+<h3>Formation of Random Groups</h3>
+
+<p>Within each value of <code>VAR_STRAT</code>,
+the data are sorted by first-stage sampling strata,
+and then the PSUs in each stratum are randomly arranged.
+Groups are then formed by serially placing PSUs
+into each group.
+The first PSU in the <code>VAR_STRAT</code> is placed into the first group,
+the second PSU into the second group, and so on.
+Once a PSU has been assigned to the last group,
+the process begins again by assigning the next PSU to the first group,
+the PSU after that to the second group, and so on.
+</p>
+<p>The random group that each observation is assigned to
+can be saved as a variable in the data
+by using the function argument <code>group_var_name</code>.
+</p>
+
+
+<h3>Adjustment and Scale Methods</h3>
+
+<p>The jackknife replication variance estimator based on <code class="reqn">R</code> replicates takes the following form:
+</p>
+<p style="text-align: center;"><code class="reqn">
+  v(\hat{\theta}) = \sum_{r=1}^{R} (1 - f_r) \times c_r \times \left(\hat{\theta}_r - \hat{\theta}\right)^2
+</code>
+</p>
+
+<p>where <code class="reqn">r</code> indexes one of the <code class="reqn">R</code> sets of replicate weights,
+<code class="reqn">c_r</code> is a corresponding scale factor for the <code class="reqn">r</code>-th replicate,
+and <code class="reqn">1 - f_r</code> is an optional finite population correction factor
+that can potentially differ across variance strata.
+</p>
+<p>To form the replicate weights, the PSUs are divided into <code class="reqn">\tilde{H}</code> variance strata,
+and the <code class="reqn">\tilde{h}</code>-th variance stratum contains <code class="reqn">G_{\tilde{h}}</code>
+random groups. The number of replicates <code class="reqn">R</code> equals the total number
+of random groups across all variance strata:
+<code class="reqn">R = \sum_{\tilde{h}}^{\tilde{H}} G_{\tilde{h}}</code>. In other words,
+each replicate corresponds to one of the random groups from one of the variance strata.
+</p>
+<p>The weights for replicate <code class="reqn">r</code> corresponding to random group <code class="reqn">g</code> within
+variance stratum <code class="reqn">\tilde{h}</code> is defined as follows.
+</p>
+<p>If case <code class="reqn">i</code>
+is not in variance stratum <code class="reqn">\tilde{h}</code>, then <code class="reqn">w_{i}^{(r)} = w_i</code>.
+</p>
+<p>If case <code class="reqn">i</code> is in variance stratum <code class="reqn">\tilde{h}</code> but in random group <code class="reqn">g</code>,
+then <code class="reqn">w_{i}^{(r)} = a_{\tilde{h}g} w_i</code>.
+</p>
+<p>Otherwise, if case <code class="reqn">i</code> is in
+in random group <code class="reqn">g</code> of variance stratum <code class="reqn">\tilde{h}</code>, then <code class="reqn">w_{i}^{(r)} = 0</code>.
+</p>
+<p>The R function argument <code>adj_method</code> determines how
+the adjustment factor <code class="reqn">a_{\tilde{h} g}</code> is calculated.
+When <code>adj_method = "variance-units"</code>, then
+<code class="reqn">a_{\tilde{h} g}</code> is calculated based on <code class="reqn">G_{\tilde{h}}</code>,
+which is the number of random groups in variance stratum <code class="reqn">\tilde{h}</code>.
+When <code>adj_method = "variance-stratum-psus"</code>, then
+<code class="reqn">a_{\tilde{h} g}</code> is calculated based on <code class="reqn">n_{\tilde{h}g}</code>,
+which is the number of PSUs in random group <code class="reqn">g</code> in variance stratum <code class="reqn">\tilde{h}</code>,
+as well as <code class="reqn">n_{\tilde{h}}</code>, the total number of PSUs in variance stratum <code class="reqn">\tilde{h}</code>.
+</p>
+<p>If <code>adj_method = "variance-units"</code>, then: </p>
+<p style="text-align: center;"><code class="reqn">a_{\tilde{h}g} = \frac{G_{\tilde{h}}}{G_{\tilde{h}} - 1}</code>
+</p>
+
+<p>If <code>adj_method = "variance-stratum-psus"</code>, then: </p>
+<p style="text-align: center;"><code class="reqn">a_{\tilde{h}g} = \frac{n_{\tilde{h}}}{n_{\tilde{h}} - n_{\tilde{h}g}}</code>
+</p>
+
+<p>The scale factor <code class="reqn">c_r</code> for replicate <code class="reqn">r</code>
+corresponding to random group <code class="reqn">g</code> within variance stratum <code class="reqn">\tilde{h}</code> is
+calculated according to the function argument <code>scale_method</code>.
+</p>
+<p>If <code>scale_method = "variance-units"</code>, then: </p>
+<p style="text-align: center;"><code class="reqn">c_r = \frac{G_{\tilde{h}} - 1}{G_{\tilde{h}}}</code>
+</p>
+
+<p>If <code>scale_method = "variance-stratum-psus"</code>, then: </p>
+<p style="text-align: center;"><code class="reqn">c_r = \frac{n_{\tilde{h}} - n_{\tilde{h}g}}{n_{\tilde{h}}}</code>
+</p>
+
+<p>The sampling fraction <code class="reqn">f_r</code> used for finite population correction <code class="reqn">1 - f_r</code>
+is by default assumed to equal 0. However, the user can supply a sampling fraction
+for each variance stratum using the argument <code>var_strat_frac</code>.
+</p>
+<p>When variance units in a variance stratum
+have differing numbers of PSUs,
+the combination <code>adj_method = "variance-stratum-psus"</code>
+and <code>scale_method = "variance-units"</code> is
+recommended by Valliant, Brick, and Dever (2008),
+corresponding to their method <code>"GJ2"</code>.
+</p>
+<p>The random-groups jackknife method often referred to as "DAGJK"
+corresponds to the options <code>var_strat = NULL</code>,
+<code>adj_method = "variance-units"</code>, and <code>scale_method = "variance-units"</code>.
+The DAGJK method will yield upwardly-biased variance estimates for totals
+if the total number of PSUs is not a multiple of the total number of replicates (Valliant, Brick, and Dever 2008).
+</p>
+
+
+<h3>References</h3>
+
+<p>See Section 15.5 of Valliant, Dever, and Kreuter (2018)
+for an introduction to the grouped jackknife and
+guidelines for creating the random groups.
+</p>
+<p>- Valliant, R., Dever, J., Kreuter, F. (2018).
+"Practical Tools for Designing and Weighting Survey Samples, 2nd edition." New York: Springer.
+</p>
+<p>See Valliant, Brick, and Dever (2008)
+for statistical details related to the
+<code>adj_method</code> and <code>scale_method</code> arguments.
+</p>
+<p>- Valliant, Richard, Michael Brick, and Jill Dever. 2008.
+"Weight Adjustments for the Grouped Jackknife Variance Estimator."
+<em>Journal of Official Statistics</em>. 24: 469–88.
+</p>
+<p>See Chapter 4 of Wolter (2007) for additional details of the jackknife,
+including the method based on random groups.
+</p>
+<p>- Wolter, Kirk. 2007. "Introduction to Variance Estimation." New York, NY: Springer New York. https://doi.org/10.1007/978-0-387-35099-8.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(survey)
+
+# Load example data
+
+ data('api', package = 'survey')
+
+ api_strat_design &lt;- svydesign(
+   data = apistrat,
+   id = ~ 1,
+   strata = ~stype,
+   weights = ~pw
+ )
+
+# Create a random-groups jackknife design
+
+ jk_design &lt;- as_random_group_jackknife_design(
+   api_strat_design,
+   replicates = 15
+ )
+ print(jk_design)
+</code></pre>
+
+
+</div>

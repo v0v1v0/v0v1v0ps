@@ -1,0 +1,216 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>string_magic_register_fun</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Register custom operations to apply them in <code>string_magic</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>Extends the capabilities of <code>string_magic()</code> by adding any custom operation
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">string_magic_register_fun(fun, alias, valid_options = NULL, namespace = NULL)
+
+string_magic_register_ops(ops, alias, namespace = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>A function which must have at least the arguments 'x' and '...'.
+Additionnaly, it can have the arguments: 'argument', 'options', 'group', 'group_flag'.
+This function must return a vector.
+This function will be internally called by <code>string_magic</code> in the form
+<code>fun(x, argument, options, group, group_flag)</code>.<code>x</code>: the value to which the
+operation applies. <code>argument</code>: the quoted <code>string_magic</code> argument (always character).
+<code>options</code>: a character vector of <code>string_magic</code> options. The two last arguments are of use
+only in group-wise operations if <code>fun</code> changes the lengths of vectors. <code>group</code>: an index of
+the group to which belongs each observation (integer). <code>group_flag</code>: value between 0
+and 2; 0: no grouping operation requested; 1: keep track of groups; 2: apply grouping.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alias</code></td>
+<td>
+<p>Character scalar, the name of the operation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>valid_options</code></td>
+<td>
+<p>A character vector or NULL (default). Represents a list of
+valid options for the operation. This is used: a) to enable auto-completion,
+b) for error-handling purposes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>namespace</code></td>
+<td>
+<p>Character scalar or <code>NULL</code> (default). <strong>Only useful for package developers.</strong>
+As a regular end-user you shouldn't care! If your package uses <code>string_magic</code>, you should care.
+If the function <code style="white-space: pre;">⁠string_magic_register_*⁠</code> is located in the <code>onLoad</code> function (see <code>help("onLoad")</code>),
+there is nothing to do. Otherwise, pass the name of your package in this argument to
+make all the new operation definitions scoped (i.e. only your package can access it and
+it can't be messed up by end users).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ops</code></td>
+<td>
+<p>Character scalar representing a valid chain of <code>string_magic</code> operations. It should
+be of the form <code>"op1, 'arg'op2, etc"</code>. For example <code>"'80|-'fill"</code> fills the line
+with dashes up to 80 characters.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>We try to strongly check the new operations since it's always better to find out problems
+sooner than later. This means that when the function is defined, it is also
+tested.
+</p>
+<p>If you pass a function, note that it should work for non-character arguments in <code>x</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>These function do not return anything. They register new operations to be used in the
+<code>string_magic</code> family of functions by placing them in the options (later fetched by
+<code>string_magic()</code> at run-time).
+</p>
+
+
+<h3>Functions</h3>
+
+
+<ul><li> <p><code>string_magic_register_ops()</code>: Create new combinations of <code>string_magic</code> operations
+</p>
+</li></ul>
+<h3>Writing a package using <code>string_magic</code>
+</h3>
+
+<p>If you want to use <code>string_magic</code> in your package and want to make use of custom operations:
+</p>
+
+<ul><li>
+<p> place any <code>string_magic_register_fun</code> and <code>string_magic_register_ops</code> in your <code>.onLoad</code> function
+(see <code>help("onLoad")</code>). The .onLoad function is run whenever the package is loaded
+for the first time. It's a function that you can place anywhere in your <code style="white-space: pre;">⁠R/*⁠</code> files
+and which looks like this:
+</p>
+</li></ul>
+<div class="sourceCode r"><pre>.onLoad = function(libname, pkgname){
+  # string_magic custom operations
+  string_magic_register_ops("'80|-'fill", "h1")
+
+  invisible()
+}
+</pre></div>
+
+<ul><li>
+<p> if you don't want to place the <code style="white-space: pre;">⁠string_magic_register_*⁠</code> functions in the .onLoad function,
+you can, but then you <strong>must</strong> provide the argument <code>namespace</code>:
+</p>
+</li></ul>
+<div class="sourceCode r"><pre>string_magic_register_ops("'80|-'fill", "h1", namespace = "myPackageName")
+</pre></div>
+
+<ul><li>
+<p> you must create an <code>string_magic_alias()</code> to create an alias to <code>string_magic()</code> and use the
+argument <code>.namespace = "myPackageName"</code>. Use this opportunity to change the
+defaults if you wish. You can even override the <code>string_magic</code> function:
+</p>
+</li></ul>
+<div class="sourceCode r"><pre># creating an alias with the same name + changing the delimiter
+string_magic = stringmagic::string_magic_alias(.namespace = "myPackageName", .delim = "{{ }}")
+</pre></div>
+
+
+<h3>Author(s)</h3>
+
+<p>Laurent R. Berge
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other related to string_magic: 
+<code>string_magic_alias()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# let's create an operation that adds markdown emphasis
+# to elements of a vector
+
+# A) define the function
+fun_emph = function(x, ...) paste0("*", x, "*")
+
+# B) register it
+string_magic_register_fun(fun_emph, "emph")
+
+# C) use it
+x = string_vec("right, now")
+string_magic("Take heed, {emph, c? x}.")
+
+#
+# now let's add the option "strong"
+fun_emph = function(x, options, ...) {
+  if("strong" %in% options){
+    paste0("***", x, "***")
+  } else {
+    paste0("*", x, "*")
+  }
+}
+
+string_magic_register_fun(fun_emph, "emph", "strong")
+
+x = string_vec("right, now")
+string_magic("Take heed, {emph.strong, c? x}.")
+
+#
+# now let's add an argument
+fun_emph = function(x, argument, options, ...){
+  arg = argument
+  if(nchar(arg) == 0) arg = "*"
+  
+  if("strong" %in% options){
+    arg = paste0(rep(arg, 3), collapse = "")
+  }
+  
+  paste0(arg, x, arg)
+}
+
+string_magic_register_fun(fun_emph, "emph", "strong")
+
+x = string_vec("right, now")
+string_magic("Take heed, {'_'emph.s, c? x}.")
+
+#
+# using string_magic_register_ops
+#
+
+# create a 'header' maker
+string_magic_register_ops("tws, '# 'paste, ' 'paste.right, '40|-'fill", "h1")
+cat_magic("{h1 ! My title}\n my content")
+
+
+
+
+</code></pre>
+
+
+</div>

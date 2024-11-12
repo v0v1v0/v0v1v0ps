@@ -1,0 +1,150 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>meancoef</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>meancoef</h2>
+
+<h3>Description</h3>
+
+<p>This function can be used to compute the mean of coefficients from different
+partitions in the context of the spicefp approach.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">meancoef(coef.list, weight)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>coef.list</code></td>
+<td>
+<p>list. The second element of the coef_spicefp function
+outputs. It has the same name as the argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight</code></td>
+<td>
+<p>a numerical vector of weights with the same length as
+coef.list.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Here, the fine-mesh coefficients are weighted and a weighted mean is deduced. 
+If the user wishes, he can use as weights the slopes associated with the qualities
+of the models concerned.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list of :
+</p>
+
+<dl>
+<dt>weighted_mean</dt>
+<dd>
+<p>fine-mesh matrix or array with the weighted mean of the
+coefficients</p>
+</dd>
+<dt>y.estimated</dt>
+<dd>
+<p>weighted estimation of <code class="reqn">X \beta</code></p>
+</dd>
+<dt>coefficients.array</dt>
+<dd>
+<p>An array with all the fine-mesh coefficients that
+will be used to compute the weighted mean</p>
+</dd>
+<dt>weight</dt>
+<dd>
+<p>same as inputs</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+##linbreaks: a function allowing to obtain breaks linearly
+linbreaks&lt;-function(x,n){
+     sort(round(seq(trunc(min(x)),
+                ceiling(max(x)+0.001),
+                length.out =unlist(n)+1),
+            1)
+          )
+}
+# In this example, we will evaluate 2 candidates with 14 temperature
+# classes and 15 irradiance classes. The irradiance breaks are obtained
+# according to a log scale (logbreaks function) with different alpha
+# parameters for each candidate (0.005, 0.01).
+## Data and inputs
+tpr.nclass=14
+irdc.nclass=15
+irdc.alpha=c(0.005, 0.01)
+p2&lt;-expand.grid(tpr.nclass, irdc.alpha, irdc.nclass)
+parlist.tpr&lt;-split(p2[,1], seq(nrow(p2)))
+parlist.irdc&lt;-split(p2[,2:3], seq(nrow(p2)))
+parlist.irdc&lt;-lapply(
+   parlist.irdc,function(x){
+   list(x[[1]],x[[2]])}
+)
+m.irdc &lt;- as.matrix(Irradiance[,-c(1)])
+m.tpr &lt;- as.matrix(Temperature[,-c(1)])
+
+# For the constructed models, only two regularization parameter ratios
+# penratios=c(1/25,5) is used. In a real case, more candidates 
+# and regularization parameter ratios should be evaluated.
+ex_sp&lt;-spicefp(y=FerariIndex_Difference$fi_dif,
+              fp1=m.irdc,
+              fp2=m.tpr,
+              fun1=logbreaks,
+              fun2=linbreaks,
+              parlists=list(parlist.irdc,
+                            parlist.tpr),
+              penratios=c(1/25,5),
+              appropriate.df=NULL,
+              nknots = 100,
+              ncores =2,
+              write.external.file = FALSE)
+
+## Focus on the 2 best models retained by the AIC criterion at iteration 1
+c.mdls &lt;- coef_spicefp(ex_sp, iter_=1, criterion ="AIC_",
+                      nmodels=2, ncores = 2,
+                      dim.finemesh=c(1000,1000),
+                      write.external.file = FALSE)
+
+# meancoef
+# Compute the mean of the coefficients of these models
+mean.c.mdls&lt;-meancoef(c.mdls$coef.list,
+                     weight = c.mdls$Model.parameters$Slope_)
+g3&lt;-mean.c.mdls$weighted_mean
+g3.x&lt;-as.numeric(rownames(g3))
+g3.y&lt;-as.numeric(colnames(g3))
+
+
+#library(fields)
+#plot(c(10,2000),c(15,45),type= "n", axes = FALSE,
+#     xlab = "Irradiance (mmol/m2/s - Logarithmic scale)",
+#     ylab = "Temperature (deg C)",log = "x")
+#rect(min(g3.x),min(g3.y),max(g3.x),max(g3.y), col="black", border=NA)
+#image.plot(g3.x,g3.y,g3, horizontal = FALSE,
+#           col=designer.colors(256, c("blue","white","red")),
+#           add = TRUE)
+#axis(1) ; axis(2)
+
+closeAllConnections()
+
+
+
+</code></pre>
+
+
+</div>

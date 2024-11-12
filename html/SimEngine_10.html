@@ -1,0 +1,97 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>set_script</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Set the "simulation script"</h2>
+
+<h3>Description</h3>
+
+<p>Specify a function to be used as the "simulation script". The
+simulation script is a function that runs a single simulation replicate
+and returns the results.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">set_script(sim, fn)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sim</code></td>
+<td>
+<p>A simulation object of class <code>sim_obj</code>, usually created by
+<code>new_sim</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fn</code></td>
+<td>
+<p>A function that runs a single simulation replicate and returns the
+results. The results must be a list of key-value pairs. Values are
+categorized as simple (a number, a character string, etc.) or complex
+(vectors, dataframes, lists, etc.). Complex data must go inside a key
+called ".complex" and the associated value must be a list (see Advanced
+Functionality documentation and examples). The function body can contain
+references to the special object <code>L</code> that stores the current set of
+simulation levels (see examples). The keys must be valid R names (see
+?make.names). Any functions used within the script must be declared
+before <code>set_script</code> is called.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The original simulation object with the new "simulation script"
+function added.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">sim &lt;- new_sim()
+create_data &lt;- function(n) { rpois(n, lambda=5) }
+est_mean &lt;- function(dat, type) {
+  if (type=="M") { return(mean(dat)) }
+  if (type=="V") { return(var(dat)) }
+}
+sim %&lt;&gt;% set_levels(n=c(10,100,1000), est=c("M","V"))
+sim %&lt;&gt;% set_config(num_sim=1)
+sim %&lt;&gt;% set_script(function() {
+  dat &lt;- create_data(L$n)
+  lambda_hat &lt;- est_mean(dat=dat, type=L$est)
+  return (list("lambda_hat"=lambda_hat))
+})
+sim %&lt;&gt;% run()
+sim$results %&gt;% print()
+
+# To return complex result data, use the special key ".complex".
+sim &lt;- new_sim()
+create_data &lt;- function(n) {
+  x &lt;- runif(n)
+  y &lt;- 3 + 2*x + rnorm(n)
+  return(data.frame("x"=x, "y"=y))
+}
+sim %&lt;&gt;% set_levels("n"=c(10, 100, 1000))
+sim %&lt;&gt;% set_config(num_sim=1)
+sim %&lt;&gt;% set_script(function() {
+  dat &lt;- create_data(L$n)
+  model &lt;- lm(y~x, data=dat)
+  return (list(
+    "beta1_hat" = model$coefficients[[2]],
+    ".complex" = model
+  ))
+})
+sim %&lt;&gt;% run()
+sim$results %&gt;% print()
+get_complex(sim, 1) %&gt;% print()
+</code></pre>
+
+
+</div>

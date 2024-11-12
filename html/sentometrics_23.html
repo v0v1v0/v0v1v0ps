@@ -1,0 +1,111 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_loss_data</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Retrieve loss data from a selection of models</h2>
+
+<h3>Description</h3>
+
+<p>Structures specific performance data for a set of different <code>sento_modelIter</code> objects as loss data.
+Can then be used, for instance, as an input to create a model confidence set (Hansen, Lunde and Nason, 2011) with
+the <span class="pkg">MCS</span> package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">get_loss_data(models, loss = c("DA", "error", "errorSq", "AD", "accuracy"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>models</code></td>
+<td>
+<p>a named <code>list</code> of <code>sento_modelIter</code> objects. All models should be of the same family, being
+either <code>"gaussian"</code>, <code>"binomial"</code> or <code>"multinomial"</code>, and have performance data of the same dimensions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loss</code></td>
+<td>
+<p>a single <code>character</code> vector, either <code>"DA"</code> (directional <em>in</em>accuracy), <code>"error"</code>
+(predicted minus realized response variable), <code>"errorSq"</code> (squared errors), <code>"AD"</code> (absolute errors) or
+<code>"accuracy"</code> (<em>in</em>accurate class predictions). This argument defines on what basis the model confidence set
+is calculated. The first four options are available for <code>"gaussian"</code> models, the last option applies only to
+<code>"binomial"</code> and <code>"multinomial"</code> models.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>matrix</code> of loss data.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Samuel Borms
+</p>
+
+
+<h3>References</h3>
+
+<p>Hansen, Lunde and Nason (2011). <strong>The model confidence set</strong>. <em>Econometrica 79, 453-497</em>,
+doi: <a href="https://doi.org/10.3982/ECTA5771">10.3982/ECTA5771</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sento_model</code>, <code>MCSprocedure</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+data("usnews", package = "sentometrics")
+data("list_lexicons", package = "sentometrics")
+data("list_valence_shifters", package = "sentometrics")
+data("epu", package = "sentometrics")
+
+set.seed(505)
+
+# construct two sento_measures objects
+corpusAll &lt;- sento_corpus(corpusdf = usnews)
+corpus &lt;- quanteda::corpus_subset(corpusAll, date &gt;= "1997-01-01" &amp; date &lt; "2014-10-01")
+l &lt;- sento_lexicons(list_lexicons[c("LM_en", "HENRY_en")], list_valence_shifters[["en"]])
+
+ctrA &lt;- ctr_agg(howWithin = "proportionalPol", howDocs = "proportional",
+                howTime = c("equal_weight", "linear"), by = "month", lag = 3)
+sentMeas &lt;- sento_measures(corpus, l, ctrA)
+
+# prepare y and other x variables
+y &lt;- epu[epu$date %in% get_dates(sentMeas), "index"]
+length(y) == nobs(sentMeas) # TRUE
+x &lt;- data.frame(runif(length(y)), rnorm(length(y))) # two other (random) x variables
+colnames(x) &lt;- c("x1", "x2")
+
+# estimate different type of regressions
+ctrM &lt;- ctr_model(model = "gaussian", type = "AIC", do.iter = TRUE,
+                 h = 0, nSample = 120, start = 50)
+out1 &lt;- sento_model(sentMeas, y, x = x, ctr = ctrM)
+out2 &lt;- sento_model(sentMeas, y, x = NULL, ctr = ctrM)
+out3 &lt;- sento_model(subset(sentMeas, select = "linear"), y, x = x, ctr = ctrM)
+out4 &lt;- sento_model(subset(sentMeas, select = "linear"), y, x = NULL, ctr = ctrM)
+
+lossData &lt;- get_loss_data(models = list(m1 = out1, m2 = out2, m3 = out3, m4 = out4),
+                          loss = "errorSq")
+
+mcs &lt;- MCS::MCSprocedure(lossData)
+## End(Not run)
+
+</code></pre>
+
+
+</div>

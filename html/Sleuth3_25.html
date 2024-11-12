@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>case1202</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sex discrimination in Employment</h2>
+
+<h3>Description</h3>
+
+<p>Data on employees from one job category (skilled, entry–level
+clerical) of a bank that was sued for sex discrimination.  The data
+are on 32 male and 61 female employees, hired between 1965 and 1975.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">case1202</code></pre>
+
+
+<h3>Format</h3>
+
+<p>A data frame with 93 observations on the following 7 variables.
+</p>
+
+<dl>
+<dt>Bsal</dt>
+<dd>
+<p>Annual salary at time of hire</p>
+</dd>
+<dt>Sal77</dt>
+<dd>
+<p>Salary as of March 1975</p>
+</dd>
+<dt>Sex</dt>
+<dd>
+<p>Sex of employee</p>
+</dd>
+<dt>Senior</dt>
+<dd>
+<p>Seniority (months since first hired)</p>
+</dd>
+<dt>Age</dt>
+<dd>
+<p>Age of employee (in months)</p>
+</dd>
+<dt>Educ</dt>
+<dd>
+<p>Education (in years)</p>
+</dd>
+<dt>Exper</dt>
+<dd>
+<p>Work experience prior to employment with the bank (months)</p>
+</dd>
+</dl>
+<h3>Source</h3>
+
+<p>Ramsey, F.L. and Schafer, D.W. (2013). <em>The Statistical Sleuth: A
+Course in Methods of Data Analysis (3rd ed)</em>, Cengage Learning.
+</p>
+
+
+<h3>References</h3>
+
+<p>Roberts, H.V. (1979). Harris Trust and Savings Bank: An Analysis of
+Employee Compensation, <em>Report 7946</em>, Center for Mathematical
+Studies in Business and Economics, University of Chicago Graduate
+School of Business.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>case0102</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">str(case1202)
+attach(case1202)
+
+## EXPLORATION
+logSal &lt;- log(Bsal)    
+myMatrix &lt;- cbind (logSal, Senior,Age, Educ, Exper)   
+if(require(car)){   # Use the car library
+  scatterplotMatrix(myMatrix, smooth=FALSE, diagonal="histogram",
+                    groups=Sex, col=c("red","blue") )   
+}                                
+myLm1 &lt;- lm(logSal ~ Senior + Age + Educ + Exper + Sex)
+plot(myLm1, which=1)           
+plot(myLm1, which=4) #  Cook's Distance 
+if(require(car)){   # Use the car library
+  crPlots(myLm1)    # Partial residual plots
+}             
+ageSquared    &lt;- Age^2   
+ageCubed      &lt;- Age^3     
+experSquared  &lt;- Exper^2
+experCubed    &lt;- Exper^3
+myLm2 &lt;- lm(logSal ~ Senior + Age + ageSquared  + ageCubed + 
+  Educ + Exper + experSquared + experCubed  + Sex)
+plot(myLm2, which=1)  # Residual plot         
+plot(myLm1, which=4)  # Cook's distance         
+
+if(require(leaps)){   # Use the leaps library
+  mySubsets     &lt;- regsubsets(logSal ~ (Senior + Age + Educ + Exper + 
+    ageSquared  + experSquared)^2, nvmax=25, data=case1202)    
+  mySummary  &lt;- summary(mySubsets)    
+  p  &lt;- apply(mySummary$which, 1, sum)     
+  plot(mySummary$bic ~ p, ylab = "BIC")            
+  cbind(p,mySummary$bic)  
+  mySummary$which[8,]  # Note that Age:ageSquared = ageCubed
+}
+myLm3         &lt;- lm(logSal ~ Age + Educ + ageSquared + Senior:Educ + 
+  Age:Exper + ageCubed + Educ:Exper + Exper:ageSquared) 
+summary(myLm3)
+
+myLm4 &lt;- update(myLm3, ~ . + Sex)  
+summary(myLm4)
+myLm5 &lt;- update(myLm4, ~ . + Sex:Age + Sex:Educ + Sex:Senior + 
+  Sex:Exper + Sex:ageSquared)
+anova(myLm4, myLm5) 
+
+## INFERENCE AND INTERPRETATION
+summary(myLm4)
+beta          &lt;- myLm4$coef  
+exp(beta[6])             
+exp(confint(myLm4,6))    
+# Conclusion:  The median beginning salary for males was estimated to be 12% 
+# higher than the median salary for females with similar values of the available 
+# qualification variables (95% confidence interval: 7% to 17% higher).
+
+## DISPLAY FOR PRESENTATION        
+years &lt;- Exper/12  # Change months to years
+plot(Bsal ~ years, log="y", xlab="Previous Work Experience (Years)",
+  ylab="Beginning Salary (Dollars); Log Scale",
+  main="Beginning Salaries and Experience for 61 Female and 32 Male Employees",
+  pch= ifelse(Sex=="Male",24,21), bg = "gray", 
+  col= ifelse(Sex=="Male","blue","red"), lwd=2, cex=1.8 )
+myLm6 &lt;- lm(logSal ~ Exper + experSquared + experCubed + Sex)
+beta &lt;- myLm6$coef
+dummyExper &lt;- seq(min(Exper),max(Exper),length=50)
+curveF &lt;- beta[1] + beta[2]*dummyExper + beta[3]*dummyExper^2 +
+  beta[4]*dummyExper^3 
+curveM &lt;- curveF + beta[5]
+dummyYears &lt;- dummyExper/12
+lines(exp(curveF) ~ dummyYears, lty=1, lwd=2,col="red")
+lines(exp(curveM) ~ dummyYears, lty = 2, lwd=2, col="blue")
+legend(28,8150, c("Male","Female"),pch=c(24,21), pt.cex=1.8, pt.lwd=2, 
+  pt.bg=c("gray","gray"), col=c("blue","red"), lty=c(2,1), lwd=2) 
+
+detach(case1202)
+</code></pre>
+
+
+</div>

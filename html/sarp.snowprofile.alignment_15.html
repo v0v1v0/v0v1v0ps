@@ -1,0 +1,168 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>distanceSPlayers</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate a multidimensional distance matrix between two profiles</h2>
+
+<h3>Description</h3>
+
+<p>This routine calculates a distance matrix for two given profiles (<code>query</code> and <code>ref</code>). Analogously to other DTW
+routines, the query is arranged along the matrix rows, the ref along the columns. Every cell of the matrix represents
+the distance between the corresponding profile layers. The distance is calculated based on the specified layer properties
+(e.g., <code>hardness</code>, <code>gtype</code>, <code>ddate</code>). The routine calls subroutines to calculate the distance for each property and
+combines the normalized distances by weighted averaging.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">distanceSPlayers(
+  query,
+  ref,
+  dims = c("hardness", "gtype"),
+  weights = c(0.2, 0.8),
+  gtype_distMat = sim2dist(grainSimilarity_align(FALSE)),
+  prefLayerWeights = layerWeightingMat(FALSE),
+  ddateNorm = 5,
+  windowFunction = warpWindowSP,
+  top.down.mirroring = FALSE,
+  warn.if.na.in.distance.calc = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>query</code></td>
+<td>
+<p>The query snowprofile object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ref</code></td>
+<td>
+<p>The ref snowprofile object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dims</code></td>
+<td>
+<p>Character vector containing the layer properties to calculate the distance over. Currently implemented
+are the properties <code>hardness</code>, <code>gtype</code>, <code>ddate</code>, <code>density</code>, <code>ogs</code>, <code>p_unstable</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>Numeric vector of the same length as <code>dims</code> specifying the averaging weights to each element of dims.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gtype_distMat</code></td>
+<td>
+<p>A symmetric <strong>distance</strong> scoring matrix provided as data.frame that stores information about
+the distances between the encountered grain types of the provided profiles. Default is the corresponding distance
+matrix of grainSimilarity_align, cf. sim2dist.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prefLayerWeights</code></td>
+<td>
+<p>A matrix similar to <code>gtype_distMat</code>, but storing weights for preferential layer matching,
+e.g. defaults to layerWeightingMat; the higher the values for a given grain type pair, the more the algorithm will try to
+match those layers above others. To turn weighting scheme off, set <code>prefLayerWeights = NA</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ddateNorm</code></td>
+<td>
+<p>Normalize the deposition date distance by <code>ddateNorm</code> number of days. Numeric, default 5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowFunction</code></td>
+<td>
+<p>a window function analogous to warpWindowSP (Other compatible window functions can be
+found in dtw::dtwWindowingFunctions.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>top.down.mirroring</code></td>
+<td>
+<p>Will the resulting distance matrix be used for top down alignments? i.e., do you want to mirror the
+matrix about its anti-diagonal (top-left/bottom-right diagonal)?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>warn.if.na.in.distance.calc</code></td>
+<td>
+<p>most dependent functions in this package should be able to deal with NA values encountered in distance
+calculations. Set this argument to <code>TRUE</code> if you want to be warned anyways.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments to the window function, e.g. <code>window.size</code>, <code>window.size.abs</code>, <code>ddate.window.size</code>, ...</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A distance matrix of dimension (n x m), where n, m are the number of layers in the query and ref, respectively.
+</p>
+
+
+<h3>Note</h3>
+
+<p>For package developers: dot inputs to the function (i.e., <code>...</code>) also necessary to keep dtwSP highly flexible
+and customizable. Dot inputs may contain arguments that remain unused in this function.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>fherla
+</p>
+
+
+<h3>See Also</h3>
+
+<p>resampleSPpairs
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## call function with two snow profiles of unequal lengths, without using a window function:
+dMat_noWindow &lt;- distanceSPlayers(SPpairs$A_modeled, SPpairs$A_manual, windowFunction = NA)
+graphics::image(dMat_noWindow, main = "Default distance matrix without a warping window")
+
+
+## compute distance based on grain type alone,
+## and additionally disable preferential layer matching:
+dMat &lt;- distanceSPlayers(SPpairs$A_modeled, SPpairs$A_manual, windowFunction = NA,
+                         dims = "gtype", weights = 1, prefLayerWeights = NA)
+graphics::image(dMat,
+                main = "Only based on grain type, and without preferential layer matching")
+
+## enable preferential layer matching:
+dMat &lt;- distanceSPlayers(SPpairs$A_modeled, SPpairs$A_manual, windowFunction = NA)
+graphics::image(dMat,
+                main = "... with preferential layer matching")
+
+
+## using a warping window:
+dMat &lt;- distanceSPlayers(SPpairs$A_modeled, SPpairs$A_manual, window.size.abs = 50)
+graphics::image(dMat, main = "... and superimposing an absolute warping window of 50 cm")
+
+</code></pre>
+
+
+</div>

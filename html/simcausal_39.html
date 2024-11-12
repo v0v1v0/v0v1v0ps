@@ -1,0 +1,168 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>set.targetMSM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Define Causal Parameters with a Working Marginal Structural Model (MSM)</h2>
+
+<h3>Description</h3>
+
+<p>Set up the MSM causal target parameter for the current DAG object. These settings can be later used to evaluate the true value of the MSM parameter on the full (counterfactual) data by calling <code>eval.target</code> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">set.targetMSM(
+  DAG,
+  outcome,
+  t,
+  formula,
+  family = "quasibinomial",
+  hazard,
+  ...,
+  attr = list()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>DAG</code></td>
+<td>
+<p>Object specifying the directed acyclic graph (DAG) for the observed data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>Name of the outcome node</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t</code></td>
+<td>
+<p>Vector of time points which are used for pooling the <code>outcome</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>MSM formula for modeling pooled outcome on the full data with glm regression. Left hand side should be equal to the <code>outcome</code>, right hand side can include baseline covariates, action-specific attribute names and time-dependent treatment summary measures. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Model family to use in the <code>glm</code> regression</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hazard</code></td>
+<td>
+<p>When TRUE MSM fits the discrete hazard function for survival <code>outcome</code> (if outcome node had <code>EOF=TRUE</code> attribute)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional attributes (to be used in future versions)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>attr</code></td>
+<td>
+<p>Additional attributes (to be used in future versions)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Enclosing an MSM formula term inside S(), e.g., S(mean(A[0:t])), forces this term to be evaluated as a summary measure of time-indexed nodes in the full data environment. All such MSM terms are parsed and then evaluated inside the previously simulated full data environment, each S() term is then replaced with a vector name 'XMSMterms.i' that is a result of this evaluation.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A modified DAG object with well-defined target parameter saved as part of the DAG, this DAG can now be passed as an argument to <code>eval.target</code> function for actual Monte-Carlo evaluation of the target parameter. See Examples.
+</p>
+
+
+<h3>References</h3>
+
+<p>Sofrygin O, van der Laan MJ, Neugebauer R (2017).
+"simcausal R Package: Conducting Transparent and Reproducible Simulation Studies of Causal Effect Estimation with Complex Longitudinal Data."
+Journal of Statistical Software, 81(2), 1-47. doi: 10.18637/jss.v081.i02.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#---------------------------------------------------------------------------------------
+# DAG with time-varying outcomes (survival outcome)
+#---------------------------------------------------------------------------------------
+# Define longitudinal data structure over 6 time-points t=(0:5)
+t_end &lt;- 5
+D &lt;- DAG.empty()
+D &lt;- D + node("L2", t=0, distr="rbern", prob=0.05)
+D &lt;- D + node("L1", t=0, distr="rbern", prob=ifelse(L2[0]==1,0.5,0.1))
+D &lt;- D + node("A1", t=0, distr="rbern", prob=ifelse(L1[0]==1 &amp; L2[0]==0, 0.5,
+ifelse(L1[0]==0 &amp; L2[0]==0, 0.1,
+ifelse(L1[0]==1 &amp; L2[0]==1, 0.9, 0.5))))
+D &lt;- D + node("A2", t=0, distr="rbern", prob=0, order=4, EFU=TRUE)
+D &lt;- D + node("Y",  t=0, distr="rbern",
+prob=plogis(-6.5 + L1[0] + 4*L2[0] + 0.05*I(L2[0]==0)),
+EFU=TRUE)
+D &lt;- D + node("L2", t=1:t_end, distr="rbern", prob=ifelse(A1[t-1]==1, 0.1,
+ifelse(L2[t-1]==1, 0.9,
+min(1,0.1 + t/16))))
+D &lt;- D + node("A1", t=1:t_end, distr="rbern", prob=ifelse(A1[t-1]==1, 1,
+ifelse(L1[0]==1 &amp; L2[0]==0, 0.3,
+ifelse(L1[0]==0 &amp; L2[0]==0, 0.1,
+ifelse(L1[0]==1 &amp; L2[0]==1, 0.7,
+0.5)))))
+D &lt;- D + node("A2", t=1:t_end, distr="rbern", prob=0, EFU=TRUE)
+D &lt;- D + node( "Y",  t=1:t_end, distr="rbern",
+prob=plogis(-6.5 + L1[0] + 4*L2[t] + 0.05*sum(I(L2[0:t]==rep(0,(t+1))))),
+EFU=TRUE)
+D &lt;- set.DAG(D)
+
+# Add two dynamic actions (indexed by values of the parameter theta={0,1})
+# Define intervention nodes
+act_t0_theta &lt;- node("A1",t=0, distr="rbern", prob=ifelse(L2[0] &gt;= theta,1,0))
+act_tp_theta &lt;- node("A1",t=1:t_end, distr="rbern",
+prob=ifelse(A1[t-1]==1,1,ifelse(L2[t] &gt;= theta,1,0)))
+# Add two actions to current DAG object
+D &lt;- D + action("A1_th0", nodes=c(act_t0_theta, act_tp_theta), theta=0)
+D &lt;- D + action("A1_th1", nodes=c(act_t0_theta, act_tp_theta), theta=1)
+
+#---------------------------------------------------------------------------------------
+# MSM EXAMPLE 1: Modeling survival over time
+#---------------------------------------------------------------------------------------
+# Modeling pooled survival Y_t over time as a projection on the following working
+# logistic model:
+msm.form &lt;- "Y ~ theta + t + I(theta*t)"
+D &lt;- set.targetMSM(D, outcome="Y", t=0:5, formula=msm.form, family="binomial",
+hazard=FALSE)
+MSMres &lt;- eval.target(D, n=1000)
+MSMres$coef
+
+#---------------------------------------------------------------------------------------
+# MSM EXAMPLE 2: Modeling survival over time with exposure-based summary measures
+#---------------------------------------------------------------------------------------
+# Now we want to model Y_t by adding a summary measure covariate defined as mean
+# exposure A1 from time 0 to t;
+# Enclosing any term inside S() forces its evaluation in the environment
+# of the full (counterfactual) data.
+msm.form_sum &lt;- "Y ~ theta + t + I(theta*t) + S(mean(A1[0:t]))"
+D &lt;- set.targetMSM(D, outcome="Y", t=0:5, formula=msm.form_sum, family="binomial",
+hazard=FALSE)
+MSMres &lt;- eval.target(D, n=1000)
+MSMres$coef
+</code></pre>
+
+
+</div>

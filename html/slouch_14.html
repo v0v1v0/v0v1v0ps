@@ -1,0 +1,352 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>slouch.fit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function to fit Ornstein-Uhlenbeck models of trait evolution</h2>
+
+<h3>Description</h3>
+
+<p>Function to fit Ornstein-Uhlenbeck models of trait evolution
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">slouch.fit(
+  phy,
+  species = NULL,
+  hl_values = NULL,
+  a_values = NULL,
+  vy_values = NULL,
+  sigma2_y_values = NULL,
+  response,
+  mv.response = NULL,
+  fixed.fact = NULL,
+  direct.cov = NULL,
+  mv.direct.cov = NULL,
+  mcov.direct.cov = NULL,
+  random.cov = NULL,
+  mv.random.cov = NULL,
+  mcov.random.cov = NULL,
+  ace = NULL,
+  anc_maps = "regimes",
+  estimate.Ya = FALSE,
+  estimate.bXa = FALSE,
+  interactions = FALSE,
+  hessian = FALSE,
+  support = 2,
+  convergence = 1e-06,
+  nCores = 1,
+  hillclimb = TRUE,
+  lower = c(1e-08, 1e-08),
+  upper = Inf,
+  verbose = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>phy</code></td>
+<td>
+<p>an object of class 'phylo', must be rooted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>species</code></td>
+<td>
+<p>a character vector of species tip labels, typically the "species" column in a data frame. This column needs to be an exact match and same order as phy$tip.label</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hl_values</code></td>
+<td>
+<p>a vector of candidate phylogenetic half-life values to be evaluated in grid search. Optional.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_values</code></td>
+<td>
+<p>a vector of candidate rate of adaptation values to be evaluated in grid search. Optional.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vy_values</code></td>
+<td>
+<p>a vector of candidate stationary variances for the response trait, to be evaluated in grid search. Optional.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma2_y_values</code></td>
+<td>
+<p>alternative to vy_values, if the stationary variance is reparameterized as the variance parameter for the Brownian motion.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>response</code></td>
+<td>
+<p>a numeric vector of a trait to be treated as response variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mv.response</code></td>
+<td>
+<p>numeric vector of the observational variances of each response trait. E.g if response is a mean trait value, mv.response is the within-species squared standard error of the mean.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed.fact</code></td>
+<td>
+<p>factor of regimes on the terminal edges of the tree, in same order as species. If this is used, phy$node.label needs to be filled with the corresponding internal node regimes, in the order of node indices (root: n+1),(n+2),(n+3), ...</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>direct.cov</code></td>
+<td>
+<p>Direct effect independent variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mv.direct.cov</code></td>
+<td>
+<p>Estimation variances for direct effect independent variables. Must be the same shape as direct.cov</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcov.direct.cov</code></td>
+<td>
+<p>Estimation covariances between the response variable and direct effect independent variables. Most be the same shape as direct.cov</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>random.cov</code></td>
+<td>
+<p>Independent variables each modeled as a brownian motion</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mv.random.cov</code></td>
+<td>
+<p>Estimation variances for the brownian covariates. Must be the same shape as random.cov</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcov.random.cov</code></td>
+<td>
+<p>Estimation covariances between the response variable and random effect independent variables. Most be the same shape as random.cov</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ace</code></td>
+<td>
+<p>An ape::ace object, with estimated ancestral character states. Optional</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>anc_maps</code></td>
+<td>
+<p>One of "regimes", "ace" or "simmap". "regimes" tells slouch to use 'phy$node.label' to assign internal regimes. "ace" tells slouch to use ancestral posterior probabilities for ancestral regimes. "simmap" tells slouch to use the simmap mappings associated with 'phy'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimate.Ya</code></td>
+<td>
+<p>a logical value indicathing whether "Ya" should be estimated. If true, the intercept K = 1 is expanded to Ya = exp(-a*t) and b0 = 1-exp(-a*t). If models with categorical covariates are used, this will instead estimate a separate primary optimum for the root niche, "Ya". This only makes sense for non-ultrametric trees. If the tree is ultrametric, the model matrix becomes singular.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimate.bXa</code></td>
+<td>
+<p>a logical value indicathing whether "bXa" should be estimated. If true, bXa = 1-exp(-a*t) - (1-(1-exp(-a*t))/(a*t)) is added to the model matrix, estimating b*Xa. Same requirements as for estimating Ya.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interactions</code></td>
+<td>
+<p>a logical value. Whether to model interactions between (all) direct-effect continuous covariates and categorical regimes (experimental). Defaults to FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hessian</code></td>
+<td>
+<p>use the approximate hessian matrix at the likelihood peak as found by the hillclimber, to compute standard errors for the parameters that enter in parameter search.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>support</code></td>
+<td>
+<p>a scalar indicating the size of the support set, defaults to 2 units of log-likelihood.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>convergence</code></td>
+<td>
+<p>threshold of iterative GLS estimation for when beta is considered to be converged.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCores</code></td>
+<td>
+<p>number of CPU cores used in grid-search. If 2 or more cores are used, all print statements are silenced during grid search. If performance is critical it is recommended to compile and link R to a multithreaded BLAS, since most of the heavy computations are common matrix operations. Even if a singlethreaded BLAS is used, this may or may not improve performance, and performance may vary with OS.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hillclimb</code></td>
+<td>
+<p>logical, whether to use hillclimb parameter estimation routine or not. This routine (L-BFGS-B from optim()) may be combined with the grid-search, in which case it will on default start on the sigma and halflife for the local ML found by the grid-search.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+<p>lower bounds for the optimization routine, defaults to c(0,0). First entry in vector is half-life, second is stationary variance. When running direct effect models without observational error, it may be useful to specify a positive lower bounds for the stationary variance, e.g c(0, 0.001), since the residual variance-covariance matrix is degenerate when sigma = 0.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>upper bounds for the optimization routine, defaults to c(Inf, Inf).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>a logical value indicating whether to print a summary in each iteration of parameter search. May be useful when diagnosing unexpected behaviour or crashes.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class 'slouch', essentially a list with the following fields:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>parameter_space</code></td>
+<td>
+<p>a list of the entire parameter space traversed by the grid search and the hillclimber as applicable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tree</code></td>
+<td>
+<p>a list of parameters concerning the tree:
+</p>
+
+<ul>
+<li>
+<p>phy - an object of class 'phy'
+</p>
+</li>
+<li>
+<p>T.term - a numeric vector including the time from the root of the tree to the tip, for all taxa 1,2,3... n.
+</p>
+</li>
+<li>
+<p>ta - for all pairs of species, the time from their most recent common ancestor (mrca) to the root of the tree.
+</p>
+</li>
+<li>
+<p>tia - for all pairs of species, the time from their mrca to the tip of species i.
+</p>
+</li>
+<li>
+<p>tja - the transpose of tia.
+</p>
+</li>
+<li>
+<p>tij - for all pairs of species, the time from species i to their mrca, plus the time from their mrca to species j. In other words, tia + transpose(tia).
+</p>
+</li>
+<li>
+<p>times - for all nodes (1,2,3... n, root, root+1, ...) in the tree, the time from the root to said node. 
+</p>
+</li>
+<li>
+<p>lineages - for all species (1,2,3... n), a list of their branch times and regimes as painted on the tree.
+</p>
+</li>
+<li>
+<p>regimes - for all nodes (1,2,3... n, root, root+1, ...) in the tree, the respective regime as specified by "<code>phy$node.label</code>" and "<code>fixed.fact</code>".
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modfit</code></td>
+<td>
+<p>a list of statistics to characterize model fit</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>supportplot</code></td>
+<td>
+<p>a list or matrix used to plot the grid search</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>supported_range</code></td>
+<td>
+<p>a matrix indicating the interval of grid search that is within the support region. If the grid search values are carefully selected, this may be used to estimate the true support region.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>the residual variance-covariance matrix for the maximum likelihood model as found by parameter search.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>evolpar</code></td>
+<td>
+<p>maximum likelihood estimates of parameters under the chosen model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_primary</code></td>
+<td>
+<p>regression coefficients and associated objects. Whether the regression coefficients are to be interpreted as optima or not depend on the type of model and model estimates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_evolutionary</code></td>
+<td>
+<p>under a random effect model, "beta_evolutionary" is the evolutionary regression coefficients and associated objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.par</code></td>
+<td>
+<p>number of free parameters with which the likelihood criteria are penalized.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>brownian_predictors</code></td>
+<td>
+<p>under a random effect model, a matrix of means and standard errors for the independent Brownian motion variable(s). Not to be confused with the regression coefficients when the residuals are under a "bm" model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>climblog_df</code></td>
+<td>
+<p>a matrix of the path trajectory of the hillclimber routine.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed.fact</code></td>
+<td>
+<p>the respective regimes for all species (1,2,3... n).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>internal parameters for control flow.</p>
+</td>
+</tr>
+</table>
+</div>

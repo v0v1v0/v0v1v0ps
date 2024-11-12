@@ -1,0 +1,331 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spMvLM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for fitting multivariate Bayesian spatial regression models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>spMvLM</code> fits Gaussian multivariate Bayesian
+spatial regression models. Given a set of knots, <code>spMvLM</code> will
+also fit a <em>predictive process</em> model (see references below).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spMvLM(formula, data = parent.frame(), coords, knots,
+      starting, tuning, priors, cov.model,
+      modified.pp = TRUE, amcmc, n.samples, 
+      verbose=TRUE, n.report=100, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a list of <code class="reqn">q</code> symbolic regression model descriptions to be fit. See example below. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the
+model. If not found in <code>data</code>, the variables are taken from <code>environment(formula)</code>, typically the environment from which <code>spMvLM</code> is called.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>an <code class="reqn">n \times 2</code> matrix of the observation coordinates in <code class="reqn">R^2</code> (e.g., easting and northing). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>either a <code class="reqn">m \times 2</code> matrix of the <em>predictive process</em> knot coordinates in <code class="reqn">R^2</code> (e.g., easting and northing) or a vector of length two or three with the first and second elements recording the  number of columns and rows in the desired knot grid. The third, optional, element sets the offset of the outermost knots from the extent of the <code>coords</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starting</code></td>
+<td>
+<p>a list with tags corresponding to <code>beta</code>, <code>A</code>, <code>phi</code>, and <code>nu</code>. Depending on the specification of the non-spatial residual, tags are <code>L</code> or <code>Psi</code>
+for a block diagonal or diagonal covariance matrix, respectively.
+</p>
+<p>The value portion of each tag is a vector
+that holds the parameter's starting values and are of length
+<code class="reqn">p</code> for <code>beta</code> (where <code class="reqn">p</code> is the total number of regression coefficients in the multivariate model), <code class="reqn">\frac{q(q+1)}{2}</code> for
+<code>A</code> and <code>L</code>, and <code class="reqn">q</code> for <code>Psi</code>, <code>phi</code>, and <code>nu</code>.  Here,
+<code>A</code> and <code>L</code> hold the lower-triangle elements in column major ordering of the Cholesky square root
+of the spatial and non-spatial cross-covariance matrices,
+respectively. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with tags <code>A</code>, <code>phi</code>, and <code>nu</code>. Depending on the specification of
+the non-spatial residual, tags are <code>L</code> or <code>Psi</code>
+for a block diagonal or diagonal covariance matrix, respectively. The value portion of each tag defines the
+variance of the Metropolis sampler Normal proposal distribution.  For <code>A</code> and <code>L</code>
+the vectors are of length <code class="reqn">\frac{q(q+1)}{2}</code> and <code class="reqn">q</code> for <code>Psi</code>, <code>phi</code>, and <code>nu</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with tags <code>beta.flat</code>,
+<code>beta.norm</code>, <code>K.iw</code>, <code>Psi.iw</code>, <code>Psi.ig</code>, <code>phi.unif</code>,
+and <code>nu.unif</code>. If the regression coefficients, i.e., <code>beta</code> vector, are
+assumed to follow a multivariate Normal distribution then pass the
+hyperparameters as a list of length two with the first
+and second elements corresponding to the mean vector and positive
+definite covariance matrix, respectively. If <code>beta</code> is assumed flat then no arguments are passed. The default is a flat prior.
+Use <code>Psi.iw</code> if the non-spatial residual covariance matrix is assumed block diagonal.  Otherwise if the non-spatial residual covariance matrix is assumed diagonal then each of the <code class="reqn">q</code> diagonal element are assumed to
+follow an inverse-Gamma in which case use <code>Psi.ig</code>. The hyperparameters of the inverse-Wishart, i.e., for
+cross-covariance matrices <code class="reqn">AA'</code> <code>K.iw</code>
+and <code class="reqn">LL'</code> <code>Psi.iw</code>,  are
+passed as a list of length two, with the first and second elements corresponding
+to the <code class="reqn">df</code> and <code class="reqn">q\times q</code> <em>scale</em> matrix,
+respectively. If <code>Psi.ig</code> is specified, the inverse-Gamma
+hyperparameters of the diagonal variance elements are pass using a
+list of length two with the first and second list elements consisting of
+vectors of the <code class="reqn">q</code> <em>shape</em> and <em>scale</em> hyperparameters,
+respectively. The hyperparameters of the Uniform <code>phi.unif</code>,
+and <code>nu.unif</code> are also passed as a list of vectors with the first
+and second list elements corresponding to the lower and upper
+support, respectively. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.  See below for details.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modified.pp</code></td>
+<td>
+<p>a logical value indicating if the <em>modified
+predictive process</em> should be used (see references below for
+details). Note, if a predictive process model is not used (i.e., <code>knots</code> is not specified) then
+this argument is ignored. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amcmc</code></td>
+<td>
+<p>a list with tags <code>n.batch</code>, <code>batch.length</code>, and
+<code>accept.rate</code>. Specifying this argument invokes an adaptive MCMC
+sampler see Roberts and Rosenthal (2007) for an explanation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>the number of MCMC iterations. This argument is
+ignored if <code>amcmc</code> is specified. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, model specification and progress of the
+sampler is printed to the screen. Otherwise, nothing is printed to
+the screen.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis acceptance and MCMC progress. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments.  </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Model parameters can be fixed at their <code>starting</code> values by setting their
+<code>tuning</code> values to zero.
+</p>
+<p>The <em>no nugget</em> model is specified by removing <code>Psi</code> and <code>L</code> from the <code>starting</code> list.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>spMvLM</code>, which is a list with the following
+tags:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>the <code class="reqn">n \times 2</code> matrix specified by
+<code>coords</code>.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knot.coords</code></td>
+<td>
+<p>the <code class="reqn">m \times 2</code> matrix as specified by <code>knots</code>.  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for the defined
+parameters. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>acceptance</code></td>
+<td>
+<p>the Metropolis sampling
+acceptance percent. Reported at <code>batch.length</code> or <code>n.report</code>
+intervals for <code>amcmc</code> specified and non-specified, respectively</p>
+</td>
+</tr>
+</table>
+<p>The return object might include additional data used for subsequent
+prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>, <br>
+Sudipto Banerjee <a href="mailto:baner009@umn.edu">baner009@umn.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Banerjee, S., A.E. Gelfand, A.O. Finley, and H. Sang. (2008) Gaussian Predictive Process Models for Large Spatial Datasets. <em>Journal of the Royal Statistical Society Series B</em>, 70:825–848.
+</p>
+<p>Banerjee, S., Carlin, B.P., and Gelfand, A.E. (2004). Hierarchical modeling and analysis for spatial data. Chapman and Hall/CRC Press, Boca Raton, Fla.
+</p>
+<p>Finley, A.O., S. Banerjee, and A.E. Gelfand. (2015) spBayes for large
+univariate and multivariate point-referenced spatio-temporal data
+models. <em>Journal of Statistical Software</em>, 63:1–28. <a href="https://www.jstatsoft.org/article/view/v063i13">https://www.jstatsoft.org/article/view/v063i13</a>.
+</p>
+<p>Finley, A.O., H. Sang, S. Banerjee, and A.E. Gelfand. (2009) Improving the performance of predictive process modeling for large datasets. <em>Computational Statistics and Data Analysis</em>, 53:2873–2884.
+</p>
+<p>Finley, A.O., S. Banerjee, A.R. Ek, and R.E. McRoberts. (2008) Bayesian multivariate process modeling for prediction of forest attributes. <em>Journal of Agricultural, Biological, and Environmental Statistics</em>, 13:60–83.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>spLM</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+rmvn &lt;- function(n, mu=0, V = matrix(1)){
+  p &lt;- length(mu)
+  if(any(is.na(match(dim(V),p)))){stop("Dimension problem!")}
+  D &lt;- chol(V)
+  t(matrix(rnorm(n*p), ncol=p)%*%D + rep(mu,rep(n,p)))
+}
+
+set.seed(1)
+
+##Generate some data
+n &lt;- 25 ##number of locations
+q &lt;- 2 ##number of outcomes at each location
+nltr &lt;- q*(q+1)/2 ##number of triangular elements in the cross-covariance matrix
+
+coords &lt;- cbind(runif(n,0,1), runif(n,0,1))
+
+##Parameters for the bivariate spatial random effects
+theta &lt;- rep(3/0.5,q)
+
+A &lt;- matrix(0,q,q)
+A[lower.tri(A,TRUE)] &lt;- c(1,-1,0.25)
+K &lt;- A%*%t(A)
+
+Psi &lt;- diag(0,q)
+
+C &lt;- mkSpCov(coords, K, Psi, theta, cov.model="exponential")
+
+w &lt;- rmvn(1, rep(0,nrow(C)), C)
+
+w.1 &lt;- w[seq(1,length(w),q)]
+w.2 &lt;- w[seq(2,length(w),q)]
+
+##Covariate portion of the mean
+x.1 &lt;- cbind(1, rnorm(n))
+x.2 &lt;- cbind(1, rnorm(n))
+x &lt;- mkMvX(list(x.1, x.2))
+
+B.1 &lt;- c(1,-1)
+B.2 &lt;- c(-1,1)
+B &lt;- c(B.1, B.2)
+
+Psi &lt;- diag(c(0.1, 0.5))
+
+y &lt;- rnorm(n*q, x%*%B+w, diag(n)%x%Psi)
+
+y.1 &lt;- y[seq(1,length(y),q)]
+y.2 &lt;- y[seq(2,length(y),q)]
+
+##Call spMvLM
+A.starting &lt;- diag(1,q)[lower.tri(diag(1,q), TRUE)]
+n.samples &lt;- 1000
+
+starting &lt;- list("phi"=rep(3/0.5,q), "A"=A.starting, "Psi"=rep(1,q))
+tuning &lt;- list("phi"=rep(1,q), "A"=rep(0.01,length(A.starting)), "Psi"=rep(0.01,q))
+priors &lt;- list("beta.Flat", "phi.Unif"=list(rep(3/0.75,q), rep(3/0.25,q)),
+               "K.IW"=list(q+1, diag(0.1,q)), "Psi.ig"=list(c(2,2), c(0.1,0.1)))
+
+m.1 &lt;- spMvLM(list(y.1~x.1-1, y.2~x.2-1), 
+               coords=coords, starting=starting, tuning=tuning, priors=priors,
+               n.samples=n.samples, cov.model="exponential", n.report=100)
+
+burn.in &lt;- 0.75*n.samples
+
+m.1 &lt;- spRecover(m.1, start=burn.in)
+
+round(summary(m.1$p.theta.recover.samples)$quantiles[,c(3,1,5)],2)
+round(summary(m.1$p.beta.recover.samples)$quantiles[,c(3,1,5)],2)
+
+m.1.w.hat &lt;- summary(mcmc(t(m.1$p.w.recover.samples)))$quantiles[,c(3,1,5)]
+m.1.w.1.hat &lt;- m.1.w.hat[seq(1, nrow(m.1.w.hat), q),]
+m.1.w.2.hat &lt;- m.1.w.hat[seq(2, nrow(m.1.w.hat), q),]
+
+par(mfrow=c(1,2))
+plot(w.1, m.1.w.1.hat[,1], xlab="Observed w.1", ylab="Fitted w.1",
+     xlim=range(w), ylim=range(m.1.w.hat), main="Spatial random effects w.1")
+arrows(w.1, m.1.w.1.hat[,1], w.1, m.1.w.1.hat[,2], length=0.02, angle=90)
+arrows(w.1, m.1.w.1.hat[,1], w.1, m.1.w.1.hat[,3], length=0.02, angle=90)
+lines(range(w), range(w))
+
+plot(w.2, m.1.w.2.hat[,1], xlab="Observed w.2", ylab="Fitted w.2",
+     xlim=range(w), ylim=range(m.1.w.hat), main="Spatial random effects w.2")
+arrows(w.2, m.1.w.2.hat[,1], w.2, m.1.w.2.hat[,2], length=0.02, angle=90)
+arrows(w.2, m.1.w.2.hat[,1], w.2, m.1.w.2.hat[,3], length=0.02, angle=90)
+lines(range(w), range(w))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

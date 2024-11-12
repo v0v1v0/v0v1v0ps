@@ -1,0 +1,174 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dharma_residuals</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>DHARMa residuals</h2>
+
+<h3>Description</h3>
+
+<p>Plot (and possibly return) <span class="pkg">DHARMa</span> residuals. This is a wrapper function
+around <code>DHARMa::createDHARMa()</code> to facilitate its use with <code>sdmTMB()</code> models.
+<strong>Note:</strong> It is recommended to set <code>type = "mle-mvn"</code> in
+<code>simulate.sdmTMB()</code> for the resulting residuals to have the
+expected distribution. This is <em>not</em> the default.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dharma_residuals(
+  simulated_response,
+  object,
+  plot = TRUE,
+  return_DHARMa = FALSE,
+  test_uniformity = TRUE,
+  test_outliers = FALSE,
+  test_dispersion = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>simulated_response</code></td>
+<td>
+<p>Output from <code>simulate.sdmTMB()</code>. It is recommended
+to set <code>type = "mle-mvn"</code> in the call to <code>simulate.sdmTMB()</code> for the
+residuals to have the expected distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>Output from <code>sdmTMB()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>Logical. Calls <code>DHARMa::plotQQunif()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_DHARMa</code></td>
+<td>
+<p>Logical. Return object from <code>DHARMa::createDHARMa()</code>?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_uniformity</code></td>
+<td>
+<p>Passed to <code>testUniformity</code> in <code>DHARMa::plotQQunif()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_outliers</code></td>
+<td>
+<p>Passed to <code>testOutliers</code> in <code>DHARMa::plotQQunif()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test_dispersion</code></td>
+<td>
+<p>Passed to <code>testDispersion</code> in <code>DHARMa::plotQQunif()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments to pass to <code>DHARMa::createDHARMa()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>See the <a href="https://pbs-assess.github.io/sdmTMB/articles/web_only/residual-checking.html">residuals vignette</a>.
+</p>
+<p>Advantages to these residuals over the ones from the <code>residuals.sdmTMB()</code>
+method are (1) they work with delta/hurdle models for the combined
+predictions, not the just the two parts separately, (2) they should work for
+all families, not the just the families where we have worked out the
+analytical quantile function, and (3) they can be used with the various
+diagnostic tools and plots from the <span class="pkg">DHARMa</span> package.
+</p>
+<p>Disadvantages are (1) they are slower to calculate since one must first
+simulate from the model, (2) the stability of the distribution of the
+residuals depends on having a sufficient number of simulation draws, (3)
+uniformly distributed residuals put less emphasis on the tails visually
+than normally distributed residuals
+(which may or may not be desired).
+</p>
+<p>Note that <span class="pkg">DHARMa</span> returns residuals that are uniform(0, 1) if the data
+are consistent with the model whereas randomized quantile residuals from
+<code>residuals.sdmTMB()</code> are expected to be normal(0, 1).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data frame of observed and expected values is invisibly returned
+so you can assign the output to an object and
+plot the residuals yourself. See the examples.
+</p>
+<p>If <code>return_DHARMa = TRUE</code>, the object from <code>DHARMa::createDHARMa()</code>
+is returned and any subsequent <span class="pkg">DHARMa</span> functions can be applied.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>simulate.sdmTMB()</code>, <code>residuals.sdmTMB()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Try Tweedie family:
+fit &lt;- sdmTMB(density ~ as.factor(year) + s(depth, k = 3),
+  data = pcod_2011, mesh = pcod_mesh_2011,
+  family = tweedie(link = "log"), spatial = "on")
+
+# The `simulated_response` argument is first so the output from
+# simulate() can be piped to `dharma_residuals()`.
+
+# We will work with 100 simulations for fast examples, but you'll
+# likely want to work with more than this (enough that the results
+# are stable from run to run).
+
+# not great:
+set.seed(123)
+simulate(fit, nsim = 100, type = "mle-mvn") |&gt;
+  dharma_residuals(fit)
+
+
+# delta-lognormal looks better:
+set.seed(123)
+fit_dl &lt;- update(fit, family = delta_lognormal())
+simulate(fit_dl, nsim = 100, type = "mle-mvn") |&gt;
+  dharma_residuals(fit)
+
+# or skip the pipe:
+set.seed(123)
+s &lt;- simulate(fit_dl, nsim = 100, type = "mle-mvn")
+# and manually plot it:
+r &lt;- dharma_residuals(s, fit_dl, plot = FALSE)
+head(r)
+plot(r$expected, r$observed)
+abline(0, 1)
+
+# return the DHARMa object and work with the DHARMa methods
+ret &lt;- simulate(fit_dl, nsim = 100, type = "mle-mvn") |&gt;
+  dharma_residuals(fit, return_DHARMa = TRUE)
+plot(ret)
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,176 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>doJk</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Jackknife Test</h2>
+
+<h3>Description</h3>
+
+<p>Run the Jackknife test for variable importance removing one variable at time.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">doJk(
+  model,
+  metric,
+  variables = NULL,
+  test = NULL,
+  with_only = TRUE,
+  env = NULL,
+  return_models = FALSE,
+  progress = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>SDMmodel or SDMmodelCV object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>character. The metric used to evaluate the models, possible
+values are: "auc", "tss" and "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variables</code></td>
+<td>
+<p>vector. Variables used for the test, if not provided it
+takes all the variables used to train the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test</code></td>
+<td>
+<p>SWD. If provided it reports the result also for the
+testing dataset. Not used for <strong>aicc</strong> and SDMmodelCV.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>with_only</code></td>
+<td>
+<p>logical. If <code>TRUE</code> it runs the test also for each variable
+in isolation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>rast containing the environmental variables, used
+only with "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_models</code></td>
+<td>
+<p>logical. If <code>TRUE</code> returns all the models together with
+the test result.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>logical If <code>TRUE</code> shows a progress bar.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A data frame with the test results. If <code>return_model = TRUE</code> it
+returns a list containing the test results together with the models.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sergio Vignali
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Acquire environmental variables
+files &lt;- list.files(path = file.path(system.file(package = "dismo"), "ex"),
+                    pattern = "grd",
+                    full.names = TRUE)
+
+predictors &lt;- terra::rast(files)
+
+# Prepare presence and background locations
+p_coords &lt;- virtualSp$presence
+bg_coords &lt;- virtualSp$background
+
+# Create SWD object
+data &lt;- prepareSWD(species = "Virtual species",
+                   p = p_coords,
+                   a = bg_coords,
+                   env = predictors,
+                   categorical = "biome")
+
+# Split presence locations in training (80%) and testing (20%) datasets
+datasets &lt;- trainValTest(data,
+                         test = 0.2,
+                         only_presence = TRUE)
+train &lt;- datasets[[1]]
+test &lt;- datasets[[2]]
+
+# Train a model
+model &lt;- train(method = "Maxnet",
+               data = train,
+               fc = "lq")
+
+# Execute the Jackknife test only for the environmental variables "bio1" and
+# "bio12", using the metric AUC
+doJk(model,
+     metric = "auc",
+    variables = c("bio1", "bio12"),
+    test = test)
+
+# The same without testing dataset
+doJk(model,
+     metric = "auc",
+     variables = c("bio1", "bio12"))
+
+# Execute the Jackknife test only for the environmental variables "bio1" and
+# "bio12", using the metric TSS but without running the test for one single
+# variable
+doJk(model,
+     metric = "tss",
+     variables = c("bio1", "bio12"),
+     test = test,
+     with_only = FALSE)
+
+# Execute the Jackknife test only for the environmental variables "bio1" and
+# "bio12", using the metric AICc but without running the test for one single
+# variable
+doJk(model,
+     metric = "aicc",
+     variables = c("bio1", "bio12"),
+     with_only = FALSE,
+     env = predictors)
+
+# Execute the Jackknife test for all the environmental variables using the
+# metric AUC and returning all the trained models
+jk &lt;- doJk(model,
+           metric = "auc",
+           test = test,
+           return_models = TRUE)
+
+jk$results
+jk$models_without
+jk$models_withonly
+</code></pre>
+
+
+</div>

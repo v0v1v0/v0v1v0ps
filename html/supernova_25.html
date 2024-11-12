@@ -1,0 +1,122 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>generate_models</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate a List of Models for Computing Different Types of Sums of Squares</h2>
+
+<h3>Description</h3>
+
+<p>This function will return a list of lists where the top-level keys (names) of the items indicate
+the component of the full model (i.e. the term) that the generated models can be used to test. At
+each of these keys is a list with both the <code>complex</code> and <code style="white-space: pre;">⁠simple models⁠</code> that can be compared to
+test the component. The <code>complex</code> models always include the target term, and the <code>simple</code> models
+are identical to the <code>complex</code> except the target term is removed. Thus, when the models are
+compared (e.g. using <code>anova</code>, except for Type III; see details below), the resulting values
+will show the effect of adding the target term to the model. There are three generally used
+approaches to determining what the appropriate comparison models should be, called Type I, II,
+and III. See the sections below for more information on these types.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">generate_models(model, type = 3)
+
+## S3 method for class 'formula'
+generate_models(model, type = 3)
+
+## S3 method for class 'lm'
+generate_models(model, type = 3)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The model to generate the models from, of the type <code>lm()</code>, <code>aov()</code>, or
+<code>formula()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>The type of sums of squares to calculate: - Use <code>1</code>, <code>I</code>, and <code>sequential</code> for Type
+I. - Use <code>2</code>, <code>II</code>, and <code>hierarchical</code> for Type II. - Use <code>3</code>, <code>III</code>, and <code>orthogonal</code> for Type
+III.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of the augmented models for each term, where the associated term is the key for
+each model in the list.
+</p>
+
+
+<h3>Type I</h3>
+
+<p>For Type I SS, or sequential SS, each term is considered in order after the preceding terms are
+considered. Consider the example model
+</p>
+<p><code>Y ~ A + B + A:B</code>
+</p>
+<p>, where ":" indicates an interaction. To determine the Type I effect of <code>A</code>, we would compare the
+model <code>Y ~ A</code> to the same model without the term: <code>Y ~ NULL</code>. For <code>B</code>, we compare <code>Y ~ A + B</code> to
+<code>Y ~ A</code>; and for <code>A:B</code>, we compare <code>Y ~ A + B + A:B</code> to <code>Y ~ A + B</code>. Incidentally, the <code>anova()</code>
+function that ships with the base installation of R computes Type I statistics.
+</p>
+
+
+<h3>Type II</h3>
+
+<p>For Type II SS, or hierarchical SS, each term is considered in the presence of all of the terms
+that do not include it. For example, consider an example three-way factorial model
+</p>
+<p><code>Y ~ A + B + C + A:B + A:C + B:C + A:B:C</code>
+</p>
+<p>, where ":" indicates an interaction. The effect of <code>A</code> is found by comparing <code>Y ~ B + C + B:C + A</code> to <code>Y ~ B + C + B:C</code> (the only terms included are those that do not include <code>A</code>). For <code>B</code>, the
+comparison models would be <code>Y ~ A + C + A:C + B</code> and <code>Y ~ A + C + A:C</code>; for <code>A:B</code>, the models
+would be <code>Y ~ A + B + C + A:C + B:C + A:B</code> and <code>Y ~ A + B + C + A:C + B:C</code>; and so on.
+</p>
+
+
+<h3>Type III</h3>
+
+<p>For Type III SS, or orthogonal SS, each term is considered in the presence of all of the other
+terms. For example, consider an example two-way factorial model
+</p>
+<p><code>Y ~ A + B + A:B</code>
+</p>
+<p>, where <code>:</code> indicates an interaction between the terms. The effect of <code>A</code>, is found by comparing
+<code>Y ~ B + A:B + A</code> to <code>Y ~ B + A:B</code>; for <code>B</code>, the comparison models would be <code>Y ~ A + A:B + B</code> and
+<code>Y ~ A + A:B</code>; and for <code>A:B</code>, the models would be <code>Y ~ A + B + A:B</code> and <code>Y ~ A + B</code>.
+</p>
+<p>Unfortunately, <code>anova()</code> cannot be used to compare Type III models. <code>anova()</code> does not allow for
+violation of the principle of marginality, which is the rule that interactions should only be
+tested in the context of their lower order terms. When an interaction term is present in a model,
+<code>anova()</code> will automatically add in the lower-order terms, making a model like <code>Y ~ A + A:B</code>
+unable to be compared: it will add the lower-order term <code>B</code>,and thus use the model <code>Y ~ A + B + A:B</code> instead. To get the appropriate statistics for Type III comparisons, use <code>drop1()</code> with the
+full scope, i.e. <code>drop1(model_fit, scope = . ~ .)</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># create all type 2 comparison models
+models &lt;- generate_models(
+  lm(mpg ~ hp * factor(am), data = mtcars),
+  type = 2
+)
+
+# compute the SS for the hp term
+anova_hp &lt;- anova(models$hp$simple, models$hp$complex)
+anova_hp[["Sum of Sq"]][[2]]
+</code></pre>
+
+
+</div>

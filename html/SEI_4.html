@@ -1,0 +1,268 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fit_dist</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit a distribution to data</h2>
+
+<h3>Description</h3>
+
+<p>Function to fit a specified distribution to a vector of data.
+Returns the estimated distribution and relevant goodness-of-fit statistics.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fit_dist(data, dist, method = "mle", preds = NULL, n_thres = 10, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A numeric vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>character string specifying the distribution to be fit to the data;
+one of <code>'empirical'</code>, <code>'kde'</code>, <code>'norm'</code>, <code>'lnorm'</code>, <code>'logis'</code>, <code>'llogis'</code>,
+<code>'exp'</code>, <code>'gamma'</code>, and <code>'weibull'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>A character string coding for the fitting method: 
+<code>"mle"</code> for 'maximum likelihood estimation', <code>"mme"</code> for 'moment matching estimation', 
+<code>"qme"</code> for 'quantile matching estimation', <code>"mge"</code> for 'maximum goodness-of-fit estimation'
+and <code>"mse"</code> for 'maximum spacing estimation'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>preds</code></td>
+<td>
+<p>data frame of predictor variables on which the estimated distribution
+should depend.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_thres</code></td>
+<td>
+<p>minimum number of data points required to estimate the distribution;
+default is 10.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to be passed to <code>fitdist</code> or
+<code>gamlss</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This has been adapted from code available at
+<a href="https://github.com/WillemMaetens/standaRdized">https://github.com/WillemMaetens/standaRdized</a>.
+</p>
+<p><code>data</code> is a numeric vector of data from which the distribution is to be estimated.
+</p>
+<p><code>dist</code> is the specified distribution to be fit to <code>data</code>. This must be one of
+<code>'empirical'</code>, <code>'kde'</code>, <code>'norm'</code>, <code>'lnorm'</code>, <code>'logis'</code>, <code>'llogis'</code>,
+<code>'exp'</code>, <code>'gamma'</code>, and <code>'weibull'</code>. These correspond to the following
+distributions: <code>'empirical'</code> returns the empirical distribution function of <code>data</code>,
+<code>'kde'</code> applies (normal) kernel density estimation to <code>data</code>, while <code>'norm'</code>,
+<code>'lnorm'</code>, <code>'logis'</code>, <code>'llogis'</code>, <code>'exp'</code>, <code>'gamma'</code>, and
+<code>'weibull'</code> correspond to the normal, log-normal, logistic, log-logistic, exponential,
+gamma, and Weibull distributions, respectively.
+</p>
+<p>By default, <code>dist = 'empirical'</code>, in which case the distribution is estimated
+empirically from <code>data</code>. This is only recommended if there are at least 100 values
+in <code>data</code>, and a warning message is returned otherwise. Parametric distributions
+are more appropriate when there is relatively little data,
+or good reason to expect that the data follows a particular distribution.
+Kernel density estimation <code>dist = 'kde'</code> provides a flexible compromise between
+using empirical methods and parametric distributions.
+</p>
+<p><code>n_thres</code> is the minimum number of observations required to fit the distribution.
+The default is <code>n_thres = 10</code>. If the number of values in <code>data</code> is
+smaller than <code>na_thres</code>, an error is returned. This guards against over-fitting,
+which can result in distributions that do not generalise well out-of-sample.
+</p>
+<p><code>method</code> specifies the method used to estimate the distribution parameters.
+This argument is redundant if <code>dist = 'empirical'</code> or <code>dist = 'kde'</code>.
+Otherwise, <code>fit_dist</code> essentially provides a wrapper for
+<code>fitdist</code>, and further details can be found in the corresponding
+documentation. Additional arguments to <code>fitdist</code>
+can also be specified via <code>...</code>.
+Where relevant, the default is to estimate parameters using maximum likelihood estimation,
+<code>method = "mle"</code>, though several alternative methods are also available; see
+<code>fitdist</code>. Parameter estimation is also possible using L-moment
+matching (<code>method = 'lmme'</code>), for all distribution choices except the log-logistic
+distribution. In this case, <code>fit_dist</code> is essentially a wrapper for the
+<code>lmom</code> package.
+</p>
+<p>The distribution can also be non-stationary, by depending on some predictor variables or covariates.
+These predictors can be included via the argument <code>preds</code>, which should be a data frame
+with a separate column for each predictor, and with a number of rows equal to the length of
+<code>data</code>. In this case, a Generalized Additive Model for
+Location, Scale, and Shape (GAMLSS) is fit to <code>data</code> using the predictors in <code>preds</code>.
+It is assumed that the mean of the distribution depends linearly on all of the predictors.
+Variable arguments in <code>...</code> can also be used to specify relationships between the
+scale and shape parameters of the distribution and the predictors; see examples below.
+In this case, <code>fit_dist</code> is essentially a wrapper for <code>gamlss</code>,
+and users are referred to the corresponding documentation for further implementation details.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list containing the estimated distribution function (<code>F_x</code>), its parameters
+(<code>params</code>), and properties of the fit such as the AIC and
+Kolmogorov-Smirnov goodness-of-fit statistic (<code>fit</code>). If the estimated distribution
+function depends on covariates, then the <code>gamlss</code> model fit is returned as the
+parameters.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sam Allen, Noelia Otero
+</p>
+
+
+<h3>References</h3>
+
+<p>Rigby, R. A., &amp; Stasinopoulos, D. M. (2005):
+‘Generalized additive models for location, scale and shape’,
+<em>Journal of the Royal Statistical Society Series C: Applied Statistics</em> 54, 507-554.
+<a href="https://doi.org/10.1111/j.1467-9876.2005.00510.x">doi:10.1111/j.1467-9876.2005.00510.x</a>
+</p>
+<p>Delignette-Muller, M. L., &amp; Dutang, C. (2015):
+‘fitdistrplus: An R package for fitting distributions’,
+<em>Journal of Statistical Software</em> 64, 1-34.
+<a href="https://doi.org/10.18637/jss.v064.i04">doi:10.18637/jss.v064.i04</a>
+</p>
+<p>Allen, S. &amp; N. Otero (2023):
+‘Standardised indices to monitor energy droughts’,
+<em>Renewable Energy</em> 217, 119206.
+<a href="https://doi.org/10.1016/j.renene.2023.119206">doi:10.1016/j.renene.2023.119206</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>fitdist</code> <code>gamlss</code> <code>lmom</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">N &lt;- 1000
+shape &lt;- 3
+rate &lt;- 2
+
+x &lt;- seq(0, 10, 0.01)
+
+### gamma distribution
+
+# maximum likelihood
+data &lt;- rgamma(N, shape, rate)
+out &lt;- fit_dist(data, dist = "gamma")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dgamma(x, out$params[1], out$params[2]), col = "blue")
+
+# method of moments
+out &lt;- fit_dist(data, dist = "gamma", method = "mme")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dgamma(x, out$params[1], out$params[2]), col = "blue")
+
+# method of l-moments
+out &lt;- fit_dist(data, dist = "gamma", method = "lmme")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dgamma(x, out$params[1], out$params[2]), col = "blue")
+
+
+## weibull distribution
+
+# maximum likelihood
+data &lt;- rweibull(N, shape, 1/rate)
+out &lt;- fit_dist(data, dist = "weibull")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dweibull(x, out$params[1], out$params[2]), col = "blue")
+
+# method of l-moments
+out &lt;- fit_dist(data, dist = "weibull", method = "lmme")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dweibull(x, out$params[1], out$params[2]), col = "blue")
+
+
+## exponential distribution
+
+# method of moments
+out &lt;- fit_dist(data, dist = "exp", method = "mme")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dexp(x, out$params), col = "blue")
+
+
+## logistic distribution
+
+x &lt;- seq(-10, 20, 0.01)
+
+# maximum likelihood
+data &lt;- rlogis(N, shape, rate)
+out &lt;- fit_dist(data, dist = "logis")
+hist(data, breaks = 30, probability = TRUE)
+lines(x, dlogis(x, out$params[1], out$params[2]), col = "blue")
+
+
+
+##### non-stationary estimation using gamlss
+
+## normal distribution
+x &lt;- seq(-10, 20, length.out = N)
+data &lt;- rnorm(N, x + shape, exp(x/10))
+plot(data)
+preds &lt;- data.frame(t = x)
+
+out_st &lt;- fit_dist(data, dist = "norm")
+out_nst &lt;- fit_dist(data, dist = "norm", preds = preds)
+out_nst2 &lt;- fit_dist(data, dist = "norm", preds = preds, sigma.formula = ~ .)
+
+# pit values without trend
+pit_st &lt;- out_st$F_x(data, out_st$params)
+hist(pit_st, breaks = 30, probability = TRUE, main = "No trend")
+abline(1, 0, col = "red", lty = "dotted")
+# pit values with trend in mean
+pit_nst &lt;- out_nst$F_x(data, out_nst$params, preds)
+hist(pit_nst, breaks = 30, probability = TRUE, main = "Trend in mean")
+abline(1, 0, col = "red", lty = "dotted")
+# pit values with trend in mean and sd
+pit_nst2 &lt;- out_nst2$F_x(data, out_nst2$params, preds)
+hist(pit_nst2, breaks = 30, probability = TRUE, main = "Trend in mean and standard deviation")
+abline(1, 0, col = "red", lty = "dotted")
+
+
+## log normal distribution
+x &lt;- seq(0.01, 10, length.out = N)
+data &lt;- rlnorm(N, (x + shape)/3, 1/rate)
+plot(data)
+preds &lt;- data.frame(t = x)
+
+out &lt;- fit_dist(data, dist = "lnorm", preds = preds)
+pit &lt;- out$F_x(data, out$params, preds)
+hist(pit, breaks = 30, probability = TRUE, main = "PIT values for non-stationary fit")
+abline(1, 0, col = "red", lty = "dotted")
+
+
+</code></pre>
+
+
+</div>

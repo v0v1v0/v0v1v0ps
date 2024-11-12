@@ -1,0 +1,109 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pfMLLik1</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create a function for computing the log of an unbiased estimate of marginal likelihood of a time course data set</h2>
+
+<h3>Description</h3>
+
+<p>Create a function for computing the log of an unbiased estimate of marginal likelihood of a time course data set using a simple bootstrap particle filter. This version does not use the "log-sum-exp trick" for avoiding numerical underflow. 
+See <code>pfMLLik</code> for a version which does.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">pfMLLik1(n,simx0,t0,stepFun,dataLik,data)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>An integer representing the number of particles to use in the particle filter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simx0</code></td>
+<td>
+<p>A function with interface <code>simx0(n,t0,...)</code>, where <code>n</code> is the number of rows of a matrix and <code>t0</code> is a time at which to simulate from an initial distribution for the state of the particle filter. The return value should be a matrix whose rows are random samples from this distribution. The function therefore represents a prior distribution on the initial state of the Markov process.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0</code></td>
+<td>
+<p>The time corresponding to the starting point of the Markov process. Can be no bigger than the smallest observation time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stepFun</code></td>
+<td>
+<p>A function for advancing the state of the Markov process, such as returned by <code>StepGillespie</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dataLik</code></td>
+<td>
+<p>A function with interface
+<code>dataLik(x,t,y,log=TRUE,...)</code>, where <code>x</code> and <code>t</code>
+represent the true state and time of the process, and <code>y</code> is
+the observed data. The return value should be the (log of the)
+likelihood of the observation. The function therefore represents the
+observation model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A timed data matrix representing the observations, such as produced by <code>simTimes</code> or <code>as.timedData</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An R function with interface <code>(...)</code> which evaluates to the log of the particle filter's unbiased estimate of the marginal likelihood of the data.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>pfMLLik</code>, <code>StepGillespie</code>, <code>as.timedData</code>,
+<code>simTimes</code>, <code>stepLVc</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">noiseSD=5
+# first simulate some data
+truth=simTs(c(x1=50,x2=100),0,20,2,stepLVc)
+data=truth+rnorm(prod(dim(truth)),0,noiseSD)
+data=as.timedData(data)
+# measurement error model
+dataLik &lt;- function(x,t,y,log=TRUE,...)
+{
+    ll=sum(dnorm(y,x,noiseSD,log=TRUE))
+    if (log)
+        return(ll)
+    else
+        return(exp(ll))
+}
+# now define a sampler for the prior on the initial state
+simx0 &lt;- function(N,t0,...)
+{
+    mat=cbind(rpois(N,50),rpois(N,100))
+    colnames(mat)=c("x1","x2")
+    mat
+}
+mLLik=pfMLLik1(1000,simx0,0,stepLVc,dataLik,data)
+print(mLLik())
+print(mLLik(th=c(th1 = 1, th2 = 0.005, th3 = 0.6)))
+print(mLLik(th=c(th1 = 1, th2 = 0.005, th3 = 0.5)))
+</code></pre>
+
+
+</div>

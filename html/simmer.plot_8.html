@@ -1,0 +1,155 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>plot.mon</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Plot Methods for <code>simmer</code> Monitoring Statistics</h2>
+
+<h3>Description</h3>
+
+<p>Methods for the <code>plot</code> generic. See below for details about each
+metric available.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'arrivals'
+plot(x, metric = c("activity_time", "waiting_time",
+  "flow_time"), ...)
+
+## S3 method for class 'attributes'
+plot(x, metric = NULL, keys, ...)
+
+## S3 method for class 'resources'
+plot(x, metric = c("usage", "utilization"), names,
+  items = c("queue", "server", "system"), steps = FALSE, limits = TRUE,
+  ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a data frame of class <code>arrivals</code>/<code>attributes</code>/<code>resources</code>
+(see <code>get_mon</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>specific metric to compute.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>unused.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keys</code></td>
+<td>
+<p>attributes to plot (if left empty, all attributes are shown).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>names</code></td>
+<td>
+<p>resources to plot (if left empty, all resources are shown).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>items</code></td>
+<td>
+<p>(<code>metric="usage"</code>) resource items to include in the chart.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>steps</code></td>
+<td>
+<p>(<code>metric="usage"</code>) whether to show the instantaneous usage
+rather than the cumulative average.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>limits</code></td>
+<td>
+<p>(<code>metric="usage"</code>) whether to show limits.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The S3 method for 'arrivals' provides three metrics: <code>"activity_time"</code>,
+<code>"waiting_time"</code>, and <code>"flow_time"</code>. The <code>"activity_time"</code> is
+the amount of time spent in active state (i.e., in <code>timeout</code> activities),
+and it is already provided in the output of <code>get_mon_arrivals</code>. The
+<code>"flow_time"</code> is the amount of time spent in the system, and it is
+computed as follows: <code>flow = end_time - start_time</code>. Finally, the
+<code>"waiting_time"</code> is the amount of time spent waiting (e.g., in resources'
+queues, or due to a <code>wait</code> activity...), and it is computed as follows:
+<code>waiting_time = flow_time - activity_time</code>. This method does not apply
+any summary, but just shows a line plot of the values throughout the simulation.
+</p>
+<p>The S3 method for 'attributes' does not support any metric. It simply
+shows a stairstep graph of the values throughout the simulation for the keys
+provided (or all the collected attributes if no key is provided).
+</p>
+<p>The S3 method for 'resources' provides two metrics: <code>"usage"</code>
+and <code>"utilization"</code>. The <code>"usage"</code> metric shows a line graph of
+the cumulative average resource usage throughout the simulation, for each
+resource, replication and item (by default, queue, server and system, which
+is the sum of queue and server). If <code>steps=TRUE</code>, a stairstep graph with
+the instantaneous values is provided instead. The <code>"utilization"</code> metric
+shows a bar plot of the average resource utilization (total time in use
+divided by the total simulation time). For multiple replications, the bar
+represents the median, and the error bars represent the quartiles. Thus, if
+a single replication is provided, the bar and the error bar coincide.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a ggplot2 object.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">t0 &lt;- trajectory("my trajectory") %&gt;%
+  ## add an intake activity
+  seize("nurse", 1) %&gt;%
+  timeout(function() rnorm(1, 15)) %&gt;%
+  release("nurse", 1) %&gt;%
+  ## add a consultation activity
+  seize("doctor", 1) %&gt;%
+  timeout(function() rnorm(1, 20)) %&gt;%
+  release("doctor", 1) %&gt;%
+  ## add a planning activity
+  seize("administration", 1) %&gt;%
+  timeout(function() rnorm(1, 5)) %&gt;%
+  release("administration", 1)
+
+env &lt;- simmer("SuperDuperSim") %&gt;%
+  add_resource("nurse", 1) %&gt;%
+  add_resource("doctor", 2) %&gt;%
+  add_resource("administration", 1) %&gt;%
+  add_generator("patient", t0, function() rnorm(1, 10, 2)) %&gt;%
+  run(until=80)
+
+resources &lt;- get_mon_resources(env)
+arrivals &lt;- get_mon_arrivals(env)
+
+plot(resources, metric="usage", "doctor", items = "server", steps = TRUE)
+plot(resources, metric="utilization", c("nurse", "doctor", "administration"))
+plot(arrivals, metric="waiting_time")
+
+</code></pre>
+
+
+</div>

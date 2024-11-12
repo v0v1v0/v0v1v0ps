@@ -1,0 +1,304 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>algo.glrnb</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Count Data Regression Charts</h2>
+
+<h3>Description</h3>
+
+<p>Count data regression charts for the monitoring of surveillance time
+series as proposed by Höhle and Paul (2008).
+The implementation is described in Salmon et al. (2016).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">algo.glrnb(disProgObj, control = list(range=range, c.ARL=5,
+           mu0=NULL, alpha=0, Mtilde=1, M=-1, change="intercept",
+           theta=NULL, dir=c("inc","dec"),
+           ret=c("cases","value"), xMax=1e4))
+
+algo.glrpois(disProgObj, control = list(range=range, c.ARL=5,
+             mu0=NULL, Mtilde=1, M=-1, change="intercept",
+             theta=NULL, dir=c("inc","dec"),
+             ret=c("cases","value"), xMax=1e4))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>disProgObj</code></td>
+<td>
+<p>object of class <code>disProg</code> to do surveillance for.
+For new <code>sts</code>-class data, use the <code>glrnb</code>
+wrapper, or the <code>sts2disProg</code> converter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A list controlling the behaviour of the algorithm
+</p>
+
+<dl>
+<dt><code>range</code></dt>
+<dd>
+<p>vector of indices in the observed vector
+to monitor (should be consecutive)</p>
+</dd>
+<dt><code>mu0</code></dt>
+<dd>
+<p>A vector of in-control values of the mean of the
+Poisson / negative binomial
+distribution with the same length as <code>range</code>. If
+<code>NULL</code> the observed values in <code>1:(min(range)-1)</code> are
+used to estimate the beta vector through a generalized linear
+model. To
+fine-tune the model one can instead specify <code>mu0</code> as a
+list with two components:
+</p>
+
+<dl>
+<dt><code>S</code></dt>
+<dd>
+<p>integer number of harmonics to include
+(typically 1 or 2)</p>
+</dd>
+<dt><code>trend</code></dt>
+<dd>
+<p>A Boolean indicating whether to include a term <code>t</code> in the GLM model</p>
+</dd>
+</dl>
+<p>The fitting is controlled by the <code>estimateGLRNbHook</code>
+function. The in-control mean model is re-fitted after every
+alarm. The fitted models can be found as a list <code>mod</code> in
+the <code>control</code> slot after the call.
+</p>
+<p>Note: If a value for <code>alpha</code> is given, then the inverse of
+this value is used as fixed <code>theta</code> in a
+<code>negative.binomial</code> <code>glm</code>.
+If <code>is.null(alpha)</code> then the parameter is
+estimated as well (using <code>glm.nb</code>) –
+see the description of this parameter for details.
+</p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>The (known) dispersion parameter of the negative
+binomial distribution, i.e. the parametrization of the negative
+binomial is such that the variance is <code class="reqn">mean +
+        alpha*mean^2</code>. Note: This parametrization
+is the inverse of the shape parametrization used in R – for
+example in <code>dnbinom</code> and <code>glr.nb</code>. Hence, if
+<code>alpha=0</code> then the negative binomial distribution boils
+down to the Poisson distribution and a call of <code>algo.glrnb</code>
+is equivalent to a call to <code>algo.glrpois</code>. If
+<code>alpha=NULL</code> the parameter is calculated as part of the
+in-control estimation. However, the parameter is estimated only
+once from the first fit. Subsequent fittings are only for the
+parameters of the linear predictor with <code>alpha</code> fixed.</p>
+</dd>
+<dt><code>c.ARL</code></dt>
+<dd>
+<p>threshold in the GLR test,
+i.e. <code class="reqn">c_{\gamma}</code></p>
+</dd>
+<dt><code>Mtilde</code></dt>
+<dd>
+<p>number of observations needed before we
+have a full rank the typical setup for the
+"<code>intercept</code>" and "<code>epi</code>" charts is <code>Mtilde=1</code></p>
+</dd>
+<dt><code>M</code></dt>
+<dd>
+<p>number of time instances back in time in the
+window-limited approach, i.e. the last value
+considered is <code class="reqn">\max{1,n-M}</code>. To always look back
+until the first observation use <code>M=-1</code>.</p>
+</dd>
+<dt><code>change</code></dt>
+<dd>
+<p>a string specifying the type of the
+alternative. Currently the two choices are
+<code>intercept</code> and <code>epi</code>. See the SFB
+Discussion Paper 500 for details.</p>
+</dd>
+<dt><code>theta</code></dt>
+<dd>
+<p>if <code>NULL</code> then the GLR scheme is
+used. If not <code>NULL</code> the prespecified value for
+<code class="reqn">\kappa</code> or <code class="reqn">\lambda</code> is used in a recursive
+LR scheme, which is faster.  </p>
+</dd>
+<dt><code>dir</code></dt>
+<dd>
+<p>a string specifying the direction of testing in
+GLR scheme. With <code>"inc"</code> only increases in <code class="reqn">x</code> are
+considered in the GLR-statistic, with <code>"dec"</code> decreases
+are regarded. </p>
+</dd>
+<dt><code>ret</code></dt>
+<dd>
+<p>a string specifying the type of
+<code>upperbound</code>-statistic that is returned. With
+<code>"cases"</code> the number of cases that would have been
+necessary to produce an alarm or with <code>"value"</code> the
+GLR-statistic is computed (see below).</p>
+</dd>
+<dt><code>xMax</code></dt>
+<dd>
+<p>Maximum value to try for x to see if this is
+the upperbound number of cases before sounding an alarm
+(Default: 1e4). This only applies for the GLR using the NegBin
+when <code>ret="cases"</code> – see details.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function implements the seasonal count data chart based on
+generalized likelihood ratio (GLR) as described in the Höhle and Paul
+(2008) paper. A moving-window generalized likelihood ratio
+detector is used, i.e. the detector has the form
+
+</p>
+<p style="text-align: center;"><code class="reqn">N = \inf\left\{ n : \max_{1\leq k \leq
+      n} \left[ \sum_{t=k}^n \log \left\{
+        \frac{f_{\theta_1}(x_t|z_t)}{f_{\theta_0}(x_t|z_t)} \right\}
+    \right] \geq c_\gamma \right\} </code>
+</p>
+
+
+<p>where instead of <code class="reqn">1\leq k \leq n</code> the GLR statistic is
+computed for all <code class="reqn">k \in \{n-M, \ldots, n-\tilde{M}+1\}</code>. To
+achieve the typical behaviour from <code class="reqn">1\leq k\leq n</code> use
+<code>Mtilde=1</code> and <code>M=-1</code>.
+</p>
+<p>So <code class="reqn">N</code> is the time point where the GLR statistic is above the
+threshold the first time: An alarm is given and the surveillance is
+reset starting from time <code class="reqn">N+1</code>. Note that the same
+<code>c.ARL</code> as before is used, but if <code>mu0</code> is different at
+<code class="reqn">N+1,N+2,\ldots</code> compared to time <code class="reqn">1,2,\ldots</code> the run length
+properties differ. Because <code>c.ARL</code> to obtain a specific ARL can
+only be obtained my Monte Carlo simulation there is no good way to
+update <code>c.ARL</code> automatically at the moment. Also, FIR GLR-detectors
+might be worth considering.
+</p>
+<p>In case <code>is.null(theta)</code> and <code>alpha&gt;0</code> as well as
+<code>ret="cases"</code> then a brute-force search is conducted for each time
+point in range in order to determine the number of cases necessary
+before an alarm is sounded. In case no alarm was sounded so far by time
+<code class="reqn">t</code>, the function increases <code class="reqn">x[t]</code> until an alarm is sounded any
+time before time point <code class="reqn">t</code>. If no alarm is sounded by <code>xMax</code>, a return value
+of 1e99 is given. Similarly, if an alarm was sounded by time <code class="reqn">t</code> the
+function counts down instead. Note: This is slow experimental code!
+</p>
+<p>At the moment, window limited “<code>intercept</code>” charts have not been
+extensively tested and are at the moment not supported. As speed is
+not an issue here this doesn't bother too much. Therefore, a value of
+<code>M=-1</code> is always used in the intercept charts.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>algo.glrpois</code> simply calls <code>algo.glrnb</code> with
+<code>control$alpha</code> set to 0.
+</p>
+<p><code>algo.glrnb</code> returns a list of class
+<code>survRes</code> (surveillance result), which includes the alarm
+value for recognizing an outbreak (1 for alarm, 0 for no alarm),
+the threshold value for recognizing the alarm and the input object
+of class disProg. The <code>upperbound</code> slot of the object are
+filled with the current <code class="reqn">GLR(n)</code> value or with the number of
+cases that are necessary to produce an alarm at any time point
+<code class="reqn">\leq n</code>. Both lead to the same alarm timepoints, but
+<code>"cases"</code> has an obvious interpretation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>M. Höhle with contributions by V. Wimmer</p>
+
+
+<h3>References</h3>
+
+<p>Höhle, M. and Paul, M. (2008):
+Count data regression charts for the monitoring of surveillance time
+series. Computational Statistics and Data Analysis, 52 (9), 4357-4368.
+</p>
+<p>Salmon, M., Schumacher, D. and Höhle, M. (2016):
+Monitoring count time series in <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span>: Aberration detection in public
+health surveillance. <em>Journal of Statistical Software</em>,
+<b>70</b> (10), 1-35. <a href="https://doi.org/10.18637/jss.v070.i10">doi:10.18637/jss.v070.i10</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##Simulate data and apply the algorithm
+S &lt;- 1 ; t &lt;- 1:120 ; m &lt;- length(t)
+beta &lt;- c(1.5,0.6,0.6)
+omega &lt;- 2*pi/52
+#log mu_{0,t}
+base &lt;- beta[1] + beta[2] * cos(omega*t) + beta[3] * sin(omega*t)
+#Generate example data with changepoint and tau=tau
+tau &lt;- 100
+kappa &lt;- 0.4
+mu0 &lt;- exp(base)
+mu1 &lt;- exp(base  + kappa)
+
+
+## Poisson example
+#Generate data
+set.seed(42)
+x &lt;- rpois(length(t),mu0*(exp(kappa)^(t&gt;=tau)))
+s.ts &lt;- sts(observed=x, state=(t&gt;=tau))
+#Plot the data
+plot(s.ts, xaxis.labelFormat=NULL)
+#Run
+cntrl = list(range=t,c.ARL=5, Mtilde=1, mu0=mu0,
+             change="intercept",ret="value",dir="inc")
+glr.ts &lt;- glrpois(s.ts,control=cntrl)
+plot(glr.ts, xaxis.labelFormat=NULL, dx.upperbound=0.5)
+lr.ts  &lt;- glrpois(s.ts,control=c(cntrl,theta=0.4))
+plot(lr.ts, xaxis.labelFormat=NULL, dx.upperbound=0.5)
+
+#using the legacy interface for "disProg" data
+lr.ts0  &lt;- algo.glrpois(sts2disProg(s.ts), control=c(cntrl,theta=0.4))
+stopifnot(upperbound(lr.ts) == lr.ts0$upperbound)
+
+
+## NegBin example
+#Generate data
+set.seed(42)
+alpha &lt;- 0.2
+x &lt;- rnbinom(length(t),mu=mu0*(exp(kappa)^(t&gt;=tau)),size=1/alpha)
+s.ts &lt;- sts(observed=x, state=(t&gt;=tau))
+
+#Plot the data
+plot(s.ts, xaxis.labelFormat=NULL)
+
+#Run GLR based detection
+cntrl = list(range=t,c.ARL=5, Mtilde=1, mu0=mu0, alpha=alpha,
+             change="intercept",ret="value",dir="inc")
+glr.ts &lt;- glrnb(s.ts, control=cntrl)
+plot(glr.ts, xaxis.labelFormat=NULL, dx.upperbound=0.5)
+
+#CUSUM LR detection with backcalculated number of cases
+cntrl2 = list(range=t,c.ARL=5, Mtilde=1, mu0=mu0, alpha=alpha,
+              change="intercept",ret="cases",dir="inc",theta=1.2)
+glr.ts2 &lt;- glrnb(s.ts, control=cntrl2)
+plot(glr.ts2, xaxis.labelFormat=NULL)
+</code></pre>
+
+
+</div>

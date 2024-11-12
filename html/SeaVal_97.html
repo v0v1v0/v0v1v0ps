@@ -1,0 +1,124 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>upscale_regular_lon_lat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for matching data between different grids</h2>
+
+<h3>Description</h3>
+
+<p>Upscales data from one regular lon-lat grid to another lon-lat grid that is coarser or of the same resolution.
+It uses conservative interpolation (rather than bilinear interpolation) which is the better choice for upscaling, see details below.
+If the fine grid and coarse grid are of the same resolution but shifted, results are (almost) identical to bilinear interpolation
+(almost because bilinear interpolation does not account for the fact that grid cells get smaller towards the pole, which this function does).
+</p>
+<p>The function addresses the following major challenges:
+</p>
+
+<ul>
+<li>
+<p> The fine grid does not need to be nested in the coarse grid, creating different partial overlap scenarios.
+Therefore, the value of each fine grid cell may contribute to multiple (up to four) coarse grid cells.
+</p>
+</li>
+<li>
+<p> Grid cell area varies with latitude, grid cells at the equator are much larger than at the poles.
+This affects the contribution of grid cells (grid cells closer to the pole contribute less to the coarse grid cell average).
+</p>
+</li>
+<li>
+<p> Frequently, it is required to upscale <em>repeated</em> data between the same grids, for example when you want to upscale observations for many different years.
+In this case, the calculation of grid cell overlaps is only done once, and not repeated every time.
+</p>
+</li>
+<li>
+<p> For coarse grid cells that are only partially covered, a minimal required fraction of coverage can be specified.
+</p>
+</li>
+<li>
+<p> It is memory efficient: Naive merging of data tables or distance-based matching of grid cells is avoided, since it results in
+unnecessary large lookup tables that may not fit into memory when both your fine and your coarse grid are high-resolution.
+</p>
+</li>
+</ul>
+<h3>Usage</h3>
+
+<pre><code class="language-R">upscale_regular_lon_lat(
+  dt,
+  coarse_grid,
+  uscols,
+  bycols = setdiff(dimvars(dt), c("lon", "lat")),
+  save_weights = NULL,
+  req_frac_of_coverage = 0
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dt</code></td>
+<td>
+<p>data table containing the data you want to upscale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coarse_grid</code></td>
+<td>
+<p>data table containing lons/lats of the grid you want to upscale to.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uscols</code></td>
+<td>
+<p>column name(s) of the data you want to upscale (can take multiple columns at once, but assumes that the different columns have missing values at the same position).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bycols</code></td>
+<td>
+<p>optional column names for grouping if you have repeated data on the same grid, e.g. use bycols = 'date' if your data table contains observations for many dates on the same grid (and the column specifying the date is in fact called 'date').</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_weights</code></td>
+<td>
+<p>optional file name for saving the weights for upscaling. Used for the CHIRPS data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>req_frac_of_coverage</code></td>
+<td>
+<p>Numeric value between 0 and 1. All coarse grid cells with less coverage than this value get assigned a missing value. In particular, setting this to 0 (the default) means a value is assigned to each coarse grid cell
+that overlaps with at least one fine grid cell. Setting this to 1 means only coarse grid cells are kept for which we have full coverage.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Bilinear interpolation is generally not appropriate for mapping data from finer to coarser grids.
+The reason is that in BI, the value of a coarse grid cell only depends on the four fine grid cells surrounding its center coordinate,
+even though many fine grid cells may overlap the coarse grid cell).
+Conservative interpolation calculates the coarse grid cell value by averaging all fine grid cells overlapping with it, weighted by
+the fraction of overlap. This is the appropriate way of upscaling when predictions and observations constitute grid point averages, which is usually the case (Göber et al. 2008).
+</p>
+<p>The grids are assumed to be <em>regular</em>, but are not required to be <em>complete</em> (see <code>set_spatial_grid</code>).
+The function is faster when missing-data grid points are not contained in <code>dt</code> (then fewer grid points need to be matched).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data table with the upscaled values.
+</p>
+
+
+<h3>References</h3>
+
+<p>Göber, M., Ervin Z., and Richardson, D.S. (2008): <em>"Could a perfect model ever satisfy a naïve forecaster? On grid box mean versus point verification."</em> Meteorological Applications: A journal of forecasting, practical applications, training techniques and modelling 15, no. 3 (2008): 359-365.
+</p>
+
+
+</div>

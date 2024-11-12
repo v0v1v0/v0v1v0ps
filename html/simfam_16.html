@@ -1,0 +1,106 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>recomb_last_gen</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Draw recombination breaks for autosomes for last generation of a pedigree</h2>
+
+<h3>Description</h3>
+
+<p>A wrapper around the more general <code>recomb_fam()</code>, specialized to save memory when only the last generation is desired (<code>recomb_fam()</code> returns recombination blocks for the entire pedigree).
+This function assumes that generations are non-overlapping (met by the output of <code>sim_pedigree()</code>), in which case each generation <code>g</code> can be drawn from generation <code>g-1</code> data only.
+That way, only two consecutive generations need be in memory at any given time.
+The partitioning of individuals into generations is given by the <code>ids</code> parameter (again matches the output of <code>sim_pedigree()</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">recomb_last_gen(founders, fam, ids, missing_vals = c("", 0))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>founders</code></td>
+<td>
+<p>The named list of founders with their chromosomes.
+For unstructured founders, initialize with <code>recomb_init_founders()</code>.
+Each element of this list is a diploid individual, which is a list with two haploid individuals named <code>pat</code> and <code>mat</code>, each of which is a list of chromosomes (always identified by number, but may also be named arbitrarily), each of which is a data.frame/tibble with implicit ranges (<code>posg</code> is end coordinates in cM; start is the end of the previous block, zero for the first block) and ancestors <code>anc</code> as strings.
+For true founders each chromosome may be trivial (each chromosome is a single block with ID equal to itself but distinguishing maternal from paternal copy), but input itself can be recombined (for iterating).
+This list must have names that identify each founder (matching codes in <code>fam$id</code>).
+Individuals may be in a different order than <code>fam$id</code>.
+Extra individuals in <code>founders</code> but absent in <code>fam$id</code> will be silently ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fam</code></td>
+<td>
+<p>The pedigree data.frame, in plink FAM format.
+Only columns <code>id</code>, <code>pat</code>, and <code>mat</code> are required.
+<code>id</code> must be unique and non-missing.
+Founders must be present, and their <code>pat</code> and <code>mat</code> values must be missing (see below).
+Non-founders must have both their parents be non-missing.
+Parents must appear earlier than their children in the table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>A list containing vectors of IDs for each generation.
+All these IDs must be present in <code>fam$id</code>.
+If IDs in <code>fam</code> and <code>ids</code> do not fully agree, the code processes the IDs in the intersection, which is helpful when <code>fam</code> is pruned but <code>ids</code> is the original (larger) set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>missing_vals</code></td>
+<td>
+<p>The list of ID values treated as missing.
+<code>NA</code> is always treated as missing.
+By default, the empty string (”) and zero (0) are also treated as missing (remove values from here if this is a problem).</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The list of individuals with recombined chromosomes of the last generation (the intersection of <code>ids[ length(ids) ]</code> and <code>fam$id</code>), in the same format as <code>founders</code> above.
+The names of this list are last-generation individuals in the order that they appear in <code>fam$id</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Plink FAM format reference:
+<a href="https://www.cog-genomics.org/plink/1.9/formats#fam">https://www.cog-genomics.org/plink/1.9/formats#fam</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># A small pedigree, two parents and two children.
+# A minimal fam table with the three required columns.
+# Note "mother" and "father" have missing parent IDs, while children do not
+library(tibble)
+fam &lt;- tibble(
+  id = c('father', 'mother', 'child', 'sib'),
+  pat = c(NA, NA, 'father', 'father'),
+  mat = c(NA, NA, 'mother', 'mother')
+)
+# need an `ids` list separating the generations
+ids &lt;- list( c('father', 'mother'), c('child', 'sib') )
+
+# initialize parents with this other function
+# simulate three chromosomes with these lengths in cM
+lengs &lt;- c(50, 100, 150)
+founders &lt;- recomb_init_founders( ids[[1]], lengs )
+
+# draw recombination breaks for the children
+inds &lt;- recomb_last_gen( founders, fam, ids )
+
+</code></pre>
+
+
+</div>

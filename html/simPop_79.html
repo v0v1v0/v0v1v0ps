@@ -1,0 +1,162 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simComponents</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate components of continuous variables of population data</h2>
+
+<h3>Description</h3>
+
+<p>Simulate components of continuous variables of population data by resampling
+fractions from survey data. The continuous variable to be split and any
+categorical conditioning variables need to be simulated beforehand.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simComponents(
+  simPopObj,
+  total = "netIncome",
+  components = c("py010n", "py050n", "py090n", "py100n", "py110n", "py120n", "py130n",
+    "py140n"),
+  conditional = c(getCatName(total), "pl030"),
+  replaceEmpty = c("sequential", "min"),
+  seed
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>simPopObj</code></td>
+<td>
+<p>a <code>simPopObj</code>-object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>total</code></td>
+<td>
+<p>a character string specifying the continuous variable of dataP
+that should be split into components. Currently, only one variable can be
+split at a time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>components</code></td>
+<td>
+<p>a character vector specifying the components in
+<code>dataS</code> that should be simulated for the population data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conditional</code></td>
+<td>
+<p>an optional character vector specifying categorical
+conditioning variables for resampling. The fractions occurring in
+<code>dataS</code> are then drawn from the respective subsets defined by these
+variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replaceEmpty</code></td>
+<td>
+<p>a character string; if <code>conditional</code> specifies at
+least two conditioning variables, this determines how replacement cells for
+empty subsets in the sample are obtained. If <code>"sequential"</code>, the
+conditioning variables are browsed sequentially such that replacement cells
+have the same value in one conditioning variable and minimum Manhattan
+distance in the other conditioning variables. If no such cells exist,
+replacement cells with minimum overall Manhattan distance are selected. The
+latter is always done if this is <code>"min"</code> or only one conditioning
+variable is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>optional; an integer value to be used as the seed of the random
+number generator, or an integer vector containing the state of the random
+number generator to be restored.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>simPopObj</code> containing survey
+data as well as the simulated population data including the components of
+the continuous variable specified by <code>total</code> and <code>components</code>.
+</p>
+
+
+<h3>Note</h3>
+
+<p>The basic household structure, any categorical conditioning variables
+and the continuous variable to be split need to be simulated beforehand with
+the functions <code>simStructure</code>, <code>simCategorical</code> and
+<code>simContinuous</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Stefan Kraft and Andreas Alfons and Bernhard Meindl
+</p>
+
+
+<h3>References</h3>
+
+<p>B. Meindl, M. Templ, A. Kowarik, O. Dupriez (2017) Simulation of Synthetic Populations for Survey Data Considering Auxiliary
+Information. <em>Journal of Statistical Survey</em>, <strong>79</strong> (10), 1–38. <a href="https://doi.org/10.18637/jss.v079.i10">doi:10.18637/jss.v079.i10</a>
+</p>
+<p>A. Alfons, M. Templ (2011) Simulation of close-to-reality population data for household surveys with application to EU-SILC. 
+<em>Statistical Methods &amp; Applications</em>, <strong>20</strong> (3), 383–407. <a href="https://doi.org/10.1080/02664763.2013.859237">doi:10.1080/02664763.2013.859237</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>simStructure</code>, <code>simCategorical</code>,
+<code>simContinuous</code>, <code>simEUSILC</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(eusilcS)
+## Not run: 
+## approx. 20 seconds computation time
+inp &lt;- specifyInput(data=eusilcS, hhid="db030", hhsize="hsize",
+  strata="db040", weight="db090")
+simPopObj &lt;- simStructure(data=inp, method="direct",
+  basicHHvars=c("age", "rb090", "hsize", "pl030", "pb220a"))
+simPopObj &lt;- simContinuous(simPopObj, additional = "netIncome",
+  regModel = ~rb090+hsize+pl030+pb220a+hsize,
+  method="multinom", upper=200000, equidist=FALSE, nr_cpus=1)
+
+# categorize net income for use as conditioning variable
+sIncome &lt;- manageSimPopObj(simPopObj, var="netIncome", sample=TRUE, set=FALSE)
+sWeight &lt;- manageSimPopObj(simPopObj, var="rb050", sample=TRUE, set=FALSE)
+pIncome &lt;- manageSimPopObj(simPopObj, var="netIncome", sample=FALSE, set=FALSE)
+
+breaks &lt;- getBreaks(x=unlist(sIncome), w=unlist(sWeight), upper=Inf, equidist=FALSE)
+simPopObj &lt;- manageSimPopObj(simPopObj, var="netIncomeCat", sample=TRUE,
+  set=TRUE, values=getCat(x=unlist(sIncome), breaks))
+simPopObj &lt;- manageSimPopObj(simPopObj, var="netIncomeCat", sample=FALSE,
+  set=TRUE, values=getCat(x=unlist(pIncome), breaks))
+
+# simulate net income components
+simPopObj &lt;- simComponents(simPopObj=simPopObj, total="netIncome",
+  components=c("py010n","py050n","py090n","py100n","py110n","py120n","py130n","py140n"),
+  conditional = c("netIncomeCat", "pl030"), replaceEmpty = "sequential", seed=1 )
+
+class(simPopObj)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

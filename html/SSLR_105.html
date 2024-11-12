@@ -1,0 +1,135 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>triTraining</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>General Interface for Tri-training model</h2>
+
+<h3>Description</h3>
+
+<p>Tri-training is a semi-supervised learning algorithm with a co-training
+style. This algorithm trains three classifiers with the same learning scheme from a
+reduced set of labeled examples. For each iteration, an unlabeled example is labeled
+for a classifier if the other two classifiers agree on the labeling proposed.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">triTraining(learner)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>learner</code></td>
+<td>
+<p>model from parsnip package for training a supervised base classifier
+using a set of instances. This model need to have probability predictions
+(or optionally a distance matrix) and it's corresponding classes.</p>
+</td>
+</tr></table>
+<h3>Details</h3>
+
+<p>Tri-training initiates the self-labeling process by training three models from the
+original labeled set, using the <code>learner</code> function specified.
+In each iteration, the algorithm detects unlabeled examples on which two classifiers
+agree with the classification and includes these instances in the enlarged set of the
+third classifier under certain conditions. The generation of the final hypothesis is
+produced via the majority voting. The iteration process ends when no changes occur in
+any model during a complete iteration.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list object of class "triTraining" containing:
+</p>
+
+<dl>
+<dt>model</dt>
+<dd>
+<p>The final three base classifiers trained using the enlarged labeled set.</p>
+</dd>
+<dt>model.index</dt>
+<dd>
+<p>List of three vectors of indexes related to the training instances
+used per each classifier. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of all training instances used to
+train the three models. These indexes include the initial labeled instances
+and the newly labeled instances. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>model.index.map</dt>
+<dd>
+<p>List of three vectors with the same information in <code>model.index</code>
+but the indexes are relative to <code>instances.index</code> vector.</p>
+</dd>
+<dt>classes</dt>
+<dd>
+<p>The levels of <code>y</code> factor.</p>
+</dd>
+<dt>pred</dt>
+<dd>
+<p>The function provided in the <code>pred</code> argument.</p>
+</dd>
+<dt>pred.pars</dt>
+<dd>
+<p>The list provided in the <code>pred.pars</code> argument.</p>
+</dd>
+<dt>x.inst</dt>
+<dd>
+<p>The value provided in the <code>x.inst</code> argument.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>ZhiHua Zhou and Ming Li.<br><em>Tri-training: exploiting unlabeled data using three classifiers.</em><br>
+IEEE Transactions on Knowledge and Data Engineering, 17(11):1529-1541, Nov 2005. ISSN 1041-4347. doi: 10.1109/TKDE.2005. 186.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(tidyverse)
+library(tidymodels)
+library(caret)
+library(SSLR)
+
+data(wine)
+
+set.seed(1)
+train.index &lt;- createDataPartition(wine$Wine, p = .7, list = FALSE)
+train &lt;- wine[ train.index,]
+test  &lt;- wine[-train.index,]
+
+cls &lt;- which(colnames(wine) == "Wine")
+
+#% LABELED
+labeled.index &lt;- createDataPartition(wine$Wine, p = .2, list = FALSE)
+train[-labeled.index,cls] &lt;- NA
+
+#We need a model with probability predictions from parsnip
+#https://tidymodels.github.io/parsnip/articles/articles/Models.html
+#It should be with mode = classification
+
+#For example, with Random Forest
+rf &lt;-  rand_forest(trees = 100, mode = "classification") %&gt;%
+  set_engine("randomForest")
+
+
+m &lt;- triTraining(learner = rf) %&gt;% fit(Wine ~ ., data = train)
+
+
+#Accuracy
+predict(m,test) %&gt;%
+  bind_cols(test) %&gt;%
+  metrics(truth = "Wine", estimate = .pred_class)
+</code></pre>
+
+
+</div>

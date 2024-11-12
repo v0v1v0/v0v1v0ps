@@ -1,0 +1,263 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>postHocLM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Linear Mixed Models with Previous Model Estimates</h2>
+
+<h3>Description</h3>
+
+<p>Function for fitting a linear (mixed) model as a second-stage model where
+the response variable itself comes from a previous model fit and has 
+uncertainty associated with it. The response variable is assumed to be 
+a set of estimates from a previous model fit, where each value in the 
+response variable has a posterior MCMC sample of estimates. This function
+is useful for doing "posthoc" analyses of model estimates (e.g., 
+exploring how species traits relate to species-specific parameter estimates
+from a multi-species occupancy model). Such analyses are sometimes referred
+to as "two-stage" analyses.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">postHocLM(formula, data, inits, priors, verbose = FALSE, 
+          n.report = 100, n.samples, n.chains = 1, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the model using R's model syntax. Only right-hand side of 
+formula is specified. See example below. Random intercepts
+are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code> and <code>covs</code>. <code>y</code>
+is a matrix or data frame with first dimension equal to the number of 
+posterior samples of each value in the response variable and the 
+second dimension is equal to the number of values in the response
+variable. For example, if the response is species-specific covariate 
+effect estimates from a multi-species occupancy model, the rows correspond
+to the posterior MCMC samples and the columns correspond to species. <code>covs</code>
+is a matrix or data frame containing the independent variables used in the model. 
+Note the number of rows of <code>covs</code> should be equal to the number of columns
+in <code>y</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>beta</code>, <code>tau.sq</code>, and <code>sigma.sq</code>.
+The value portion of each tag is the 
+parameter's initial value. <code>sigma.sq</code> is 
+only relevant when including random effects in the model. See <code>priors</code> 
+description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.normal</code>, <code>tau.sq.ig</code>, and <code>sigma.sq.ig</code>. 
+Regression coefficients (<code>beta</code>) are assumed to follow a normal distribution. 
+The hyperparameters of the normal distribution are passed as a list of 
+length two with the first and second elements corresponding to the mean 
+and variance of the normal distribution, which are each specified as vectors of 
+length equal to the number of coefficients to be estimated or of length one
+if priors are the same for all coefficients. If not specified, prior means 
+are set to 0 and prior variances set to 100. <code>tau.sq</code> is the residual variance, 
+and is assumed to follow an inverse-Gamma distribution. 
+The hyperparameters of the inverse-Gamma distribution
+are passed as a vector of length two with first and second elements corresponding
+to the shape and scale parameters, respectively. <code>sigma.sq</code> are 
+the variances of any random intercepts included in the model, which similarly to 
+<code>tau.sq</code> follow an inverse-Gamma distribution. The hyperparameters of the 
+inverse-Gamma distribution are passed as a list of length two with first and second
+elements corresponding to the shape and scale parameters, respectively, which are 
+each specified as vectors of length equal to the number of random intercepts or 
+of length one if priors are the same for all random effect variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>the number of posterior samples to collect in each chain. Note that
+by default, the same number of MCMC samples fit in the first stage model is 
+assumed to be fit for the second stage model. If <code>n.samples</code> is specified, 
+it must be a multiple of the number of samples fit in the first stage, otherwise
+an error will be reported.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>postHocLM</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the residual variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.hat.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples 
+of fitted values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the random effect variances if any random intercepts were included
+in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the random effects. Only included if random intercepts
+are specified in <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bayes.R2</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples 
+of the Bayesian R-squared as a measure of model fit. Note that when 
+random intercepts are included in the model, this is the conditional
+Bayesian R-squared, not the marginal Bayesian R-squared.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent summarization. 
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>References</h3>
+
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Simulate Data -----------------------------------------------------------
+set.seed(100)
+N &lt;- 100
+beta &lt;- c(0, 0.5, 1.2)
+tau.sq &lt;- 1 
+p &lt;- length(beta)
+X &lt;- matrix(1, nrow = N, ncol = p)
+if (p &gt; 1) {
+  for (i in 2:p) {
+    X[, i] &lt;- rnorm(N)
+  } # i
+}
+mu &lt;- X[, 1] * beta[1] + X[, 2] * beta[2] + X[, 3] * beta[3]
+y &lt;- rnorm(N, mu, sqrt(tau.sq))
+# Replicate y n.samples times and add a small amount of noise that corresponds
+# to uncertainty from a first stage model.
+n.samples &lt;- 1000
+y &lt;- matrix(y, n.samples, N, byrow = TRUE)
+y &lt;- y + rnorm(length(y), 0, 0.25)
+
+# Package data for use with postHocLM -------------------------------------
+colnames(X) &lt;- c('int', 'cov.1', 'cov.2')
+data.list &lt;- list(y = y, covs = X)
+data &lt;- data.list
+inits &lt;- list(beta = 0, tau.sq = 1)
+priors &lt;- list(beta.normal = list(mean = 0, var = 10000),
+               tau.sq.ig = c(0.001, 0.001))
+
+# Run the model -----------------------------------------------------------
+out &lt;- postHocLM(formula = ~ cov.1 + cov.2, 
+                 inits = inits, 
+                 data = data.list, 
+                 priors = priors, 
+                 verbose = FALSE, 
+                 n.chains = 1)
+summary(out)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,242 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>grim_map_total_n</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>GRIM-testing with hypothetical group sizes</h2>
+
+<h3>Description</h3>
+
+<p>When reporting group means, some published studies only report
+the total sample size but no group sizes corresponding to each mean.
+However, group sizes are crucial for GRIM-testing.
+</p>
+<p>In the two-groups case, <code>grim_map_total_n()</code> helps in these ways:
+</p>
+
+<ul>
+<li>
+<p> It creates hypothetical group sizes. With an even total sample size, it
+incrementally moves up and down from half the total sample size. For example,
+with a total sample size of 40, it starts at 20, goes on to 19 and 21, then
+to 18 and 22, etc. With odd sample sizes, it starts from the two integers
+around half.
+</p>
+</li>
+<li>
+<p> It GRIM-tests all of these values together with the group means.
+</p>
+</li>
+<li>
+<p> It reports all the scenarios in which both "dispersed" hypothetical group
+sizes are GRIM-consistent with the group means.
+</p>
+</li>
+</ul>
+<p>All of this works with one or more total sample sizes at a time. Call
+<code>audit_total_n()</code> for summary statistics.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">grim_map_total_n(
+  data,
+  x1 = NULL,
+  x2 = NULL,
+  dispersion = 0:5,
+  n_min = 1L,
+  n_max = NULL,
+  constant = NULL,
+  constant_index = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Data frame with string columns <code>x1</code> and <code>x2</code>, and numeric column
+<code>n</code>. The first two are group mean or percentage values with unknown group
+sizes, and <code>n</code> is the total sample size. It is not very important whether a
+value is in <code>x1</code> or in <code>x2</code> because, after the first round of tests, the
+function switches roles between <code>x1</code> and <code>x2</code>, and reports the outcomes
+both ways.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x1, x2</code></td>
+<td>
+<p>Optionally, specify these arguments as column names in <code>data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dispersion</code></td>
+<td>
+<p>Numeric. Steps up and down from half the <code>n</code> values.
+Default is <code>0:5</code>, i.e., half <code>n</code> itself followed by five steps up and down.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_min</code></td>
+<td>
+<p>Numeric. Minimal group size. Default is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_max</code></td>
+<td>
+<p>Numeric. Maximal group size. Default is <code>NULL</code>, i.e., no
+maximum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constant</code></td>
+<td>
+<p>Optionally, add a length-2 vector or a list of length-2
+vectors (such as a data frame with exactly two rows) to accompany the pairs
+of dispersed values. Default is <code>NULL</code>, i.e., no constant values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constant_index</code></td>
+<td>
+<p>Integer (length 1). Index of <code>constant</code> or the first
+<code>constant</code> column in the output tibble. If <code>NULL</code> (the default), <code>constant</code>
+will go to the right of <code>n_change</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments passed down to <code>grim_map()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A tibble with these columns:
+</p>
+
+<ul>
+<li> <p><code>x</code>, the group-wise reported input statistic, is repeated in row pairs.
+</p>
+</li>
+<li> <p><code>n</code> is dispersed from half the input <code>n</code>, with <code>n_change</code> tracking the
+differences.
+</p>
+</li>
+<li> <p><code>both_consistent</code> flags scenarios where both reported <code>x</code> values are
+consistent with the hypothetical <code>n</code> values.
+</p>
+</li>
+<li> <p><code>case</code> corresponds to the row numbers of the input data frame.
+</p>
+</li>
+<li> <p><code>dir</code> is <code>"forth"</code> in the first half of rows and <code>"back"</code> in the second
+half. <code>"forth"</code> means that <code>x2</code> from the input is paired with the larger
+dispersed <code>n</code>, whereas <code>"back"</code> means that <code>x1</code> is paired with the larger
+dispersed <code>n</code>.
+</p>
+</li>
+<li>
+<p> Other columns from <code>grim_map()</code> are preserved.
+</p>
+</li>
+</ul>
+<h3>Summaries with <code>audit_total_n()</code>
+</h3>
+
+<p>You can call
+<code>audit_total_n()</code> following up on <code>grim_map_total_n()</code>
+to get a tibble with summary statistics. It will have these columns:
+</p>
+
+<ul>
+<li> <p><code>x1</code>, <code>x2</code>, and <code>n</code> are the original inputs.
+</p>
+</li>
+<li> <p><code>hits_total</code> is the number of scenarios in which both
+<code>x1</code> and <code>x2</code> are GRIM-consistent. It is the sum
+of <code>hits_forth</code> and <code>hits_back</code> below.
+</p>
+</li>
+<li> <p><code>hits_forth</code> is the number of both-consistent cases that result
+from pairing <code>x2</code> with the larger dispersed <code>n</code> value.
+</p>
+</li>
+<li> <p><code>hits_back</code> is the same, except <code>x1</code> is
+paired with the larger dispersed <code>n</code> value.
+</p>
+</li>
+<li> <p><code>scenarios_total</code> is the total number of test scenarios,
+whether or not both <code>x1</code> and <code>x2</code>
+are GRIM-consistent.
+</p>
+</li>
+<li> <p><code>hit_rate</code> is the ratio of <code>hits_total</code> to <code>scenarios_total</code>.
+</p>
+</li>
+</ul>
+<p>Call <code>audit()</code> following <code>audit_total_n()</code> to summarize results
+even further.
+</p>
+
+
+<h3>References</h3>
+
+<p>Bauer, P. J., &amp; Francis, G. (2021). Expression of Concern: Is It
+Light or Dark? Recalling Moral Behavior Changes Perception of Brightness.
+<em>Psychological Science</em>, 32(12), 2042–2043.
+https://journals.sagepub.com/doi/10.1177/09567976211058727
+</p>
+<p>Brown, N. J. L., &amp; Heathers, J. A. J. (2017). The GRIM Test: A Simple
+Technique Detects Numerous Anomalies in the Reporting of Results in
+Psychology. <em>Social Psychological and Personality Science</em>, 8(4), 363–369.
+https://journals.sagepub.com/doi/10.1177/1948550616673876
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>function_map_total_n()</code>, which created the present function using
+<code>grim_map()</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Run `grim_map_total_n()` on data like these:
+df &lt;- tibble::tribble(
+  ~x1,    ~x2,   ~n,
+  "3.43", "5.28", 90,
+  "2.97", "4.42", 103
+)
+df
+
+grim_map_total_n(df)
+
+# `audit_total_n()` summaries can be more important than
+# the detailed results themselves.
+# The `hits_total` column shows all scenarios in
+# which both divergent `n` values are GRIM-consistent
+# with the `x*` values when paired with them both ways:
+df %&gt;%
+  grim_map_total_n() %&gt;%
+  audit_total_n()
+
+# By default (`dispersion = 0:5`), the function goes
+# five steps up and down from `n`. If this sequence
+# gets longer, the number of hits tends to increase:
+df %&gt;%
+  grim_map_total_n(dispersion = 0:10) %&gt;%
+  audit_total_n()
+</code></pre>
+
+
+</div>

@@ -1,0 +1,133 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>db-crypted</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Read / Write crypted table from / to a SQLite database</h2>
+
+<h3>Description</h3>
+
+<p>Read / Write crypted table from / to a SQLite database
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">write_db_encrypt(conn, value, name = "credentials", passphrase = NULL)
+
+read_db_decrypt(conn, name = "credentials", passphrase = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>conn</code></td>
+<td>
+<p>A DBIConnection object, as returned by <code>dbConnect</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>value</code></td>
+<td>
+<p>A <code>data.frame</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>A character string specifying the unquoted DBMS table name.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>passphrase</code></td>
+<td>
+<p>A secret passphrase to crypt the table inside the database</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a <code>data.frame</code> for <code>read_db_decrypt</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>create_db</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># connect to database
+conn &lt;- DBI::dbConnect(RSQLite::SQLite(), dbname = ":memory:")
+
+# write to database
+write_db_encrypt(conn, value = head(iris), name = "iris", passphrase = "supersecret")
+
+# read
+read_db_decrypt(conn = conn, name = "iris", passphrase = "supersecret")
+
+
+# with wrong passphrase
+## Not run: 
+read_db_decrypt(conn = conn, name = "iris", passphrase = "forgotten")
+
+## End(Not run)
+
+# with DBI method you'll get a crypted blob
+DBI::dbReadTable(conn = conn, name = "iris")
+
+# add some users to database
+## Not run: 
+conn &lt;- DBI::dbConnect(RSQLite::SQLite(), dbname = "path/to/database.sqlite")
+
+# update "credentials" table
+current_user &lt;- read_db_decrypt(
+  conn,
+  name = "credentials",
+  passphrase = key_get("R-shinymanager-key", "obiwankenobi")
+)
+
+add_user &lt;- data.frame(user = "new", password = "pwdToChange",
+                      start = NA, expire = NA, admin = TRUE)
+
+new_users &lt;- rbind.data.frame(current_user, add_user)
+
+write_db_encrypt(
+  conn,
+  value = new_users,
+  name = "credentials",
+  key_get("R-shinymanager-key", "obiwankenobi")
+)
+
+# update "pwd_mngt" table
+pwd_mngt &lt;- read_db_decrypt(
+  conn,
+  name = "pwd_mngt",
+  passphrase = key_get("R-shinymanager-key", "obiwankenobi")
+)
+
+pwd_mngt &lt;- rbind.data.frame(
+  pwd_mngt,
+  data.frame(user = "new", must_change = T, have_changed = F, date_change = "")
+)
+
+write_db_encrypt(
+  conn,
+  value = pwd_mngt,
+  name = "pwd_mngt",
+  passphrase = key_get("R-shinymanager-key", "obiwankenobi")
+)
+
+## End(Not run)
+
+DBI::dbDisconnect(conn)
+
+</code></pre>
+
+
+</div>

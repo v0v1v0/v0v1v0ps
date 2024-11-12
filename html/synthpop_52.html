@@ -1,0 +1,176 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>syn.survctree</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Synthesis of survival time by classification and regression trees (CART)</h2>
+
+<h3>Description</h3>
+
+<p>Generates synthetic event indicator and time to event data using 
+classification and regression trees (without or with bootstrap).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">syn.survctree(y, yevent, x, xp, proper = FALSE, minbucket = 5, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>a vector of length <code>n</code> with original time data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>yevent</code></td>
+<td>
+<p>a vector of length <code>n</code> with original event indicator data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a matrix (<code>n</code> x <code>p</code>) of original covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xp</code></td>
+<td>
+<p>a matrix (<code>k</code> x <code>p</code>) of synthesised covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proper</code></td>
+<td>
+<p>for proper synthesis (<code>proper = TRUE</code>) a CART 
+model is fitted to a bootstrapped sample of the original data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minbucket</code></td>
+<td>
+<p>the minimum number of observations in
+any terminal node. See <code>ctree_control</code>
+for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed to <code>ctree</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The procedure for synthesis by a CART model is as follows: 
+</p>
+<ol>
+<li>
+<p> Fit a tree-structured survival model by 
+binary recursive partitioning (the terminal nodes include 
+Kaplan-Meier estimates of the survival time). 
+</p>
+</li>
+<li>
+<p> For each <code>xp</code> find the terminal node. </p>
+</li>
+<li>
+<p> Randomly 
+draw a donor from the members of the node and take the observed 
+value of <code>yevent</code> and <code>y</code> from that draw as the 
+synthetic values.</p>
+</li>
+</ol>
+<p>The function is used in <code>syn()</code> to generate survival times 
+by setting elements of method in <code>syn()</code> to <code>"survctree"</code>.
+Additional parameters related to <code>ctree</code> function, 
+e.g. <code>minbucket</code> can be supplied to <code>syn()</code> as 
+<code>survctree.minbucket</code>.
+</p>
+<p>Where the survival variable is censored this information must be supplied 
+to <code>syn()</code> as a named list (event) that gives the name of the variable 
+for each event indicator. Event variables can be a numeric variable with 
+values 1/0 (1 = event), TRUE/FALSE (TRUE = event) or a factor with 2 levels 
+(level 2 = event). The event variable(s) will be synthesised along with the 
+survival time(s).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>syn.time</code></td>
+<td>
+<p>a vector of length <code>k</code> with synthetic time values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>syn.event</code></td>
+<td>
+<p>a vector of length <code>k</code> with synthetic event indicator
+values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>the fitted model which is an item of class <code>ctree.object</code>.</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>syn</code>, <code>syn.ctree</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### This example uses the data set 'mgus2' from the survival package.
+### It has a follow-up time variable 'futime' and an event indicator 'death'.
+library(survival)
+
+### first exclude the 'id' variable and run a dummy synthesis to get 
+### a method vector
+ods &lt;- mgus2[-1]
+s0 &lt;- syn(ods)
+
+### create new method vector including 'survctree' for 'futime' and create 
+### an event list for it; the names of the list element must correspond to 
+### the name of the follow-up variable for which the event indicator
+### need to be specified.
+meth &lt;- s0$method
+meth[names(meth) == "futime"] &lt;- "survctree"
+evlist &lt;- list(futime = "death")
+
+s1 &lt;- syn(ods, method = meth, event = evlist)
+
+### evaluate outputs
+## compare selected variables
+compare(s1, ods, vars = c("futime", "death", "sex", "creat"))
+
+## compare original and synthetic follow up time by an event indicator
+multi.compare(s1, ods, var = "futime", by = "death")
+
+## compare survival curves for original and synthetic data
+par(mfrow = c(2,1))
+plot(survfit(Surv(futime, death) ~ sex, data = ods), 
+     col = 1:2, xlim = c(0,450), main = "Original data")
+legend("topright", levels(ods$sex), col = 1:2, lwd = 1, bty = "n")
+plot(survfit(Surv(futime, death) ~ sex, data = s1$syn), 
+     col = 1:2, xlim = c(0,450), main = "Synthetic data")
+</code></pre>
+
+
+</div>

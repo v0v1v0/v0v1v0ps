@@ -1,0 +1,249 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>algo.farrington</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Surveillance for Count Time Series Using the Classic Farrington Method</h2>
+
+<h3>Description</h3>
+
+<p>Implements the procedure of Farrington et al. (1996).
+At each time point of the specified <code>range</code>, a GLM is fitted to
+predict the counts. This is then compared to the observed
+counts. If the observation is above a specific quantile of
+the prediction interval, then an alarm is raised.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R"># original interface for a single "disProg" time series
+algo.farrington(disProgObj, control=list(
+    range=NULL, b=5, w=3, reweight=TRUE, verbose=FALSE, plot=FALSE,
+    alpha=0.05, trend=TRUE, limit54=c(5,4), powertrans="2/3",
+    fitFun="algo.farrington.fitGLM.fast"))
+
+# wrapper for "sts" data, possibly multivariate
+farrington(sts, control=list(
+    range=NULL, b=5, w=3, reweight=TRUE, verbose=FALSE,
+    alpha=0.05), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>disProgObj</code></td>
+<td>
+
+<p>an object of class <code>"disProg"</code> (a list including <code>observed</code> and
+<code>state</code> time series).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>list of control parameters
+</p>
+
+<dl>
+<dt><code>range</code></dt>
+<dd>
+<p>Specifies the index of all timepoints which
+should be tested. If range is <code>NULL</code> the maximum number
+of possible weeks is used (i.e. as many weeks as possible while
+still having enough reference values).</p>
+</dd>
+<dt><code>b</code></dt>
+<dd>
+<p>how many years back in time to include when
+forming the base counts.</p>
+</dd>
+<dt><code>w</code></dt>
+<dd>
+<p>windows size, i.e. number of weeks to include
+before and after the current week</p>
+</dd>
+<dt><code>reweight</code></dt>
+<dd>
+<p>Boolean specifying whether to perform reweight step</p>
+</dd>
+<dt><code>trend</code></dt>
+<dd>
+<p>If <code>TRUE</code> a trend is included and kept in
+case the conditions documented in Farrington et al. (1996) are met
+(see the results). If <code>FALSE</code> then NO trend is fit.</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>Boolean indicating whether to show extra debugging information.</p>
+</dd>
+<dt><code>plot</code></dt>
+<dd>
+<p>Boolean specifying whether to show the final GLM model fit graphically (use
+History|Recording to see all pictures).</p>
+</dd>
+<dt><code>powertrans</code></dt>
+<dd>
+<p>Power transformation to apply to the
+data. Use either "2/3" for skewness correction (Default),
+"1/2" for variance stabilizing transformation or "none" for no
+transformation.</p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>An approximate (two-sided) <code class="reqn">(1-\alpha)</code>
+prediction interval is calculated.</p>
+</dd>
+<dt><code>limit54</code></dt>
+<dd>
+<p>To avoid alarms in cases where the time series only
+has about 0-2 cases the algorithm uses the following heuristic
+criterion (see Section 3.8 of the Farrington paper) to protect
+against low counts: no alarm is sounded if fewer than
+<code class="reqn">cases=5</code> reports were received in the past <code class="reqn">period=4</code>
+weeks. <code>limit54=c(cases,period)</code> is a vector allowing the
+user to change these numbers. Note: As of version 0.9-7 the
+term "last" period of weeks includes the current week -
+otherwise no alarm is sounded for horrible large numbers if
+the four weeks before that are too low.</p>
+</dd>
+<dt><code>fitFun</code></dt>
+<dd>
+<p>String containing the name of the fit
+function to be used for fitting the GLM. The options are
+<code>algo.farrington.fitGLM.fast</code> (default) and
+<code>algo.farrington.fitGLM</code> or 
+<code>algo.farrington.fitGLM.populationOffset</code>. See details of
+<code>algo.farrington.fitGLM</code> for more information.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sts</code></td>
+<td>
+<p>an object of class <code>"sts"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments for <code>wrap.algo</code>,
+e.g., <code>verbose=FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The following steps are performed according to the Farrington
+et al. (1996) paper.
+</p>
+
+<ol>
+<li>
+<p> fit of the initial model and initial estimation of mean and
+overdispersion.
+</p>
+</li>
+<li>
+<p> calculation of the weights omega (correction for past outbreaks)
+</p>
+</li>
+<li>
+<p> refitting of the model
+</p>
+</li>
+<li>
+<p> revised estimation of overdispersion
+</p>
+</li>
+<li>
+<p> rescaled model
+</p>
+</li>
+<li>
+<p> omission of the trend, if it is not significant
+</p>
+</li>
+<li>
+<p> repetition of the whole procedure
+</p>
+</li>
+<li>
+<p> calculation of the threshold value
+</p>
+</li>
+<li>
+<p> computation of exceedance score
+</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p>For <code>algo.farrington</code>, a list object of class <code>"survRes"</code>
+with elements <code>alarm</code>, <code>upperbound</code>, <code>trend</code>,
+<code>disProgObj</code>, and <code>control</code>.
+</p>
+<p>For <code>farrington</code>, the input <code>"sts"</code> object with updated
+<code>alarm</code>, <code>upperbound</code> and <code>control</code> slots, and subsetted
+to <code>control$range</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>M. Höhle</p>
+
+
+<h3>References</h3>
+
+<p>A statistical algorithm for the early detection of outbreaks of
+infectious disease, Farrington, C.P., Andrews, N.J, Beale A.D. and
+Catchpole, M.A. (1996), J. R. Statist. Soc. A, 159, 547-563.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>algo.farrington.fitGLM</code>,
+<code>algo.farrington.threshold</code>
+</p>
+<p>An improved Farrington algorithm is available as function
+<code>farringtonFlexible</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#load "disProg" data
+data("salmonella.agona")
+
+#Do surveillance for the last 42 weeks
+n &lt;- length(salmonella.agona$observed)
+control &lt;- list(b=4,w=3,range=(n-42):n,reweight=TRUE, verbose=FALSE,alpha=0.01)
+res &lt;- algo.farrington(salmonella.agona,control=control)
+plot(res)
+
+#Generate Poisson counts and create an "sts" object
+set.seed(123)
+x &lt;- rpois(520,lambda=1)
+stsObj &lt;- sts(observed=x, frequency=52)
+
+if (surveillance.options("allExamples")) {
+#Compare timing of the two possible fitters for algo.farrington
+  range &lt;- 312:520
+  system.time( sts1 &lt;- farrington(stsObj, control=list(range=range,
+                         fitFun="algo.farrington.fitGLM.fast"), verbose=FALSE))
+  system.time( sts2 &lt;- farrington(stsObj, control=list(range=range,
+                         fitFun="algo.farrington.fitGLM"), verbose=FALSE))
+  #Check if results are the same
+  stopifnot(upperbound(sts1) == upperbound(sts2))
+}
+</code></pre>
+
+
+</div>

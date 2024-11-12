@@ -1,0 +1,606 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smoothSurvey</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit space-time smoothing models for a generic outcome from complex surveys.</h2>
+
+<h3>Description</h3>
+
+<p>This function calculates the direct estimates by region and fit a simple spatial smoothing model to the direct estimates adjusting for survey design.
+Normal or binary variables are currently supported. For binary variables, the logit transformation is performed on the direct estimates of probabilities, and a Gaussian additive model is fitted on the logit scale using INLA.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">smoothSurvey(
+  data,
+  geo = NULL,
+  Amat = NULL,
+  region.list = NULL,
+  X = NULL,
+  X.unit = NULL,
+  responseType = c("binary", "gaussian")[1],
+  responseVar,
+  strataVar = "strata",
+  weightVar = "weights",
+  regionVar = "region",
+  clusterVar = "~v001+v002",
+  pc.u = 1,
+  pc.alpha = 0.01,
+  pc.u.phi = 0.5,
+  pc.alpha.phi = 2/3,
+  CI = 0.95,
+  formula = NULL,
+  timeVar = NULL,
+  time.model = c("rw1", "rw2")[1],
+  include_time_unstruct = FALSE,
+  type.st = 1,
+  direct.est = NULL,
+  direct.est.var = NULL,
+  is.unit.level = FALSE,
+  is.agg = FALSE,
+  strataVar.within = NULL,
+  totalVar = NULL,
+  weight.strata = NULL,
+  nsim = 1000,
+  save.draws = FALSE,
+  smooth = TRUE,
+  ...
+)
+
+fitGeneric(
+  data,
+  geo = NULL,
+  Amat = NULL,
+  region.list = NULL,
+  X = NULL,
+  X.unit = NULL,
+  responseType = c("binary", "gaussian")[1],
+  responseVar,
+  strataVar = "strata",
+  weightVar = "weights",
+  regionVar = "region",
+  clusterVar = "~v001+v002",
+  pc.u = 1,
+  pc.alpha = 0.01,
+  pc.u.phi = 0.5,
+  pc.alpha.phi = 2/3,
+  CI = 0.95,
+  formula = NULL,
+  timeVar = NULL,
+  time.model = c("rw1", "rw2")[1],
+  include_time_unstruct = FALSE,
+  type.st = 1,
+  direct.est = NULL,
+  direct.est.var = NULL,
+  is.unit.level = FALSE,
+  is.agg = FALSE,
+  strataVar.within = NULL,
+  totalVar = NULL,
+  weight.strata = NULL,
+  nsim = 1000,
+  save.draws = FALSE,
+  smooth = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The input data frame. The input data  with column of the response variable (<code>responseVar</code>), region ID (<code>regionVar</code>), stratification within region (<code>strataVar</code>), and cluster ID (<code>clusterVar</code>).
+</p>
+ 
+<ul>
+<li>
+<p> For area-level model, the data frame consist of survey observations and corresponding survey weights (<code>weightVar</code>). 
+</p>
+</li>
+<li>
+<p> For unit-level model and <code>is.agg = FALSE</code>, the data frame should consist of aggregated counts by clusters (for binary responses), or any cluster-level response (for continuous response). For binary response (<code>responseType = 'binary'</code>), the beta-binomial model will be fitted for cluster-level counts. For continuous response (<code>responseType = 'gaussian'</code>), a Gaussian smoothing model will be fitted on the cluster-level response. 
+</p>
+</li>
+<li>
+<p> For unit-level model and <code>is.agg = TRUE</code>, the data frame should be the same as in the area-level model. For binary response (<code>responseType = 'binary'</code>), the beta-binomial model will be fitted for cluster-level counts aggregated internally. For continuous response (<code>responseType = 'gaussian'</code>), the nested error model will be fitted on unit-level response.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>geo</code></td>
+<td>
+<p>Deprecated argument from early versions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Amat</code></td>
+<td>
+<p>Adjacency matrix for the regions. If set to NULL, the IID spatial effect will be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>region.list</code></td>
+<td>
+<p>a vector of region names. Only used when IID model is used and the adjacency matrix not specified. This allows the output to include regions with no sample in the data. When the spatial adjacency matrix is specified, the column names of the adjacency matrix will be used to determine region.list. If set to NULL, all regions in the data are used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>Areal covariates data frame. One of the column name needs to match the <code>regionVar</code> specified in the function call, in order to be linked to the data input. Currently only supporting time-invariant region-level covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X.unit</code></td>
+<td>
+<p>Column names of unit-level covariates. When <code>X.unit</code> is specified, a nested error model will be fitted with unit-level IID noise, and area-level predictions are produced by plugging in the covariate specified in the <code>X</code> argument. When <code>X</code> is not specified, the empirical mean of each covariate will be used. This is only implemented for continuous response with the Gaussian likelihood model and unit-level model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>responseType</code></td>
+<td>
+<p>Type of the response variable, currently supports 'binary' (default with logit link function) or 'gaussian'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>responseVar</code></td>
+<td>
+<p>the response variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strataVar</code></td>
+<td>
+<p>the strata variable used in the area-level model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weightVar</code></td>
+<td>
+<p>the weights variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>regionVar</code></td>
+<td>
+<p>Variable name for region.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clusterVar</code></td>
+<td>
+<p>Variable name for cluster. For area-level model, this should be a formula for cluster in survey design object, e.g., '~clusterID + householdID'. For unit-level model, this should be the variable name for cluster unit.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pc.u</code></td>
+<td>
+<p>hyperparameter U for the PC prior on precisions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pc.alpha</code></td>
+<td>
+<p>hyperparameter alpha for the PC prior on precisions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pc.u.phi</code></td>
+<td>
+<p>hyperparameter U for the PC prior on the mixture probability phi in BYM2 model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pc.alpha.phi</code></td>
+<td>
+<p>hyperparameter alpha for the PC prior on the mixture probability phi in BYM2 model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI</code></td>
+<td>
+<p>the desired posterior credible interval to calculate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a string of user-specified random effects model to be used in the INLA call</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timeVar</code></td>
+<td>
+<p>The variable indicating time period. If set to NULL then the temporal model and space-time interaction model are ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time.model</code></td>
+<td>
+<p>the model for temporal trends and interactions. It can be either "rw1" or "rw2".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_time_unstruct</code></td>
+<td>
+<p>Indicator whether to include the temporal unstructured effects (i.e., shocks) in the smoothed estimates from cluster-level model. The argument only applies to the unit-level models. Default is FALSE which excludes all unstructured temporal components. If set to TRUE all  the unstructured temporal random effects will be included.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type.st</code></td>
+<td>
+<p>can take values 0 (no interaction), or 1 to 4, corresponding to the type I to IV space-time interaction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>direct.est</code></td>
+<td>
+<p>data frame of direct estimates, with column names of response and region specified by <code>responseVar</code>, <code>regionVar</code>, and <code>timeVar</code>.  When <code>direct.est</code> is specified, it overwrites the <code>data</code> input.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>direct.est.var</code></td>
+<td>
+<p>the column name corresponding to the variance of direct estimates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>is.unit.level</code></td>
+<td>
+<p>logical indicator of whether unit-level model is fitted instead of area-level model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>is.agg</code></td>
+<td>
+<p>logical indicator of whether the input is at the aggregated counts by cluster. Only used for unit-level model and binary response variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strataVar.within</code></td>
+<td>
+<p>the variable specifying within region stratification variable. This is only used for the unit-level model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>totalVar</code></td>
+<td>
+<p>the variable specifying total observations in <code>counts</code>. This is only used for the unit-level model when <code>counts</code> is specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight.strata</code></td>
+<td>
+<p>a data frame with one column corresponding to <code>regionVar</code>, and columns specifying proportion of each strata for each region. This argument specifies the weights for strata-specific estimates. This is only used for the unit-level model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>number of posterior draws to take. This is only used for the unit-level model when <code>weight.strata</code> is provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save.draws</code></td>
+<td>
+<p>logical indicator of whether to save the full posterior draws.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth</code></td>
+<td>
+<p>logical indicator of whether to perform smoothing. If set to FALSE, a data frame of direct estimate is returned. Only used when <code>is.unit.level</code> is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments passed to <code>svydesign</code> function.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>smoothSurvey</code> replaces the previous function name <code>fitGeneric</code> (before version 1.0.0).
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>HT</code></td>
+<td>
+<p>Direct estimates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth</code></td>
+<td>
+<p>Smoothed direct estimates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>a fitted INLA object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI</code></td>
+<td>
+<p>input argument</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Amat</code></td>
+<td>
+<p>input argument</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>responseType</code></td>
+<td>
+<p>input argument</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>INLA formula</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Zehang Richard Li
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>getDirectList</code>, <code>smoothDirect</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+##
+## 1. Area-level model with binary response
+##
+
+data(DemoData2)
+data(DemoMap2)
+fit0 &lt;- smoothSurvey(data=DemoData2,  
+Amat=DemoMap2$Amat, responseType="binary", 
+responseVar="tobacco.use", strataVar="strata", 
+weightVar="weights", regionVar="region", 
+clusterVar = "~clustid+id", CI = 0.95)
+summary(fit0)
+
+# if only direct estimates without smoothing is of interest
+fit0.dir &lt;- smoothSurvey(data=DemoData2,  
+Amat=DemoMap2$Amat, responseType="binary", 
+responseVar="tobacco.use", strataVar="strata", 
+weightVar="weights", regionVar="region", 
+clusterVar = "~clustid+id", CI = 0.95, smooth = FALSE)
+
+# posterior draws can be returned with save.draws = TRUE
+fit0.draws &lt;- smoothSurvey(data=DemoData2,  
+Amat=DemoMap2$Amat, responseType="binary", 
+responseVar="tobacco.use", strataVar="strata", 
+weightVar="weights", regionVar="region", 
+clusterVar = "~clustid+id", CI = 0.95, save.draws = TRUE)
+# notice the posterior draws are on the latent scale
+head(fit0.draws$draws.est[, 1:10]) 
+
+# Example with region-level covariates
+ Xmat &lt;- aggregate(age~region, data = DemoData2, FUN = mean)
+ fit1 &lt;- smoothSurvey(data=DemoData2,  
+  Amat=DemoMap2$Amat, responseType="binary", 
+  X = Xmat,
+  responseVar="tobacco.use", strataVar="strata", 
+  weightVar="weights", regionVar="region", 
+  clusterVar = "~clustid+id", CI = 0.95)
+
+# Example with using only direct estimates as input instead of the full data
+direct &lt;- fit0$HT[, c("region", "HT.est", "HT.var")]
+fit2 &lt;- smoothSurvey(data=NULL, direct.est = direct, 
+                    Amat=DemoMap2$Amat, regionVar="region",
+                    responseVar="HT.est", direct.est.var = "HT.var", 
+                    responseType = "gaussian")
+# Check it is the same as fit0
+plot(fit2$smooth$mean, fit0$smooth$mean)
+
+# Example with using only direct estimates as input, 
+#   and after transformation into a Gaussian smoothing model
+# Notice: the output are on the same scale as the input 
+#   and in this case, the logit estimates.    
+direct.logit &lt;- fit0$HT[, c("region", "HT.logit.est", "HT.logit.var")]
+fit3 &lt;- smoothSurvey(data=NULL, direct.est = direct.logit, 
+               Amat=DemoMap2$Amat, regionVar="region",
+               responseVar="HT.logit.est", direct.est.var = "HT.logit.var",
+               responseType = "gaussian")
+# Check it is the same as fit0
+plot(fit3$smooth$mean, fit0$smooth$logit.mean)
+
+# Example with non-spatial smoothing using IID random effects
+fit4 &lt;- smoothSurvey(data=DemoData2, responseType="binary", 
+       responseVar="tobacco.use", strataVar="strata", 
+       weightVar="weights", regionVar="region", 
+       clusterVar = "~clustid+id", CI = 0.95)
+
+# Example with missing regions in the raw input
+DemoData2.sub &lt;- subset(DemoData2, region != "central")
+fit.without.central &lt;- smoothSurvey(data=DemoData2.sub,  
+                         Amat=NULL, responseType="binary", 
+                         responseVar="tobacco.use", strataVar="strata", 
+                         weightVar="weights", regionVar="region", 
+                         clusterVar = "~clustid+id", CI = 0.95)
+fit.without.central$HT
+fit.without.central$smooth
+
+fit.without.central &lt;- smoothSurvey(data=DemoData2.sub,  
+                         Amat=NULL, region.list = unique(DemoData2$region),
+                         responseType="binary", 
+                         responseVar="tobacco.use", strataVar="strata", 
+                         weightVar="weights", regionVar="region", 
+                         clusterVar = "~clustid+id", CI = 0.95)
+fit.with.central$HT
+fit.with.central$smooth
+
+# Using the formula argument, further customizations can be added to the 
+#  model fitted. For example, we can fit the Fay-Harriot model with 
+#  IID effect instead of the BYM2 random effect as follows.
+#  The "region.struct" and "hyperpc1" are picked to match internal object 
+#  names. Other object names can be inspected from the source of smoothSurvey.
+fit5 &lt;- smoothSurvey(data=DemoData2,  
+       Amat=DemoMap2$Amat, responseType="binary", 
+       formula = "f(region.struct, model = 'iid', hyper = hyperpc1)",
+       pc.u = 1, pc.alpha = 0.01,
+       responseVar="tobacco.use", strataVar="strata", 
+       weightVar="weights", regionVar="region", 
+       clusterVar = "~clustid+id", CI = 0.95)
+# Check it is the same as fit4, notice the region order may be different
+regions &lt;- fit5$smooth$region
+plot(fit4$smooth[match(regions, fit4$smooth$region),]$logit.mean, fit5$smooth$logit.mean)
+
+##
+## 2. Unit-level model with binary response  
+##
+
+# For unit-level models, we need to create stratification variable within regions
+data &lt;- DemoData2
+data$urbanicity &lt;- "rural"
+data$urbanicity[grep("urban", data$strata)] &lt;- "urban"
+
+# Beta-binomial likelihood is used in this model
+fit6 &lt;- smoothSurvey(data=data, 
+  Amat=DemoMap2$Amat, responseType="binary", 
+  X = Xmat, is.unit.level = TRUE,
+  responseVar="tobacco.use", strataVar.within = "urbanicity", 
+  regionVar="region", clusterVar = "clustid", CI = 0.95)
+
+# We may use aggregated PSU-level counts as input as well
+#    in the case of modeling a binary outcome 
+data.agg &lt;- aggregate(tobacco.use~region + urbanicity + clustid, 
+                      data = data, FUN = sum)
+data.agg.total &lt;- aggregate(tobacco.use~region + urbanicity + clustid, 
+                      data = data, FUN = length)
+colnames(data.agg.total)[4] &lt;- "total"
+data.agg &lt;- merge(data.agg, data.agg.total)
+head(data.agg)
+
+fit7 &lt;- smoothSurvey(data=data.agg, 
+  Amat=DemoMap2$Amat, responseType="binary", 
+  X = Xmat, is.unit.level = TRUE, is.agg = TRUE,
+  responseVar = "tobacco.use", strataVar.within = "urbanicity", 
+  totalVar = "total", regionVar="region", clusterVar = "clustid", CI = 0.95)
+
+# Check it is the same as fit6
+plot(fit6$smooth$mean, fit7$smooth$mean)  
+
+##
+## 3. Area-level model with continuous response
+##
+
+# The smoothing model is the same as area-level model with binary response
+#  the continuous direct estimates are smoothed instead of 
+#  their logit-transformed versions for binary response.
+fit8 &lt;- smoothSurvey(data=DemoData2, Amat=DemoMap2$Amat, 
+       responseType="gaussian", responseVar="age", strataVar="strata", 
+       weightVar="weights", regionVar="region", 
+       pc.u.phi = 0.5, pc.alpha.phi = 0.5,
+       clusterVar = "~clustid+id", CI = 0.95)
+
+##
+## 4. Unit-level model with continuous response  
+##    (or nested error models)
+
+# The unit-level model assumes for each of the i-th unit,
+#    Y_{i} ~ intercept + region_effect + IID_i
+#    where IID_i is the error term specific to i-th unit
+
+# When more than one level of cluster sampling is carried out, 
+#   they are ignored here. Only the input unit is considered.
+#   So here we do not need to specify clusterVar any more. 
+fit9 &lt;- smoothSurvey(data= data, 
+  Amat=DemoMap2$Amat, responseType="gaussian", 
+  is.unit.level = TRUE, responseVar="age", strataVar.within = NULL,
+  regionVar="region", clusterVar = NULL, CI = 0.95)
+
+# To compare, we may also model PSU-level responses. As an illustration, 
+data.median &lt;- aggregate(age~region + urbanicity + clustid, 
+                      data = data, FUN = median)
+
+fit10 &lt;- smoothSurvey(data= data.median, 
+  Amat=DemoMap2$Amat, responseType="gaussian", 
+  is.unit.level = TRUE, responseVar="age", strataVar.within = NULL,
+  regionVar="region", clusterVar = "clustid", CI = 0.95)
+
+
+# To further incorporate within-area stratification
+
+fit11 &lt;- smoothSurvey(data = data, 
+  Amat = DemoMap2$Amat, responseType = "gaussian", 
+  is.unit.level = TRUE, responseVar="age", strataVar.within = "urbanicity",
+  regionVar = "region", clusterVar = NULL, CI = 0.95)  
+
+# Notice the usual output is now stratified within each region
+# The aggregated estimates require strata proportions for each region
+# For illustration, we set strata population proportions below
+prop &lt;- data.frame(region = unique(data$region), 
+                            urban = 0.3, 
+                            rural = 0.7)
+fit12 &lt;- smoothSurvey(data=data, 
+  Amat=DemoMap2$Amat, responseType="gaussian", 
+  is.unit.level = TRUE, responseVar="age", strataVar.within = "urbanicity",
+  regionVar="region", clusterVar = NULL, CI = 0.95,
+  weight.strata = prop)  
+
+# aggregated outcome
+head(fit12$smooth.overall)
+
+# Compare aggregated outcome with direct aggregating posterior means. 
+# There could be small differences if only 1000 posterior draws are taken.
+est.urb &lt;- subset(fit11$smooth, strata == "urban")
+est.rural &lt;- subset(fit11$smooth, strata == "rural")
+est.mean.post &lt;- est.urb$mean * 0.3 + est.rural$mean * 0.7
+plot(fit12$smooth.overall$mean, est.mean.post)
+
+
+##
+## 6. Unit-level model with continuous response and unit-level covariate 
+## 
+
+# For area-level prediction, area-level covariate mean needs to be  
+#   specified in X argument. And unit-level covariate names are specified
+#   in X.unit argument.
+
+set.seed(1)
+sim &lt;- data.frame(region = rep(c(1, 2, 3, 4), 1000),
+                   X1 = rnorm(4000), X2 = rnorm(4000))
+Xmean &lt;- aggregate(.~region, data = sim, FUN = sum)
+sim$Y &lt;- rnorm(4000, mean = sim$X1 + 0.3 * sim$X2 + sim$region)
+samp &lt;- sim[sample(1:4000, 20), ]
+fit.sim &lt;- smoothSurvey(data=samp , 
+                  X.unit = c("X1", "X2"),
+                  X = Xmean, Amat=NULL, responseType="gaussian", 
+                  is.unit.level = TRUE, responseVar="Y", regionVar = "region",  
+                  pc.u = 1, pc.alpha = 0.01, CI = 0.95) 
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

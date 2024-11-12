@@ -1,0 +1,185 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>diffusion</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>A Random Walk Particle Diffusion Model</h2>
+
+<h3>Description</h3>
+
+<p><span class="pkg">simecol</span> example: This is a random walk (basic particle
+diffusion) model.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">data(diffusion)</code></pre>
+
+
+<h3>Format</h3>
+
+<p>An S4 object according to the <code>rwalkModel</code> specification. 
+The object contains the following slots:
+</p>
+
+<dl>
+<dt><code>main</code></dt>
+<dd>
+<p>A function with the movement rules for the particles.</p>
+</dd>
+<dt><code>parms</code></dt>
+<dd>
+<p>A list with the following components:
+</p>
+
+<dl>
+<dt><code>ninds</code></dt>
+<dd>
+<p>number of simulated particles,</p>
+</dd>
+<dt><code>speed</code></dt>
+<dd>
+<p>speed of the particles,</p>
+</dd>
+<dt><code>area</code></dt>
+<dd>
+<p>vector with 4 elements giving the coordinates (left,
+bottom, right, top) of the coordinate system.</p>
+</dd>
+</dl>
+</dd>
+<dt><code>times</code></dt>
+<dd>
+<p>Simulation time (discrete time steps, <code>by</code>-argument
+ignored).</p>
+</dd>
+<dt><code>init</code></dt>
+<dd>
+<p>Data frame holding the start properties (Cartesian
+coordinates <code>x</code> and <code>y</code> and movement angle <code>a</code>) of the
+particles.</p>
+</dd>
+</dl>
+<h3>Details</h3>
+
+<p>To see all details, please have a look into the implementation.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sim</code>,
+<code>parms</code>,
+<code>init</code>,
+<code>times</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##============================================
+## Basic Usage:
+##   explore the example
+##============================================
+## Not run: 
+data(diffusion)
+## (1) minimal example
+plot(sim(diffusion))
+## show "grid of environmental conditions"
+image(inputs(diffusion))
+
+## (2) scenario
+##     with homogeneous environment (no "refuge" in the middle)
+no_refuge &lt;- diffusion # Cloning of the whole model object
+inputs(no_refuge) &lt;- matrix(1, 100, 100)
+plot(sim(no_refuge))
+  
+##============================================
+## Advanced Usage:
+##   Assign a function to the observer-slot.
+##============================================
+observer(diffusion) &lt;- function(state, ...) {
+  ## numerical output to the screen
+  cat("mean x=", mean(state$x),
+      ", mean y=", mean(state$y),
+      ", sd   x=", sd(state$x),
+      ", sd   y=", sd(state$y), "\n")
+  ## animation
+  par(mfrow=c(2,2))
+  plot(state$x, state$y, xlab="x", ylab="y", pch=16, col="red", xlim=c(0, 100))
+  hist(state$y)
+  hist(state$x)
+  ## default case: return the state --&gt; iteration stores it in "out"
+  state
+}
+
+sim(diffusion)
+
+## remove the observer and restore original behavior
+observer(diffusion) &lt;- NULL
+diffusion &lt;- sim(diffusion)
+
+## End(Not run)
+
+##============================================
+## Implementation:
+##   The code of the diffusion model.
+##   Note the use of the "initfunc"-slot.
+##============================================
+diffusion &lt;- rwalkModel(
+  main = function(time, init, parms, inputs = NULL) {
+    speed   &lt;- parms$speed
+    xleft   &lt;- parms$area[1]
+    xright  &lt;- parms$area[2]
+    ybottom &lt;- parms$area[3]
+    ytop    &lt;- parms$area[4]
+
+    x &lt;- init$x  # x coordinate
+    y &lt;- init$y  # y coordinate
+    a &lt;- init$a  # angle (in radians)
+    n &lt;- length(a)
+
+    ## Rule 1: respect environment (grid as given in "inputs")
+    ## 1a) identify location on "environmental 2D grid" for each individual
+    i.j &lt;- array(c(pmax(1, ceiling(x)), pmax(1, ceiling(y))), dim=c(n, 2))
+
+    ## 1b) speed dependend on "environmental conditions"
+    speed &lt;- speed * inputs[i.j]
+
+    ## Rule 2: Random Walk
+    a  &lt;- (a + 2 * pi / runif(a)) 
+    dx &lt;- speed * cos(a)
+    dy &lt;- speed * sin(a)
+    x  &lt;- x + dx
+    y  &lt;- y + dy
+
+    ## Rule 3: Wrap Around
+    x &lt;- ifelse(x &gt; xright, xleft, x)
+    y &lt;- ifelse(y &gt; ytop, ybottom, y)
+    x &lt;- ifelse(x &lt; xleft, xright, x)
+    y &lt;- ifelse(y &lt; ybottom, ytop, y)
+    data.frame(x=x, y=y, a=a)
+  },
+  times  = c(from=0, to=100, by=1),
+  parms  = list(ninds=50, speed = 1, area = c(0, 100, 0, 100)),
+  solver = "iteration",
+  initfunc = function(obj) {
+    ninds   &lt;- obj@parms$ninds
+    xleft   &lt;- obj@parms$area[1]
+    xright  &lt;- obj@parms$area[2]
+    ybottom &lt;- obj@parms$area[3]
+    ytop    &lt;- obj@parms$area[4]
+    obj@init &lt;- data.frame(x = runif(ninds) * (xright - xleft) + xleft,
+                           y = runif(ninds) * (ytop - ybottom) + ybottom,
+                           a = runif(ninds) * 2 * pi)
+    inp &lt;- matrix(1, nrow=100, ncol=100)
+    inp[, 45:55] &lt;- 0.2
+    inputs(obj) &lt;- inp
+    obj
+  }
+)
+</code></pre>
+
+
+</div>

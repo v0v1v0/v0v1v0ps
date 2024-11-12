@@ -1,0 +1,179 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>drop_labels</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Drop, add or convert (non-)labelled values</h2>
+
+<h3>Description</h3>
+
+<p>For (partially) labelled vectors, <code>zap_labels()</code> will replace
+all values that have a value label attribute with <code>NA</code>;
+<code>zap_unlabelled()</code>, as counterpart, will replace all values
+that <em>don't</em> have a value label attribute with <code>NA</code>.
+<br><br><code>drop_labels()</code> drops all value labels for unused values,
+i.e. values that are not present in a vector. <code>fill_labels()</code> is the
+counterpart to <code>drop_labels()</code> and adds value labels to
+a partially labelled vector, i.e. if not all values are
+labelled, non-labelled values get labels.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">drop_labels(x, ..., drop.na = TRUE)
+
+fill_labels(x, ...)
+
+zap_labels(x, ...)
+
+zap_unlabelled(x, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>(partially) <code>labelled()</code> vector or a data frame
+with such vectors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Optional, unquoted names of variables that should be selected for
+further processing. Required, if <code>x</code> is a data frame (and no
+vector) and only selected variables from <code>x</code> should be processed.
+You may also use functions like <code>:</code> or tidyselect's select-helpers.
+See 'Examples'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop.na</code></td>
+<td>
+<p>Logical, whether existing value labels of tagged NA values
+(see <code>tagged_na</code>) should be removed (<code>drop.na = TRUE</code>,
+the default) or preserved (<code>drop.na = FALSE</code>).
+See <code>get_na</code> for more details on tagged NA values.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+
+<ul>
+<li>
+<p> For <code>zap_labels()</code>, <code>x</code>, where all labelled values are converted to <code>NA</code>.
+</p>
+</li>
+<li>
+<p> For <code>zap_unlabelled()</code>, <code>x</code>, where all non-labelled values are converted to <code>NA</code>.
+</p>
+</li>
+<li>
+<p> For <code>drop_labels()</code>, <code>x</code>, where value labels for non-existing values are removed.
+</p>
+</li>
+<li>
+<p> For <code>fill_labels()</code>, <code>x</code>, where labels for non-labelled values are added.
+</p>
+</li>
+</ul>
+<p>If <code>x</code> is a data frame, the complete data frame <code>x</code> will be
+returned, with variables specified in <code>...</code> being converted;
+if <code>...</code> is not specified, applies to all variables in the
+data frame.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (require("sjmisc") &amp;&amp; require("dplyr")) {
+
+  # zap_labels() ----
+
+  data(efc)
+  str(efc$e42dep)
+
+  x &lt;- set_labels(
+    efc$e42dep,
+    labels = c("independent" = 1, "severe dependency" = 4)
+  )
+  table(x)
+  get_values(x)
+  str(x)
+
+  # zap all labelled values
+  table(zap_labels(x))
+  get_values(zap_labels(x))
+  str(zap_labels(x))
+
+  # zap all unlabelled values
+  table(zap_unlabelled(x))
+  get_values(zap_unlabelled(x))
+  str(zap_unlabelled(x))
+
+  # in a pipe-workflow
+  efc %&gt;%
+    select(c172code, e42dep) %&gt;%
+    set_labels(
+      e42dep,
+      labels = c("independent" = 1, "severe dependency" = 4)
+    ) %&gt;%
+    zap_labels()
+
+
+  # drop_labels() ----
+
+  rp &lt;- rec_pattern(1, 100)
+  rp
+
+  # sample data
+  data(efc)
+  # recode carers age into groups of width 5
+  x &lt;- rec(efc$c160age, rec = rp$pattern)
+  # add value labels to new vector
+  x &lt;- set_labels(x, labels = rp$labels)
+
+  # watch result. due to recode-pattern, we have age groups with
+  # no observations (zero-counts)
+  frq(x)
+  # now, let's drop zero's
+  frq(drop_labels(x))
+
+  # drop labels, also drop NA value labels, then also zap tagged NA
+  if (require("haven")) {
+    x &lt;- labelled(c(1:3, tagged_na("z"), 4:1),
+                  c("Agreement" = 1, "Disagreement" = 4, "Unused" = 5,
+                    "Not home" = tagged_na("z")))
+    x
+    drop_labels(x, drop.na = FALSE)
+    drop_labels(x)
+    zap_na_tags(drop_labels(x))
+
+    # fill_labels() ----
+
+    # create labelled integer, with tagged missings
+    x &lt;- labelled(
+      c(1:3, tagged_na("a", "c", "z"), 4:1),
+      c("Agreement" = 1, "Disagreement" = 4, "First" = tagged_na("c"),
+        "Refused" = tagged_na("a"), "Not home" = tagged_na("z"))
+      )
+    # get current values and labels
+    x
+    get_labels(x)
+
+    fill_labels(x)
+    get_labels(fill_labels(x))
+    # same as
+    get_labels(x, non.labelled = TRUE)
+  }
+}
+</code></pre>
+
+
+</div>

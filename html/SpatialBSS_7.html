@@ -1,0 +1,123 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>plot.sbss</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Plot Method for an Object of Class 'sbss'
+</h2>
+
+<h3>Description</h3>
+
+<p><code>plot.sbss</code> is an interface to the standard plot method for the class of the estimated source random field. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sbss'
+plot(x, which = 1:ncol(x$s), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+
+<p>object of class <code>'sbss'</code>. Usually result of <code>sbss</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+
+<p>a numeric vector indicating which components of the latent field should be plotted.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>further arguments to the plot method of <code>class(x$s)</code>, which is either <code>spplot</code> or <code>plot</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This method calls the corresponding plot method of <code>class(x$s)</code>. Either <code>spplot</code> for <code>class(x$s)</code> is <code>SpatialPointsDataFrame</code> or <code>plot.sf</code> for <code>class(x$s)</code> is <code>sf</code>. If <code>x$s</code> is a matrix then it is internally cast to <code>SpatialPointsDataFrame</code> and <code>spplot</code> is used for plotting. Arguments to the corresponding plot functions can be given through <code>...</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sbss</code>, <code>spplot</code>, <code>plot.sf</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># simulate coordinates
+coords &lt;- runif(1000 * 2) * 20
+dim(coords) &lt;- c(1000, 2)
+coords_df &lt;- as.data.frame(coords)
+names(coords_df) &lt;- c("x", "y")
+# simulate random field
+if (!requireNamespace('gstat', quietly = TRUE)) {
+  message('Please install the package gstat to run the example code.')
+} else {
+  library(gstat)
+  model_1 &lt;- gstat(formula = z ~ 1, locations = ~ x + y, dummy = TRUE, beta = 0, 
+                   model = vgm(psill = 0.025, range = 1, model = 'Exp'), nmax = 20)
+  model_2 &lt;- gstat(formula = z ~ 1, locations = ~ x + y, dummy = TRUE, beta = 0, 
+                   model = vgm(psill = 0.025, range = 1, kappa = 2, model = 'Mat'), 
+                   nmax = 20)
+  model_3 &lt;- gstat(formula = z ~ 1, locations = ~ x + y, dummy = TRUE, beta = 0, 
+                   model = vgm(psill = 0.025, range = 1, model = 'Gau'), nmax = 20)
+  field_1 &lt;- predict(model_1, newdata = coords_df, nsim = 1)$sim1
+  field_2 &lt;- predict(model_2, newdata = coords_df, nsim = 1)$sim1
+  field_3 &lt;- predict(model_3, newdata = coords_df, nsim = 1)$sim1
+  field &lt;- as.matrix(cbind(field_1, field_2, field_3))
+
+  # compute ring kernel matrices
+  kernel_parameters &lt;- c(0, 1, 1, 2, 2, 3)
+  ring_kernel_list &lt;- spatial_kernel_matrix(coords, 'ring', kernel_parameters)
+  
+  # apply sbss SpatialPointsDataFrame object
+  field_sp &lt;- sp::SpatialPointsDataFrame(coords = coords, data = data.frame(field))
+  res_sp &lt;- sbss(field_sp, kernel_list = ring_kernel_list)
+  
+  # plot with SpatialPointsDataFrame object
+  plot(res_sp)
+  
+  # plot with SpatialPointsDataFrame object 
+  # and additional arguments for spplot function
+  plot(res_sp, colorkey = TRUE, as.table = TRUE, cex = 1)
+
+  # apply sbss with sf object
+  if (!requireNamespace('sf', quietly = TRUE)) {
+    message('Please install the package sf to run the example code.')
+  } else {
+    field_sf &lt;- sf::st_as_sf(data.frame(coords = coords, field), 
+                             coords = c(1,2))
+    res_sf &lt;- sbss(x = field_sf, kernel_list = ring_kernel_list)
+    
+    # plot with sf object
+    plot(res_sf)
+    
+    # plot with sf object 
+    # and additional arguments for plot.sf function
+    plot(res_sf, axes = TRUE, key.pos = 4)
+  }
+}
+
+</code></pre>
+
+
+</div>

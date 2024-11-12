@@ -1,0 +1,215 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>par.opt</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Parameter optimization</h2>
+
+<h3>Description</h3>
+
+<p>This function follows par.sens to help users optimize values for imperfectly known parameters for SongEvo. The goals are to maximize accuracy and precision of model prediction.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">par.opt(sens.results, ts, target.data, par.range)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sens.results</code></td>
+<td>
+<p>The sens.results array from par.sens(), which includes summary.results from SongEvo() for a range of parameter values.  summary.results from SongEvo() includes population summary values for each time step (dimension 1) in each iteration (dimension 2) of the model.  Population summary values are contained in five additional dimensions: population size for each time step of each iteration (“sample.n”), the population mean and variance of the song feature studied (“trait.pop.mean” and “trait.pop.variance”), with associated lower (“lci”) and upper (“uci”) confidence intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ts</code></td>
+<td>
+<p>The timestep (“ts”) at which to compare simulated trait values to target trait values (“target.data”).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target.data</code></td>
+<td>
+<p>A set of trait values against which to compare simulated values. target.data may be measured (e.g. from a training population) or hypothetical.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>par.range</code></td>
+<td>
+<p>Range of parameter values over which to optimize.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Three measurements of accuracy and one measure of precision.  Accuracy is quantified by three different approaches: i) the mean of absolute residuals of the predicted population mean values in relation to observed values (smaller absolute residuals indicate a more accurate model), ii) the difference between the bootstrapped mean of predicted population means and the mean of the observed values, and iii) the proportion of simulated population trait means that fall within confidence intervals of the observed data (a higher proportion indicates greater accuracy). Precision is measured with the residuals of the predicted population variance to the variance of observed values (smaller residuals indicate a more precise model).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SongEvo</code>, <code>par.sens</code>, <code>mod.val</code>, <code>h.test</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### See vignette for an example that uses all functions in SongEvo.
+
+#### Specify and call `par.sens()`
+
+# Here we test the sensitivity of the Acquire a Territory submodel to variation
+# in territory turnover rates, ranging from 0.8–1.2 times the published rate
+# (40–60% of territories turned over). The call for the par.sens function has a
+# format similar to SongEvo. The user specifies the parameter to test and the
+# range of values for that parameter. The function currently allows examination
+# of only one parameter at a time and requires at least two iterations.
+parm &lt;- "terr.turnover"
+par.range = seq(from=0.45, to=0.55, by=0.05)
+sens.results &lt;- NULL
+data("song.data")
+data("glo.parms")
+years=2005-1969
+iteration=5
+timestep=1
+n.territories &lt;- glo.parms$n.territories
+starting.trait &lt;- subset(song.data, Population=="PRBO" &amp; Year==1969)$Trill.FBW
+starting.trait2 &lt;- c(starting.trait, rnorm(n.territories-length(starting.trait),
+                                           mean=mean(starting.trait), sd=sd(starting.trait)))
+init.inds &lt;- data.frame(id = seq(1:n.territories), age = 2, trait = starting.trait2)
+init.inds$x1 &lt;-  round(runif(n.territories, min=-122.481858, max=-122.447270), digits=8)
+init.inds$y1 &lt;-  round(runif(n.territories, min=37.787768, max=37.805645), digits=8)
+
+# Now we call the par.sens function with our specifications.
+extra_parms &lt;- list(init.inds = init.inds, 
+                    timestep = 1, 
+                    n.territories = nrow(init.inds), 
+                    learning.method = "integrate", 
+                    integrate.dist = 0.1, 
+                    lifespan = NA, 
+                    terr.turnover = 0.5, 
+                    mate.comp = FALSE, 
+                    prin = FALSE,
+                    all = TRUE)
+global_parms_key &lt;- which(!names(glo.parms) %in% names(extra_parms))
+extra_parms[names(glo.parms[global_parms_key])]=glo.parms[global_parms_key]
+par.sens1 &lt;- par.sens(parm = parm, par.range = par.range, 
+                      iteration = iteration, steps = years, mate.comp = FALSE, 
+                      fixed_parms=extra_parms[names(extra_parms)!=parm], all = TRUE)
+
+#### Prepare current song values
+target.data &lt;- subset(song.data, Population=="PRBO" &amp; Year==2005)$Trill.FBW
+
+#### Specify and call `par.opt()`
+
+# Users specify the timestep (“ts”) at which to compare simulated trait values
+# to target trait data (“target.data”) and save the results in an object (called
+# `par.opt1` here).
+ts &lt;- years
+par.opt1 &lt;- par.opt(sens.results=par.sens1$sens.results, ts=ts, 
+                    target.data=target.data, par.range=par.range)
+
+# Examine results objects (residuals and target match).  
+par.opt1$Residuals
+par.opt1$Target.match
+
+
+	
+#### Plot results of `par.opt()`
+#### Accuracy
+
+  #1. Difference in means.
+plot(par.range, par.opt1$Target.match[,1], type="l", 
+     xlab="Parameter range", ylab="Difference in means (Hz)")
+
+  #2. Plot proportion contained.
+plot(par.range, par.opt1$Prop.contained, type="l", 
+     xlab="Parameter range", ylab="Proportion contained")
+
+  #3. Calculate and plot mean and quantiles of residuals of mean trait values.
+res.mean.means &lt;- apply(par.opt1$Residuals[, , 1], MARGIN=1, 
+                        mean, na.rm=TRUE)
+res.mean.quants &lt;- apply (par.opt1$Residuals[, , 1], MARGIN=1, 
+                          quantile, probs=c(0.975, 0.025), R=600, na.rm=TRUE)
+plot(par.range, res.mean.means, col="orange", 
+     ylim=range(par.opt1$Residuals[,,1], na.rm=TRUE), 
+     type="b", 
+     xlab="Parameter value (territory turnover rate)", 
+     ylab="Residual of trait mean (trill bandwidth, Hz)")
+points(par.range, res.mean.quants[1,], col="orange")
+points(par.range, res.mean.quants[2,], col="orange")
+lines(par.range, res.mean.quants[1,], col="orange", lty=2)
+lines(par.range, res.mean.quants[2,], col="orange", lty=2)
+
+#### Precision
+#Calculate and plot mean and quantiles of residuals of variance of trait values
+res.var.mean &lt;- apply(par.opt1$Residuals[, , 2], MARGIN=1, 
+                      mean, na.rm=TRUE)
+res.var.quants &lt;- apply (par.opt1$Residuals[, , 2], MARGIN=1, 
+                         quantile, probs=c(0.975, 0.025), R=600, na.rm=TRUE)
+plot(par.range, res.var.mean, col="purple", 
+     ylim=range(par.opt1$Residuals[,,2], na.rm=TRUE),
+     type="b", 
+     xlab="Parameter value (territory turnover rate)", 
+     ylab="Residual of trait variance (trill bandwidth, Hz)")
+points(par.range, res.var.quants[1,], col="purple")
+points(par.range, res.var.quants[2,], col="purple")
+lines(par.range, res.var.quants[1,], col="purple", lty=2)
+lines(par.range, res.var.quants[2,], col="purple", lty=2)
+
+#### Visual inspection of accuracy and precision: plot trait values for range of parameters
+par(mfcol=c(3,2),
+    mar=c(4.1, 4.1, 1, 1),
+    cex=1.2)
+for(i in 1:length(par.range)){
+plot(par.sens1$sens.results[ , , "trait.pop.mean", ], 
+     xlab="Year", ylab="Bandwidth (Hz)", 
+     xaxt="n", type="n", 
+     xlim=c(-0.5, years), ylim=range(par.sens1$sens.results[ , , "trait.pop.mean", ], na.rm=TRUE))
+	for(p in 1:iteration){
+		lines(par.sens1$sens.results[p, , "trait.pop.mean", i], col="light gray")
+		}
+freq.mean &lt;- apply(par.sens1$sens.results[, , "trait.pop.mean", i], 2, mean, na.rm=TRUE)
+lines(freq.mean, col="blue")
+axis(side=1, at=seq(0, 35, by=5), labels=seq(1970, 2005, by=5))#, tcl=-0.25, mgp=c(2,0.5,0))
+#Plot 95% quantiles
+quant.means &lt;- apply (par.sens1$sens.results[, , "trait.pop.mean", i], MARGIN=2, 
+                      quantile, probs=c(0.95, 0.05), R=600, na.rm=TRUE)
+lines(quant.means[1,], col="blue", lty=2)
+lines(quant.means[2,], col="blue", lty=2)
+#plot mean and CI for historic songs.  
+ #plot original song values
+library("boot")
+sample.mean &lt;- function(d, x) {
+	mean(d[x])
+}
+boot_hist &lt;- boot(starting.trait, statistic=sample.mean, R=100)#, strata=mn.res$iteration)	
+ci.hist &lt;- boot.ci(boot_hist, conf=0.95, type="basic")
+low &lt;- ci.hist$basic[4]
+high &lt;- ci.hist$basic[5]
+points(0, mean(starting.trait), pch=20, cex=0.6, col="black")
+library("Hmisc")
+errbar(x=0, y=mean(starting.trait), high, low, add=TRUE)
+ 
+ #plot current song values
+boot_curr &lt;- boot(target.data, statistic=sample.mean, R=100)#, strata=mn.res$iteration)	
+ci.curr &lt;- boot.ci(boot_curr, conf=0.95, type="basic")
+low &lt;- ci.curr$basic[4]
+high &lt;- ci.curr$basic[5]
+points(years, mean(target.data), pch=20, cex=0.6, col="black")
+errbar(x=years, y=mean(target.data), high, low, add=TRUE)
+  #plot panel title
+text(x=3, y=max(par.sens1$sens.results[ , , "trait.pop.mean", ], na.rm=TRUE)-100, 
+     labels=paste("Par = ", par.range[i], sep=""))  
+}
+
+</code></pre>
+
+
+</div>

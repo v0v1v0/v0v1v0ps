@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>update.HLfit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Updates a fit 
+</h2>
+
+<h3>Description</h3>
+
+<p><code>update</code> and <code>update_resp</code> will update and (by default) re-fit a model. They do this mostly by extracting the call stored in the object, updating the call and evaluating that call. Using <code>update(&lt;fit&gt;)</code> is a risky programming style (see Details). <code>update_formulas(&lt;mv fit&gt;, ...)</code> can update formulas from a <code>fitmv</code> fit as well as the single formula of a fit by the other fitting functions.
+</p>
+<p><code>update_resp</code> handles a new response vector as produced by <code>simulate</code>. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'HLfit'
+update(object, formula., ..., evaluate = TRUE)
+update_resp(object, newresp, ..., evaluate = TRUE)
+
+update_formulas(object, formula., ...)
+
+# &lt;fit object&gt;$respName[s] : see Details.
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+
+<p>A return object from an HLfit call.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula.</code></td>
+<td>
+
+<p>A standard <code>formula</code>; or a <code>formula</code> with a peculiar syntax only describing changes to the original model formula 
+(see <code>update.formula</code> for details); or (for multivariate-response models) a list of <code>formula</code> of such types.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newresp</code></td>
+<td>
+<p>New response vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Additional arguments to the call, or arguments with changed values. Use <em>name</em><code> = NULL</code> to remove the argument with given <em>name</em>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>evaluate</code></td>
+<td>
+
+<p>If TRUE, evaluate the new call else return the call.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+<p><b>Controlling response updating</b>: Updating the data may be tricky when the response specified in a formula is not simply the name of a variable in the data. For example,
+if the response was specified as <code>I(foo^2)</code> the variable <code>foo</code> is not what <code>simulate.HLfit</code> will simulate, so <code>foo</code> should not be updated with such simulation results, yet this is what should be updated in the <code>data</code>. For some time <span class="pkg">spaMM</span> has handled such cases by using an alternative way to provide updated response information, but this has some limitations. So <span class="pkg">spaMM</span> now update the data after checking that this is correct, which the consequence that when response updating is needed (notably, for bootstrap procedures), the response should preferably be specified as the name of a variable in the data, rather than a more complicated expression. 
+</p>
+<p>However, in some cases, dynamic evaluation of the response variable may be helpful. For example, for bootstrapping hurdle models, the zero-truncated response may be specified as <code>I(count[presence&gt;0] &lt;- NA; count)</code> (where both the zero-truncated <code>count</code> and binary <code>presence</code> variables are both updated by the bootstrap simulation). In that case the names of the two variables to be updated is provided by setting (say)<br><code>&lt;fit object&gt;$respNames &lt;- c("presence", "count")</code><br>
+for an hurdle model fit as a bivariate-response model, with first submodel for presence/absence, and second submodel for zero-truncated response. A full example is developed in the “Gentle introduction” to <span class="pkg">spaMM</span> (
+<a href="https://gitlab.mbb.univ-montp2.fr/francois/spamm-ref/-/blob/master/vignettePlus/spaMMintro.pdf">https://gitlab.mbb.univ-montp2.fr/francois/spamm-ref/-/blob/master/vignettePlus/spaMMintro.pdf</a>).
+Alternatively for univariate-response fits, use <br><code>&lt;fit object&gt;$respName &lt;- "count"</code>
+</p>
+<p><b>Controlling formula updating</b>: Early versions of <span class="pkg">spaMM</span>'s <code>update</code> method relied on <code>stats::update.formula</code> whose results endorse <code>stats</code>'s (sometimes annoying) convention that a formula without an explicit intercept term actually includes an intercept. <code>spaMM::update.HLfit</code> was then defined to avoid this problem. <b>Formula updates should still be carefully checked</b>, as getting them perfect has not been on the priority list. 
+</p>
+<p>Various post-fit functions from base R may use <code>update.formula</code> directly, rather than using automatic method selection for <code>update</code>. <code>update.formula</code> is not itself a generic, which leads to the following problem. To make <code>update.formula()</code> work on multivariate-response fits, one would like to be able to redefine it as a generic, with an <code>HLfit</code> method that would perform what <code>update_formulas</code> does, but such a redefinition appears to be forbidden in a package distributed on CRAN. Instead it is suggested to define a new generic <code>spaMM::update</code>, which could have a <code>spaMM::update.formula</code> as a method (possibly itself a generic). This would be of limited interest as the new <code>spaMM::update.formula</code> would be visible to <code>spaMM::update</code> but not to <code>stats::update</code>, and thus the post-fit functions from base R would still not use this method.  
+</p>
+<p><b>Safe updating</b>: <code>update(&lt;fit&gt;, ...)</code>, as a general rule, is tricky. <code>update</code> methods are easily affected in a non-transparent way by changes in variables used in the original call. For example
+</p>
+<pre>
+foo &lt;- rep(1,10)
+m &lt;- lm(rnorm(10)~1, weights=foo)
+rm(foo)
+update(m, .~.) # Error
+</pre>
+<p>To avoid such problems, <span class="pkg">spaMM</span> tries to avoid references to variables in the global environment, by enforcing that the data are explicitly provided to the fitting functions by the <code>data</code> argument, and that any variable used in the <code>prior.weights</code> argument is in the data.
+</p>
+<p>Bugs can also result when calling <code>update</code> on a fit produced within some function, say function <code>somefn</code> calling <code>fitme(data=mydata,...)</code>, as e.g. <code>update(&lt;fit&gt;)</code> will then seek a global variable <code>mydata</code> that may differ from the fitted <code>mydata</code> which was local to <code>somefn</code>.   
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>update.formula(object)</code> returns an object of the same nature as <code>formula(object)</code>. The other functions and methods return an HLfit fit of the same type as the input object, or a call object, depending on the <code>evaluate</code> value. <b>Warning:</b> The object returned by <code>update_resp</code> cannot be used safely for further programming, for the reason explained in the Details section.  
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See also <code>HLCor</code>,  <code>HLfit</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("wafers")
+## First the fit to be updated:
+wFit &lt;- HLfit(y ~X1*X3+X2*X3+I(X2^2)+(1|batch),family=Gamma(log),
+          resid.model = ~ X3+I(X3^2) ,data=wafers)
+
+newresp &lt;- simulate(wFit)
+update_resp(wFit,newresp=newresp)
+
+# For estimates given by Lee et al., Appl. Stochastic Models Bus. Ind. (2011) 27:  315-328:
+# Refit with given beta or/and phi values:
+ 
+betavals &lt;- c(5.55,0.08,-0.14,-0.21,-0.08,-0.09,-0.09)
+# reconstruct fitted phi value from predictor for log(phi)
+Xphi &lt;- with(wafers,cbind(1,X3,X3^2)) ## design matrix
+phifit &lt;- exp(Xphi %*% c(-2.90,0.1,0.95))
+upd_wafers &lt;- wafers
+designX &lt;- get_matrix(wFit)
+upd_wafers$off_b &lt;- designX %*% betavals
+update(wFit,formula.= . ~ offset(off_b)+(1|batch), data=upd_wafers,
+       ranFix=list(lambda=exp(-3.67),phi=phifit))
+
+## There are subtlety in performing REML fits of constrained models,
+##   illustrated by the fact that the following fit does not recover 
+##   the original likelihood values, because dispersion parameters are
+##   estimated but the REML correction changes with the formula:
+upd_wafers$off_f &lt;- designX %*% fixef(wFit) ## = predict(wFit,re.form=NA,type="link")
+update(wFit,formula.= . ~ offset(off_f)+(1|batch), data=upd_wafers)
+#
+## To maintain the original REML correction, Consider instead
+update(wFit,formula.= . ~ offset(off_f)+(1|batch), data=upd_wafers,
+       REMLformula=formula(wFit))  ## recover original p_v and p_bv     
+## Alternatively, show original wFit as differences from betavals:  
+update(wFit,formula.= . ~ . +offset(off_f), data=upd_wafers)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,172 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>coBC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>General Interface for CoBC model</h2>
+
+<h3>Description</h3>
+
+<p>Co-Training by Committee (CoBC) is a semi-supervised learning algorithm
+with a co-training style. This algorithm trains <code>N</code> classifiers with the learning
+scheme defined in the <code>learner</code> argument using a reduced set of labeled examples. For
+each iteration, an unlabeled
+example is labeled for a classifier if the most confident classifications assigned by the
+other <code>N-1</code> classifiers agree on the labeling proposed. The unlabeled examples
+candidates are selected randomly from a pool of size <code>u</code>.
+The final prediction is the average of the estimates of the N regressors.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">coBC(learner, N = 3, perc.full = 0.7, u = 100, max.iter = 50)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>learner</code></td>
+<td>
+<p>model from parsnip package for training a supervised base classifier
+using a set of instances. This model need to have probability predictions in classification mode</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>The number of classifiers used as committee members. All these classifiers
+are trained using the <code>gen.learner</code> function. Default is 3.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>perc.full</code></td>
+<td>
+<p>A number between 0 and 1. If the percentage
+of new labeled examples reaches this value the self-labeling process is stopped.
+Default is 0.7.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u</code></td>
+<td>
+<p>Number of unlabeled instances in the pool. Default is 100.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.iter</code></td>
+<td>
+<p>Maximum number of iterations to execute in the self-labeling process.
+Default is 50.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For regression tasks, labeling data is very expensive computationally. Its so slow.
+This method trains an ensemble of diverse classifiers. To promote the initial diversity
+the classifiers are trained from the reduced set of labeled examples by Bagging.
+The stopping criterion is defined through the fulfillment of one of the following
+criteria: the algorithm reaches the number of iterations defined in the <code>max.iter</code>
+parameter or the portion of unlabeled set, defined in the <code>perc.full</code> parameter,
+is moved to the enlarged labeled set of the classifiers.
+</p>
+
+
+<h3>Value</h3>
+
+<p>(When model fit) A list object of class "coBC" containing:
+</p>
+
+<dl>
+<dt>model</dt>
+<dd>
+<p>The final <code>N</code> base classifiers trained using the enlarged labeled set.</p>
+</dd>
+<dt>model.index</dt>
+<dd>
+<p>List of <code>N</code> vectors of indexes related to the training instances
+used per each classifier. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of all training instances used to
+train the <code>N</code> models. These indexes include the initial labeled instances
+and the newly labeled instances. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>model.index.map</dt>
+<dd>
+<p>List of three vectors with the same information in <code>model.index</code>
+but the indexes are relative to <code>instances.index</code> vector.</p>
+</dd>
+<dt>classes</dt>
+<dd>
+<p>The levels of <code>y</code> factor in classification.</p>
+</dd>
+<dt>pred</dt>
+<dd>
+<p>The function provided in the <code>pred</code> argument.</p>
+</dd>
+<dt>pred.pars</dt>
+<dd>
+<p>The list provided in the <code>pred.pars</code> argument.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Avrim Blum and Tom Mitchell.<br><em>Combining labeled and unlabeled data with co-training.</em><br>
+In Eleventh Annual Conference on Computational Learning Theory, COLT’ 98, pages 92-100, New York, NY, USA, 1998. ACM.
+ISBN 1-58113-057-0. doi: 10.1145/279943.279962.<br><br>
+Mohamed Farouk Abdel-Hady, Mohamed Farouk Abdel-Hady and Günther Palm.<br><em>Semi-supervised Learning for Regression with Cotraining by Committee</em><br>
+Institute of Neural Information Processing
+University of Ulm
+D-89069 Ulm, Germany
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(tidyverse)
+library(tidymodels)
+library(caret)
+library(SSLR)
+
+data(wine)
+
+set.seed(1)
+train.index &lt;- createDataPartition(wine$Wine, p = .7, list = FALSE)
+train &lt;- wine[ train.index,]
+test  &lt;- wine[-train.index,]
+
+cls &lt;- which(colnames(wine) == "Wine")
+
+#% LABELED
+labeled.index &lt;- createDataPartition(wine$Wine, p = .2, list = FALSE)
+train[-labeled.index,cls] &lt;- NA
+
+#We need a model with probability predictions from parsnip
+#https://tidymodels.github.io/parsnip/articles/articles/Models.html
+#It should be with mode = classification
+
+#For example, with Random Forest
+rf &lt;-  rand_forest(trees = 100, mode = "classification") %&gt;%
+  set_engine("randomForest")
+
+
+m &lt;- coBC(learner = rf,N = 3,
+          perc.full = 0.7,
+          u = 100,
+          max.iter = 3) %&gt;% fit(Wine ~ ., data = train)
+
+#Accuracy
+predict(m,test) %&gt;%
+  bind_cols(test) %&gt;%
+  metrics(truth = "Wine", estimate = .pred_class)
+
+</code></pre>
+
+
+</div>

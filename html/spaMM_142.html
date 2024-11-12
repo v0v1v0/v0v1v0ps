@@ -1,0 +1,255 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fitmv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Fitting multivariate responses
+</h2>
+
+<h3>Description</h3>
+
+<p>This function extends the <code>fitme</code> function to fit a joint model for different responses (following possibly different response families) sharing some random-effects, including a new type of random effect defined to exhibit correlations across different responses (see <code>mv</code>).
+It is also possible to declare shared fixed-effect coefficients among different submodels, using the <code>X2X</code> argument.  
+Only a few features available for analysis of univariate response may not yet work (see Details). 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fitmv(submodels, data, fixed=NULL, init=list(), lower=list(), upper=list(), 
+      control=list(), control.dist = list(), method="ML", init.HLfit=list(), 
+      X2X=NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>submodels</code></td>
+<td>
+
+<p>A list of sublists each specifying a model for each univariate response. The names given to each submodel in the main list are currently ignored. The names and syntax of elements within each sublist are those of a <code>fitme</code> call. In most cases, each sublist should not contain arguments whose names are those of formal arguments of <code>fitmv</code> itself (with the possible exception for <code>fixed</code>). 
+</p>
+<p><code>prior.weights</code> (or better, <code>weights.form</code>), if any, should be specified as part of a submodel. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>A data frame containing the variables in the response and the model formulas.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+<p>A list of fixed values of the parameters controlling random effects. The syntax is that of the same argument in <code>fitme</code> (the optional <code>fixed</code> argument in each sublist of <code>submodels</code> may also be used but this feature may be confusing). Fixed <code>phi</code> values must be specified as a list, e.g., <code>fixed=list(phi=list("2"=0.1))</code> to set the value for the second submodel.   
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init, lower, upper</code></td>
+<td>
+
+<p>Lists of initial values or bounds. The syntax is that of the same arguments in <code>fitme</code>. In these lists, random effects should be indexed according to their order of appearance in the total model (see Details). Any <code>init</code>, <code>lower</code>, or <code>upper</code> in a sublist of <code>submodels</code> will be ignored.   
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A list of control parameters, with possible elements as described for <code>fitme</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control.dist</code></td>
+<td>
+<p> See <code>control.dist</code> in <code>HLCor</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Character: the fitting method to be used, such as <code>"ML"</code>, <code>"REML"</code> or <code>"PQL/L"</code>. <code>"ML"</code> is the default, as for <code>fitme</code> and in contrast to <code>"REML"</code> for the other fitting functions. Other possible values of <code>HLfit</code>'s <code>method</code> argument are handled.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init.HLfit</code></td>
+<td>
+<p> See identically named <code>HLfit</code> argument. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X2X</code></td>
+<td>
+<p> NULL, or a matrix <b>M</b> by which one can specify, as <code class="reqn">\beta=</code><b>M</b><code class="reqn">\beta^*</code>, fixed effects <code class="reqn">\beta</code> with some coefficients shared between submodels, e.g. as shown in the “Shared fixed effect” Example, where <code class="reqn">\beta^*</code> has three distinct elements, and <code class="reqn">\beta</code> has four elements including identical Intercept coefficients among the two submodels. The fixed-effect term <b>X</b><code class="reqn">\beta</code> of the linear predictor thus takes the form <b>XM</b><code class="reqn">\beta^*</code>, meaning that the default design matrix of the model <b>X</b> is replaced by <b>XM</b>. <b>M</b> must have column names, labeling the <code class="reqn">\beta^*</code> coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Optional arguments passed to (or operating as if passed to) <code>HLCor</code>, <code>HLfit</code> or  <code>mat_sqrt</code>, for example  <code>control.HLfit</code> or the <code>covStruct</code>, <code>distMatrix</code>, <code>corrMatrix</code> or <code>adjMatrix</code> arguments of <code>HLCor</code>. </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><b>Matching random effects across submodels, and referring to them</b>;<br>
+Random effects are recognized as identical across submodels by matching the formula terms. As shown in the Examples, if the two models formulas share the <code>(1|clinic)</code> term, this term is recognized as a single random effect shared between the two responses. But the <code>(1|clinic)</code> and <code>(+1|clinic)</code> terms are recognized as distinct random effects. In that case, the <code>init</code> argument <code>init=list(lambda=c('1'=1,'2'=0.5))</code> is shown to refer to these by names <code>1,2</code>... where the order is defined as the order of first appearance of the terms across the model formulas in the order of the <code>submodels</code> list. 
+Alternatively, the syntax <code>fixed=list(lambda=c('clinic.1'=0.5,'clinic'=1))</code> works: this syntax makes order of input irrelevant but assumes that the user guesses names correctly (these are typically the names that appear in the summary of lambda values from the fit object or, more programmatically, <br><code>names(&lt;fit object&gt;$lambda.object$print_namesTerms)</code>). Finally, fixed values of parameters can <b>also</b> be specified through each sub-model, with indices referring to the order of random effects with each model.
+</p>
+<p>The matching of random-effect terms occurs after expansion of <code>multIMRF</code> terms, if any. This may have subtle consequences if two multIMRF terms differ only by their number of levels, as some of the expanded IMRF terms are then shared. 
+</p>
+<p><b>Capacities and limitations</b>:<br>
+Practically all features of models that can be fitted by <code>fitme</code> should be available: this includes all combinations of GLM response families, residual dispersion models, and all types of random-effect terms, whether autocorrelated or not. Among the arguments handled through the ..., <code>covStruct</code>, <code>distMatrix</code>, <code>corrMatrix</code> should be effective; <code>control.HLfit$LevenbergM</code> and <code>verbose=c(TRACE=TRUE)</code> will work but some other controls available in <code>fitme</code> may not. Usage of the <code>REMLformula</code> argument is restricted as it cannot be used to specify a non-standard REML correction (but the more useful <code>keepInREML</code> attribute for fixed fixed-effect coefficients is handled).
+</p>
+<p>The <code>multi</code> family-like syntax for multinomial models should not be used, but <code>fitmv</code> could provide other means to model multinomial responses.
+</p>
+<p>Most post-fit functions work, at least with default arguments. This includes point <code>predict</code>ion and prediction variances calculations sensu lato, including with <code>newdata</code>; but also <code>simulate</code>, <code>spaMM_boot</code>, <code>confint</code>, <code>anova</code>, <code>update_resp</code>, and <code>update</code>. The <code>re.form</code> argument now works for <code>predict</code> and <code>simulate</code>. Bootstrap computation may require special care for models where simulation of one response variable may depend on draws of another one (see Hurdle model example in the “Gentle introdution” to <span class="pkg">spaMM</span>,
+<a href="https://gitlab.mbb.univ-montp2.fr/francois/spamm-ref/-/blob/master/vignettePlus/spaMMintro.pdf">https://gitlab.mbb.univ-montp2.fr/francois/spamm-ref/-/blob/master/vignettePlus/spaMMintro.pdf</a>).
+</p>
+<p>Prediction functions try to handle most forms of missing information in <code>newdata</code> (including information missing for a residual-dispersion model when predcitiosn fro mit are needed: see Examples). As information may be missing for some submodels but not others, different numbers of predictions are then returned for different submodels. As for univariate-response models, <code>predict</code> will return point predictions as a single 1-column matrix, here concatenating the prediction results of the different submodels. The <code>nobs</code> attribute specifies how may values pertain to each submodel. 
+</p>
+<p>Some plotting functions may fail. <code>update.formula</code> fails (see <code>update_formulas</code> for details). <code>terms</code> returns a list, which is not usable by other base R functions. <code>stats::step</code> is a good example of resulting limitations, as it is currently unable to perform any sensible operation on <code>fitmv</code> output. <code>spaMM::MSFDR</code> which calls <code>stats::step</code> likewise fails. 
+<code>multcomp::glht</code> fails. 
+
+</p>
+<p>A perhaps not entirely satisfying feature is that <code>simulate</code> by default stacks the results of simulating each submodel in a single vector. Some non-trivial reformatting may then be required to include such simulation results in a suitable <code>newdata</code> data frame with (say) sufficient information for prediction of all responses. The syntax <br><code>update_resp(&lt;fit&gt;, newresp = simulate(&lt;fit&gt;, ...), evaluate = FALSE)$data</code><br> 
+may be particularly useful to reformat simulation results in this perspective. 
+</p>
+<p><b>Which arguments belong to <code>submodels</code>?</b>:<br> 
+Overall, arguments specifying individual submodels should go into <code>submodels</code>, while other arguments of <code>fitmv</code> should be those potentially affecting several submodels (notably, random-effect structures, <code>lower</code>, and <code>upper</code>) and fitting controls (such as <code>init</code> and <code>init.HLfit</code>). One rarely-used exception is <code>REMLformula</code> which controls the fitting method but should be specified through the <code>submodels</code>.    
+</p>
+<p>The function proceeds by first preprocessing all submodels independently, before merging the resulting information by matching random effects across submodels. The merging operation includes some checks of consistency across submodels, implying that redundant arguments may be needed across submodels (e.g. specifying twice a non-default <code>rand.family</code> for a random effect shared by two submodels). 
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>A (single) list of class <code>HLfit</code>, as returned by other fitting functions in <span class="pkg">spaMM</span>. The main difference is that it contains a <code>families</code> element describing the response families, instead of the <code>family</code> elements of fitted objects for univariate response.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See further examples in <code>mv</code> (modelling correlated random effects over the different submodels),
+and <code>residVar</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### Data preparation
+data(clinics)
+climv &lt;- clinics
+(fitClinics &lt;- HLfit(cbind(npos,nneg)~treatment+(1|clinic),
+                     family=binomial(),data=clinics))
+set.seed(123)
+climv$np2 &lt;- simulate(fitClinics, type="residual")
+#
+### fits
+
+#### Shared random effect
+(mvfit &lt;- fitmv(
+   submodels=list(mod1=list(formula=cbind(npos,nneg)~treatment+(1|clinic),family=binomial()),
+                  mod2=list(formula=np2~treatment+(1|clinic),
+                            family=poisson(), fixed=list(lambda=c("1"=1)))), 
+   data=climv))
+
+# Two univariate-response independent fits because random effect terms are distinct
+# (note how two lambda values are set; same syntax for 'init' values):   
+(mvfitind &lt;- fitmv(
+   submodels=list(mod1=list(formula=cbind(npos,nneg)~treatment+(1|clinic),family=binomial()),
+                  mod2=list(formula=np2~treatment+(+1|clinic),family=poisson())), 
+   data=climv, fixed=list(lambda=c('1'=1,'2'=0.5)))) # '1': (1|clinic); '2': (+1|clinic)
+
+#### Specifying fixed (but not init) values in submodels is also possible (maybe not a good idea)
+# (mvfitfix &lt;- fitmv(
+#   submodels=list(mod1=list(formula=cbind(npos,nneg)~treatment+(1|clinic),
+#                            family=binomial(),fixed=list(lambda=c('1'=1))), # '1': (1|clinic) 
+#                  mod2=list(formula=np2~treatment+(+1|clinic),family=poisson(),
+#                            fixed=list(lambda=c('1'=0.5)))),              # '2': (+1|clinic) 
+#   data=climv))
+
+#### Shared fixed effect
+# Suppose we want to fit the same intercept for the two submodels 
+# (there may be cases where this is meaningful, even if not here).
+# The original fit has four coefficients corresponding to four columns 
+# of fixed-effect design matrix:
+
+head(design_X &lt;- model.matrix(mvfit))
+#      (Intercept)_1 treatment_1 (Intercept)_2 treatment_2
+# [1,]             1           1             0           0
+#      ...
+
+# The three coefficients of the intended model are (say) 
+# "(Intercept)" "treatment_1" "treatment_2"
+# We build a matrix that relates the original 4 coefficients to these 3 ones:
+
+X_4to3 &lt;- 
+  matrix(c(1,0,0,
+           0,1,0,
+           1,0,0,
+           0,0,1), nrow=4, ncol=3, byrow=TRUE,
+         dimnames=list(NULL, c("(Intercept)","treatment_1","treatment_2")))
+                   
+# defined such that design_X %*% X_4to3 will be the design matrix for the intended model, 
+# and the single "(Intercept)" coefficient of the three-parameter model will operate as 
+# a shared estimate of the "(Intercept)_1" and "(Intercept)_2" coefficients
+# of the original 4-coefficients model, as intended. 
+
+# To define such matrices, it is *strongly advised* to fit the unconstrained model first,
+# and to examine the structure of its model matrix (as shown above). 
+
+# The new fit is obtained by providing the matrix as the 'X2X' argument:
+
+(mvfit3 &lt;- fitmv(
+    submodels=list(mod1=list(formula=cbind(npos,nneg)~treatment+(1|clinic),family=binomial()),
+                   mod2=list(formula=np2~treatment+(1|clinic),
+                             family=poisson(), fixed=list(lambda=c("1"=1)))), 
+    X2X = X_4to3,
+    data=climv))
+
+# =&gt; the column names of 'X_4to3' are the fixed-effect names in all output.
+
+#### Prediction with a residual-dispersion model
+set.seed(123)
+beta_dat &lt;- data.frame(y=runif(100),grp=sample(2,100,replace = TRUE), x_het=runif(100),
+                       y2=runif(100))
+(mvfit &lt;- fitmv(list(list(y ~1+(1|grp), family=beta_resp(), resid.model = ~x_het),
+                   list(y2 ~1+(1|grp), family=beta_resp())), 
+              data= beta_dat))
+              
+misspred &lt;- beta_dat[1:3,]
+misspred$x_het[1] &lt;- NA # missing info for residual variance of first submodel
+
+## =&gt; prediction missing when this info is needed:
+#
+length(predict(mvfit, newdata=misspred)) # 6 values: missing info not needed for point predictions
+length(get_residVar(mvfit, newdata=misspred)) # 5 values  
+length(get_respVar(mvfit, newdata=misspred)) # 5 values
+#  Missing info not needed for predVar (**as opposed to respVar**)
+length(get_predVar(mvfit, newdata=misspred)) # 6 values
+#
+# Same logic for interval computations:
+#
+dim(attr(predict(mvfit, newdata=misspred, intervals="respVar"),"intervals")) # 5,2  
+dim(attr(predict(mvfit, newdata=misspred, intervals="predVar"),"intervals")) # 6,2  
+#
+# Same logic for simulate():
+#
+length(simulate(mvfit, newdata=misspred)) # 5 as simulation requires residVar
+
+
+</code></pre>
+
+
+</div>

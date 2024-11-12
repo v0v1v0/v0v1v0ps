@@ -1,0 +1,351 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>twinstim_epitest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Permutation Test for Space-Time Interaction in <code>"twinstim"</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>epitest</code> takes a <code>"twinstim"</code> model
+and tests if the spatio-temporal interaction invoked by the epidemic
+model component is statistically significant.
+The test only works for simple epidemic models, where <code>epidemic = ~1</code>
+(no additional parameters for event-specific infectivity),
+and requires the non-canonical <code>epilink="identity"</code> (see
+<code>twinstim</code>).
+A permutation test is performed by default, which is only valid if the
+endemic intensity is space-time separable.
+The approach is described in detail in Meyer et al. (2016),
+where it is also compared to alternative global tests for clustering
+such as the <code>knox</code> test.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">epitest(model, data, tiles, method = "time", B = 199,
+        eps.s = NULL, eps.t = NULL, fixed = NULL,
+        verbose = TRUE, compress = FALSE, ...)
+
+## S3 method for class 'epitest'
+coef(object, which = c("m1", "m0"), ...)
+## S3 method for class 'epitest'
+plot(x, teststat = c("simpleR0", "D"), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+
+<p>a simple epidemic <code>"twinstim"</code> with <code>epidemic = ~1</code>,
+fitted using the non-canonical <code>epilink="identity"</code>.
+Note that the permutation test is only valid for models with
+a space-time separable endemic intensity, where covariates vary
+either in space or time but not both.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>an object of class <code>"epidataCS"</code>, the <code>data</code> to
+which the <code>model</code> was fitted.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tiles</code></td>
+<td>
+
+<p>(only used by <code>method = "simulate"</code>)
+a <code>"SpatialPolygons"</code> representation of the
+<code>tile</code>s in <code>data$stgrid</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+
+<p>one of the following character strings specifying the test method:
+</p>
+
+<dl>
+<dt>
+<code>"LRT"</code>:</dt>
+<dd>
+<p>a simple likelihood ratio test of the epidemic
+<code>model</code> against the corresponding endemic-only model,
+</p>
+</dd>
+<dt>
+<code>"time"</code>/<code>"space"</code>:</dt>
+<dd>
+<p>a Monte Carlo permutation test where the null distribution is
+obtained by relabeling time points or locations, respectively
+(using <code>permute.epidataCS</code>).
+</p>
+</dd>
+<dt>
+<code>"simulate"</code>:</dt>
+<dd>
+<p>obtain the null distribution of the test statistic by
+simulations from the endemic-only model
+(using <code>simEndemicEvents</code>).
+</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+
+<p>the number of permutations for the Monte Carlo approach.
+The default number is rather low; if computationally feasible,
+<code>B = 999</code> is more appropriate. Note that this determines the
+“resolution” of the p-value: the smallest attainable p-value
+is <code>1/(B+1)</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps.s,eps.t</code></td>
+<td>
+<p>arguments for <code>simpleR0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+
+<p>optional character vector naming parameters to fix at their original
+value when re-fitting the <code>model</code> on permuted data.
+The special value <code>fixed = TRUE</code> means to fix all epidemic
+parameters but the intercept.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+
+<p>the amount of tracing in the range <code>0:3</code>.
+Set to 0 (or <code>FALSE</code>) for no output,
+1 (or <code>TRUE</code>, the default) for a progress bar,
+2 for the test statistics resulting from each permutation,
+and to 3 for additional tracing of the log-likelihood
+maximization in each permutation (not useful if parallelized).
+Tracing does not work if permutations are parallelized using clusters.
+See <code>plapply</code> for other choices.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compress</code></td>
+<td>
+
+<p>logical indicating if the <code>nobs</code>-dependent elements <code>"fitted"</code>,
+<code>"fittedComponents"</code>, and <code>"R0"</code> should be dropped from
+the permutation-based model fits. Not keeping these elements saves a
+lot of memory especially with a large number of events.
+Note, however, that the returned <code>permfits</code> then no longer are
+fully valid <code>"twinstim"</code> objects (but most methods will still work).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments for <code>plapply</code> to configure
+parallel operation, i.e., <code>.parallel</code> as well as
+<code>.seed</code> to make the results reproducible.<br>
+For the <code>plot</code>-method, further arguments passed to
+<code>truehist</code>.<br>
+Ignored by the <code>coef</code>-method.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object,x</code></td>
+<td>
+
+<p>an object of class <code>"epitest"</code> as returned by <code>epitest</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+
+<p>a character string indicating either the full (<code>"m1"</code>, default)
+or the endemic-only (<code>"m0"</code>) model.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>teststat</code></td>
+<td>
+
+<p>a character string determining the test statistic to plot, either
+<code>"simpleR0"</code> or <code>"D"</code> (twice the log-likelihood
+difference of the models).
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This space-time interaction test is limited to models with
+<code>epidemic = ~1</code>, since covariate effects are not identifiable
+under the null hypothesis of no space-time interaction.
+Estimating a rich epidemic <code>model</code> based on permuted data
+will most likely result in singular convergence.
+A similar issue might arise when the model employs parametric
+interaction functions, in which case <code>fixed=TRUE</code> can be used.
+For further details see Meyer et al. (2016).
+</p>
+<p>The test statistic is the reproduction number <code>simpleR0</code>.
+A likelihood ratio test of the supplied epidemic model against
+the corresponding endemic-only model is also available.
+By default, the null distribution of the test statistic under no
+space-time interaction is obtained by a Monte Carlo permutation
+approach (via <code>permute.epidataCS</code>) and therefore relies on
+a space-time separable endemic model component.
+</p>
+<p>The <code>plot</code>-method shows a <code>truehist</code> of
+the simulated null distribution together with the observed value.
+The <code>coef</code>-method extracts the parameter estimates from the <code>B</code>
+<code>permfits</code> (by default for the full model <code>which = "m1"</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list (inheriting from <code>"htest"</code>) with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a character string indicating the type of test performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data.name</code></td>
+<td>
+<p>a character string giving the supplied <code>data</code> and
+<code>model</code> arguments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>statistic</code></td>
+<td>
+<p>the observed test statistic.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parameter</code></td>
+<td>
+<p>the (effective) number of permutations used to
+calculate the p-value (only those with convergent fits are used).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.value</code></td>
+<td>
+<p>the p-value for the test. For the <code>method</code>s
+involving resampling under the null (<code>method != "LRT"</code>),
+it is based on the subset of convergent fits only and the p-value
+from the simple LRT is attached as an attribute <code>"LRT"</code>.</p>
+</td>
+</tr>
+</table>
+<p>In addition, if <code>method != "LRT"</code>, the result will have the
+following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>permfits</code></td>
+<td>
+<p>the list of model fits (endemic-only and epidemic)
+from the <code>B</code> permutations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>permstats</code></td>
+<td>
+<p>a data frame with <code>B</code> rows and the columns
+<code>"l0"</code> (log-likelihood of the endemic-only model <code>m0</code>),
+<code>"l1"</code> (log-likelihood of the epidemic model <code>m1</code>),
+<code>"D"</code> (twice their difference),
+<code>"simpleR0"</code> (the results of <code>simpleR0(m1, eps.s, eps.t)</code>), 
+and <code>"converged"</code> (a boolean indicator if both models converged).</p>
+</td>
+</tr>
+</table>
+<p>The <code>plot</code>-method invisibly returns <code>NULL</code>.
+The <code>coef</code>-method returns the <code>B</code> x <code>length(coef(model))</code>
+matrix of parameter estimates.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+
+
+<h3>References</h3>
+
+<p>Meyer, S., Warnke, I., Rössler, W. and Held, L. (2016):
+Model-based testing for space-time interaction using point processes:
+An application to psychiatric hospital admissions in an urban area.
+<em>Spatial and Spatio-temporal Epidemiology</em>, <b>17</b>, 15-25.
+<a href="https://doi.org/10.1016/j.sste.2016.03.002">doi:10.1016/j.sste.2016.03.002</a>.
+Eprint: <a href="https://arxiv.org/abs/1512.09052">https://arxiv.org/abs/1512.09052</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>permute.epidataCS</code>, <code>knox</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("imdepi", "imdepifit")
+
+## test for space-time interaction of the B-cases
+## assuming spatial interaction to be constant within 50 km
+imdepiB50 &lt;- update(subset(imdepi, type == "B"), eps.s = 50)
+imdfitB50 &lt;- update(imdepifit, data = imdepiB50, subset = NULL,
+                    epidemic = ~1, epilink = "identity", siaf = NULL,
+                    start = c("e.(Intercept)" = 0))
+
+## simple likelihood ratio test
+epitest(imdfitB50, imdepiB50, method = "LRT")
+
+## permutation test
+et &lt;- epitest(imdfitB50, imdepiB50,
+              B = 5,        # CAVE: limited here for speed
+              verbose = 2,  # (tracing does not work on Windows
+              .seed = 1, .parallel = 1)       # if parallelized)
+et
+plot(et)
+
+## summary of parameter estimates under permutation
+summary(coef(et, which = "m1"))
+</code></pre>
+
+
+</div>

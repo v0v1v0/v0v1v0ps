@@ -1,0 +1,144 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pairwise</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute all pairwise comparisons between category levels</h2>
+
+<h3>Description</h3>
+
+<p>This function is useful for generating and testing all pairwise comparisons of categorical terms
+in a linear model. This can be done in base R using functions like <code>pairwise.t.test</code> and
+<code>TukeyHSD</code>, but these functions are inconsistent both in their output format and their general
+approach to pairwise comparisons. <code>pairwise()</code> will return a consistent table format, and will
+make consistent decisions about how to calculate error terms and confidence intervals. See the
+<strong>Details</strong> section low for more on how the models are tested (and why your output might not
+match other functions).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">pairwise(
+  fit,
+  correction = "Tukey",
+  term = NULL,
+  alpha = 0.05,
+  var_equal = TRUE,
+  plot = FALSE
+)
+
+pairwise_t(fit, term = NULL, alpha = 0.05, correction = "none")
+
+pairwise_bonferroni(fit, term = NULL, alpha = 0.05)
+
+pairwise_tukey(fit, term = NULL, alpha = 0.05)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>A model fit by <code>lm()</code> or <code>aov()</code> (or similar).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>correction</code></td>
+<td>
+<p>The type of correction (if any) to perform to maintain the family-wise
+error-rate specified by <code>alpha</code>:
+- <strong>Tukey</strong>: computes Tukey's Honestly Significant Differences (see <code>TukeyHSD()</code>)
+- <strong>Bonferroni</strong>: computes pairwise <em>t</em>-tests and then apply a Bonferroni correction
+- <strong>none</strong>: computes pairwise <em>t</em>-tests and reports the uncorrected statistics</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>term</code></td>
+<td>
+<p>If <code>NULL</code>, use each categorical term in the model. Otherwise, only use the given
+term.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>The family-wise error-rate to restrict the tests to. If "none" is given for
+<code>correction</code>, this value is the value for each test (and is used to calculate the family-wise
+error-rate for the group of tests).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var_equal</code></td>
+<td>
+<p>If <code>TRUE</code> (default), treat the variances between each group as being equal,
+otherwise the Welch or Satterthwaite method is used to appropriately weight the variances.
+<strong>Note:</strong>, currently only <code>TRUE</code> is supported. Alternative methods forthcoming.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>Setting plot to TRUE will automatically call <code>plot</code> on the returned object.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For simple one-way models where a single categorical variable predicts and outcome, you will get
+output similar to other methods of computing pairwise comparisons. Essentially, the differences
+on the outcome between each of the groups defined by the categorical variable are compared with
+the requested test, and their confidence intervals and p-values are adjusted by the requested
+<code>correction</code>.
+</p>
+<p>However, when more than two variables are entered into the model, the outcome will diverge
+somewhat from other methods of computing pairwise comparisons. For traditional pairwise tests you
+need to estimate an error term, usually by pooling the standard deviation of the groups being
+compared. This means that when you have other predictors in the model, their presence is ignored
+when running these tests. For the functions in this package, we instead compute the pooled
+standard error by using the mean squared error (MSE) from the full model fit.
+</p>
+<p>Let's take a concrete example to explain that. If we are predicting a car's miles-per-gallon
+(<code>mpg</code>) based on whether it has an automatic or manual transmission (<code>am</code>), we can create that
+linear model and get the pairwise comparisons like this:
+</p>
+<p><code>pairwise(lm(mpg ~ factor(am), data = mtcars))</code>
+</p>
+<p>The output of this code will have one table showing the comparison of manual and automatic
+transmissions with regard to miles-per-gallon. The pooled standard error is the same as the
+square root of the MSE from the full model.
+</p>
+<p>In these data the <code>am</code> variable did not have any other values than <em>automatic</em> and <em>manual</em>, but
+we can imagine situations where the predictor has more than two levels. In these cases, the
+pooled SD would be calculated by taking the MSE of the full model (not of each group) and then
+weighting it based on the size of the groups in question (divide by <em>n</em>).
+</p>
+<p>To improve our model, we might add the car's displacement (<code>disp</code>) as a quantitative predictor:
+</p>
+<p><code>pairwise(lm(mpg ~ factor(am) + disp, data = mtcars))</code>
+</p>
+<p>Note that the output still only has a table for <code>am</code>. This is because we can't do a pairwise
+comparison using <code>disp</code> because there are no groups to compare. Most functions will drop or not
+let you use this variable during pairwise comparisons. Instead, <code>pairwise()</code> uses the same
+approach as in the 3+ groups situation: we use the MSE for the full model and then weight it by
+the size of the groups being compared. Because we are using the MSE for the full model, the
+effect of <code>disp</code> is accounted for in the error term even though we are not explicitly comparing
+different displacements. <strong>Importantly</strong>, the interpretation of the outcome is different than in
+other traditional t-tests. Instead of saying, "there is a difference in miles-per-gallon based
+on the type of transmission," we must add that this difference is found "after accounting for
+displacement."
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of tables organized by the terms in the model. For each term (categorical terms
+only, as splitting on a continuous variable is generally uninformative), the table describes
+all of the pairwise-comparisons possible.
+</p>
+
+
+</div>

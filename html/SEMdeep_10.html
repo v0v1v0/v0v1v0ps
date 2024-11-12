@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.SEM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SEM-based out-of-sample prediction using layer-wise ordering</h2>
+
+<h3>Description</h3>
+
+<p>Given the values of (observed) x-variables in a SEM,
+this function may be used to predict the values of (observed) y-variables.
+The predictive procedure consists of two steps: (1) construction of the
+topological layer (TL) ordering of the input graph; (2) prediction of
+the node y values in a layer, where the nodes included in the previous
+layers act as predictors x.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'SEM'
+predict(object, newdata, verbose = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object, as that created by the function <code>SEMrun()</code>
+with the argument <code>fit</code> set to <code>fit = 0</code> or <code>fit = 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p>A matrix with new data, with rows corresponding to subjects,
+and columns to variables. If <code>object$fit</code> is a model with the group
+variable (<code>fit = 1</code>), the first column of newdata must be the new
+group binary vector (0=control, 1=case).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>A logical value. If FALSE (default), the processed graph 
+will not be plotted to screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function first creates a layer-based structure of the
+input graph. Then, a SEM-based predictive approach (Rooij et al., 2022) 
+is used to produce predictions while accounting for the graph structure
+organised in topological layers, j=1,...,L. In each iteration, the response
+variables y are the nodes in the j layer and the predictors x are the nodes
+belonging to the previous j-1 layers. 
+Predictions (for y given x) are based on the (joint y and x) model-implied 
+variance-covariance (Sigma) matrix and mean vector (Mu) of the fitted SEM,
+and the standard expression for the conditional mean of a multivariate normal
+distribution. Thus, the layer structure described in the SEM is taken into
+consideration, which differs from ordinary least squares (OLS) regression.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of 2 objects:
+</p>
+
+<ol>
+<li>
+<p> "PE", vector of the prediction error equal to the Mean Squared Error
+(MSE) for each out-of-bag prediction. The first value of PE is the AMSE,
+where we average over all (sink and mediators) graph nodes.
+</p>
+</li>
+<li>
+<p> "Yhat", the matrix of continuous predicted values of graph nodes  
+(excluding source nodes) based on out-of-bag samples. 
+</p>
+</li>
+</ol>
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>de Rooij M, Karch JD, Fokkema M, Bakk Z, Pratiwi BC, and Kelderman H
+(2023). SEM-Based Out-of-Sample Predictions, Structural Equation Modeling:
+A Multidisciplinary Journal, 30:1, 132-148
+&lt;https://doi.org/10.1080/10705511.2022.2061494&gt;
+</p>
+<p>Grassi M, Palluzzi F, Tarantino B (2022). SEMgraph: An R Package for Causal Network
+Analysis of High-Throughput Data with Structural Equation Models.
+Bioinformatics, 38 (20), 4829–4830 &lt;https://doi.org/10.1093/bioinformatics/btac567&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# load ALS data
+ig&lt;- alsData$graph
+data&lt;- alsData$exprs
+data&lt;- transformData(data)$data
+group&lt;- alsData$group
+
+#...with train-test (0.5-0.5) samples
+set.seed(123)
+train&lt;- sample(1:nrow(data), 0.5*nrow(data))
+
+# SEM fitting
+sem0&lt;- SEMrun(ig, data[train,], SE="none", limit=1000)
+
+# predictors, source+mediator; outcomes, mediator+sink
+
+res0&lt;- predict(sem0, newdata=data[-train,]) 
+print(res0$PE)
+
+# SEM fitting
+sem1&lt;- SEMrun(ig, data[train,], group[train], SE="none", limit=1000)
+
+# predictors, source+mediator+group; outcomes, source+mediator+sink
+
+res1&lt;- predict(sem1, newdata=cbind(group,data)[-train,]) 
+print(res1$PE)
+
+
+#...with a binary outcome (1=case, 0=control)
+
+ig1&lt;- mapGraph(ig, type="outcome"); gplot(ig1)
+outcome&lt;- ifelse(group == 0, -1, 1); table(outcome)
+data1&lt;- cbind(outcome, data); data1[1:5,1:5]
+
+sem10 &lt;- SEMrun(ig1, data1[train,], SE="none", limit=1000)
+res10&lt;- predict(sem10, newdata=data1[-train,], verbose=TRUE) 
+
+yobs&lt;- group[-train]
+yhat&lt;- res10$Yhat[,"outcome"]
+benchmark(yobs, yhat)
+
+#...with predictors, source nodes; outcomes, sink nodes
+ig2&lt;- mapGraph(ig, type= "source"); gplot(ig2)
+
+sem02 &lt;- SEMrun(ig2, data[train,], SE="none", limit=1000)
+res02&lt;- predict(sem02, newdata=data[-train,], verbose=TRUE) 
+
+
+</code></pre>
+
+
+</div>

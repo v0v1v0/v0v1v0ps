@@ -1,0 +1,134 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rendering-filters</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Render filtering panels for all the filters included in Cohort</h2>
+
+<h3>Description</h3>
+
+<p>The method exported only for custom extensions use.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">.render_filters(source, ...)
+
+## Default S3 method:
+.render_filters(source, cohort, step_id, ns, ...)
+
+## S3 method for class 'tblist'
+.render_filters(source, cohort, step_id, ns, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>source</code></td>
+<td>
+<p>Source object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Extra arguments passed to a specific method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cohort</code></td>
+<td>
+<p>Cohort object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step_id</code></td>
+<td>
+<p>Id of the step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ns</code></td>
+<td>
+<p>Namespace function.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Within the method you should define source data stats output (see .update_data_stats),
+and define a loop that renders filtering panel for each filter (using .render_filter).
+</p>
+
+
+<h3>Value</h3>
+
+<p>Nested list of 'shiny.tag' objects storing html structure of filter input panels.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>source-gui-layer
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (interactive()) {
+  library(magrittr)
+  library(shiny)
+  library(cohortBuilder)
+  library(shinyCohortBuilder)
+
+  ui &lt;- fluidPage(
+    actionButton("add_filter", "Add Filter"),
+    div(id = "filter_container")
+  )
+
+  server &lt;- function(input, output, session) {
+    add_gui_filter_layer &lt;- function(public, private, ...) {
+      private$steps[["1"]]$filters$copies$gui &lt;- .gui_filter(
+        private$steps[["1"]]$filters$copies
+      )
+      private$steps[["1"]]$filters$registered$gui &lt;- .gui_filter(
+        private$steps[["1"]]$filters$registered
+      )
+    }
+    add_hook("post_cohort_hook", add_gui_filter_layer)
+    coh &lt;- cohort(
+      set_source(as.tblist(librarian)),
+      filter(
+        "range", id = "copies", name = "Copies", dataset = "books",
+        variable = "copies", range = c(5, 12)
+      ),
+      filter(
+        "date_range", id = "registered", name = "Registered",  dataset = "borrowers",
+        variable = "registered", range = c(as.Date("2010-01-01"), Inf)
+      )
+    ) %&gt;% run()
+    coh$attributes$session &lt;- session
+    coh$attributes$feedback &lt;- TRUE
+
+    observeEvent(input$add_filter, {
+      insertUI(
+        "#filter_container",
+        ui = .render_filters(
+          coh$get_source(),
+          cohort = coh,
+          step_id = "1",
+          ns = function(x) x
+        ))
+    }, ignoreInit = TRUE, once = TRUE)
+  }
+
+  shinyApp(ui, server)
+}
+</code></pre>
+
+
+</div>

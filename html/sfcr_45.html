@@ -1,0 +1,231 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sfcr_baseline</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate the baseline scenario of a stock-flow consistent model</h2>
+
+<h3>Description</h3>
+
+<p>The <code>sfcr_baseline()</code> function is used to simulate a SFC model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sfcr_baseline(
+  equations,
+  external,
+  periods,
+  initial = NULL,
+  hidden = NULL,
+  max_iter = 350,
+  .hidden_tol = 0.1,
+  tol = 1e-08,
+  method = "Broyden",
+  rhtol = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>equations</code></td>
+<td>
+<p>A <code>sfcr_set</code> containing all the equations of the model to be simulated. The equations
+must be written with the R formula syntax, with the left-hand side separated from the right-hand side
+by a twiddle <code>~</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>external, initial</code></td>
+<td>
+<p>A <code>sfcr_set</code> of external variables (exogenous and parameters) or of initial
+values. They should be written as equations using the R syntax.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>periods</code></td>
+<td>
+<p>A number specifying the total number of periods of the model to be simulated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hidden</code></td>
+<td>
+<p>Named object that identify the two variables that make the hidden equality
+in the SFC model, e.g., <code>c("H_h" = "H_s")</code>. Defaults to NULL.
+If <code>hidden</code> is supplied, the model will evaluate if the hidden equation is satisfied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>Maximum iterations allowed per period.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.hidden_tol</code></td>
+<td>
+<p>Error tolerance to accept the equality of the hidden equation. Defaults to 1.
+In growth models, computational errors might buildup in the hidden equation, which renders any absolute
+comparison inadequate. For such models, please turn <code>rhtol</code> to <code>TRUE</code>, and set the value
+of <code>.hidden_tol</code> accordingly. See details for further information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>Tolerance accepted to determine convergence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>The method to use to find a solution. Defaults to "Broyden".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhtol</code></td>
+<td>
+<p>A logical argument that defines whether the a relative measure is used to evaluate
+the hidden equation or not. Defaults to <code>FALSE</code>, i.e., a absolute measure is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Extra arguments to pass to <code>rootSolve::multiroot()</code> function if "Newton" method
+is selected.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The output of a <code>sfcr_baseline()</code> is a <code>sfcr_tbl</code>. The only difference between
+a <code>sfcr_tbl</code> and a standard <code>tbl_df</code> is that the former has two extra attributes:
+<code>matrix</code> and <code>call</code>. The <code>matrix</code> attribute, for example, can be accessed by
+calling <code>attributes(sfcr_sim_object)$matrix</code>.
+It is possible to see, in the matrix, the number of iterations required to calculate each
+block of equations in the model.
+The <code>call</code> attribute shows the blocks of equations and preserve the call that are used
+internally.
+</p>
+<p>The <code>equations</code>, <code>exogenous</code>, and <code>parameters</code> arguments must be written
+with the R formula syntax, i.e., the left-hand side of each item is separated to the
+right-hand side by a twiddle. Variables that represent lags of endogenous or exogenous
+variables must be followed by <code>[-1]</code>. See examples for details on the syntax.
+</p>
+<p>Before solving the system of equations, two consecutive depth-first searches identify
+and order the blocks of independent equations in the system. The system is then solved
+sequentially, i.e., the variables that depend only on lagged or exogenous values are evaluated
+first, and then the variables that depends on these variables, etc. The solving algorithms
+are only applied to the blocks of mutually dependent equations. The great <code>igraph</code>
+package is used to implement the two consecutive depth-first searches.
+</p>
+
+<ul><li>
+<p> Methods:
+</p>
+</li></ul>
+<p>The <code>sfcr</code> package provides three algorithms to solve the blocks of cyclical equations:
+the Gauss-Seidel algorithm, the Broyden algorithm, and the Newton-Raphson algorithm. The
+default method is "Broyden" as it tends to be fastest one.
+</p>
+<p>See (Kinsella and OShea 2010) for details on the Gauss-Seidel algorithm and
+(Peressini et al. 1988) for details on the Broyden and Newton-Raphson
+algorithms.
+</p>
+<p>The "Broyden" algorithm uses the <code>rootSolve::jacobian.full()</code> function to get the
+initial Jacobian matrix, and compiled code from <code>RcppArmadillo</code> to invert the
+jacobians. See also https://www.math.usm.edu/lambers/mat419/lecture11.pdf.
+</p>
+<p>The Gauss Seidel algorithm is implemented as described by (Kinsella and OShea 2010).
+Finally, the "Newton" method uses the <code>rootSolve::multiroot()</code> function to solve the system.
+</p>
+
+<ul><li>
+<p> Hidden equation:
+</p>
+</li></ul>
+<p>One of the defining aspects of a SFC model is its water tight accounting. One way
+to check whether the model was correctly defined is to see if the hidden (redundant)
+equation is satisfied after the model is simulated. In stationary models, an absolute
+comparison should suffice as the model converges to a stationary state. However,
+growth models converge to a stable growth rate where stocks are perpetually increasing.
+It is inadequate to use a absolute comparison in such models. In these cases, the
+<code>rhtol</code> argument ("relative hidden tolerance") must be set to <code>TRUE</code> in order
+to perform a relative comparison. The relative comparison evaluates the numerical
+discrepancy in the hidden equation as a ratio of one of its elements. For example,
+if <code>hidden = c("Bbs" = "Bbd")</code>, the hidden equation will be evaluated according to
+the following steps:
+</p>
+
+<ol>
+<li> <p><code>d = (Bbs - Bbd)</code>
+</p>
+</li>
+<li> <p><code>isTRUE(d/Bbs &lt; .hidden_tol)</code>
+</p>
+</li>
+</ol>
+<p>In general, the <code>.hidden_tol</code> argument should be set to a small number (e.g. 1e-6).
+The function will check that this proportion remains the same for all simulated periods.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>sfcr_tbl</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>João Macalós, <a href="mailto:joaomacalos@gmail.com">joaomacalos@gmail.com</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Kinsella S, OShea T (2010).
+“Solution and Simulation of Large Stock Flow Consistent Monetary Production Models via the Gauss Seidel Algorithm.”
+<em>SSRN Electronic Journal</em>.
+doi: <a href="https://doi.org/10.2139/ssrn.1729205">10.2139/ssrn.1729205</a>, <a href="https://doi.org/10.2139/ssrn.1729205">https://doi.org/10.2139/ssrn.1729205</a>.
+Peressini AL, Sullivan FE, Uhl JJ (1988).
+<em>The Mathematics of Nonlinear Programming</em>.
+Springer-Verlag, Berlin, Heidelberg.
+ISBN 0387966145.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">eqs &lt;- sfcr_set(
+  TXs ~ TXd,
+  YD ~ W * Ns - TXs,
+  Cd ~ alpha1 * YD + alpha2 * Hh[-1],
+  Hh ~ YD - Cd + Hh[-1],
+  Ns ~ Nd,
+  Nd ~ Y / W,
+  Cs ~ Cd,
+  Gs ~ Gd,
+  Y ~ Cs + Gs,
+  TXd ~ theta * W * Ns,
+  Hs ~ Gd - TXd + Hs[-1]
+)
+
+external &lt;- sfcr_set(Gd ~ 20, W ~ 1, alpha1 ~ 0.6, alpha2 ~ 0.4, theta ~ 0.2)
+
+# Periods is set to 10 to run faster. A usual model should run at
+# least 50 periods to find a steady state
+sfcr_baseline(equations = eqs, external = external, periods = 10)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,89 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>onnx_save</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Saving a ssrmlp model in onnx format to file
+</h2>
+
+<h3>Description</h3>
+
+<p>Saving a ssrmlp model in onnx format to file (also see onnx.ai). This function uses the onnx python implementation, hence a python environment including modules onnx and numpy is required.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">onnx_save(ssrmlp_model, filename)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ssrmlp_model</code></td>
+<td>
+<p>a trained ssrmlp model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>filename</code></td>
+<td>
+<p>fully qualified file name</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Dr. Lars Metzner
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# generate data
+set.seed(42)
+x &lt;- rnorm(300)
+y &lt;- rnorm(300)
+z &lt;- rnorm(300) + atan2(x, y)
+# coordinates
+X &lt;- matrix(cbind(x,y), ncol = 2)
+Y &lt;- as.double(z)
+# Training
+ssrmlp_model &lt;- ssrmlp_train(X, Y)
+# prediction
+p &lt;- t(c(0.25, 0.25))
+pred &lt;- ssrmlp_predict(p, ssrmlp_model) 
+# only if python is available
+if (reticulate::py_module_available('onnx')) {
+  # save in ONNX format
+  onnx_save(ssrmlp_model, 'file.onnx')
+  # load and run with TensorFlow
+  onnx &lt;- reticulate::import("onnx")
+  backend &lt;-  reticulate::import("onnx_tf.backend")
+  model = onnx$load('file.onnx') 
+  tf_rep = backend$prepare(model)       
+  tf_y = tf_rep$run(p)
+  print(tf_y$Y-pred)
+  # cleanup
+  file.remove('file.onnx')
+  # to avoid NOTE in R CHECK
+  tempfile &lt;-  reticulate::import("tempfile")
+  tmp &lt;- tempfile$gettempdir()
+  if (dir.exists(file.path(tmp, "__pycache__"))) {
+    unlink(file.path(tmp, "__pycache__"), recursive = TRUE, force = TRUE)
+  }
+  tmp_py_files &lt;- list.files(tmp, 
+                             pattern = "^__autograph_generated_file.*py$", full.names = TRUE)
+  file.remove(tmp_py_files)
+}
+
+
+</code></pre>
+
+
+</div>

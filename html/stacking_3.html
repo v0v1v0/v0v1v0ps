@@ -1,0 +1,209 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>train_basemodel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Training base models</h2>
+
+<h3>Description</h3>
+
+<p>Training base models of stacking. This function internally calls train_basemodel_core.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">train_basemodel(X, Y, Nfold, Method, core = 1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>An N x P matrix of explanatory variables where N is the number of samples and P is the number of variables. Column names are required by caret.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>A length N Vector of objective variables. Use a factor for classification.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Nfold</code></td>
+<td>
+<p>Number of folds for cross-validation. This cross-validation is required for training.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Method</code></td>
+<td>
+<p>A list specifying base learners. Each element of the list is a data.frame that contains hyperparameter values of base learners. The names of the list elements specifies the base learners and are passed to caret functions. See details and examples</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>core</code></td>
+<td>
+<p>Number of cores for parallel processing</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Stacking by this package consists of the following 2 steps. (1) Nfold cross-validation is conducted with each base learner.(2) Using the predicted values of each learner as the explanatory variables, the meta learner is trained. This function conducts step (1). Step (2) is conducted by train_metamodel. Another function stacking_train conducts both steps at once by calling these functions (train_basemodel and train_metamodel).
+</p>
+<p>Base learners are specified by Method. For example,<br>
+Method = list(glmnet = data.frame(alpha = 0, lambda = 5), pls = data.frame(ncomp = 10))<br>
+indicating that the first base learner is glmnet and the second is pls with corresponding hyperparameters.
+</p>
+<p>When the data.frames have multiple rows as<br>
+Method = list(glmnet = data.frame(alpha = c(0, 1), lambda = c(5, 10)))<br>
+All combinations of hyperparameter values are automatically created as<br>
+[alpha, lambda] = [0, 5], [0, 10], [1, 5], [1, 10]<br>
+Thus, in total 5 base learners (4 glmnet and 1 pls) are created.
+</p>
+<p>When the number of candidate values differ among hyperparameters, use NA as<br>
+Method = list(glmnet = data.frame(alpha = c(0, 0.5, 1), lambda = c(5, 10, NA)))<br>
+resulting in 6 combinations of<br>
+[alpha, lambda] = [0, 5], [0, 10], [0.5, 5], [0.5, 10], [1, 5], [1, 10]
+</p>
+<p>When a hyperparameter includes only NA as<br>
+Method = list(glmnet = data.frame(alpha = c(0, 0.5, 1), lambda = c(NA, NA, NA)), pls = data.frame(ncomp = NA))<br>
+lambda of glmnet and ncomp of pls are automatically tuned by caret. However, it is notable that tuning is conducted assuming that all hyperparameters are unknown, and thus, the tuned lambea in the above example is not the value tuned under the given alpha values (0, 0.5, or 1).
+</p>
+<p>Hyperparameters of meta learners are automatically tuned by caret.
+</p>
+<p>The base and meta learners can be chosen from the methods implemented in caret. The choosable methods can be seen at https://topepo.github.io/caret/available-models.html or using names(getModelInfo()) after loading caret.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list containing the following elements is output.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>train_result</code></td>
+<td>
+<p>A list containing the training results of the base models. The length of this list is the same as Nfold, and each element is a list of which length is the same as the number of base models. These elements are the lists output by train function of caret, but the element "trainingData" is removed to save memory.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>no_base</code></td>
+<td>
+<p>Number of base models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>valpr</code></td>
+<td>
+<p>Predicted values of base models obtained in cross-validation. Used as explanatory variables for the meta learner.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.randomised</code></td>
+<td>
+<p>Y ans X are randomized when cross-validation. Randomized Y is output to enable evaluation of prediction accuracy</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Order</code></td>
+<td>
+<p>Order in randomization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Type</code></td>
+<td>
+<p>Type of task (regression or classification).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Nfold</code></td>
+<td>
+<p>Number of cross-validation folds</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Taichi Nukui, Akio Onogi
+</p>
+
+
+<h3>See Also</h3>
+
+<p>stacking_train, train_metamodel
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Create a toy example
+##Number of training samples
+N1 &lt;- 100
+
+##Number of explanatory variables
+P &lt;- 200
+
+##Create X of training data
+X1 &lt;- matrix(rnorm(N1 * P), nrow = N1, ncol = P)
+colnames(X1) &lt;- 1:P#column names are required by caret
+
+##Assume that the first 10 variables have effects on Y
+##Then add noise with rnorm
+Y1 &lt;- rowSums(X1[, 1:10]) + rnorm(N1)
+
+##Test data
+N2 &lt;- 100
+X2 &lt;- matrix(rnorm(N2 * P), nrow = N2, ncol = P)
+colnames(X2) &lt;- 1:P#Ignored (not required)
+Y2 &lt;- rowSums(X2[, 1:10])
+
+#Specify base learners
+Method &lt;- list(glmnet = data.frame(alpha = c(0, 0.5, 1), lambda = rep(NA, 3)),
+               pls = data.frame(ncomp = 5))
+#=&gt;This specifies 4 base learners.
+##1. glmnet with alpha = 0 and lambda tuned
+##2. glmnet with alpha = 0.5 and lambda tuned
+##3. glmnet with alpha = 1 and lambda tuned
+##4. pls with ncomp = 5
+
+#The followings are the training and prediction processes
+#If glmnet and pls are not installed, please install them in advance.
+#Please remove #s before execution
+
+#Training of base learners
+#base &lt;- train_basemodel(X = X1, Y = Y1, Nfold = 5, Method = Method, core = 2)
+
+#Training of a meta learner
+#meta &lt;- train_metamodel(base, which_to_use = 1:4, Metamodel = "lm")
+
+#Combine both results
+#stacking_train_result &lt;- list(base = base, meta = meta)
+#=&gt;this list should have elements named as base and meta
+
+#Prediction
+#result &lt;- stacking_predict(newX = X2, stacking_train_result)
+#plot(Y2, result)
+
+#Training using stacking_train
+#stacking_train_result &lt;- stacking_train(X = X1,
+#                                        Y = Y1,
+#                                        Nfold = 5,
+#                                        Method = Method,
+#                                        Metamodel = "lm",
+#                                        core = 2)
+
+#Prediction
+#result &lt;- stacking_predict(newX = X2, stacking_train_result)
+#plot(Y2, result)
+
+</code></pre>
+
+
+</div>

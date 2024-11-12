@@ -1,0 +1,393 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>multiSTM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Analyze Stability of Local STM Mode</h2>
+
+<h3>Description</h3>
+
+<p>This function performs a suite of tests aimed at assessing the global
+behavior of an STM model, which may have multiple modes. The function takes
+in a collection of differently initialized STM fitted objects and selects a
+reference model against which all others are benchmarked for stability. The
+function returns an output of S3 class 'MultimodDiagnostic', with associated
+plotting methods for quick inspection of the test results.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">multiSTM(
+  mod.out = NULL,
+  ref.model = NULL,
+  align.global = FALSE,
+  mass.threshold = 1,
+  reg.formula = NULL,
+  metadata = NULL,
+  reg.nsims = 100,
+  reg.parameter.index = 2,
+  verbose = TRUE,
+  from.disk = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mod.out</code></td>
+<td>
+<p>The output of a <code>selectModel()</code> run. This is a list of
+model outputs the user has to choose from, which all take the same form as
+the output from a STM model. Currently only works with models without
+content covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ref.model</code></td>
+<td>
+<p>An integer referencing the element of the list in
+<code>mod.out</code> which contains the desired reference model.  When set to the
+default value of <code>NULL</code> this chooses the model with the largest value
+of the approximate variational bound.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>align.global</code></td>
+<td>
+<p>A boolean parameter specifying how to align the topics
+of two different STM fitted models. The alignment is performed by solving
+the linear sum assignment problem using the Hungarian algorithm. If
+<code>align.global</code> is set to <code>TRUE</code>, the Hungarian algorithm is run
+globally on the topic-word matrices of the two models that are being
+compared. The rows of the matrices are aligned such as to minimize the sum
+of their inner products. This results in each topic in the current runout
+being matched to a unique topic in the reference model. If
+<code>align.global</code> is, conversely, set to <code>FALSE</code>, the alignment
+problem is solved locally. Each topic in the current runout is matched to
+the one topic in the reference models that yields minimum inner product.
+This means that multiple topics in the current runout can be matched to a
+single topic in the reference model, and does not guarantee that all the
+topics in the reference model will be matched.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mass.threshold</code></td>
+<td>
+<p>A parameter specifying the portion of the probability
+mass of topics to be used for model analysis. The tail of the probability
+mass is disregarded accordingly. If <code>mass.threshold</code> is different from
+1, both the full-mass and partial-mass analyses are carried out.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reg.formula</code></td>
+<td>
+<p>A formula for estimating a regression for each model in
+the ensemble, where the documents are the units, the outcome is the
+proportion of each document about a topic in an STM model, and the
+covariates are the document-level metadata. The formula should have an
+integer or a vector of numbers on the left-hand side, and an equation with
+covariates on the right-hand side. If the left-hand side is left blank, the
+regression is performed on all topics in the model. The formula is
+exclusively used for building calls to <code>estimateEffect()</code>, so see the
+documentation for <code>estimateEffect()</code> for greater detail about the
+regression procedure. If <code>reg.formula</code> is null, the covariate effect
+stability analysis routines are not performed. The regressions incorporate
+uncertainty by using an approximation to the average covariance matrix
+formed using the global parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metadata</code></td>
+<td>
+<p>A dataframe where the predictor variables in
+<code>reg.formula</code> can be found. It is necessary to include this argument if
+<code>reg.formula</code> is specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reg.nsims</code></td>
+<td>
+<p>The number of simulated draws from the variational
+posterior for each call of <code>estimateEffect()</code>. Defaults to 100.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reg.parameter.index</code></td>
+<td>
+<p>If <code>reg.formula</code> is specified, the function
+analyzes the stability across runs of the regression coefficient for one
+particular predictor variable. This argument specifies which predictor
+variable is to be analyzed. A value of 1 corresponds to the intercept, a
+value of 2 correspond to the first predictor variable in <code>reg.formula</code>,
+and so on. Support for multiple concurrent covariate effect stability
+analyses is forthcoming.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>If set to <code>TRUE</code>, the function will report progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from.disk</code></td>
+<td>
+<p>If set to <code>TRUE</code>, <code>multiSTM()</code> will load the
+input models from disk rather than from RAM. This option is particularly
+useful for dealing with large numbers of models, and is intended to be used
+in conjunction with the <code>to.disk</code> option of <code>selectModel()</code>.
+<code>multiSTM()</code> inspects the current directory for RData files.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The purpose of this function is to automate and generalize the stability
+analysis routines for topic models that are introduced in Roberts, Margaret
+E., Brandon M. Stewart, and Dustin Tingley: "Navigating the Local Modes of
+Big Data: The Case of Topic Models" (2014). For more detailed discussion
+regarding the background and motivation for multimodality analysis, please
+refer to the original article. See also the documentation for
+<code>plot.MultimodDiagnostic</code> for help with the plotting methods
+associated with this function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of 'MultimodDiagnostic' S3 class, consisting of a list
+with the following components: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>The number of fitted models in the
+list of model outputs that was supplied to the function for the purpose of
+stability analysis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>The number of topics in the models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glob.max</code></td>
+<td>
+<p>The index of the reference model in the list of model
+outputs (<code>mod.out</code>) that was supplied to the function. The reference
+model is selected as the one with the maximum bound value at convergence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lb</code></td>
+<td>
+<p>A list of the maximum bound value at convergence for each of the
+fitted models in the list of model outputs. The list has length N.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lmat</code></td>
+<td>
+<p>A K-by-N matrix reporting the L1-distance of each topic from the
+corresponding one in the reference model. This is defined as:
+</p>
+<p style="text-align: center;"><code class="reqn">L_{1}=\sum_{v}|\beta_{k,v}^{ref}-\beta_{k,v}^{cand}|</code>
+</p>
+<p> Where the beta
+matrices are the topic-word matrices for the reference and the candidate
+model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tmat</code></td>
+<td>
+<p>A K-by-N matrix reporting the number of "top documents"
+shared by the reference model and the candidate model. The "top documents"
+for a given topic are defined as the 10 documents in the reference corpus
+with highest topical frequency.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wmat</code></td>
+<td>
+<p>A K-by-N matrix reporting the
+number of "top words" shared by the reference model and the candidate model.
+The "top words" for a given topic are defined as the 10 highest-frequency
+words.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lmod</code></td>
+<td>
+<p>A vector of length N consisting of the row sums of the
+<code>lmat</code> matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tmod</code></td>
+<td>
+<p>A vector of length N consisting of the row
+sums of the <code>tmat</code> matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wmod</code></td>
+<td>
+<p>A vector of length N consisting
+of the row sums of the <code>wmat</code> matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>semcoh</code></td>
+<td>
+<p>Semantic coherence
+values for each topic within each model in the list of model outputs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>L1mat</code></td>
+<td>
+<p>A K-by-N matrix reporting the limited-mass L1-distance of each
+topic from the corresponding one in the reference model. Similar to
+<code>lmat</code>, but computed using only the top portion of the probability mass
+for each topic, as specified by the <code>mass.threshol</code> parameter.
+<code>NULL</code> if <code>mass.treshold==1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>L1mod</code></td>
+<td>
+<p>A vector of length N
+consisting of the row means of the <code>L1mat</code> matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mass.threshold</code></td>
+<td>
+<p>The mass threshold argument that was supplied to the
+function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.effects</code></td>
+<td>
+<p>A list of length N containing the output of
+the run of <code>estimateEffect()</code> on each candidate model with the given
+regression formula. <code>NULL</code> if no regression formula is given.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var.matrix</code></td>
+<td>
+<p>A K-by-N matrix containing the estimated variance for each
+of the fitted regression parameters. <code>NULL</code> if no regression formula is
+given.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>confidence.ratings</code></td>
+<td>
+<p>A vector of length N, where each entry
+specifies the proportion of regression coefficient estimates in a candidate
+model that fall within the .95 confidence interval for the corresponding
+estimate in the reference model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>align.global</code></td>
+<td>
+<p>The alignment control
+argument that was supplied to the function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reg.formula</code></td>
+<td>
+<p>The
+regression formula that was supplied to the function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reg.nsims</code></td>
+<td>
+<p>The
+<code>reg.nsims</code> argument that was supplied to the function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reg.parameter.index</code></td>
+<td>
+<p>The <code>reg.parameter.index</code> argument that was
+supplied to the function.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Antonio Coppola (Harvard University), Brandon Stewart (Princeton
+University), Dustin Tingley (Harvard University)
+</p>
+
+
+<h3>References</h3>
+
+<p>Roberts, M., Stewart, B., &amp; Tingley, D. (2016).
+"Navigating the Local Modes of Big Data: The Case of Topic Models. In Data
+Analytics in Social Science, Government, and Industry." New York: Cambridge
+University Press.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.MultimodDiagnostic</code> <code>selectModel</code>
+<code>estimateEffect</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+# Example using Gadarian data
+temp&lt;-textProcessor(documents=gadarian$open.ended.response, 
+                    metadata=gadarian)
+meta&lt;-temp$meta
+vocab&lt;-temp$vocab
+docs&lt;-temp$documents
+out &lt;- prepDocuments(docs, vocab, meta)
+docs&lt;-out$documents
+vocab&lt;-out$vocab
+meta &lt;-out$meta
+set.seed(02138)
+mod.out &lt;- selectModel(docs, vocab, K=3, 
+                       prevalence=~treatment + s(pid_rep), 
+                       data=meta, runs=20)
+
+out &lt;- multiSTM(mod.out, mass.threshold = .75, 
+                reg.formula = ~ treatment,
+                metadata = gadarian)
+plot(out)
+
+# Same example as above, but loading from disk
+mod.out &lt;- selectModel(docs, vocab, K=3, 
+                       prevalence=~treatment + s(pid_rep), 
+                       data=meta, runs=20, to.disk=T)
+
+out &lt;- multiSTM(from.disk=T, mass.threshold = .75, 
+                reg.formula = ~ treatment,
+                metadata = gadarian)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

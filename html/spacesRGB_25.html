@@ -1,0 +1,177 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Partial Output Device Transform, parameterized</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Partial Output Device Transform, general 
+</h2>
+
+<h3>Description</h3>
+
+<p>A partial Output Device Transform (PODT) maps from OCES to linear display RGB
+(both of these are optical in nature).
+The adjective "partial" is used because this
+is an ODT that omits the final OETF (which maps from linear display RGB to signal display RGB).
+<br>
+This PODT is parameterized.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">general.PODT( display_pri, Ymax=1, observerWP=NULL, surround='dark', limiting_pri=NULL )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>display_pri</code></td>
+<td>
+<p>a 4x2 matrix containing the display primaries, or a numeric vector of length 8
+that can be converted to such a matrix, by row.
+Some built-in matrices are <code>REC709_PRI</code>, etc.
+<br><code>display_pri</code> can also be <code>NULL</code>, which means that the PODT maps to XYZ, instead of RGB.
+This is used in the case of DCDM (Digital Cinema Distribution Master).
+See the User Guide Appendix for examples of this.
+<br><code>display_pri</code>  is stored in the metadata of the returned object and later used
+in <code>installRGB()</code> (if the PODT is passed in an argument).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ymax</code></td>
+<td>
+<p>the maximum luminance of the output device, in <code class="reqn">cd/m^2</code> (or nits).
+This has no effect on the PODT itself.
+It is stored in the metadata and later used
+in <code>installRGB()</code> (if the PODT is passed in an argument) when computing the
+3x3 matrix that transforms from display RGB to display XYZ.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>observerWP</code></td>
+<td>
+<p>the xy chromaticity of the assumed observer whitepoint.
+This is used to make a Chromatic Adaptation Transform (CAT) from the ACES whitepoint (approximately D60)
+to the assumed observer whitepoint.
+If <code>observerWP</code> is <code>NULL</code>, it is taken from <code>display_pri</code>.
+If <code>display_pri</code> is <code>NULL</code>, then it is taken from <code>limiting_pri</code>.
+If <code>limiting_pri</code> is <code>NULL</code>, or if two whitepoints are the same, then there is no CAT.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>surround</code></td>
+<td>
+<p>The level of the surround luminance.
+Valid values are <code>'dark'</code> and <code>'dim'</code>.
+If the level is <code>'dark'</code> there is no special color compensation.
+Partial matching is enabled and matching is case-insensitive.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>limiting_pri</code></td>
+<td>
+<p>a 4x2 matrix containing the limiting primaries, or a numeric vector of length 8
+that can be converted to such a matrix, by row.
+If <code>limiting_pri</code> is not <code>NULL</code>, and not equal to <code>display_pri</code>,
+then the output RGB is clamped to the RGB cube that corresponds to <code>limiting_pri</code>. 
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The transfer is complicated; here is a summary of the steps:
+</p>
+
+<ol>
+<li>
+<p> matrix conversion from AP0 RGB   →  AP1 RGB
+</p>
+</li>
+<li>
+<p> clamp to non-negative RGB
+</p>
+</li>
+<li>
+<p> segmented spline, assuming <code>CINEMA_WHITE</code>=48 nit
+</p>
+</li>
+<li>
+<p> absolute luminance to linear code-value, in cube [0,1]<code class="reqn">^3</code>
+</p>
+</li>
+<li>
+<p> scale and roll-white to avoid clipping (optional, only when <code>observerWP</code> is ACES whitepoint and display whitepoint is D65 or DCI whitepoint)
+</p>
+</li>
+<li>
+<p> dim surround compensation with conversion to XYZ and back again (optional, see argument <code>surround</code>)
+</p>
+</li>
+<li>
+<p> matrix conversion from AP1 RGB to XYZ
+</p>
+</li>
+<li>
+<p> adapt XYZ from ACES whitepoint to observer whitepoint (optional, see argument <code>observerWP</code>)
+</p>
+</li>
+<li>
+<p> clamp XYZ to limiting primaries (optional, see argument <code>limiting_pri</code>)
+</p>
+</li>
+<li>
+<p> matrix conversion from XYZ to linear display RGB (but not for DCDM, see argument <code>display_pri</code>)
+</p>
+</li>
+<li>
+<p> clamp linear display RGB (or XYZ for DCDM) to the cube [0,1]<code class="reqn">^3</code>
+</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p><code>general.PODT()</code> returns a <code>TransferFunction</code> of dimension 3
+that maps OCES RGB to linear display RGB.
+The domain is [0,10000]<code class="reqn">^3</code> and the range is [0,1]<code class="reqn">^3</code>.
+<br>
+The <code>metadata</code> contains the display primaries and whitepoint,
+which is useful in <code>installRGB()</code>.
+</p>
+
+
+<h3>Source</h3>
+
+<p>This function was based on source code at:
+<a href="https://github.com/ampas/aces-dev">https://github.com/ampas/aces-dev</a>;
+especially the files under the folder <code>aces-dev-master/transforms/ctl/odt/</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>ST 2065-1:2012.
+SMPTE Standard - Academy Color Encoding Specification (ACES).
+2013.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>TransferFunction</code>,
+<code>installRGB()</code>,
+<code>metadata()</code>,
+<code>RRT.TF</code>,
+Standard Primaries
+</p>
+
+
+</div>

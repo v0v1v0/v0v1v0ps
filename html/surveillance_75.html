@@ -1,0 +1,178 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>boda</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bayesian Outbreak Detection Algorithm (BODA)</h2>
+
+<h3>Description</h3>
+
+<p>The function takes <code>range</code> values of a univariate surveillance time
+series <code>sts</code> and for each time point uses a negative binomial
+regression model to compute the predictive posterior distribution for
+the current observation. The
+<code class="reqn">(1-\alpha)\cdot 100\%</code>
+quantile of this predictive distribution is then
+used as bound: If the actual observation is above the bound an alarm
+is raised. 
+The Bayesian Outbreak Detection Algorithm (<code>boda</code>) is due to
+Manitz and Höhle (2013) and its implementation is
+illustrated in Salmon et al. (2016).
+However, <code>boda</code> should be considered as an experiment, see the
+Warning section below!
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">boda(sts, control = list(
+    range=NULL, X=NULL, trend=FALSE, season=FALSE,
+    prior=c('iid','rw1','rw2'), alpha=0.05, mc.munu=100, 
+    mc.y=10, verbose=FALSE,
+    samplingMethod=c('joint','marginals'),
+    quantileMethod=c("MC","MM")
+))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sts</code></td>
+<td>
+<p>object of class sts (including the <code>observed</code> and the
+<code>state</code> time series)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>Control object given as a <code>list</code> containing the following components:
+</p>
+
+<dl>
+<dt><code>range</code></dt>
+<dd>
+<p>Specifies the index of all timepoints which
+should be tested. If range is <code>NULL</code> all possible
+timepoints are used.</p>
+</dd> 
+<dt><code>X</code></dt>
+<dd></dd>
+<dt><code>trend</code></dt>
+<dd>
+<p>Boolean indicating whether a linear trend term should be
+included in the model for the expectation the log-scale</p>
+</dd>
+<dt><code>season</code></dt>
+<dd>
+<p>Boolean to indicate whether a cyclic spline
+should be included.</p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>The threshold for declaring an observed count as
+an aberration is the <code class="reqn">(1-\alpha)\cdot 100\%</code>
+quantile of the predictive posterior.</p>
+</dd>
+<dt><code>mc.munu</code></dt>
+<dd></dd>
+<dt><code>mc.y</code></dt>
+<dd>
+<p>Number of samples of <code class="reqn">y</code> to generate for
+each par of the mean and size parameter. A total of <code class="reqn">mc.munu
+	  \times mc.y</code> samples are generated.</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>Argument sent to the inla call. When using ESS
+it might be necessary to force verbose mode for INLA to work.</p>
+</dd>
+<dt><code>samplingMethod</code></dt>
+<dd>
+<p>Should one sample from the parameters joint distribution (joint) or from their respective marginal posterior distribution (marginals)?</p>
+</dd>
+<dt>quantileMethod</dt>
+<dd>
+<p>Character, either <code>MC</code> or <code>MM</code>. Indicates how to compute the quantile based on the posterior distribution (no matter the inference method): either by sampling <code>mc.munu</code> values from the posterior distribution of the parameters and then for each sampled parameters vector sampling <code>mc.y</code> response values so that one gets a vector of response values based on which one computes an empirical quantile (MC method, as explained in Manitz and Höhle 2013); or by sampling <code>mc.munu</code> from the posterior distribution of the parameters and then compute the quantile of the mixture distribution using bisectioning, which is faster.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Warning</h3>
+
+<p>This function is currently experimental!! It also heavily
+depends on the <span class="pkg">INLA</span> package so changes there might affect the
+operational ability of this function. Since the computations
+for the Bayesian GAM are quite involved do not expect this function
+to be particularly fast.
+</p>
+<p>Results are not reproducible if <span class="pkg">INLA</span> uses parallelization (as by default);
+set <code>INLA::inla.setOption(num.threads = "1:1")</code> to avoid that,
+then do <code>set.seed</code> as usual.
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function requires the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package <span class="pkg">INLA</span>, which is currently
+<em>not</em> available from CRAN. It can be obtained from INLA's own
+repository via
+<code>install.packages("INLA", repos="https://inla.r-inla-download.org/R/stable")</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>J. Manitz, M. Höhle, M. Salmon</p>
+
+
+<h3>References</h3>
+
+<p>Manitz, J. and Höhle, M. (2013):
+Bayesian outbreak detection algorithm for monitoring reported cases of
+campylobacteriosis in Germany.
+Biometrical Journal, 55(4), 509-526.
+</p>
+<p>Salmon, M., Schumacher, D. and Höhle, M. (2016):
+Monitoring count time series in <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span>: Aberration detection in public
+health surveillance. <em>Journal of Statistical Software</em>,
+<b>70</b> (10), 1-35. <a href="https://doi.org/10.18637/jss.v070.i10">doi:10.18637/jss.v070.i10</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+  ## running this example takes a couple of minutes
+
+  #Load the campylobacteriosis data for Germany
+  data("campyDE")
+  #Make an sts object from the data.frame
+  cam.sts &lt;-  sts(epoch=campyDE$date,
+                  observed=campyDE$case, state=campyDE$state)
+
+  #Define monitoring period
+#  range &lt;- which(epoch(cam.sts)&gt;=as.Date("2007-01-01"))
+#  range &lt;- which(epoch(cam.sts)&gt;=as.Date("2011-12-10"))
+  range &lt;- tail(1:nrow(cam.sts),n=2)
+
+  control &lt;- list(range=range, X=NULL, trend=TRUE, season=TRUE,
+                  prior='iid', alpha=0.025, mc.munu=100, mc.y=10,
+                  samplingMethod = "joint")
+
+  #Apply the boda algorithm in its simples form, i.e. spline is
+  #described by iid random effects and no extra covariates
+  library("INLA")  # needs to be attached
+  cam.boda1 &lt;- boda(cam.sts, control=control)
+
+  plot(cam.boda1, xlab='time [weeks]', ylab='No. reported', dx.upperbound=0)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

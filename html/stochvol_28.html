@@ -1,0 +1,397 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>svlm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Markov Chain Monte Carlo (MCMC) Sampling for the Stochastic Volatility (SV)
+Model</h2>
+
+<h3>Description</h3>
+
+<p><code>svlm</code> is a wrapper around <code>svsample</code> with a formula interface.
+The name derives from SV and <code>lm</code> because a linear model with SV residuals is fitted.
+The function simulates from the joint posterior distribution of the regression coefficients and the SV
+parameters <code>mu</code>, <code>phi</code>, <code>sigma</code> (and potentially <code>nu</code> and <code>rho</code>),
+along with the latent log-volatilities <code>h_0,...,h_n</code> and returns the
+MCMC draws.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">svlm(
+  formula,
+  data,
+  draws = 10000,
+  burnin = 1000,
+  heavytails = FALSE,
+  asymmetry = FALSE,
+  priorspec = NULL,
+  thin = 1,
+  keeptime = "all",
+  quiet = FALSE,
+  startpara = NULL,
+  startlatent = NULL,
+  parallel = c("no", "multicore", "snow"),
+  n_cpus = 1L,
+  cl = NULL,
+  n_chains = 1L,
+  print_progress = "automatic",
+  expert = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>an object of class <code>"formula"</code>, as in <code>lm</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame, list or environment (or object
+coercible by <code>as.data.frame</code> to a data frame) containing the
+variables in the model.  If not found in <code>data</code>, the
+variables are taken from <code>environment(formula)</code>, typically
+the environment from which <code>svlm</code> is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>draws</code></td>
+<td>
+<p>single number greater or equal to 1, indicating the number of
+draws after burn-in (see below). Will be automatically coerced to integer.
+The default value is 10000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>burnin</code></td>
+<td>
+<p>single number greater or equal to 0, indicating the number of
+draws discarded as burn-in. Will be automatically coerced to integer. The
+default value is 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>heavytails</code></td>
+<td>
+<p>if <code>TRUE</code>, then the residuals of the linear model
+will follow a t-distribution conditional on the latent volatility process.
+This model is usually called SV-t. If <code>priorspec</code> is given, then
+<code>heavytails</code> is ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asymmetry</code></td>
+<td>
+<p>if <code>TRUE</code>, then the residuals of the linear model
+will follow an SV process with leverage. If <code>priorspec</code> is given, then
+<code>heavytails</code> is ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorspec</code></td>
+<td>
+<p>using the smart constructor <code>specify_priors</code>,
+one can set the details of the prior distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thin</code></td>
+<td>
+<p>single number greater or equal to 1, coercible to integer.
+Every <code>thinpara</code>th parameter and latent draw is kept and returned. The default
+value is 1, corresponding to no thinning of the parameter draws i.e. every
+draw is stored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keeptime</code></td>
+<td>
+<p>Either 'all' (the default) or 'last'. Indicates which latent
+volatility draws should be stored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>logical value indicating whether the progress bar and other
+informative output during sampling should be omitted. The default value is
+<code>FALSE</code>, implying verbose output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startpara</code></td>
+<td>
+<p><em>optional</em> named list, containing the starting values
+for the parameter draws. If supplied, <code>startpara</code> may contain
+elements named <code>mu</code>, <code>phi</code>, <code>sigma</code>, <code>nu</code>, <code>rho</code>,
+<code>beta</code>, and <code>latent0</code>.
+The default value is equal to the prior mean.
+In case of parallel execution with <code>cl</code> provided, <code>startpara</code> can be a list of
+named lists that initialize the parallel chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startlatent</code></td>
+<td>
+<p><em>optional</em> vector of length <code>length(y)</code>,
+containing the starting values for the latent log-volatility draws. The
+default value is <code>rep(-10, length(y))</code>.
+In case of parallel execution with <code>cl</code> provided, <code>startlatent</code> can be a list of
+named lists that initialize the parallel chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p><em>optional</em> one of <code>"no"</code> (default), <code>"multicore"</code>, or <code>"snow"</code>,
+indicating what type of parallellism is to be applied. Option
+<code>"multicore"</code> is not available on Windows.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_cpus</code></td>
+<td>
+<p><em>optional</em> positive integer, the number of CPUs to be used in case of
+parallel computations. Defaults to <code>1L</code>. Ignored if parameter
+<code>cl</code> is supplied and <code>parallel != "snow"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p><em>optional</em> so-called SNOW cluster object as implemented in package
+<code>parallel</code>. Ignored unless <code>parallel == "snow"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_chains</code></td>
+<td>
+<p><em>optional</em> positive integer specifying the number of independent MCMC chains</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print_progress</code></td>
+<td>
+<p><em>optional</em> one of <code>"automatic"</code>, <code>"progressbar"</code>,
+or <code>"iteration"</code>, controls the output. Ignored if <code>quiet</code> is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expert</code></td>
+<td>
+<p><em>optional</em> named list of expert parameters. For most
+applications, the default values probably work best. Interested users are
+referred to the literature provided in the References section. If
+<code>expert</code> is provided, it may contain the following named elements:
+</p>
+
+<dl>
+<dt>interweave</dt>
+<dd>
+<p>Logical value. If <code>TRUE</code> (the default),
+then ancillarity-sufficiency interweaving strategy (ASIS) is applied
+to improve on the sampling efficiency for the parameters.
+Otherwise one parameterization is used.</p>
+</dd>
+<dt>correct_model_misspecification</dt>
+<dd>
+<p>Logical value. If <code>FALSE</code>
+(the default), then auxiliary mixture sampling is used to sample the latent
+states. If <code>TRUE</code>, extra computations are made to correct for model
+misspecification either ex-post by reweighting or on-line using a
+Metropolis-Hastings step.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Any extra arguments will be forwarded to
+<code>updatesummary</code>, controlling the type of statistics calculated
+for the posterior draws.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For details concerning the algorithm please see the paper by Kastner and
+Frühwirth-Schnatter (2014) and Hosszejni and Kastner (2019).
+</p>
+
+
+<h3>Value</h3>
+
+<p>The value returned is a list object of class <code>svdraws</code> holding
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>para</code></td>
+<td>
+<p><code>mcmc.list</code> object containing the <em>parameter</em> draws from
+the posterior distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>latent</code></td>
+<td>
+<p><code>mcmc.list</code> object containing the
+<em>latent instantaneous log-volatility</em> draws from the posterior
+distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>latent0</code></td>
+<td>
+<p><code>mcmc.list</code> object containing the <em>latent
+initial log-volatility</em> draws from the posterior distribution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p><code>mcmc.list</code> object containing the <em>latent variance inflation
+factors</em> for the sampler with conditional t-innovations <em>(optional)</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p><code>mcmc.list</code> object containing the <em>regression coefficient</em>
+draws from the posterior distribution <em>(optional)</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>the left hand side of the observation equation, usually
+the argument <code>y</code>. In case of an AR(<code>k</code>) specification, the
+first <code>k</code> elements are removed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>runtime</code></td>
+<td>
+<p><code>proc_time</code> object containing the
+run time of the sampler.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a <code>priorspec</code> object containing the parameter
+values of the prior distributions for <code>mu</code>,
+<code>phi</code>, <code>sigma</code>, <code>nu</code>, <code>rho</code>, and
+<code>beta</code>s, and the variance of specification for <code>latent0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thinning</code></td>
+<td>
+<p><code>list</code> containing the thinning
+parameters, i.e. the arguments <code>thinpara</code>, <code>thinlatent</code> and
+<code>keeptime</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>summary</code></td>
+<td>
+<p><code>list</code> containing a collection of
+summary statistics of the posterior draws for <code>para</code>, <code>latent</code>,
+and <code>latent0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meanmodel</code></td>
+<td>
+<p><code>character</code> containing information about how <code>designmatrix</code>
+was employed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>svlm</code></td>
+<td>
+<p>a flag for the use of <code>svlm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model_terms</code></td>
+<td>
+<p>helper object that represents the formula</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>argument <code>formula</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlevels</code></td>
+<td>
+<p>helper object that is needed to interpret the formula</p>
+</td>
+</tr>
+</table>
+<p>To display the output, use <code>print</code>, <code>summary</code> and <code>plot</code>. The
+<code>print</code> method simply prints the posterior draws (which is very likely
+a lot of output); the <code>summary</code> method displays the summary statistics
+currently stored in the object; the <code>plot</code> method
+<code>plot.svdraws</code> gives a graphical overview of the posterior
+distribution by calling <code>volplot</code>, <code>traceplot</code> and
+<code>densplot</code> and displaying the results on a single page.
+</p>
+
+
+<h3>References</h3>
+
+<p>Kastner, G. and Frühwirth-Schnatter, S. (2014).
+Ancillarity-sufficiency interweaving strategy (ASIS) for boosting MCMC
+estimation of stochastic volatility models. <em>Computational Statistics &amp;
+Data Analysis</em>, <b>76</b>, 408–423,
+<a href="https://doi.org/10.1016/j.csda.2013.01.002">doi:10.1016/j.csda.2013.01.002</a>.
+</p>
+<p>Hosszejni, D. and Kastner, G. (2019).
+Approaches Toward the Bayesian Estimation of the Stochastic Volatility Model with Leverage.
+<em>Springer Proceedings in Mathematics &amp; Statistics</em>, <b>296</b>, 75–83,
+<a href="https://doi.org/10.1007/978-3-030-30611-3_8">doi:10.1007/978-3-030-30611-3_8</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>svsample</code>, <code>svsim</code>, <code>specify_priors</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Simulate data
+n &lt;- 50L
+dat &lt;- data.frame(x = runif(n, 3, 4),
+                  z = runif(n, -1, -0.5))
+designmatrix &lt;- matrix(c(dat$x, dat$x^2, log10(dat$x),
+                         dat$z), ncol = 4)
+betas &lt;- matrix(c(-1, 1, 2, 0), ncol = 1)
+y &lt;- designmatrix %*% betas + svsim(n)$y
+dat$y &lt;- y
+# Formula interface
+res &lt;- svlm(y ~ 0 + x + I(x^2) + log10(x) + z, data = dat)
+# Prediction
+predn &lt;- 10L
+preddat &lt;- data.frame(x = runif(predn, 3, 4),
+                      z = runif(predn, -1, -0.5))
+pred &lt;- predict(res, newdata = preddat, steps = predn)
+</code></pre>
+
+
+</div>

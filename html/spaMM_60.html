@@ -1,0 +1,75 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>autoregressive</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Fitting autoregressive models
+</h2>
+
+<h3>Description</h3>
+
+<p>Diverse autoregressive (AR) models are implemented in spaMM. This documentation describe the <code>adjacency</code> model (a conditional AR, i.e., CAR), and the <code>AR1</code> model for time series. Other documentation deals with more or less distantly related models: <code>ARp</code> for more general AR(p) and ARMA(p,q) models for time series, and <code>IMRF</code> and <code>MaternIMRFa</code> for mesh-based approximations of geostatistical models.
+</p>
+<p>An AR1 random effect is specified as <code>AR1(1|&lt;grouping factor&gt;)</code>. It describes correlations between realizations of the random effect for (typically) successive time-steps by a correlation <code class="reqn">\phi</code>, denoted <code>ARphi</code> in function calls. Nested AR1 effects can be specified by a nested grouping factor, as in <code>AR1(1|&lt;time index&gt; %in% &lt;nesting factor&gt;)</code>.
+</p>
+<p>A CAR random effect is specified as <code>adjacency(1|&lt;grouping factor&gt;)</code>. The correlations among levels of the random effect form a 
+matrix (<b>I</b><code class="reqn">-\rho</code> <code>adjMatrix</code><code class="reqn">)^{-1}</code>, in terms of an <code>adjMatrix</code> matrix which must be provided, and of the scalar <code class="reqn">\rho</code>, denoted <code>rho</code> in function calls. 
+The rows and columns of <code>adjMatrix</code> must have names matching those of levels of the random effect <b>or else</b> are assumed to match a sequence, from 1 to the number of columns, of values of the geographic location index specifying the spatial random effect. For example, if the model formula 
+is<br><code>y ~ adjacency(1|geo.loc)</code> and <code>&lt;data&gt;$geo.loc</code> is 2,4,3,1,... the first row/column of the matrix refers to <code>geo.loc</code>=1, i.e. to the fourth row of the data. 
+</p>
+
+
+<h3>Details</h3>
+
+<p>Efficient algorithms for CAR models have been widely discussed in particular in the econometric literature (e.g., LeSage and Pace 2009), but these models are not necessarily recommended for irregular lattices (see Wall, 2004 and Martellosio, 2012 for some insights on the implications of autoregressive models). 
+</p>
+<p>In <b>CAR</b> models, the covariance matrix of random effects <b>u</b> can be described as <code class="reqn">\lambda</code>(<b>I</b><code class="reqn">-\rho</code> <b>W</b><code class="reqn">)^{-1}</code> where <b>W</b> is the (symmetric) adjacency matrix. <code>HLCor</code> uses the spectral decomposition of the adjacency matrix, written as <b>W=VDV'</b> where <b>D</b> is a diagonal matrix of eigenvalues <code class="reqn">d_i</code>. The covariance of <b>V'u</b> is 
+<code class="reqn">\lambda</code>(<b>I</b><code class="reqn">-\rho</code> <b>D</b><code class="reqn">)^{-1}</code>, which is a diagonal matrix with elements 
+<code class="reqn">\lambda_i</code>=<code class="reqn">\lambda</code>/(1<code class="reqn">-\rho d_i</code>). Hence <code class="reqn">1/\lambda_i</code> is in the linear predictor form <code class="reqn">\alpha</code>+<code class="reqn">\beta d_i</code> This can be used to fit <code class="reqn">\lambda</code> and <code class="reqn">\rho</code> efficiently. A call to <code>corrHLfit</code> with the additional argument 
+<code>init.HLfit=list(rho=0)</code> should be equivalent in speed and result to the <code>HLCor</code> call. 
+</p>
+<p>This is fast for small datasets (as in the example below) but more generic maximization algorithms may be preferable for large ones. It is suggested to use <code>fitme</code> generally unless one has a large number of small data sets to analyze. A call to <code>fitme</code> or <code>corrHLfit</code> without that initial value does not use the spectral decomposition. It performs numerical maximization of the likelihood (or restricted likelihood) as function of the correlation parameter <code class="reqn">\rho</code>. The choice of fitting function may slightly impact the results. The ML fits by <code>corrHLfit</code> and <code>HLCor</code> should be practically equivalent. The REML fits should slightly differ from each other, due to the fact that the REML approximation for GLMMs does not maximize a single likelihood function. 
+</p>
+<p>If <code>HLCor</code> is used, the results are reported as the coefficients <code class="reqn">\alpha</code> (<code>(Intercept)</code>) and <code class="reqn">\beta</code> (<code>adjd</code>) of the predictor for <code class="reqn">1/\lambda_i</code>, in addition to the resulting values of <code class="reqn">\rho</code> and of the common <code class="reqn">\lambda</code> factor.    
+</p>
+<p>Different fits may also differ in using or not algorithms that exploit the sparsity of the precision matrix of the autoregressive random effect. By default, spaMM tends to select sparse-precision algorithms for large datasets and large (i.e. many-level) random effects (details are complex).
+However, for <b>AR1</b> models, the dimension of the implied precision matrix is determined by the extreme values of grouping factor (typically interpreted as a time index), as all intermediate values must be considered. Then, the correlation-based algorithms may be more efficient if only a few levels are present in the data, as only a small correlation matrix is required in that case.    
+</p>
+
+
+<h3>References</h3>
+
+<p>LeSage, J., Pace, R.K. (2009) Introduction to Spatial Econometrics. Chapman &amp; Hall/CRC.
+</p>
+<p>Martellosio, F. (2012) The correlation structure of spatial autoregressions, Econometric Theory 28, 1373-1391.
+</p>
+<p>Wall M.M. (2004) A close look at the spatial structure implied by
+the CAR and SAR models: Journal of Statistical Planning and Inference 121: 311-324.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##### AR1 random effect:
+ts &lt;- data.frame(lh=lh,time=seq(48)) ## using 'lh' data from stats package
+fitme(lh ~ 1 +AR1(1|time), data=ts, method="REML")
+# With fixed parameters:
+# HLCor(lh ~ 1 +AR1(1|time), data=ts, ranPars=list(ARphi=0.5,lambda=0.25,phi=0.001))
+
+##### CAR random effect:
+data("scotlip")
+# CAR by Laplace with 'outer' estimation of rho
+if (spaMM.getOption("example_maxtime")&gt;0.8) {          
+  fitme(cases ~ I(prop.ag/10)+adjacency(1|gridcode)+offset(log(expec)),
+          adjMatrix=Nmatrix, family=poisson(), data=scotlip) 
+}
+
+# CAR by Laplace with 'inner' estimation of rho
+HLCor(cases ~ I(prop.ag/10)+adjacency(1|gridcode)+offset(log(expec)),
+          adjMatrix=Nmatrix, family=poisson(), data=scotlip, method="ML")
+</code></pre>
+
+
+</div>

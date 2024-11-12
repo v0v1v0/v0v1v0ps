@@ -1,0 +1,286 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simBA</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Run a simulation to assess due to unmeasured confounding</h2>
+
+<h3>Description</h3>
+
+<p><code>simBA()</code> runs a simulation to compute the magnitude of the bias in a hazard ratio in the presence of unmeasured confounding, possibly when proxies are available.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simBA(
+  parameters,
+  iterations = 500,
+  size = 1000,
+  treatment_prevalence,
+  treatment_coeff,
+  outcome_prevalence,
+  dist = "exponential",
+  unmeasured_conf,
+  n_proxies = 0,
+  proxy_type = "binary",
+  corr = NULL,
+  adj = "matching",
+  estimand = "ATT",
+  adj_args = list(),
+  keep_data = FALSE,
+  cl = NULL,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>parameters</code></td>
+<td>
+<p>either a data.frame containing information about the data generation used in the simulation or a string containing the path to a .csv or .xlsx file containing such information. See Details for what this should contain and <code>create_parameters()</code> to create a skeleton of this object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iterations</code></td>
+<td>
+<p>the number of simulation iterations. Default is 500.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>size</code></td>
+<td>
+<p>the size of each sample to be generated. Default is 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>treatment_prevalence</code></td>
+<td>
+<p>the desired prevalence of treatment. Should be a number between 0 and 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>treatment_coeff</code></td>
+<td>
+<p>the coefficient on the treatment variable in the data-generating model for survival times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outcome_prevalence</code></td>
+<td>
+<p>the desired prevalence of the outcome. This is used to specify a censoring time for the data-generating model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>the distribution to use to generate survival times. Allowable options include <code>"exponential"</code> (default) and <code>"weibull"</code>. Abbreviations allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>unmeasured_conf</code></td>
+<td>
+<p>the name of the variable in <code>parameters</code> corresponding to the unmeasured confounder.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_proxies</code></td>
+<td>
+<p>the number of proxies for the unmeasured confounder to include in the simulation. Default is 0.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proxy_type</code></td>
+<td>
+<p>when <code>n_proxies</code> is greater than 0, the type of variable the proxies should be. Allowable options include <code>"binary"</code> (default) and <code>"continuous"</code>. Abbreviations allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corr</code></td>
+<td>
+<p>when <code>n_proxies</code> is greater than 0, the desired correlations between the proxy variable and the unmeasured confounder in the simulation. Should be length 1 (in which case all proxies have the same correlation with the unmeasured confounder) or length equal to <code>n_proxies</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adj</code></td>
+<td>
+<p>string; the method used to adjust for the confounders. Allowable options include <code>"matching"</code> (the default), which uses <code>MatchIt::matchit()</code>, and <code>"weighting"</code>, which uses <code>WeightIt::weightit()</code>. Abbreviations allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimand</code></td>
+<td>
+<p>string; the desired estimand to target. Allowable options include <code>"ATT"</code> (default), <code>"ATC"</code>, and <code>"ATE"</code>. Note this is also passed to the <code>estimand</code> argument of the function used for adjustment as specified by <code>adj</code> if omitted in <code>adj_args</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adj_args</code></td>
+<td>
+<p>a list of arguments passed to <code>MatchIt::matchit()</code> or <code>WeightIt::weightit()</code> depending on the argument to <code>adj</code>. If not supplied, the parameter defaults will be used. Take care to specify these arguments to ensure the adjustment method is as desired.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep_data</code></td>
+<td>
+<p><code>logical</code>; whether to keep the datasets generated in each simulation. Default is <code>FALSE</code>. Setting to <code>TRUE</code> will make the output object large.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>a cluster object created by <code>parallel::makeCluster()</code>, or an integer to indicate number of child-processes (integer values are ignored on Windows) for parallel evaluations. See <code>pbapply::pbapply()</code> for details. Default is <code>NULL</code> for no parallel evaluation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>whether to print information about the progress of the simulation, including a progress bar. Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>simBA()</code> runs a simulation study to examine the impact of an unmeasured confounder on the bias of the marginal hazard ratio when using matching or weighting to adjust for observed confounders and, optionally, proxies of the unmeasured confounder. The user must specify the simulation data-generating model using the <code>parameters</code> argument and other arguments that control generation of the treatment, outcome, and proxies. Requirements for the <code>parameters</code> input are described below. In addition, the user must specify the form of adjustment used (matching or weighting) using the <code>adj</code> argument, the desired estimand using the <code>estimand</code> argument, and any other arguments passed to <code>adj_args</code> to control the matching/weighting method. Note by default, the ATT is targeted, even though the usual default estimand for weighting using <code>WeightIt::weightit()</code> is the ATE.
+</p>
+<p>Broadly, the <code>parameters</code> input contains the name of the measured and unmeasured confounders, their variable types (binary, continuous, or count), their distributions, and their coefficients in the treatment and outcome models. These values are used to generate a synthetic dataset of size corresponding to the <code>size</code> argument, which additionally contains the true propensity score used to simulate the treatment, the treatment itself, and the outcome (i.e., survival time and whether an event occurred). When proxies are requested (i.e., <code>n_proxies</code> set to 1 or greater), proxies for the unmeasured confounder are additionally generated and appended to the synthetic dataset.
+</p>
+<p>In each iteration, a synthetic dataset is generated, and then that dataset is analyzed. First, a crude marginal hazard ratio is estimated by fitting a Cox proportional hazards model for the survival times and events as a function just of the treatment. Then, the dataset is adjusted using matching or weighting with the measured covariates, and a second hazard ratio is estimated as above, this time in the matched or weighted sample. If proxies are requested, the dataset is adjusted again using matching or weighting with the measured covariates and proxies, and a third hazard ratio is estimated as above. In addition, the balance (as measured by the  standardized mean difference [SMD]) is reported for the unmeasured confounder and proxies before adjustment and after each round of matching or weighting.
+</p>
+
+
+<h4>The data-generating model</h4>
+
+<p>The data-generating model for the outcome corresponds to a Cox proportional hazards model as described by Bender et al. (2005). The coefficients on the measured and unmeasured confounders in the outcome model are specified in the <code>parameters</code> input, and the coefficient on the treatment variable is specified by the <code>treatment_coeff</code> argument. The treatment is generated as a Bernoulli variable with probability equal to the true propensity score, which is generated according to a logistic regression model with the coefficients on the confounders specified in the <code>parameters</code> input.
+</p>
+<p>The proxies, if requested, are generated such that their correlation with the unmeasured confounder is exactly equal to the values supplied to <code>corr</code>. The confounder are generated as uncorrelated variables according to the distribution supplied in the <code>parameters</code> input. Binary variables are generated as Bernoulli variables with probability equal to the supplied prevalence. Continuous variables are generated as Gaussian (Normal) variables with mean and standard deviation equal to their supplied values. Count variables are generated as Poisson variables with mean equal to its supplied value.
+</p>
+<p>Some parameters are determined first by generating a dataset with one million observations. With this dataset, the intercept of the true propensity score model is selected as that which yields a treatment prevalence equal to that specified in the <code>treatment_prevalence</code> argument, and the censoring time for the outcomes is selected as that which yields an outcome event prevalence equal to that specified in the <code>outcome_prevalence</code> argument. In addition, the true marginal hazard ratio is computed using this dataset by generating potential outcomes under each treatment and fitting a Cox model of the potential outcome survival times and events as a function of the treatment under which the potential outcome was generated as recommended by Austin (2013).
+</p>
+
+
+
+<h4>The <code>parameters</code> input object</h4>
+
+<p>The <code>parameters</code> input must be of a specified form in order to be processed correctly. It must be a data.frame with one row for each confounder to be generated with (at least) the following columns (which are case-sensitive):
+</p>
+
+<dl>
+<dt><code>Variable</code></dt>
+<dd>
+<p>the name of the variable</p>
+</dd>
+<dt><code>Type</code></dt>
+<dd>
+<p>the variable type; either binary, continuous, or count (see above for how these correspond to the distribution used to generate the variable)</p>
+</dd>
+<dt><code>prevalence</code></dt>
+<dd>
+<p>the prevalence for binary variables (should be blank for all other variable types)</p>
+</dd>
+<dt><code>mean</code></dt>
+<dd>
+<p>the mean for continuous and count variable (should be blank for binary variables)</p>
+</dd>
+<dt><code>sd</code></dt>
+<dd>
+<p>the standard deviation for continuous variables (should be blank for all other variable types)</p>
+</dd>
+<dt><code>coeff_treatment_model</code></dt>
+<dd>
+<p>the coefficient on that variable in the true propensity score model for the treatment (can be blank for any variable that doesn't affect treatment)</p>
+</dd>
+<dt><code>coeff_outcome_model</code></dt>
+<dd>
+<p>the coefficient on that variable in the outcome model for the treatment (can be blank for any variable that doesn't affect the outcome)</p>
+</dd>
+</dl>
+<p>The variable name supplied to <code>unmeasured_conf</code> must be present in the <code>parameters</code> input, and it must have nonzero values in both the <code>coeff_treatment_model</code> and <code>coeff_outcome_model</code> columns (or else it would not be a true confounder).
+</p>
+<p>To automatically create a skeleton of the <code>parameters</code> input for you to fill in yourself, use <code>create_parameters()</code>.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>A <code>simBA</code> object, which contains the simulation outputs and their summaries. This includes the following components:
+</p>
+
+<dl>
+<dt><code>sim_out</code></dt>
+<dd>
+<p>the complete simulation results, a list with an entry for each iteration including the table of log hazard ratios, the table of standardized mean differences, and the generated dataset (if <code>keep_data = TRUE</code>)</p>
+</dd>
+<dt><code>parameters</code></dt>
+<dd>
+<p>the table of parameters supplied to <code>parameters</code> after some processing</p>
+</dd>
+<dt><code>SMD_table</code></dt>
+<dd>
+<p>the table of average standardized mean differences for the unmeasured confounder and proxies before and after matching across all iterations</p>
+</dd>
+<dt><code>HR_table</code></dt>
+<dd>
+<p>the table of estimated and true hazard ratios averaged across all iterations (note that log hazard ratios are averaged before exponentiating the average)</p>
+</dd>
+</dl>
+<p>Basic <code>print()</code> and <code>summary()</code> methods are available. See <code style="white-space: pre;">⁠[plot.simBA()]⁠</code> for plotting.
+</p>
+
+
+<h3>References</h3>
+
+<p>Austin PC. The performance of different propensity score methods for estimating marginal hazard ratios. <em>Statistics in Medicine</em>. 2013;32(16):2837-2849. <a href="https://doi.org/10.1002/sim.5705">doi:10.1002/sim.5705</a>
+</p>
+<p>Bender R, Augustin T, Blettner M. Generating survival times to simulate Cox proportional hazards models. <em>Statistics in Medicine</em>. 2005;24(11):1713-1723. <a href="https://doi.org/10.1002/sim.2059">doi:10.1002/sim.2059</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>create_parameters()</code> for creating the <code>parameters</code> input; <code>plot.simBA()</code> for plotting the results. <code>MatchIt::matchit()</code> and <code>WeightIt::weightit()</code> for the functions used for matching and weighting, respectively, which detail the defaults used by these methods and allowable arguments that can be passed to <code>adj_args</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Get parameters example; can also create
+# with `create_parameters()`
+parameters &lt;- read.csv(system.file("extdata", "parameters.csv",
+                                   package = "sim.BA"))
+
+  # Run simulation; adjustment via PS weighting for
+  # the ATE
+  sim &lt;- simBA(parameters,
+               iterations = 50,
+               size = 200,
+               treatment_prevalence = .2,
+               treatment_coef = -.25,
+               outcome_prevalence = .5,
+               unmeasured_conf = "u1",
+               n_proxies = 2,
+               proxy_type = "binary",
+               corr = c(.5, .8),
+               verbose = FALSE,
+               # Adjustment arguments
+               adj = "weighting",
+               estimand = "ATE",
+               adj_args = list(method = "glm"))
+
+  sim
+
+  summary(sim)
+
+  plot(sim, "balance")
+
+  plot(sim, "hr")
+
+</code></pre>
+
+
+</div>

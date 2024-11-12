@@ -1,0 +1,248 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>invMillsRatio</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Inverse Mill's Ratio of probit models</h2>
+
+<h3>Description</h3>
+
+<p>Calculates the 'Inverse Mill's Ratios' of univariate and bivariate
+probit models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">   invMillsRatio( x, all = FALSE )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>probit model estimated by <code>probit</code>, <code>glm</code> or
+<code>vglm</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>all</code></td>
+<td>
+<p>a logical value indicating whether the inverse Mill's Ratios
+should be calculated for all observations.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The formula to calculate the inverse Mill's ratios for univariate probit
+models is taken from Greene (2003, p. 785),
+whereas the formulas for bivariate probit models are derived in
+Henning and Henningsen (2005).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data frame that contains the Inverse Mill's Ratios (IMR) and the delta
+values (see Greene, 2003, p. 784).
+</p>
+<p>If a univariate probit estimation is provided, the variables
+<code>IMR1</code> and <code>IMR0</code> are the Inverse Mill's Ratios to correct
+for a sample selection bias of y = 1 and y = 0, respectively.
+Accordingly, 'delta1' and 'delta0' are the corresponding delta values.
+</p>
+<p>If a bivariate probit estimation is provided, the variables
+<code>IMRa1</code>, <code>IMRa0</code>, <code>IMRb1</code>, and <code>IMRb0</code> are the
+Inverse Mills Ratios to correct for a sample selection bias
+of y = 1 and y = 0 in equations 'a' and 'b', respectively.
+Accordingly, 'deltaa1', 'deltaa0', 'deltab1' and 'deltab0' are the
+corresponding delta values.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Arne Henningsen</p>
+
+
+<h3>References</h3>
+
+<p>Greene, W. H. (2003)
+<em>Econometric Analysis, Fifth Edition</em>, Prentice Hall.
+</p>
+<p>Henning, C.H.C.A and A. Henningsen (2005)
+Modeling Price Response of Farm Households in Imperfect
+Labor Markets in Poland:
+Incorporating Transaction Costs and Heterogeneity into a Farm
+Household Approach.
+Unpublished, University of Kiel, Germany.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Wooldridge( 2003 ): example 17.5, page 590
+data(Mroz87)
+myProbit &lt;- glm( lfp ~ nwifeinc + educ + exper + I( exper^2 ) + age +
+   kids5 + kids618, family = binomial( link = "probit" ), data=Mroz87 )
+Mroz87$IMR &lt;- invMillsRatio( myProbit )$IMR1
+myHeckit &lt;- lm( log( wage ) ~ educ + exper + I( exper^2 ) + IMR,
+   data = Mroz87[ Mroz87$lfp == 1, ] )
+
+# using NO labor force participation as endogenous variable
+Mroz87$nolfp &lt;- 1 - Mroz87$lfp
+myProbit2 &lt;- glm( nolfp ~ nwifeinc + educ + exper + I( exper^2 ) + age +
+   kids5 + kids618, family = binomial( link = "probit" ), data=Mroz87 )
+all.equal( invMillsRatio( myProbit )$IMR1, invMillsRatio( myProbit2 )$IMR0 )
+   # should be true
+
+# example for bivariate probit
+library( "mvtnorm" )
+library( "VGAM" )
+
+nObs &lt;- 1000
+
+# error terms (trivariate normal)
+sigma &lt;- symMatrix( c( 2, 0.7, 1.2, 1, 0.5, 1 ) )
+myData &lt;- as.data.frame( rmvnorm( nObs, c( 0, 0, 0 ), sigma ) )
+names( myData ) &lt;- c( "e0", "e1", "e2" )
+
+# exogenous variables (indepently normal)
+myData$x0 &lt;- rnorm( nObs )
+myData$x1 &lt;- rnorm( nObs )
+myData$x2 &lt;- rnorm( nObs )
+
+# endogenous variables
+myData$y0 &lt;-   -1.5 + 0.8 * myData$x1 + myData$e0
+myData$y1 &lt;- (  0.3 + 0.4 * myData$x1 + 0.3 * myData$x2 + myData$e1 ) &gt; 0
+myData$y2 &lt;- ( -0.1 + 0.6 * myData$x1 + 0.7 * myData$x2 + myData$e2 ) &gt; 0
+
+# bivariate probit (using rhobit transformation)
+bProbit &lt;- vglm( cbind( y1, y2 ) ~ x1 + x2, family = binom2.rho,
+   data = myData )
+summary( bProbit )
+
+# bivariate probit (NOT using rhobit transformation)
+bProbit2 &lt;- vglm( cbind( y1, y2 ) ~ x1 + x2, family = binom2.rho(
+   lrho = "identitylink" ), data = myData )
+summary( bProbit2 )
+
+# inverse Mills Ratios
+imr  &lt;- invMillsRatio( bProbit )
+imr2 &lt;- invMillsRatio( bProbit2 )
+all.equal( imr, imr2, tolerance = .Machine$double.eps ^ 0.25)
+
+# tests
+# E[ e0 | y1* &gt; 0 &amp; y2* &gt; 0 ]
+mean( myData$e0[ myData$y1 &amp; myData$y2 ] )
+mean( sigma[1,2] * imr$IMR11a + sigma[1,3] * imr$IMR11b, na.rm = TRUE )
+# E[ e0 | y1* &gt; 0 &amp; y2* &lt;= 0 ]
+mean( myData$e0[ myData$y1 &amp; !myData$y2 ] )
+mean( sigma[1,2] * imr$IMR10a + sigma[1,3] * imr$IMR10b, na.rm = TRUE )
+# E[ e0 | y1* &lt;= 0 &amp; y2* &gt; 0 ]
+mean( myData$e0[ !myData$y1 &amp; myData$y2 ] )
+mean( sigma[1,2] * imr$IMR01a + sigma[1,3] * imr$IMR01b, na.rm = TRUE )
+# E[ e0 | y1* &lt;= 0 &amp; y2* &lt;= 0 ]
+mean( myData$e0[ !myData$y1 &amp; !myData$y2 ] )
+mean( sigma[1,2] * imr$IMR00a + sigma[1,3] * imr$IMR00b, na.rm = TRUE )
+# E[ e0 | y1* &gt; 0 ]
+mean( myData$e0[ myData$y1 ] )
+mean( sigma[1,2] * imr$IMR1X, na.rm = TRUE )
+# E[ e0 | y1* &lt;= 0 ]
+mean( myData$e0[ !myData$y1 ] )
+mean( sigma[1,2] * imr$IMR0X, na.rm = TRUE )
+# E[ e0 | y2* &gt; 0 ]
+mean( myData$e0[ myData$y2 ] )
+mean( sigma[1,3] * imr$IMRX1, na.rm = TRUE )
+# E[ e0 | y2* &lt;= 0 ]
+mean( myData$e0[ !myData$y2 ] )
+mean( sigma[1,3] * imr$IMRX0, na.rm = TRUE )
+
+# estimation for y1* &gt; 0 and y2* &gt; 0
+selection &lt;- myData$y1 &amp; myData$y2
+# OLS estimation
+ols11 &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( ols11 )
+# heckman type estimation
+heckit11 &lt;- lm( y0 ~ x1 + IMR11a + IMR11b, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckit11 )
+
+# estimation for y1* &gt; 0 and y2* &lt;= 0
+selection &lt;- myData$y1 &amp; !myData$y2
+# OLS estimation
+ols10 &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( ols10 )
+# heckman type estimation
+heckit10 &lt;- lm( y0 ~ x1 + IMR10a + IMR10b, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckit10 )
+
+# estimation for y1* &lt;= 0 and y2* &gt; 0
+selection &lt;- !myData$y1 &amp; myData$y2
+# OLS estimation
+ols01 &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( ols01 )
+# heckman type estimation
+heckit01 &lt;- lm( y0 ~ x1 + IMR01a + IMR01b, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckit01 )
+
+# estimation for y1* &lt;= 0 and y2* &lt;= 0
+selection &lt;- !myData$y1 &amp; !myData$y2
+# OLS estimation
+ols00 &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( ols00 )
+# heckman type estimation
+heckit00 &lt;- lm( y0 ~ x1 + IMR00a + IMR00b, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckit00 )
+
+# estimation for y1* &gt; 0
+selection &lt;- myData$y1
+# OLS estimation
+ols1X &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( ols1X )
+# heckman type estimation
+heckit1X &lt;- lm( y0 ~ x1 + IMR1X, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckit1X )
+
+# estimation for y1* &lt;= 0
+selection &lt;- !myData$y1
+# OLS estimation
+ols0X &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( ols0X )
+# heckman type estimation
+heckit0X &lt;- lm( y0 ~ x1 + IMR0X, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckit0X )
+
+# estimation for y2* &gt; 0
+selection &lt;- myData$y2
+# OLS estimation
+olsX1 &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( olsX1 )
+# heckman type estimation
+heckitX1 &lt;- lm( y0 ~ x1 + IMRX1, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckitX1 )
+
+# estimation for y2* &lt;= 0
+selection &lt;- !myData$y2
+# OLS estimation
+olsX0 &lt;- lm( y0 ~ x1, data = myData, subset = selection )
+summary( olsX0 )
+# heckman type estimation
+heckitX0 &lt;- lm( y0 ~ x1 + IMRX0, data = cbind( myData, imr ),
+   subset = selection )
+summary( heckitX0 )
+</code></pre>
+
+
+</div>

@@ -1,0 +1,145 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>joins</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SQL Joins</h2>
+
+<h3>Description</h3>
+
+<p>Overloads the dplyr <code style="white-space: pre;">⁠*_join⁠</code> to accept an <code>na_by</code> argument.
+By default, joining using SQL does not match on <code>NA</code> / <code>NULL</code>.
+dbplyr <code style="white-space: pre;">⁠*_join⁠</code>s has the option "na_matches = na" to match on <code>NA</code> / <code>NULL</code> but this is very inefficient in some
+cases.
+This function does the matching more efficiently:
+If a column contains <code>NA</code> / <code>NULL</code>, the names of these columns can be passed via the <code>na_by</code> argument and
+efficiently match as if "na_matches = na".
+If no <code>na_by</code> argument is given is given, the function defaults to using <code style="white-space: pre;">⁠dplyr::*_join⁠</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'tbl_sql'
+inner_join(x, y, by = NULL, ...)
+
+## S3 method for class 'tbl_sql'
+left_join(x, y, by = NULL, ...)
+
+## S3 method for class 'tbl_sql'
+right_join(x, y, by = NULL, ...)
+
+## S3 method for class 'tbl_sql'
+full_join(x, y, by = NULL, ...)
+
+## S3 method for class 'tbl_sql'
+semi_join(x, y, by = NULL, ...)
+
+## S3 method for class 'tbl_sql'
+anti_join(x, y, by = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x, y</code></td>
+<td>
+<p>A pair of lazy data frames backed by database queries.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by</code></td>
+<td>
+<p>A join specification created with <code>join_by()</code>, or a character
+vector of variables to join by.
+</p>
+<p>If <code>NULL</code>, the default, <code style="white-space: pre;">⁠*_join()⁠</code> will perform a natural join, using all
+variables in common across <code>x</code> and <code>y</code>. A message lists the variables so
+that you can check they're correct; suppress the message by supplying <code>by</code>
+explicitly.
+</p>
+<p>To join on different variables between <code>x</code> and <code>y</code>, use a <code>join_by()</code>
+specification. For example, <code>join_by(a == b)</code> will match <code>x$a</code> to <code>y$b</code>.
+</p>
+<p>To join by multiple variables, use a <code>join_by()</code> specification with
+multiple expressions. For example, <code>join_by(a == b, c == d)</code> will match
+<code>x$a</code> to <code>y$b</code> and <code>x$c</code> to <code>y$d</code>. If the column names are the same between
+<code>x</code> and <code>y</code>, you can shorten this by listing only the variable names, like
+<code>join_by(a, c)</code>.
+</p>
+<p><code>join_by()</code> can also be used to perform inequality, rolling, and overlap
+joins. See the documentation at ?join_by for details on
+these types of joins.
+</p>
+<p>For simple equality joins, you can alternatively specify a character vector
+of variable names to join by. For example, <code>by = c("a", "b")</code> joins <code>x$a</code>
+to <code>y$a</code> and <code>x$b</code> to <code>y$b</code>. If variable names differ between <code>x</code> and <code>y</code>,
+use a named character vector like <code>by = c("x_a" = "y_a", "x_b" = "y_b")</code>.
+</p>
+<p>To perform a cross-join, generating all combinations of <code>x</code> and <code>y</code>, see
+<code>cross_join()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other parameters passed onto methods.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Another <code>tbl_lazy</code>. Use <code>show_query()</code> to see the generated
+query, and use <code>collect()</code> to execute the query
+and return data to R.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>dplyr::mutate-joins which this function wraps.
+</p>
+<p>dbplyr::join.tbl_sql which this function wraps.
+</p>
+<p>dplyr::show_query
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+  library(dplyr, warn.conflicts = FALSE)
+  library(dbplyr, warn.conflicts = FALSE)
+
+  band_db &lt;- tbl_memdb(dplyr::band_members)
+  instrument_db &lt;- tbl_memdb(dplyr::band_instruments)
+
+  left_join(band_db, instrument_db) |&gt;
+    show_query()
+
+  # Can join with local data frames by setting copy = TRUE
+  left_join(band_db, dplyr::band_instruments, copy = TRUE)
+
+  # Unlike R, joins in SQL don't usually match NAs (NULLs)
+  db &lt;- memdb_frame(x = c(1, 2, NA))
+  label &lt;- memdb_frame(x = c(1, NA), label = c("one", "missing"))
+  left_join(db, label, by = "x")
+
+  # But you can activate R's usual behaviour with the na_matches argument
+  left_join(db, label, by = "x", na_matches = "na")
+
+  # By default, joins are equijoins, but you can use `sql_on` to
+  # express richer relationships
+  db1 &lt;- memdb_frame(x = 1:5)
+  db2 &lt;- memdb_frame(x = 1:3, y = letters[1:3])
+
+  left_join(db1, db2) |&gt; show_query()
+  left_join(db1, db2, sql_on = "LHS.x &lt; RHS.x") |&gt; show_query()
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,255 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>compareSounds</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compare two sounds</h2>
+
+<h3>Description</h3>
+
+<p>Computes similarity between two sounds based on comparing their
+spectrogram-like representations. If the input is audio, two methods of
+producing spectrograms are available: <code>specType = 'linear'</code> calls
+<code>powspec</code> for an power spectrogram with frequencies in Hz,
+and <code>specType = 'mel'</code> calls <code>melfcc</code> for an auditory
+spectrogram with frequencies in Mel. For more customized options, just
+produce your spectrograms or feature matrices (time in column, features like
+pitch, peak frequency etc in rows) with your favorite function before calling
+<code>compareSounds</code> because it also accepts matrices as input. To be
+directly comparable, the two matrices are made into matrices of the same
+size. In case of differences in sampling rates, only frequencies below the
+lower Nyquist frequency or below <code>maxFreq</code> are kept. In case of
+differences in duration, the shorter sound is padded with 0 (silence) or NA,
+as controlled by arguments <code>padWith, padDir</code>. Then the matrices are
+compared using methods like cross-correlation or Dynamic Time Warp.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">compareSounds(
+  x,
+  y,
+  samplingRate = NULL,
+  windowLength = 40,
+  overlap = 50,
+  step = NULL,
+  dynamicRange = 80,
+  method = c("cor", "cosine", "diff", "dtw"),
+  specType = c("linear", "mel")[2],
+  specPars = list(),
+  dtwPars = list(),
+  padWith = NA,
+  padDir = c("central", "left", "right")[1],
+  maxFreq = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x, y</code></td>
+<td>
+<p>either two matrices (spectrograms or feature matrices) or two
+sounds to be compared (numeric vectors, Wave objects, or paths to wav/mp3
+files)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>if one or both inputs are numeric vectors, specify
+sampling rate, Hz. A vector of length 2 means the two inputs have different
+sampling rates, in which case spectrograms are compared only up to the
+lower Nyquist frequency</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength</code></td>
+<td>
+<p>length of FFT window, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>overlap between successive FFT frames, %</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step</code></td>
+<td>
+<p>you can override <code>overlap</code> by specifying FFT step, ms (NB:
+because digital audio is sampled at discrete time intervals of
+1/samplingRate, the actual step and thus the time stamps of STFT frames
+may be slightly different, eg 24.98866 instead of 25.0 ms)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>parts of the spectra quieter than <code>-dynamicRange</code> dB
+are not compared</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>method of comparing mel-transformed spectra of two sounds:
+"cor" = Pearson's correlation; "cosine" = cosine similarity; "diff" =
+absolute difference between each bin in the two spectrograms; "dtw" =
+multivariate Dynamic Time Warp with <code>dtw</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specType</code></td>
+<td>
+<p>"linear" = power spectrogram with
+<code>powspec</code>, "mel" = mel-frequency spectrogram with
+<code>melfcc</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specPars</code></td>
+<td>
+<p>a list of parameters passed to <code>melfcc</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dtwPars</code></td>
+<td>
+<p>a list of parameters passed to <code>dtw</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>padWith</code></td>
+<td>
+<p>if the duration of x and y is not identical, the compared
+spectrograms are padded with either silence (<code>padWith = 0</code>) or with
+NA's (<code>padWith = NA</code>) to have the same number of columns. Padding with
+NA implies that only the overlapping part is of relevance, whereas padding
+with 0 means that the added silent part is also compared with the longer
+sound, usually resulting in lower similarity (see examples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>padDir</code></td>
+<td>
+<p>if padding, specify where to add zeros or NAs: before the sound
+('left'), after the sound ('right'), or on both sides ('central')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxFreq</code></td>
+<td>
+<p>parts of the spectra above <code>maxFreq</code> Hz are not compared</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a dataframe with two columns: "method" for the method(s)
+used, and "sim" for the similarity between the two sounds calculated with
+that method. The range of similarity measures is [-1, 1] for "cor",
+[0, 1] for "cosine" and "diff", and (-Inf, Inf) for "dtw".
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(orni, peewit, package = 'seewave')
+compareSounds(orni, peewit)
+# spectrogram(orni); playme(orni)
+# spectrogram(peewit); playme(peewit)
+
+## Not run: 
+s1 = soundgen(formants = 'a', play = TRUE)
+s2 = soundgen(formants = 'ae', play = TRUE)
+s3 = soundgen(formants = 'eae', sylLen = 700, play = TRUE)
+s4 = runif(8000, -1, 1)  # white noise
+compareSounds(s1, s2, samplingRate = 16000)
+compareSounds(s1, s4, samplingRate = 16000)
+
+# the central section of s3 is more similar to s1 than is the beg/eng of s3
+compareSounds(s1, s3, samplingRate = 16000, padDir = 'left')
+compareSounds(s1, s3, samplingRate = 16000, padDir = 'central')
+
+# padding with 0 penalizes differences in duration, whereas padding with NA
+# is like saying we only care about the overlapping part
+compareSounds(s1, s3, samplingRate = 16000, padWith = 0)
+compareSounds(s1, s3, samplingRate = 16000, padWith = NA)
+
+# comparing linear (Hz) vs mel-spectrograms produces quite different results
+compareSounds(s1, s3, samplingRate = 16000, specType = 'linear')
+compareSounds(s1, s3, samplingRate = 16000, specType = 'mel')
+
+# pass additional control parameters to dtw and melfcc
+compareSounds(s1, s3, samplingRate = 16000,
+              specPars = list(nbands = 128),
+              dtwPars = list(dist.method = "Manhattan"))
+
+# use feature matrices instead of spectrograms (time in columns, features in rows)
+a1 = t(as.matrix(analyze(s1, samplingRate = 16000)$detailed))
+a1 = a1[4:nrow(a1), ]; a1[is.na(a1)] = 0
+a2 = t(as.matrix(analyze(s2, samplingRate = 16000)$detailed))
+a2 = a2[4:nrow(a2), ]; a2[is.na(a2)] = 0
+a4 = t(as.matrix(analyze(s4, samplingRate = 16000)$detailed))
+a4 = a4[4:nrow(a4), ]; a4[is.na(a4)] = 0
+compareSounds(a1, a2, method = c('cosine', 'dtw'))
+compareSounds(a1, a4, method = c('cosine', 'dtw'))
+
+# a demo for comparing different similarity metrics
+target = soundgen(sylLen = 500, formants = 'a',
+                  pitch = data.frame(time = c(0, 0.1, 0.9, 1),
+                                     value = c(100, 150, 135, 100)),
+                  temperature = 0.001)
+spec1 = soundgen:::getMelSpec(target, samplingRate = 16000)
+
+parsToTry = list(
+  list(formants = 'i',                                            # wrong
+       pitch = data.frame(time = c(0, 1),                         # wrong
+                          value = c(200, 300))),
+  list(formants = 'i',                                            # wrong
+       pitch = data.frame(time = c(0, 0.1, 0.9, 1),               # right
+                                 value = c(100, 150, 135, 100))),
+  list(formants = 'a',                                            # right
+       pitch = data.frame(time = c(0,1),                          # wrong
+                                 value = c(200, 300))),
+  list(formants = 'a',
+       pitch = data.frame(time = c(0, 0.1, 0.9, 1),               # right
+                                 value = c(100, 150, 135, 100)))  # right
+)
+
+sounds = list()
+for (s in 1:length(parsToTry)) {
+  sounds[[length(sounds) + 1]] =  do.call(soundgen,
+    c(parsToTry[[s]], list(temperature = 0.001, sylLen = 500)))
+}
+lapply(sounds, playme)
+
+method = c('cor', 'cosine', 'diff', 'dtw')
+df = matrix(NA, nrow = length(parsToTry), ncol = length(method))
+colnames(df) = method
+df = as.data.frame(df)
+for (i in 1:nrow(df)) {
+  df[i, ] = compareSounds(
+    x = spec1,  # faster to calculate spec1 once
+    y = sounds[[i]],
+    samplingRate = 16000,
+    method = method
+  )[, 2]
+}
+df$av = rowMeans(df, na.rm = TRUE)
+# row 1 = wrong pitch &amp; formants, ..., row 4 = right pitch &amp; formants
+df$formants = c('wrong', 'wrong', 'right', 'right')
+df$pitch = c('wrong', 'right', 'wrong', 'right')
+df
+
+## End(Not run)
+</code></pre>
+
+
+</div>

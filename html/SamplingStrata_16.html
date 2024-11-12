@@ -1,0 +1,165 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>KmeansSolution2</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Initial solution obtained by applying kmeans clustering of frame units
+</h2>
+
+<h3>Description</h3>
+
+<p>This function has to be used only in conjunction with "optimizeStrata2", 
+or with "optimStrata" when method = "continuous", i.e. in the
+case of optimizing with only continuous stratification variables.
+The function "KmeansSolution2" has a twofold objective:
+- to give indication about a possible best number of final strata (by fixing a 
+convenient value for "maxclusters", and leaving NA to "nstrata";
+- to give an initial solution fo the optimization step.
+If the parameter "nstrata" is not indicated, the optimal number of clusters 
+is determined inside each domain, and the overall solution is obtained by concatenating optimal 
+clusters obtained in domains.
+The result is a dataframe with two columns: the first indicates the clusters, 
+the second the domains.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">KmeansSolution2(frame,
+                model=NULL,
+                errors,
+                nstrata = NA,
+                minnumstrat =2,
+                maxclusters = NA,
+                showPlot = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>frame</code></td>
+<td>
+
+<p>The (mandatory) dataframe containing the information related to each unit in the sampling frame.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+
+<p>The (optional) dataframe containing the information related to models used to predict
+values of the target variables.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>errors</code></td>
+<td>
+
+<p>The (mandatory) dataframe containing the precision constraints on target variables.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nstrata</code></td>
+<td>
+
+<p>Number of aggregate strata (if NULL, it is optimized by varying the number of cluster
+from 2 to half number of atomic strata). Default is NA.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minnumstrat</code></td>
+<td>
+
+<p>Minimum number of units to be selected in each stratum. Default is 2.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxclusters</code></td>
+<td>
+
+<p>Maximum number of clusters to be considered in the 
+execution of kmeans algorithm. If not indicated it will be set equal to the
+number of atomic strata divided by 2.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>showPlot</code></td>
+<td>
+
+<p>Allows to visualise on a plot the different sample sizes for each number of aggregate strata. Default is TRUE.
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A dataframe containing the solution
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Giulio Barcaroli 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+library(SamplingStrata)
+data("swissmunicipalities")
+swissmunicipalities$id &lt;- c(1:nrow(swissmunicipalities))
+swissmunicipalities$dom &lt;- 1
+frame &lt;- buildFrameDF(swissmunicipalities,
+                      id = "id",
+                      domainvalue = "REG",
+                      X = c("Pop020", "Pop2040"),
+                      Y = c("Pop020", "Pop2040")
+)
+cv &lt;- NULL
+cv$DOM &lt;- "DOM1"
+cv$CV1 &lt;- 0.1
+cv$CV2 &lt;- 0.1
+cv &lt;- as.data.frame(cv)
+cv &lt;- cv[rep(row.names(cv),7),]
+cv$domainvalue &lt;- c(1:7)
+cv
+
+# Solution with kmean clustering 
+kmean &lt;- KmeansSolution2(frame,model=NULL,errors=cv,nstrata=NA,maxclusters=4)
+# number of strata to be obtained in each domain in final solution	
+nstrat &lt;- tapply(solutionKmean$suggestions,
+                 solutionKmean$domainvalue,
+                 FUN=function(x) length(unique(x)))
+# Prepare suggestion for optimization
+sugg &lt;- prepareSuggestion(kmean,frame,nstrat)
+# Optimization
+# Attention: number of strata must be the same than in kmeans
+solution &lt;- optimStrata (
+  method = "continuous",
+  cv, 
+  framesamp=frame,
+  iter = 50,
+  pops = 20,
+  nStrata = nstrat,
+  suggestions = sugg,
+  writeFiles = FALSE,
+  showPlot = FALSE,
+  parallel = FALSE
+)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

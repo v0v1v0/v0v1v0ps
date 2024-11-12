@@ -1,0 +1,197 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ssn_get_stream_distmat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get stream distance matrices from an <code>SSN</code> object</h2>
+
+<h3>Description</h3>
+
+<p>Extracts the stream network distance matrices for the
+observation or prediction data from an <code>SSN</code> object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ssn_get_stream_distmat(x, name = "obs")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An <code>SSN</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>Internal name of the dataset in the object
+<code>x</code>. For observed values, this will always be "obs", the
+default.  To get a stream network distance matrix for a
+prediction data set, the name of the dataset must be given, in
+quotes.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The internal <code>name</code> for observed data in objects of class
+<code>SSN</code> is "obs" and it is the default. If another <code>name</code>
+is specified, it must represent a prediction data set in the
+<code>SSN</code> object. For <code>SSN</code>
+objects, these names are obtained using the call <code>names(x$preds)</code>.
+</p>
+<p>Note that these are not traditional symmetric distance
+matrices. First, distances in an <code>SSN</code> object represent stream
+distance, or hydrologic distance, which is the distance between two
+locations when movement is restricted to the branching stream
+network. Another important difference is the distance matrices for
+<code>SSN</code> objects contain the <em>downstream only</em> stream
+distance between two locations, making them asymmetric. This
+asymmetry provides a way to store two types of spatial
+relationships based on stream distance:
+</p>
+
+<ul>
+<li>
+<p>Flow-connected: Water flows from an upstream site to a
+downstream site.
+</p>
+</li>
+<li>
+<p>Flow-unconnected: Two sites reside on the
+same stream network, but do not share flow.
+</p>
+</li>
+</ul>
+<p>For example, if two sites are flow-connected the downstream
+distance from the upstream site to the downstream site is &gt; 0,
+while the downstream distance between the downstream site and the
+upstream site = 0. For flow-unconnected sites, the downstream
+distance represents the distance from each site to the closest
+downstream junction and will be &gt; 0 in both directions. Direction
+is preserved, with columns representing the FROM site and rows
+representing the TO site. Row and column names correspond to the
+unique point identifier "pid" for each site. From this matrix, it
+is also possible to get total stream distance (downstream +
+upstream) between any two sites on the same network (see examples
+for additional details).
+</p>
+<p>Stream distances are only calculated within a network and so the
+asymmetric matrices are also stored by network.  For observation
+data, a single square matrix of distances is returned for each
+network, with the names based on the netID value (e.g. "dist.net1",
+"dist.net2", etc.). However, two distance matrices ("a" and "b")
+are required to store the downstream only distance between observed
+and prediction sites. The label "a" represents the downstream
+stream distance <em>from</em> prediction sites <em>to</em> observation
+sites, and the label "b" represents the distance <em>from</em>
+observation sites <em>to</em> predictions sites.  Thus, the list of
+prediction matrices are labeled "dist.net1.a" for the downstream
+only distance from prediction sites in the columns, to observation
+sites in the rows, for the first network. A prediction matrix
+labeled "dist.net1.b" contains downstream distances <em>from</em>
+observation sites in the columns <em>to</em> prediction sites in the
+rows, for the first network. The downstream only distance matrices
+for observations and predictions will be rectangular, unless the
+number of observation and prediction locations are equal.  If the
+argument <code>amongPreds = TRUE</code> was used in the function
+<code>ssn_create_distmat</code>, then the distance between prediction sites
+themselves is also returned, using the same labelling convention as
+for among observation sites. That is, the matrices for each network
+will be labeled "dist.net1", "dist.net2", etc., for the first and
+second network, etc.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>list</code> of asymmetric downstream only
+stream distance matrices, by network.
+</p>
+
+
+<h3>References</h3>
+
+<p>Ver Hoef, J.M. and Peterson, E.E. (2010) A moving
+average approach to spatial statistical models of stream
+networks. The Journal of the American Statistical Association,
+<b>105(489)</b>, 22–24
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>ssn_create_distmat()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## For this example only, copy MiddleFork04.ssn directory to R's
+## temporary directory
+copy_lsn_to_temp()
+## Create an SSN object with prediction sites
+mf04p &lt;- ssn_import(paste0(tempdir(), "/MiddleFork04.ssn"),
+  predpts = "pred1km", overwrite = TRUE
+)
+
+## Create distance matrices for obs x obs, obs x preds, and preds x
+## preds
+## Not run: 
+ssn_create_distmat(mf04p,
+  predpts = "pred1km", among_predpts = TRUE,
+  overwrite = TRUE
+)
+
+## End(Not run)
+
+## Check names of prediction datasets
+names(mf04p$preds)
+
+## Get list of stream distance matrices for observations
+dist_obs &lt;- ssn_get_stream_distmat(mf04p)
+## Display structure of list and names of the matrices
+str(dist_obs)
+names(dist_obs)
+## Look at first 5 rows and columns in asymmetric
+## downstream only distance matrix for netID == 1
+dist_obs$dist.net1[1:5, 1:5]
+
+## Create symmetric total stream distance matrix between
+## observations
+strdist_2 &lt;- dist_obs$dist.net2 + t(dist_obs$dist.net2)
+strdist_2[5:10, 5:10]
+
+## Get maximum downstream only distance between
+## observations on netID == 2
+a.mat &lt;- pmax(dist_obs$dist.net2, t(dist_obs$dist.net2))
+a.mat[5:10, 5:10]
+
+## Get minimum downstream only distance between observations. If
+## minimum distance == 0, sites are flow-connected
+b.mat &lt;- pmin(dist_obs$dist.net2, t(dist_obs$dist.net2))
+b.mat[5:10, 5:10]
+
+## Get distance matrices for pred1km
+dist_pred1km &lt;- ssn_get_stream_distmat(mf04p, name = "pred1km")
+str(dist_pred1km)
+names(dist_pred1km)
+## Look at first 5 rows and columns of downstream only distances
+## FROM prediction sites TO observed sites on netID == 1
+dist_pred1km$dist.net1.a[1:5, 1:5]
+
+## Look at downstream only stream distances among prediction
+## sites in pred1km on netID == 1. This is useful for block
+## prediction
+dist_pred1km$dist.net1[1:5, 1:5]
+</code></pre>
+
+
+</div>

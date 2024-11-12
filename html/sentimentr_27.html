@@ -1,0 +1,232 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>as_key</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create/Manipulate Hash Keys</h2>
+
+<h3>Description</h3>
+
+<p><code>as_key</code> - Create your own hash keys from a data frame for use in key
+arguments such as <code>polarity_dt</code> in the <code>sentiment</code> function.
+</p>
+<p><code>update_key</code> - Add/remove terms to a current key.
+</p>
+<p><code>update_polarity_table</code> - Wrapper for <code>update_key</code> specifically for
+updating polarity tables.
+</p>
+<p><code>update_valence_shifter_table</code> - Wrapper for <code>update_key</code> 
+specifically for updating valence shifter tables.
+</p>
+<p><code>is_key</code> - Logical check if an object is a key.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">as_key(x, comparison = lexicon::hash_valence_shifters, sentiment = TRUE, ...)
+
+update_key(
+  key,
+  drop = NULL,
+  x = NULL,
+  comparison = lexicon::hash_valence_shifters,
+  sentiment = FALSE,
+  ...
+)
+
+update_polarity_table(
+  key,
+  drop = NULL,
+  x = NULL,
+  comparison = lexicon::hash_valence_shifters,
+  sentiment = FALSE,
+  ...
+)
+
+update_valence_shifter_table(
+  key,
+  drop = NULL,
+  x = NULL,
+  comparison = lexicon::hash_sentiment_jockers_rinker,
+  sentiment = FALSE,
+  ...
+)
+
+is_key(key, sentiment = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A <code>data.frame</code> with the first column containing
+polarized words and the second containing polarity values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>comparison</code></td>
+<td>
+<p>A <code>data.frame</code> to compare to <code>x</code>.
+If elements in <code>x</code>'s column 1 matches <code>comparison</code>'s column 1 the
+accompanying row will be removed from <code>x</code>.  This is useful to ensure
+<code>polarity_dt</code> words are not also found in <code>valence_shifters_dt</code> in
+<code>sentiment</code>.  Use <code>comparison = NULL</code> to skip
+this comparison.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sentiment</code></td>
+<td>
+<p>logical.  If <code>TRUE</code> checking expects column 2 of the
+input keys/<code>data.frame</code> are expected to be numeric.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>key</code></td>
+<td>
+<p>A <span class="pkg">sentimentr</span> hash key.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop</code></td>
+<td>
+<p>A vector of terms to drop.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For updating keys via <code>update_key</code> note that a 
+<code>polarity_dt</code> and <code>valence_shifters_dt</code> are the primary dictionary 
+keys used in the <span class="pkg">sentimentr</span> package.  The <code>polarity_dt</code> takes a 
+2 column <code>data.frame</code> (named x and y) with the first column being 
+character and containing the words and the second column being numeric values
+that are positive or negative.  <code>valence_shifters_dt</code> takes a 2 column 
+<code>data.frame</code> (named x and y) with the first column being character and 
+containing the words and the second column being integer corresponding to:
+(1) negators, (2) amplifiers, (3) de-amplifiers, and (4) dversative 
+conjunctions (i.e., 'but', 'however', and 'although').  Also, note that if 
+you are updating a <code>valence_shifters_dt</code> you need an appropriate 
+<code>comparison</code>; most likely, <code>comparison = sentimentr::polarity_dt</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a <span class="pkg">data.table</span> object that can be used as a hash key.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">key &lt;- data.frame(
+    words = sample(letters),
+    polarity = rnorm(26),
+    stringsAsFactors = FALSE
+)
+
+(mykey &lt;- as_key(key))
+
+## Looking up values
+mykey[c("a", "k")][[2]]
+
+## Drop terms from key
+update_key(mykey, drop = c("f", "h"))
+
+## Add terms to key
+update_key(mykey, x = data.frame(x = c("dog", "cat"), y = c(1, -1)))
+
+## Add terms &amp; drop to/from a key
+update_key(mykey, drop = c("f", "h"), x = data.frame(x = c("dog", "cat"), y = c(1, -1)))
+
+## Explicity key type (wrapper for `update_key` for sentiment table.
+## See `update_valence_shifter_table` a corresponding valence shifter updater.
+library(lexicon)
+updated_hash_sentiment &lt;- sentimentr:::update_polarity_table(lexicon::hash_sentiment_huliu,
+    x = data.frame(
+        words = c('frickin', 'hairy'),
+        polarity = c(-1, -1),
+        stringsAsFactors = FALSE
+    )
+)
+
+## Checking if you have a key
+is_key(mykey)
+is_key(key)
+is_key(mtcars)
+is_key(update_key(mykey, drop = c("f", "h")))
+
+## Using syuzhet's sentiment lexicons
+## Not run: 
+library(syuzhet)
+(bing_key &lt;- as_key(syuzhet:::bing))
+as_key(syuzhet:::afinn)
+as_key(syuzhet:::syuzhet_dict)
+
+sam &lt;- gsub("Sam-I-am", "Sam I am", sam_i_am)
+sentiment(sam, , polarity_dt = bing_key)
+
+## The nrc dictionary in syuzhet requires a bit of data wrangling before it 
+## is in the correct shape to convert to a key.  
+
+library(syuzhet)
+library(tidyverse)
+
+nrc_key &lt;- syuzhet:::nrc %&gt;% 
+    dplyr::filter(
+        sentiment %in% c('positive', 'negative'),
+        lang == 'english'
+    ) %&gt;%
+    dplyr::select(-lang) %&gt;% 
+    mutate(value = ifelse(sentiment == 'negative', value * -1, value)) %&gt;%
+    dplyr::group_by(word) %&gt;%
+    dplyr::summarize(y = mean(value)) %&gt;%
+    sentimentr::as_key()
+    
+sentiment(sam, polarity_dt = nrc_key)
+
+## The lexicon package contains a preformatted nrc sentiment hash table that 
+## can be used instead.
+sentiment(sam, polarity_dt = lexicon::hash_sentiment_nrc)
+
+## End(Not run)
+
+## Using 2 vectors of words
+## Not run: 
+install.packages("tm.lexicon.GeneralInquirer", repos="http://datacube.wu.ac.at", type="source")
+require("tm.lexicon.GeneralInquirer")
+
+positive &lt;- terms_in_General_Inquirer_categories("Positiv")
+negative &lt;- terms_in_General_Inquirer_categories("Negativ")
+
+geninq &lt;- data.frame(
+    x = c(positive, negative),
+    y = c(rep(1, length(positive)), rep(-1, length(negative))),
+    stringsAsFactors = FALSE
+) %&gt;%
+    as_key()
+
+geninq_pol &lt;- with(presidential_debates_2012,
+    sentiment_by(dialogue,
+    person,
+    polarity_dt = geninq
+))
+
+geninq_pol %&gt;% plot()
+
+## End(Not run)
+</code></pre>
+
+
+</div>

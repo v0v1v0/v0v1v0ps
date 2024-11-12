@@ -1,0 +1,140 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sgo_distance</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate distance(s) between points</h2>
+
+<h3>Description</h3>
+
+<p>Calculates the distance between OS National Grid Reference points. Points
+with angular coordinates will use the Harvesine or Vicenty formulae.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sgo_distance(x, y, by.element = FALSE,
+  which = ifelse(isTRUE(x$epsg==27700 || x$epsg==7405), "BNG", "Vicenty"),
+  grid.true.distance = ifelse(isTRUE(x$epsg==27700 || x$epsg==7405),
+  TRUE, FALSE), iterations = 100L)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A <code>sgo_points</code> object describing a set of points in a geodetic
+coordinate system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A <code>sgo_points</code> object, defaults to <code>x</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by.element</code></td>
+<td>
+<p>Logical variable. If <code>TRUE</code>, return a vector with
+distance between the first elements of <code>x</code> and <code>y</code>, the second,
+etc. If <code>FALSE</code>, return the dense matrix with all pairwise distances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+<p>Character vector. For geodetic coordinates one of
+<code>Harvesine</code> or <code>Vicenty</code>. It defaults to <code>BNG</code> for points in
+'OS British National Grid' coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid.true.distance</code></td>
+<td>
+<p>Logical variable. Currently only used for BNG
+coordinates. If <code>TRUE</code> it returns the true (geodesic) distance.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iterations</code></td>
+<td>
+<p>Numeric variable. Maximum number of iterations used in the
+Vicenty method.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function can use two different methods when working with geodetic
+coordinates: When <code>which = "Vicenty"</code> the Vincenty's formula is used to
+calculate the geodesics (distance) on an ellipsoid to an accuracy of up to
+a millimetre. If such accuracy is not needed, <code>which</code> can also
+accept the string "Harvesine" which calculates the great-circle distance
+between two points on a sphere. Harvesines are faster to compute than the
+Vicenty distances but can result in an error of up to 0.5%.
+</p>
+<p>When working with (BNG) planar coordinates the Local Scale Factor is the
+scale distortion inherent in the map projection at a point. When
+<code>grid.true.distance</code> is <code>TRUE</code> the function computes a line
+scale factor using Simpson's Rule to achieve greater accuracy and
+approximate the distance to the true geodesic distance. When it is
+<code>FALSE</code> the Euclidean distance in the plane is calculated.
+</p>
+<p><strong>Note</strong>: Considering F as the scale factor, we have that
+S (True distance) = s (grid distance) / F<br>
+For most purposes the scale factor can be taken as constant for distances up
+to 20km (errors not exceeding 1 or 2 parts er million) and equal to the mid
+point of the line. For longer lines, this routine computes a scale factor for
+both ends (F1 and F2) and the mid point (Fm) and then uses the Simpson's
+Rule:<br>
+F = 1/6(F1 + 4Fm + F2)
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>by.element</code> is <code>FALSE</code> <code>sgo_distance</code> returns a dense
+numeric matrix of dimension length(x) by length(y). Otherwise it returns a
+numeric vector of length <code>x</code> or <code>y</code>, the shorter one being
+recycled. Distances involving empty geometries are <code>NA</code>.
+All distances are returned in metres.
+</p>
+
+
+<h3>References</h3>
+
+<p>Thaddeus Vincenty, 1975. <em>Direct and Inverse Solutions of Geodesics on
+the Ellipsoid with application of nested equations</em>. Survey Review, 23:176,
+88-93, DOI: 10.1179/sre.1975.23.176.88
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">p1 &lt;- sgo_points(list(-3.9369, 56.1165), epsg=4326)
+lon &lt;- c(-4.25181,-3.18827)
+lat &lt;- c(55.86424, 55.95325)
+pts &lt;- sgo_points(list(longitude=lon, latitude=lat), epsg=4326)
+p1.to.pts &lt;- sgo_distance(p1, pts, by.element = TRUE)
+
+## Perimeter of a polygon defined as a series of ordered points:
+lon &lt;- c(-6.43698696, -6.43166843, -6.42706831, -6.42102546,
+-6.42248238, -6.42639092, -6.42998435, -6.43321409)
+lat &lt;- c(58.21740316, 58.21930597, 58.22014035, 58.22034112,
+58.21849188, 58.21853606, 58.21824033, 58.21748949)
+pol &lt;- sgo_points(list(lon, lat), epsg=4326)
+# Create a copy of the polygon with its coordinates shifted one position
+# so that we can calculate easily the distance between vertices
+coords &lt;- sgo_coordinates(pol)
+pol.shift.one &lt;- sgo_points(rbind(coords[-1, ], coords[1, ]), epsg=pol$epsg)
+perimeter &lt;- sum(sgo_distance(pol, pol.shift.one, by.element=TRUE))
+</code></pre>
+
+
+</div>

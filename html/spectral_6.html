@@ -1,0 +1,199 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>deconvolve</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Deconvolve Sampling Spectrum for Equidistant Sampling</h2>
+
+<h3>Description</h3>
+
+<p>The function removes the probable alias
+peaks in the power spectral density. These projections originate
+from correlated gaps, missing values and interactions with noise.
+The function should be considered as *experimental* but with didactic background.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">deconvolve(x, y, SNR.enable = T, SNR.level = 1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>sampling instances</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SNR.enable</code></td>
+<td>
+<p>binary value, include or exclude the noise</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SNR.level</code></td>
+<td>
+<p>theshold in the sense of a multiple of mean()
+noise level</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In the special case of a non complete equidistant grid
+containing the data and missing values (<code>NA</code>), this function
+performs the deconvolution of <code>Y = fft(y)</code> from the
+sampling spectrum of the aquisition series <code>x</code>. The data
+is assumed to exist on a equidistant grid with missing values and
+gaps.
+</p>
+<p>Given a one dimensional vector <code>y</code> of data this function reverses
+the spectral convolution of <code class="reqn">Y = S * X + N</code>, if * describes the convolution
+operation and <code class="reqn">Y = F(y)</code> denotes the discrete Fourier transform
+via the operator <code class="reqn">F(.)</code>. If, the sampling series <code>x</code> is considered to be purely deterministic,
+which should be the case for captured data, or the distortions
+(missing values, gaps) are *correlated* (see example), then there exists an analytic inversion of
+the convolution. Given the general definition of power spectral density
+<code class="reqn">|Y|^2 = |S * X + N|^2</code> the challenge is to prove <code class="reqn">|S * X + N|^2 ~ |S|^2 * |X|^2 + |N|^2</code>.
+Here <code class="reqn">N</code> describes a stochastic term of gaussian noise. This issue is
+solved in correlation space, where convolution becomes a multiplitation. The
+auto correlation function (acf) of <code class="reqn">y</code> is given by <code class="reqn">Ry = F(|Y|^2)</code>.
+As a remark, IF we consider the special case of
+equispaced sampling, modeled by the Diraq distribution <code class="reqn">\delta</code>(x),
+it is easy to show that the correlation function of a product
+is the product of individual correaltaion functions, <code class="reqn">F(|S*X|^2) = F(|S|^2) . F(|X|^2)</code>.
+</p>
+<p>The aim is, to approximate <code class="reqn">S</code> as the "true" spectrum. To the cost
+of the phase information, the result is the standardized power spectral
+density. The spectral noise term <code class="reqn">F(N)</code> is approximated by a theshold in
+Fourier space. Here <code>SNR.level</code> sets the factor of <code>mean(fft(y))</code> below
+which noise level is assumed. Above this value, the signal should be present.
+As a parameter to play with, <code>SNR.enable</code> enables or disables the noise term.
+This parameter was introduced to be consistent with present approaches,
+not considering the presence of noise.
+</p>
+
+
+<h3>Value</h3>
+
+<p>list of frequency <code>f</code> and spectral density function <code>S</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### Deconvolution ###
+#
+#
+# we define a test function with gaps and noise
+# we show:
+# - the aliased Fourier spectrum and for comparison Lomb Spectrum
+# - the corrected spectrum
+#
+
+## definition of the sampling series
+x &lt;- seq(0,pi/2,by = 5e-3)
+n &lt;- rnorm(length(x),sd = 0.1)
+
+## definition of the test function
+## with 2 frequencies
+yf &lt;- function(x)
+{
+  cos(2*pi*5.123*x) +
+  cos(2*pi*17*x)
+}
+
+y &lt;- yf(x)
+y &lt;- y - mean(y)
+
+## define strongly correlated gaps
+i &lt;- NULL
+
+i &lt;- c(i,which(sin(2*pi / 0.3 * x) - 0.5 &gt; 0))
+i &lt;- c(i,which(sin(2*pi / 0.04 * x + 1.123) - 0.5 &gt; 0))
+i &lt;- sort(unique(i))
+
+
+xs &lt;- x
+ys &lt;- yf(xs) + n # add some noise
+ys[i] &lt;- NA
+
+## for comparison we calculate a Lomb-Spectrum
+LT &lt;- spec.lomb(x = xs,y = ys
+                ,f = seq(0,250,by = 0.02)
+                ,mode = "generalized"
+)
+
+WS &lt;- deconvolve(x = xs, y = ys,SNR.enable = 1,SNR.level = 1)
+FT &lt;- spec.fft(x = xs, y = ys,center = FALSE)
+FTS &lt;- spec.fft(x = xs, y = is.na(ys),center = FALSE)
+LTS &lt;- spec.lomb(x = xs, y = is.na(ys),f = seq(0,250,by = 0.02))
+
+### results ###
+#
+# - signal spectrum (solid) dominant peaks at around f0 = {5, 17}
+# - (minor) alias peaks (grey line, FFT dots) at f0 +/- fs
+# - sampling spectrum (dashed) with fs = {3.3, 25} (dominant modes)
+# - deconvolved spectrum (solid black) rejects the aliases and sampling
+#
+#
+
+### time series
+
+par(mfrow = c(1,1),mar = c(4,4,3,0.3))
+curve(yf,0,max(x), col = "grey",n = 1000
+      ,xlim = c(0,max(x)),ylim = c(-2,3)
+      ,xlab = "Time", ylab = "y(t)"
+      ,main = "Fragmented Time Series"
+      )
+points(xs,ys)
+points(xs[is.na(ys)],yf(xs[is.na(ys)]),pch = 16,cex = 0.5)
+
+legend("topright",c("y(t)","y(tn) + n(tn)","NA's")
+       ,lty = c(1,NA,NA)
+       ,lwd = c(1,NA,NA)
+       ,pch = c(NA,1,16)
+       ,col = c("darkgrey","black","black")
+       ,bg = "white"
+       ,cex = 0.8
+)
+
+## plot spectra
+par(mfrow = c(1,1),mar = c(4,4,3,0.3))
+with(FT,plot(fx,PSD,type="p",log = "x"
+     # ,col="grey"
+     ,xlim = c(1,100),ylim = c(1e-2,0.75)
+     ,xlab = "f", ylab = "PSD"
+     ,pch = 1
+     ,lwd = 1
+     ,main = "Spectra"
+))
+with(LT,lines(f,PSD,col = "grey",lwd = 4))
+with(WS,lines(f,S, lwd = 2, col = "black"))
+with(LTS,lines(f,PSD,lty = 2))
+abline(h = c(1,0.5),lty = 3)
+legend("topright",c("Fourier","Lomb","Decon.","Sampling")
+       ,lty = c(NA,1,1,2)
+       ,lwd = c(2,2,2,2)
+       ,pch = c(1,NA,NA,NA)
+       ,col = c("black","grey","black","black")
+       ,bg = "white"
+       ,cex = 0.8
+       ,ncol = 2
+)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,154 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>knearneigh</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>K nearest neighbours for spatial weights</h2>
+
+<h3>Description</h3>
+
+<p>The function returns a matrix with the indices of points belonging to the set of the k nearest neighbours of each other. If longlat = TRUE, Great Circle distances are used. A warning will be given if identical points are found.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">knearneigh(x, k=1, longlat = NULL, use_kd_tree=TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>matrix of point coordinates, an object inheriting from SpatialPoints or an <code>"sf"</code> or <code>"sfc"</code> object; if the <code>"sf"</code> or <code>"sfc"</code> object geometries are in geographical coordinates (<code>sf::st_is_longlat(x) == TRUE</code> and <code>sf::sf_use_s2() == TRUE</code>), <span class="pkg">s2</span> will be used to find the neighbours because it uses spatial indexing <a href="https://github.com/r-spatial/s2/issues/125">https://github.com/r-spatial/s2/issues/125</a> as opposed to the legacy method which uses brute-force</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>number of nearest neighbours to be returned; where identical points are present, <code>k</code> should be at least as large as the largest count of identical points (if <code>k</code> is smaller, an error will occur when <code>s2</code> is used)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>longlat</code></td>
+<td>
+<p>TRUE if point coordinates are longitude-latitude decimal degrees, in which case distances are measured in kilometers; if x is a SpatialPoints object, the value is taken from the object itself; longlat will override <code>kd_tree</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_kd_tree</code></td>
+<td>
+<p>logical value, if the <span class="pkg">dbscan</span> package is available, use for finding k nearest neighbours when longlat is FALSE, and when there are no identical points; from <a href="https://github.com/r-spatial/spdep/issues/38">https://github.com/r-spatial/spdep/issues/38</a>, the input data may have more than two columns if <span class="pkg">dbscan</span> is used</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The underlying legacy C code is based on the <code>knn</code> function in the <span class="pkg">class</span> package. 
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of class <code>knn</code>
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>nn</code></td>
+<td>
+<p>integer matrix of region number ids</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>np</code></td>
+<td>
+<p>number of input points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>input required k</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dimension</code></td>
+<td>
+<p>number of columns of x</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>input coordinates</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Roger Bivand <a href="mailto:Roger.Bivand@nhh.no">Roger.Bivand@nhh.no</a></p>
+
+
+<h3>See Also</h3>
+
+<p><code>knn</code>, <code>dnearneigh</code>,
+<code>knn2nb</code>, <code>kNN</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">columbus &lt;- st_read(system.file("shapes/columbus.gpkg", package="spData")[1], quiet=TRUE)
+coords &lt;- st_centroid(st_geometry(columbus), of_largest_polygon=TRUE)
+col.knn &lt;- knearneigh(coords, k=4)
+plot(st_geometry(columbus), border="grey")
+plot(knn2nb(col.knn), coords, add=TRUE)
+title(main="K nearest neighbours, k = 4")
+data(state)
+us48.fipsno &lt;- read.geoda(system.file("etc/weights/us48.txt",
+ package="spdep")[1])
+if (as.numeric(paste(version$major, version$minor, sep="")) &lt; 19) {
+ m50.48 &lt;- match(us48.fipsno$"State.name", state.name)
+} else {
+ m50.48 &lt;- match(us48.fipsno$"State_name", state.name)
+}
+xy &lt;- as.matrix(as.data.frame(state.center))[m50.48,]
+llk4.nb &lt;- knn2nb(knearneigh(xy, k=4, longlat=FALSE))
+gck4.nb &lt;- knn2nb(knearneigh(xy, k=4, longlat=TRUE))
+plot(llk4.nb, xy)
+plot(diffnb(llk4.nb, gck4.nb), xy, add=TRUE, col="red", lty=2)
+title(main="Differences between Euclidean and Great Circle k=4 neighbours")
+summary(llk4.nb, xy, longlat=TRUE, scale=0.5)
+summary(gck4.nb, xy, longlat=TRUE, scale=0.5)
+
+#xy1 &lt;- SpatialPoints((as.data.frame(state.center))[m50.48,],
+#  proj4string=CRS("+proj=longlat +ellps=GRS80"))
+#gck4a.nb &lt;- knn2nb(knearneigh(xy1, k=4))
+#summary(gck4a.nb, xy1, scale=0.5)
+
+xy1 &lt;- st_as_sf((as.data.frame(state.center))[m50.48,], coords=1:2,
+  crs=st_crs("OGC:CRS84"))
+old_use_s2 &lt;- sf_use_s2()
+sf_use_s2(TRUE)
+system.time(gck4a.nb &lt;- knn2nb(knearneigh(xy1, k=4)))
+summary(gck4a.nb, xy1, scale=0.5)
+sf_use_s2(FALSE)
+system.time(gck4a.nb &lt;- knn2nb(knearneigh(xy1, k=4)))
+summary(gck4a.nb, xy1, scale=0.5)
+sf_use_s2(old_use_s2)
+
+# https://github.com/r-spatial/spdep/issues/38
+if (require("dbscan", quietly=TRUE)) {
+  set.seed(1)
+  x &lt;- cbind(runif(50), runif(50), runif(50))
+  out &lt;- knearneigh(x, k=5)
+  knn2nb(out)
+  try(out &lt;- knearneigh(rbind(x, x[1:10,]), k=5))
+}
+</code></pre>
+
+
+</div>

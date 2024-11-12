@@ -1,0 +1,430 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>multiNet</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Latent Space Models for Multivariate Networks</h2>
+
+<h3>Description</h3>
+
+<p>Implements latent space models for multivariate networks (multiplex) via MCMC algorithm.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">multiNet(Y, niter = 1000, D = 2,
+         muA = 0, tauA = NULL, nuA = 3,
+         muB = 0, tauB = NULL, nuB = 3,
+         muL = 0, tauL = NULL, nuL = 3,
+         alphaRef = NULL,
+         sender = c("const", "var"),
+         receiver = c("const", "var"),
+         covariates = NULL,
+         DIC = FALSE, WAIC = FALSE,
+         burnIn = round(niter*0.3),
+         trace = TRUE,
+         allChains = FALSE,
+         refSpace = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>A three-dimensional array or list of <code class="reqn">(n\times n)</code> adjacency matrices composing the multidimensional network. A list will be converted to an array. If an array, the dimension of <code>Y</code> must be <code>(n,n,K)</code>, where <code>n</code> is the number of nodes and <code>K</code> the number of networks. Missing values (<code>NA</code>) are allowed; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>niter</code></td>
+<td>
+<p>The number of MCMC iterations. The default value is <code>niter = 1000</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>The dimension of the latent space, with <code>D &gt; 1</code>. The default value is <code>D = 2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>muA, muB, muL</code></td>
+<td>
+<p>Mean hyperparameters, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tauA, tauB, tauL</code></td>
+<td>
+<p>Mean hyperparameters, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nuA, nuB, nuL</code></td>
+<td>
+<p>Variance hyperparameters, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alphaRef</code></td>
+<td>
+<p>The value for the intercept in the first network (the reference network). This value can be specified by the user on the basis of prior knowledge. By default is computed using the function <code>alphaRef</code>, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sender, receiver</code></td>
+<td>
+<p>The type of node-specific sender and receiver effects to be included in the model. If specified, these effects can be set to constant (<code>"const"</code>) or/and variable (<code>"var"</code>). By default, node-specific effects are not included in the model (<code>NULL</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covariates</code></td>
+<td>
+<p>An array or a list with edge-covariates matrices. A list is automatically converted to an array. Covariates can be either continuous or discrete and must be constant throughout the views of the multiplex. The dimension of <code>covariates</code> is <code>(n,n,L)</code>, where <code>n</code> is the number of nodes and <code>L</code> the number of covariates, that is, the number of covariates matrices. Missing values (<code>NA</code>) are not allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DIC</code></td>
+<td>
+<p>A logical value indicating wether the DIC (Deviance Information Criterion) should be computed. The default is <code>DIC = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>WAIC</code></td>
+<td>
+<p>A logical value indicating wether the WAIC (Widely Available Information Criterion) should be computed. The default is <code>WAIC = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>burnIn</code></td>
+<td>
+<p>A numerical value, the number of iterations of the chain to be discarded when computing the posterior estimates. The default value is <code>burnIn = round(niter*0.3)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p>A logical value indicating if a progress bar should be printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allChains</code></td>
+<td>
+<p>A logical value indicating if the full parameter chains should also be returned in output. The default value is <code>allChains = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>refSpace</code></td>
+<td>
+<p>Optional. A matrix containing a set of reference values for the latent coordinates of the nodes. Its dimension must be <code>(n, D)</code>, where <code>n</code> is the number of nodes and <code>D</code> the number of dimensions of the latent space. The coordinates stored in the matrix <code>refSpace</code> are compared with the estimated ones at each iteration via Procrustes correlation. High values of the correlation index indicate that the estimated coordinates are a translation and/or a rotation of the coordinates in <code>refSpace</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function estimates a latent space model for multidimensional networks (multiplex) via MCMC. The model assumes that the probability of observing an arc between any two nodes is inversely related to their distance in a low-dimensional latent space. Hence, nodes close in the latent space have a higher probability of being connected across the views of the multiplex than nodes far apart.
+The model allows the inclusion of node-specific sender and receiver effects and edge-specific covariates.
+</p>
+<p>The probability of an edge beteween nodes <code class="reqn">i</code> and <code class="reqn">j</code> in the <code class="reqn">k^{th}</code> network is defined as:
+</p>
+<p style="text-align: center;"><code class="reqn">
+ P \Bigl( y_{ij}^{(k)} = 1 | \Omega^{(k)} , d_{ij}, \lambda \Bigr)=
+\frac{ C_{ij}^{(k)} }{1 +  C_{ij}^{(k)} }.</code>
+</p>
+
+<p>with <code class="reqn">C_{ij}^{(k)} = \exp \{\alpha^{(k)}-\beta^{(k)} d_{ij} -\lambda x_{ij} \} </code> when node-specific effects are not present and <code class="reqn">C_{ij}^{(k)} = \exp \{\alpha^{(k)} \phi_{ij}^{(k)} -\beta^{(k)} d_{ij} -\lambda x_{ij} \} </code> when they are included in the model.
+</p>
+<p>The arguments of <code class="reqn">C_{ij}^{(k)}</code> are:
+</p>
+
+<ul>
+<li>
+<p>The squared Euclidean distance between nodes <code class="reqn">i</code> and <code class="reqn">j</code> in the latent space, <code class="reqn">d_{ij}</code>
+</p>
+</li>
+<li>
+<p>A coefficient <code class="reqn">\lambda</code> to scale the edge-specific covariate <code class="reqn">x_{ij}</code>. If more than one covariate is introduced in the model, their sum is considered, with each covariate being rescaled by a specific coefficient <code class="reqn">\lambda_l</code>. Edge-specific covariates are assumed to be inversely related to edge probabilities, hence <code class="reqn">\lambda \geq 0</code>.
+</p>
+</li>
+<li>
+<p>A vector of network-specific parameters, <code class="reqn">\Omega^{(k)} = (\alpha^{(k)},\beta^{(k)}) </code>. These parameters are:
+</p>
+
+<ul>
+<li>
+<p>A rescaling coefficient <code class="reqn">\beta^{(k)} </code>, which weights the importance of the latent space in the <code class="reqn">k^{th}</code> network, with <code class="reqn">\beta^{(k)} \geq 0 </code>. In the first network (that is the reference network), the coefficient is fixed to <code class="reqn">\beta^{(1)} = 1</code> for identifiability reasons.  
+</p>
+</li>
+<li>
+<p>An intercept parameter <code class="reqn">\alpha^{(k)} </code>, which corresponds to the largest edge probability allowed in the <code class="reqn">k^{th}</code> network. Indeed, when  <code class="reqn">\beta^{(k)} = 0 </code> and when no covariate is included, the probability of having a link between a couple of nodes is that of the random graph:
+</p>
+<p style="text-align: center;"><code class="reqn">
+ P \Bigl( y_{ij}^{(k)} = 1 |  \alpha^{(k)} \Bigr)=
+\frac{ \exp \{ \alpha^{(k)}\} }{1 +  \exp \{\alpha^{(k)}\} }.</code>
+</p>
+
+
+<p>The intercepts have a lower bound corresponding to <code class="reqn">\log \Bigl( \frac{\log (n)}{ n - \log(n)} \Bigr) </code>. For identifiability reasons, the intercept of the first network needs to be fixed. Its value can be either specified by the user on the basis of prior knowledge or computed with the function <code>alphaRef</code>.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p>When node-specific effects are included in the model,
+</p>
+<p style="text-align: center;"><code class="reqn">\phi_{ij}^{(k)} = g (\theta_{i}^{(k)} + \gamma_{j}^{(k)} )</code>
+</p>
+
+<p>with :
+</p>
+
+<ul>
+<li> <p><code class="reqn">\theta_{i}^{(k)}</code> the sender effect of node <code class="reqn">i</code> in network <code class="reqn">k</code>. 
+</p>
+</li>
+<li> <p><code class="reqn">\gamma_{j}^{(k)}</code> the receiver effect of node <code class="reqn">j</code> in network <code class="reqn">k</code>.
+</p>
+</li>
+<li> <p><code class="reqn">g</code> a scalar. When both sender and receiver effects are present, <code class="reqn">g=0.5</code>; when only one type of effect is included in the model, <code class="reqn">g=1</code>.
+</p>
+</li>
+</ul>
+<p>When the sender and/or receiver effects are set to constant (<code>"const"</code>), each node <code class="reqn">i</code> is assumed to have a constant effect across the different networks: <code class="reqn">\theta_{i}^{(k)} = \theta_{i}</code> and/or <code class="reqn">\gamma_{i}^{(k)} = \gamma_{i}</code>. Instead, when they are set to variable (<code>"var"</code>), each node has a different effect across the networks: <code class="reqn">\theta_{i}^{(k)}</code> and/or <code class="reqn">\gamma_{i}^{(k)}</code>.
+
+</p>
+</li>
+</ul>
+<p>Inference on the model parameters is carried out via a MCMC algorithm. A hierarchical framework is adopted for estimation, where the parameters of the distributions of <code class="reqn">\alpha</code>, <code class="reqn">\beta</code> and <code class="reqn">\lambda</code> are considered nuisance parameters and assumed to follow hyper-prior distributions. The parameters of these hyperpriors need to be fixed and are the following:
+</p>
+
+<ul>
+<li>
+<p><code>tauA, tauB</code> and <code>tauL</code> are the scale factors for the variances of the hyperprior distributions for the mean parameters of <code class="reqn">\alpha^{(k)}, \beta^{(k)}</code> and <code class="reqn">\lambda_l</code>. If not specified by the user, <code>tauA</code> and <code>tauB</code> are computed as <code class="reqn">(K-1)\ K </code>, if <code class="reqn">K &gt; 1</code>, otherwise they are set to <code class="reqn">0.5</code>. Parameter <code>tauL</code> is calculated as <code class="reqn">(L-1)\ K </code>, if <code class="reqn">L &gt; 1</code>, otherwise it is set to <code class="reqn">0.5</code>.    
+</p>
+</li>
+<li>
+<p><code>muA, muB</code> and <code>muL</code> are the means of the hyperprior distributions for the mean parameters of <code class="reqn">\alpha^{(k)}, \beta^{(k)}</code> and <code class="reqn">\lambda_l</code>. If not specified by the user, they are all set to <code class="reqn">0</code>. 
+</p>
+</li>
+<li>
+<p><code>nuA, nuB</code> and <code>nuL</code> are the degrees of freedom of the hyperprior distributions for the variance parameters of <code class="reqn">\alpha^{(k)}, \beta^{(k)}</code> and <code class="reqn">\lambda_l</code>. If not specified by the user, they are all set to <code class="reqn">3</code>. 
+</p>
+</li>
+</ul>
+<p>Missing data are considered structural and correspond to edges missing because one or more nodes are not observable in some of the networks of the multiplex. No imputation is performed, instead, the term corresponding to the missing edge is discarded in the computation of the likelihood function. For example, if either node <code class="reqn">i</code> or <code class="reqn">j</code> is not observable in network <code class="reqn">k</code>, the edge <code class="reqn">(i,j)</code> is missing and the likelihood function for network <code class="reqn">k</code> is calculated discarding the corresponding <code class="reqn">(i,j)</code> term. Notice that the model assumes a single common generative latent space for the whole multidimensional network. Thus, discarding the <code class="reqn">(i,j)</code> term in the <code class="reqn">k^{th}</code> network does not prevent from recovering the coordinates of nodes <code class="reqn">i</code> and <code class="reqn">j</code> in the latent space.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>'multiNet'</code> containing the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>The number of nodes in the multidimensional network.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>The number of networks in the multidimensional network.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>The number of dimensions of the estimated latent space.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parameters</code></td>
+<td>
+<p>A list with the following components:
+</p>
+
+<ul>
+<li>
+<p><code>alpha</code> is a list with two components: the means of the posterior distributions and the standard deviations of the posterior distributions for the intercept parameters; 
+</p>
+</li>
+<li>
+<p><code>beta</code> is a list with two components: the means of the posterior distributions and the standard deviations of the posterior distributions for the latent space coefficient parameters;
+</p>
+</li>
+<li>
+<p><code>theta</code> is a list with two components: the means of the posterior distributions and the standard deviations of the posterior distributions for the sender effect parameters;
+</p>
+</li>
+<li>
+<p><code>gamma</code> is a list with two components: the means of the posterior distributions and the standard deviations of the posterior distributions for the receiver effect parameters;
+</p>
+</li>
+<li>
+<p><code>lambda</code> is a list with two components: the means of the posterior distributions and the standard deviations of the posterior distributions for the covariate coefficient parameters.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>latPos</code></td>
+<td>
+<p>A list with posterior estimates of means and standard deviations of the latent coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accRates</code></td>
+<td>
+<p>A list with the following components:
+</p>
+
+<ul>
+<li>
+<p><code>alpha</code> is a vector with the acceptance rates for the intercept parameters;
+</p>
+</li>
+<li>
+<p><code>beta</code> is a vector with the acceptance rates for the latent space coefficient parameters;
+</p>
+</li>
+<li>
+<p><code>theta</code> is a matrix with the acceptance rates for the sender effect parameters;
+</p>
+</li>
+<li>
+<p><code>gamma</code> is a matrix with the acceptance rates for the receiver effect parameters;
+</p>
+</li>
+<li>
+<p><code>lambda</code> is a vector with the acceptance rates for the covariate coefficient parameters;
+</p>
+</li>
+<li>
+<p><code>latPos</code> is a vector with the acceptance rates for the latent coordinates of the nodes.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DIC</code></td>
+<td>
+<p>The Deviance Information Criterion of the estimated model. Computed only if <code>DIC = TRUE</code> in input.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>WAIC</code></td>
+<td>
+<p>The Widely Available Information Criterion of the estimated model. Computed only if <code>WAIC = TRUE</code> in input.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allChains</code></td>
+<td>
+<p>If <code>allChains = TRUE</code>, a list with the following components is returned:
+</p>
+
+<ul>
+<li>
+<p><code>parameters</code> is a list with the estimated posterior distributions of the model parameters: <code class="reqn">\alpha</code>, <code class="reqn">\beta</code>, <code class="reqn">\theta</code>, <code class="reqn">\gamma</code> and <code class="reqn">\lambda</code>;
+</p>
+</li>
+<li>
+<p><code>latPos</code> is an array with the posterior distributions of the latent coordinates of each node;
+</p>
+</li>
+<li>
+<p><code>priorParameters</code> is a list with the estimated posterior distributions of the parameters of the prior distributions of <code class="reqn">\alpha</code>, <code class="reqn">\beta</code> and <code class="reqn">\lambda</code>. 
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corrRefSpace</code></td>
+<td>
+<p>A numerical vector containing the values of the Procrustes correlation between the reference space and the estimated one, computed at each mcmc iteration. Only outputed when <code>refSpace</code> is given, otherwise <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>info</code></td>
+<td>
+<p>A list with some information on the estimated model:
+</p>
+
+<ul>
+<li>
+<p><code>call</code> contains the function call;
+</p>
+</li>
+<li>
+<p><code>niter</code> is the number of MCMC iterations;
+</p>
+</li>
+<li>
+<p><code>burnIn</code> is the number of initial iterations to discarded when computing the estimates;
+</p>
+</li>
+<li>
+<p><code>sender</code> is the node-specific sender effect type;
+</p>
+</li>
+<li>
+<p><code>receiver</code> is the node-specific receiver effect type;
+</p>
+</li>
+<li>
+<p><code>covariates</code> is the covariates array, if present;
+</p>
+</li>
+<li>
+<p><code>L</code> is the number of covariates.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>D'Angelo, S. and Murphy, T. B. and Alfò, M. (2018). Latent space modeling of multidimensional networks with application to the exchange of votes in the Eurovision
+Song Contest. <a href="https://arxiv.org/abs/1803.07166">arXiv</a>.
+</p>
+<p>D'Angelo, S. and Alfò, M. and Murphy, T. B. (2018). Node-specific effects in latent space modelling of multidimensional networks. <a href="https://arxiv.org/abs/1807.03874">arXiv</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>alphaRef</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(vickers)
+
+it &lt;- 10     # small number of iterations just for example
+
+# 2-dimensional latent space model, no covariates
+mod &lt;- multiNet(vickers, niter = it, D = 2)
+
+# 2-dimensional latent space model, sex as covariate
+mod &lt;- multiNet(vickers, niter = it, D = 2,
+                covariates = sex)
+
+# 2-dimensional latent space model, with constant sender
+# effect and variable receiver effect
+mod &lt;- multiNet(vickers, niter = it, D = 2,
+                sender = "const", receiver = "var")
+
+</code></pre>
+
+
+</div>

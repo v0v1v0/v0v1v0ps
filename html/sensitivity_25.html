@@ -1,0 +1,485 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pme_knn</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Data-given proportional marginal effects estimation via nearest-neighbors procedure</h2>
+
+<h3>Description</h3>
+
+<p><code>pme_knn</code> computes the proportional marginal effects (PME), from Herin et al. (2024) 
+via a nearest neighbor estimation.
+Parallelized computations are possible to accelerate the estimation process.
+It can be used with categorical inputs (which are transformed with one-hot encoding before 
+computing the nearest-neighbors), dependent inputs and multiple outputs.
+For large sample sizes, the nearest neighbour algorithm can be significantly accelerated 
+by using approximate nearest neighbour search.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">pme_knn(model=NULL, X, method = "knn", tol = NULL, marg = T, n.knn = 2, 
+          n.limit = 2000, noise = F, rescale = F, nboot = NULL, 
+          boot.level = 0.8, conf=0.95, parl=NULL, ...)
+## S3 method for class 'pme_knn'
+tell(x, y, ...)
+## S3 method for class 'pme_knn'
+print(x, ...)
+## S3 method for class 'pme_knn'
+plot(x, ylim = c(0,1), ...)
+## S3 method for class 'pme_knn'
+ggplot(data, mapping = aes(), ylim = c(0, 1), ..., environment
+                 = parent.frame())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>a function defining the model to analyze, taking X as an argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>a matrix or data frame containing the observed inputs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the algorithm to be used for estimation, either "rank" or "knn",
+see details. Default is <code>method="knn"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>tolerance under which an input is considered as being a zero input. 
+See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>marg</code></td>
+<td>
+<p>whether to chose the closed Sobol' (<code>FALSE</code>) or total Sobol' 
+(<code>TRUE</code>) indices as value functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.knn</code></td>
+<td>
+<p>the number of nearest neighbours used for estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.limit</code></td>
+<td>
+<p>sample size limit above which approximate nearest neighbour
+search is activated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise</code></td>
+<td>
+<p>a logical which is TRUE if the model or the output sample is 
+noisy. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rescale</code></td>
+<td>
+<p>a logical indicating if continuous inputs must be rescaled before distance computations.
+If TRUE, continuous inputs are first whitened with the ZCA-cor whitening procedure 
+(cf. whiten() function in package <code>whitening</code>). If the inputs are independent, 
+this first step will have a very limited impact. Then, the resulting whitened inputs 
+are individually modified via a copula transform such that each input has the same scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nboot</code></td>
+<td>
+<p>the number of bootstrap resamples for the bootstrap estimate of 
+confidence intervals. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot.level</code></td>
+<td>
+<p>a numeric between 0 and 1 for the proportion of the 
+bootstrap sample size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conf</code></td>
+<td>
+<p>the confidence level of the bootstrap confidence intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parl</code></td>
+<td>
+<p>number of cores on which to parallelize the computation. If
+<code>NULL</code>, then no parallelization is done.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>the object returned by <code>pme_knn</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>the object returned by <code>pme_knn</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>a numeric univariate vector containing the observed outputs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ylim</code></td>
+<td>
+<p>the y-coordinate limits for plotting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mapping</code></td>
+<td>
+<p>Default list of aesthetic mappings to use for plot. If not specified, 
+must be supplied in each layer added to the plot.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>environment</code></td>
+<td>
+<p>[Deprecated] Used prior to tidy evaluation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to be passed to <code>model</code>, or to the 
+methods, such as graphical parameters (see <code>par</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For <code>method="rank"</code>, the estimator is defined in Gamboa et al. (2020) 
+following Chatterjee (2019).For first-order indices it is based on an input 
+ranking   (same algorithm as in <code>sobolrank</code>) while for higher orders, 
+it uses an approximate heuristic solution of the traveling salesman problem 
+applied to the input sample distances (cf. TSP() function in package 
+<code>TSP</code>).  For <code>method="knn"</code>, ranking and TSP are replaced by a 
+nearest neighbour search   as proposed in Broto et al. (2020) and in Azadkia 
+&amp; Chatterjee (2020) for a similar coefficient. 
+</p>
+<p>The computation is done using the subset procedure, defined in Broto, Bachoc
+and Depecker (2020), that is computing all the Sobol' closed indices for all 
+possible sub-models first, and then computing the proportional values 
+recursively, as detailed in Feldman (2005), but using an extension to 
+non strictly positive games (Herin et al., 2024).
+</p>
+<p>Since boostrap creates ties which are not accounted for in the algorithm, 
+confidence intervals are obtained by sampling without replacement with a 
+proportion of the total sample size <code>boot.level</code>, drawn uniformly.
+</p>
+<p>If the outputs are noisy, the argument <code>noise</code> can be used: it only has 
+an impact on the estimation of one specific sensitivity index, namely 
+<code class="reqn">Var(E(Y|X1,\ldots,Xp))/Var(Y)</code>. If there is no noise this index is equal 
+to 1, while in the presence of noise it must be estimated.
+</p>
+<p>The distance used for subsets with mixed inputs (continuous and categorical) 
+is the Euclidean distance, thanks to a one-hot encoding of categorical inputs.
+</p>
+<p>If too many cores for the machine are passed on to the <code>parl</code> argument,
+the chosen number of cores is defaulted to the available cores minus one.
+</p>
+<p>If <code>marg = TRUE</code> (default), the chosen value function to compute the 
+proportional values are the total Sobol' indices (dual of the underlying 
+cooperative game). If <code>marg = FALSE</code>, then the closed Sobol' indices 
+are used instead. Differences may appear between the two.
+</p>
+<p>Zero inputs are defined by the <code>tol</code> argument. If <code>null</code>,
+then inputs with:
+</p>
+<p style="text-align: center;"><code class="reqn">S^T_{\{i\}}) = 0</code>
+</p>
+
+<p>are considered as zero input in the detection of spurious variables. If 
+provided, zero inputs are detected when:
+</p>
+<p style="text-align: center;"><code class="reqn">S^T_{\{i\}} \leq \textrm{tol}</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p><code>pme_knn</code> returns a list of class <code>"pme_knn"</code>:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>the matched call.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PME</code></td>
+<td>
+<p>the estimations of the PME indices.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>VE</code></td>
+<td>
+<p>the estimations of the closed Sobol' indices for all possible sub-models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>indices</code></td>
+<td>
+<p>list of all subsets corresponding to the structure of VE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>which estimation method has been used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conf_int</code></td>
+<td>
+<p>a matrix containing the estimations, biais and confidence
+intervals by bootstrap (if <code>nboot&gt;0</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>the observed covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>the observed outcomes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.knn</code></td>
+<td>
+<p>value of the <code>n.knn</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rescale</code></td>
+<td>
+<p>wheter the design matrix has been rescaled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.limit</code></td>
+<td>
+<p>value of the <code>n.limit</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot.level</code></td>
+<td>
+<p>value of the <code>boot.level</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise</code></td>
+<td>
+<p>wheter the PME must sum up to one or not.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot</code></td>
+<td>
+<p>logical, wheter bootstrap confidence interval estimates have 
+been performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nboot</code></td>
+<td>
+<p>value of the <code>nboot</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parl</code></td>
+<td>
+<p>value of the <code>parl</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conf</code></td>
+<td>
+<p>value of the <code>conf</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>marg</code></td>
+<td>
+<p>value of the <code>marg</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>value of the <code>tol</code> argument.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Marouane Il Idrissi, Margot Herin
+</p>
+
+
+<h3>References</h3>
+
+<p>Azadkia M., Chatterjee S., 2021), <em>A simple measure of conditional dependence</em>, 
+Ann. Statist. 49(6):3070-3102.
+</p>
+<p>Chatterjee, S., 2021, <em>A new coefficient of correlation</em>, Journal of the American 
+Statistical Association, 116:2009-2022. 
+</p>
+<p>Gamboa, F., Gremaud, P., Klein, T., &amp; Lagnoux, A., 2022, <em>Global Sensitivity Analysis: 
+a novel generation of mighty estimators based on rank statistics</em>, 
+Bernoulli 28: 2345-2374.
+</p>
+<p>Broto B., Bachoc F. and Depecker M. (2020) <em>Variance Reduction for Estimation
+of Shapley Effects and Adaptation to Unknown Input Distribution.</em> SIAM/ASA Journal
+on Uncertainty Quantification, 8(2).
+</p>
+<p>M. Herin, M. Il Idrissi, V. Chabridon and B. Iooss, Proportional marginal effects for 
+sensitivity analysis with correlated inputs, Proceedings of the 10th International
+Conferenceon Sensitivity Analysis of Model Output (SAMO 2022), p 42-43, 
+Tallahassee, Florida, March 2022.
+</p>
+<p>M. Herin, M. Il Idrissi, V. Chabridon and B. Iooss, <em>Proportional marginal effects 
+for global sensitivity analysis</em>, SIAM/ASA Journal of Uncertainty Quantification, 
+12:667-692 2024
+</p>
+<p>M. Il Idrissi, V. Chabridon and B. Iooss (2021). <em>Developments and applications
+of Shapley effects   to reliability-oriented sensitivity analysis with correlated inputs.</em>
+Environmental Modelling &amp; Software, 143, 105115.
+</p>
+<p>B. Iooss, V. Chabridon and V. Thouvenot, <em>Variance-based importance 
+measures for machine learning model interpretability</em>, Congres lambda-mu23,
+Saclay, France, 10-13 octobre 2022
+<a href="https://hal.science/hal-03741384">https://hal.science/hal-03741384</a>
+</p>
+<p>Feldman, B. (2005) <em>Relative Importance and Value</em> SSRN Electronic Journal.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sobolrank</code>, <code>shapleysobol_knn</code>, <code>shapleyPermEx</code>, <code>shapleySubsetMc</code>, <code>lmg</code>, <code>pmvd</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">  
+  
+library(parallel)
+library(doParallel)
+library(foreach)
+library(gtools)
+library(boot)
+library(RANN)
+
+###########################################################
+# Linear Model with Gaussian correlated inputs
+
+library(mvtnorm)
+
+set.seed(1234)
+n &lt;- 1000
+beta&lt;-c(1,-1,0.5)
+sigma&lt;-matrix(c(1,0,0,
+                0,1,-0.8,
+                0,-0.8,1),
+              nrow=3,
+              ncol=3)
+
+X &lt;-rmvnorm(n, rep(0,3), sigma)
+colnames(X)&lt;-c("X1","X2", "X3")
+
+
+y &lt;- X%*%beta + rnorm(n,0,2)
+
+# Without Bootstrap confidence intervals
+x&lt;-pme_knn(model=NULL, X=X,
+            n.knn=3,
+            noise=TRUE)
+tell(x,y)
+print(x)
+plot(x)
+
+# With Boostrap confidence intervals
+x&lt;-pme_knn(model=NULL, X=X,
+            nboot=10, 
+            n.knn=3,
+            noise=TRUE,
+            boot.level=0.7, 
+            conf=0.95)
+tell(x,y)
+print(x)
+plot(x)
+
+#####################################################
+# Test case: the Ishigami function
+# Example with given data and the use of approximate nearest neighbour search
+n &lt;- 5000
+X &lt;- data.frame(matrix(-pi+2*pi*runif(3 * n), nrow = n))
+Y &lt;- ishigami.fun(X)
+x &lt;- pme_knn(model = NULL, X = X,  method = "knn", n.knn = 5, 
+                       n.limit = 2000)
+tell(x,Y)
+plot(x)
+
+library(ggplot2) ; ggplot(x)
+
+######################################################
+# Test case : Linear model (3 Gaussian inputs including 2 dependent) with scaling
+# See Iooss and Prieur (2019)
+library(mvtnorm) # Multivariate Gaussian variables
+library(whitening) # For scaling
+modlin &lt;- function(X) apply(X,1,sum)
+d &lt;- 3
+n &lt;- 10000
+mu &lt;- rep(0,d)
+sig &lt;- c(1,1,2)
+ro &lt;- 0.9
+Cormat &lt;- matrix(c(1,0,0,0,1,ro,0,ro,1),d,d)
+Covmat &lt;- ( sig %*% t(sig) ) * Cormat
+Xall &lt;- function(n) mvtnorm::rmvnorm(n,mu,Covmat)
+X &lt;- Xall(n)
+x &lt;- pme_knn(model = modlin, X = X, method = "knn", n.knn = 5, 
+                       rescale = TRUE, n.limit = 2000)
+print(x)
+plot(x)
+
+</code></pre>
+
+
+</div>

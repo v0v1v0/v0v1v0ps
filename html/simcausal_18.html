@@ -1,0 +1,295 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>network</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Define a Network Generator</h2>
+
+<h3>Description</h3>
+
+<p>Define a network generator by providing a function (using the argument <code>netfun</code>) which will simulate a network of connected friends for observations <code>i</code> in <code>1:n</code>.
+This network then serves as a backbone for defining and simulating from the structural equation models for dependent data.
+In particular, the network allows new nodes to be defined as functions of the previously simulated node values of <code>i</code>'s friends, across all observations <code>i</code>.
+Let <code>F_i</code> denote the set of friends of one observation <code>i</code> (observations in <code>F_i</code> are assumed to be "connected" to <code>i</code>) and
+refer to the union of these sets <code>F_i</code> as a "network" on <code>n</code> observations, denoted by <code>F</code>.
+A user-supplied network generating function <code>netfun</code> should be able to simulate such network <code>F</code> by returning a matrix of <code>n</code> rows,
+where each row <code>i</code> defines a friend set <code>F_i</code>, i.e., row <code>i</code> should be a vector of observations in <code>1:n</code> that are connected to <code>i</code> (friends of <code>i</code>),
+with the remainder filled by <code>NA</code>s.
+Each friend set <code>F_i</code> can contain up to <code>Kmax</code> unique indices <code>j</code> from <code>1:n</code>, except for <code>i</code> itself.
+<code>F_i</code> is also allowed to be empty (row <code>i</code> has only <code>NA</code>s), implying that <code>i</code> has no friends.
+The functionality is illustrated in the examples below. For additional information see Details.
+To learn how to use the <code>node</code> function for defining a node as a function of the friend node values, see Syntax and Network Summary Measures.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">network(name, netfun, ..., params = list())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>Character string specifiying the name of the current network, may be used for adding new network that replaces the existing one (resample previous network)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>netfun</code></td>
+<td>
+<p>Character name of the user-defined network generating function, can be any R function that returns a matrix of friend IDs of dimension <code>c(n, Kmax)</code>.
+The function must accept a named argument <code>n</code> that specifies the total sample size of the network.
+The matrix of network IDs should have <code>n</code> rows and <code>Kmax</code> columns, where each row <code>i</code> contains a vector of unique IDs in <code>1:n</code> that are <code>i</code>'s friends
+(observations that can influence <code>i</code>'s node distribution), except for <code>i</code> itself.
+Arguments to <code>netfun</code> can be either passed as named arguments to <code>network</code> function itself or as a named list of parameters <code>params</code>.
+These network arguments can themselves be functions of the previously defined node names,
+allowing for network sampling itself to be dependent on the previously simulated node values, as shown in Example 2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Named arguments specifying distribution parameters that are accepted by the network sampling function in <code>netfun</code>.
+These parameters can be R expressions that are themselves formulas of the past node names.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>params</code></td>
+<td>
+<p>A list of additional named parameters to be passed on to the <code>netfun</code> function.
+The parameters have to be either constants or character strings of R expressions of the past node names.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Without the network of friends, the <code>DAG</code> objects constructed by calling the <code>node</code> function can only specify structural equation models for independent and identically distributed data.
+That is, if no network is specified, for each observation <code>i</code> a node can be defined conditionally only on <code>i</code>'s own previously simulated node values.
+As a result, any two observations simulated under such data-generating model are always independent and identically distributed.
+Defining a network <code>F</code> allows one to define a new structural equation model where a node for each observation <code>i</code> can depend
+on its own simulated past, but also on the previously simulated node values of <code>i</code>'s friends (<code>F_i</code>).
+This is accomplished by allowing the data generating distribution for each observation <code>i</code>'s node to be defined conditionally
+on the past node values of <code>i</code>'s friends (observations in <code>F_i</code>).
+The network of friends can be used in subsequent calls to <code>node</code> function where new nodes (random variables) defined by the <code>node</code> function can depend on the node values of <code>i</code>'s friends
+(observations in the set <code>F_i</code>). During simulation it is assumed observations on <code>F_i</code> can simultaneously influence <code>i</code>.
+</p>
+<p>Note that the current version of the package does not allow combining time-varying node indexing <code>Var[t]</code> and network node indexing <code>Var[[net_indx]]</code>
+for the same data generating distribution.
+</p>
+<p>Each argument for the input network can be an evaluable R expression. All formulas are captured by delayed evaluation and are evaluated during the simulation.
+Formulas can refer to standard or user-specified R functions that must only apply to the values of previously defined nodes
+(i.e. node(s) that were called prior to <code>network()</code> function call).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list containing the network object(s) of type <code>DAG.net</code>, this will be utilized when data is simulated with <code>sim</code> function.
+</p>
+
+
+<h3>Syntax</h3>
+
+<p>The <code>network</code> function call that defines the network of friends can be added to a growing <code>DAG</code> object by using <code>'+'</code> syntax, much like a new <code>node</code> is added to a <code>DAG</code>.
+Subsequently defined nodes (<code>node</code> function calls) can employ the double square bracket subsetting syntax to reference previously simulated node values
+for specific friends in <code>F_i</code> simultaneously across all observations <code>i</code>.
+For example, <code>VarName[[net_indx]]</code> can be used inside the <code>node</code> formula to reference the node <code>VarName</code> values of <code>i</code>'s friends in <code>F_i[net_indx]</code>,
+simultaneously across all <code>i</code> in <code>1:n</code>.
+</p>
+<p>The friend subsetting index <code>net_indx</code> can be any non-negative integer vector that takes values from 0 to <code>Kmax</code>,
+where 0 refers to the <code>VarName</code> node values of observation <code>i</code> itself (this is equivalent to just using <code>VarnName</code> in the <code>node</code> formula),
+<code>net_indx</code> value of 1 refers to node <code>VarName</code> values for observations in <code>F_i[1]</code>, across all <code>i</code> in <code>1:n</code>
+(that is, the value of <code>VarName</code> of <code>i</code>'s first friend <code>F_i[1]</code>, if the friend exists and <code>NA</code> otherwise),
+and so on, up to <code>net_indx</code> value of <code>Kmax</code>, which would reference to the last friend node values of <code>VarName</code>, as defined by observations in <code>F_i[Kmax]</code> across all <code>i</code>.
+Note that <code>net_indx</code> can be a vector (e.g, <code>net_indx=c(1:Kmax)</code>),
+in which case the result of the query <code>VarName[[c(1:Kmax)]]</code> is a matrix of <code>Kmax</code> columns and <code>n</code> rows.
+</p>
+<p>By default, <code>VarName[[j]]</code> evaluates to missing (<code>NA</code>) when observation <code>i</code> does not have a friend under <code>F_i[j]</code> (i.e., in the <code>j</code>th spot of <code>i</code>'s friend set).
+This default behavior however can be changed to return 0 instead of <code>NA</code>, by passing an additional argument <code>replaceNAw0 = TRUE</code> to the corresponding <code>node</code> function.
+</p>
+
+
+<h3>Network Summary Measures</h3>
+
+<p>One can also define summary measures of the network covariates by specifying a node formula that applies an R function to the result of <code>VarName[[net_indx]]</code>.
+The rules for defining and applying such summary measures are identical to the rules for defining summary measures for time-varying nodes VarName[t_indx].
+For example, use <code>sum(VarName[[net_indx]])</code> to define a summary measure as a sum of <code>VarName</code> values of friends in <code>F_i[net_indx]</code>, across all observations <code>i</code> in <code>1:n</code>.
+Similarly, use <code>mean(VarName[[net_indx]])</code> to define a summary measure as a mean of <code>VarName</code> values of friends in <code>F_i[net_indx]</code>, across all <code>i</code>.
+For more details on defining such summary functions see the <code>simcausal</code> vignette.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>igraph.to.sparseAdjMat</code>; <code>sparseAdjMat.to.NetInd</code>; <code>NetInd.to.sparseAdjMat</code>; <code>sparseAdjMat.to.igraph</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#--------------------------------------------------------------------------------------------------
+# EXAMPLE 1. USING igraph R PACKAGE TO SIMULATE NETWORKS
+#--------------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------------------
+# Example of a network sampler, will be provided as "netfun" argument to network(, netfun=);
+# Generates a random graph according to the G(n,m) Erdos-Renyi model using the igraph package;
+# Returns (n,Kmax) matrix of net IDs (friends) by row;
+# Row i contains the IDs (row numbers) of i's friends;
+# i's friends are assumed connected to i and can influence i in equations defined by node())
+# When i has less than Kmax friends, the remaining i row entries are filled with NAs;
+# Argument m_pn: &gt; 0
+# a total number of edges in the network as a fraction (or multiplier) of n (sample size)
+#--------------------------------------------------------------------------------------------------
+gen.ER &lt;- function(n, m_pn, ...) {
+  m &lt;- as.integer(m_pn*n)
+  if (n&lt;=10) m &lt;- 20
+  igraph.ER &lt;- igraph::sample_gnm(n = n, m = m, directed = TRUE)
+  sparse_AdjMat &lt;- igraph.to.sparseAdjMat(igraph.ER)
+  NetInd_out &lt;- sparseAdjMat.to.NetInd(sparse_AdjMat)
+  return(NetInd_out$NetInd_k)
+}
+
+D &lt;- DAG.empty()
+# Sample ER model network using igraph::sample_gnm with m_pn argument:
+D &lt;- D + network("ER.net", netfun = "gen.ER", m_pn = 50)
+# W1 - categorical (6 categories, 1-6):
+D &lt;- D +
+  node("W1", distr = "rcat.b1",
+        probs = c(0.0494, 0.1823, 0.2806, 0.2680, 0.1651, 0.0546)) +
+# W2 - binary infection status, positively correlated with W1:
+  node("W2", distr = "rbern", prob = plogis(-0.2 + W1/3)) +
+# W3 - binary confounder:
+  node("W3", distr = "rbern", prob = 0.6)
+# A[i] is a function W1[i] and the total of i's friends values W1, W2 and W3:
+D &lt;- D + node("A", distr = "rbern",
+              prob = plogis(2 + -0.5 * W1 +
+                            -0.1 * sum(W1[[1:Kmax]]) +
+                            -0.4 * sum(W2[[1:Kmax]]) +
+                            -0.7 * sum(W3[[1:Kmax]])),
+              replaceNAw0 = TRUE)
+# Y[i] is a function of netW3 (friends of i W3 values) and the total N of i's friends
+# who are infected AND untreated:
+D &lt;- D + node("Y", distr = "rbern",
+              prob = plogis(-1 + 2 * sum(W2[[1:Kmax]] * (1 - A[[1:Kmax]])) +
+                            -2 * sum(W3[[1:Kmax]])
+                            ),
+              replaceNAw0 = TRUE)
+# Can add N untreated friends to the above outcome Y equation: sum(1 - A[[1:Kmax]]):
+D &lt;- D + node("Y", distr = "rbern",
+              prob = plogis(-1 + 1.5 * sum(W2[[1:Kmax]] * (1 - A[[1:Kmax]])) +
+                            -2 * sum(W3[[1:Kmax]]) +
+                            0.25 * sum(1 - A[[1:Kmax]])
+                            ),
+              replaceNAw0 = TRUE)
+# Can add N infected friends at baseline to the above outcome Y equation: sum(W2[[1:Kmax]]):
+D &lt;- D + node("Y", distr = "rbern",
+              prob = plogis(-1 + 1 * sum(W2[[1:Kmax]] * (1 - A[[1:Kmax]])) +
+                            -2 * sum(W3[[1:Kmax]]) +
+                            0.25 * sum(1 - A[[1:Kmax]]) +
+                            0.25 * sum(W2[[1:Kmax]])
+                            ),
+              replaceNAw0 = TRUE)
+Dset &lt;- set.DAG(D, n.test = 100)
+# Simulating data from the above sem:
+datnet &lt;- sim(Dset, n = 1000, rndseed = 543)
+head(datnet)
+# Obtaining the network object from simulated data:
+net_object &lt;- attributes(datnet)$netind_cl
+# Max number of friends:
+net_object$Kmax
+# Network matrix
+head(attributes(datnet)$netind_cl$NetInd)
+
+#--------------------------------------------------------------------------------------------------
+# EXAMPLE 2. USING CUSTOM NETWORK GENERATING FUNCTION
+#--------------------------------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------------------------------
+# Example of a user-defined network sampler(s) function
+# Arguments K, bslVar[i] (W1) &amp; nF are evaluated in the environment of the simulated data then
+# passed to genNET() function
+  # - K: maximum number of friends for any unit
+  # - bslVar[i]: used for contructing weights for the probability of selecting i as
+  # someone else's friend (weighted sampling), when missing the sampling goes to uniform
+  # - nF[i]: total number of friends that need to be sampled for observation i
+#--------------------------------------------------------------------------------------------------
+genNET &lt;- function(n, K, bslVar, nF, ...) {
+  prob_F &lt;- plogis(-4.5 + 2.5*c(1:K)/2) / sum(plogis(-4.5 + 2.5*c(1:K)/2))
+  NetInd_k &lt;- matrix(NA_integer_, nrow = n, ncol = K)
+  nFriendTot &lt;- rep(0L, n)
+  for (index in (1:n)) {
+    FriendSampSet &lt;- setdiff(c(1:n), index)
+    nFriendSamp &lt;- max(nF[index] - nFriendTot[index], 0L)
+    if (nFriendSamp &gt; 0) {
+      if (length(FriendSampSet) == 1)  {
+        friends_i &lt;- FriendSampSet
+      } else {
+        friends_i &lt;- sort(sample(FriendSampSet, size = nFriendSamp,
+                          prob = prob_F[bslVar[FriendSampSet] + 1]))
+      }
+      NetInd_k[index, ] &lt;- c(as.integer(friends_i),
+                            rep_len(NA_integer_, K - length(friends_i)))
+      nFriendTot[index] &lt;- nFriendTot[index] + nFriendSamp
+    }
+  }
+  return(NetInd_k)
+}
+
+D &lt;- DAG.empty()
+D &lt;- D +
+# W1 - categorical or continuous confounder (5 categories, 0-4):
+  node("W1", distr = "rcat.b0",
+        probs = c(0.0494, 0.1823, 0.2806, 0.2680, 0.1651, 0.0546)) +
+# W2 - binary infection status at t=0, positively correlated with W1:
+  node("W2", distr = "rbern", prob = plogis(-0.2 + W1/3)) +
+# W3 - binary confounder:
+  node("W3", distr = "rbern", prob = 0.6)
+
+# def.nF: total number of friends for each i (0-K), each def.nF[i] is influenced by categorical W1
+K &lt;- 10
+set.seed(12345)
+normprob &lt;- function(x) x / sum(x)
+p_nF_W1_mat &lt;- apply(matrix(runif((K+1)*6), ncol = 6, nrow = (K+1)), 2, normprob)
+colnames(p_nF_W1_mat) &lt;- paste0("p_nF_W1_", c(0:5))
+create_probs_nF &lt;- function(W1) t(p_nF_W1_mat[,W1+1])
+vecfun.add("create_probs_nF")
+D &lt;- D + node("def.nF", distr = "rcat.b0", probs = create_probs_nF(W1))
+
+# Adding the network generator that depends on nF and categorical W1:
+D &lt;- D + network(name="net.custom", netfun = "genNET", K = K, bslVar = W1, nF = def.nF)
+# Define A[i] is a function W1[i] as well as the total sum of i's friends values for W1, W2 and W3:
+D &lt;- D + node("A", distr = "rbern",
+              prob = plogis(2 + -0.5 * W1 +
+                            -0.1 * sum(W1[[1:Kmax]]) +
+                            -0.4 * sum(W2[[1:Kmax]]) +
+                            -0.7 * sum(W3[[1:Kmax]])),
+              replaceNAw0 = TRUE)
+# Y[i] is a the total N of i's friends who are infected AND untreated
+# + a function of friends W3 values
+D &lt;- D + node("pYRisk", distr = "rconst",
+              const = plogis(-1 + 2 * sum(W2[[1:Kmax]] * (1 - A[[1:Kmax]])) +
+                              -1.5 * sum(W3[[1:Kmax]])),
+              replaceNAw0 = TRUE)
+
+D &lt;- D + node("Y", distr = "rbern", prob = pYRisk)
+Dset &lt;- set.DAG(D, n.test = 100)
+
+# Simulating data from the above sem:
+datnet &lt;- sim(Dset, n = 1000, rndseed = 543)
+head(datnet, 10)
+# Obtaining the network object from simulated data:
+net_object &lt;- attributes(datnet)$netind_cl
+# Max number of friends:
+net_object$Kmax
+# Network matrix
+head(attributes(datnet)$netind_cl$NetInd)
+plotDAG(Dset)
+</code></pre>
+
+
+</div>

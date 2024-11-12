@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>synsq_filter_pass</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Filtering of the Synchrosqueezing Representation</h2>
+
+<h3>Description</h3>
+
+<p>This function filters the Synchrosqueezing representation <code>Tx</code>, having associated
+frequencies fs (see <code>synsq_cwt_fw</code>).
+This band-pass filter keeps frequencies in the
+range <code>[fm, fM]</code>. 
+This code is translated from MATLAB Synchrosqueezing Toolbox, version 1.1 developed by Eugene Brevdo (http://www.math.princeton.edu/~ebrevdo/).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">synsq_filter_pass(Tx, fs, fm, fM)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Tx</code></td>
+<td>
+<p>synchrosqueezed output of <code>x</code> (columns associated with time <code>t</code>). output of <code>synsq_cwt_fw</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fs</code></td>
+<td>
+<p>frequencies associated with rows of <code>Tx</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fm</code></td>
+<td>
+<p>Minimum band pass values. scalars, or vectors with each value associated
+with a time index (<code>length(fm)=ncol(Tx)</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fM</code></td>
+<td>
+<p>Maximum band pass values. scalars, or vectors with each value associated
+with a time index (<code>length(fM)=ncol(Tx)</code>)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function filters the Synchrosqueezing representation <code>Tx</code>, having associated
+frequencies <code>fs</code> (see <code>synsq_cwt_fw</code>).
+This band-pass filter keeps frequencies in the
+range <code>[fm, fM]</code>.
+</p>
+
+
+<h3>Value</h3>
+
+ 
+<table>
+<tr style="vertical-align: top;">
+<td><code>Txf</code></td>
+<td>
+<p>Filtered version of <code>Tx</code> (same size), with zeros outside the pass band rows.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fmi</code></td>
+<td>
+<p>time-length vector of min-frequency row indices</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fMi</code></td>
+<td>
+<p>time-length vector of max-frequency row indices</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>synsq_cwt_fw</code>, <code>synsq_cwt_fw</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(7)
+n &lt;- 2048
+tu &lt;- seq(0,10,, n)
+dt &lt;- tu[2]-tu[1]
+
+feq1 &lt;- function(t) (1+0.2*cos(t))*cos(2*pi*(2*t+0.3*cos(t)))
+feq2 &lt;- function(t) (1+0.3*cos(2*t))*exp(-t/15)*cos(2*pi*(2.4*t+0.5*t^(1.2)+0.3*sin(t)))
+feq3 &lt;- function(t) cos(2*pi*(5.3*t-0.2*t^(1.3)))
+feq &lt;- function(t) feq1(t) + feq2(t) + feq3(t)
+s2 &lt;- 2.4
+noise &lt;- sqrt(s2)*rnorm(length(tu))
+
+fu0 &lt;- feq(tu);
+fu &lt;- fu0 + noise;
+fus &lt;- cbind(feq1(tu), feq2(tu), feq3(tu))
+
+# Continuous wavelet transform
+nv &lt;- 32
+opt &lt;- list(type = "bump")
+
+cwtfit &lt;- cwt_fw(fu, opt$type, nv, dt, opt)
+thresh &lt;- est_riskshrink_thresh(cwtfit$Wx, nv)
+
+# Hard thresholding and Reconstruction
+cwtfit$Wx[which(abs(cwtfit$Wx) &lt; thresh)] &lt;- 0.0
+fur &lt;- cwt_iw(cwtfit$Wx, opt$type, opt)
+
+# Synchrosqueezed wavelet transform using denoised signal
+sstfit &lt;- synsq_cwt_fw(tu, fur, nv, opt)
+
+#par(mfrow=c(2,2))
+#image.plot(list(x=tu, y=sstfit$asc, z=t(abs(sstfit$Wx))), log="y", 
+#    xlab="Time", ylab="Scale", main="Time-Scale Representation by CWT",  
+#    col=designer.colors(64, c("azure", "cyan", "blue", "darkblue")), ylim=c(1, 0.0625)) 
+
+# Extracting the second component by filtering of continuous wavelet transform
+am &lt;- 0.2 * rep(1, length(tu))
+aM &lt;- 0.3 * rep(1, length(tu))
+
+#lines(tu, am, col="red", lty=3, lwd=2)
+#lines(tu, aM, col="red", lty=3, lwd=2)
+
+tmp &lt;- synsq_filter_pass(sstfit$Wx, sstfit$asc, am, aM);
+furcwt &lt;- cwt_iw(tmp$Txf, opt$type, opt);
+
+#image.plot(list(x=tu, y=sstfit$fs, z=t(abs(sstfit$Tx))), log="y",
+#    xlab="Time", ylab="Frequency", main="Time-Frequency Representation by SST", 
+#    col=designer.colors(64, c("azure", "cyan", "blue", "darkblue")), ylim=c(1, 8))
+
+# Extracting the second component by filtering of synchrosqueezed wavelet transform
+fm &lt;- fM &lt;- (2.4+0.5*1.2*tu^0.2+0.3*cos(tu))
+
+#lines(tu, 0.88*fm, col="red", lty=3, lwd=2)
+#lines(tu, 1.22*fM, col="red", lty=3, lwd=2)
+
+tmp &lt;- synsq_filter_pass(sstfit$Tx, sstfit$fs, 0.88*fm, 1.12*fM);
+fursst &lt;- synsq_cwt_iw(tmp$Txf, w, opt);
+
+#plot(tu, fursst, type="l", main="SST", xlab="time", ylab="f", col="red",
+#    xlim=c(1.5,8.5), ylim=c(-1,1))
+#lines(tu, feq2(tu), col="blue")
+
+#plot(tu, furcwt, type="l", main="CWT", xlab="time", ylab="f", col="red", 
+#    xlim=c(1.5,8.5), ylim=c(-1,1))
+#lines(tu, feq2(tu), col="blue")
+
+# Remove all energy for normalized frequencies above 1.
+# synsq_filter_pass(Tx, fs, -Inf, 1) 
+</code></pre>
+
+
+</div>

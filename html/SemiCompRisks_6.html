@@ -1,0 +1,262 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>BayesSurv_AFT</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+The function to implement Bayesian parametric and semi-parametric analyses for univariate survival data in the context of accelerated failure time (AFT) models.
+</h2>
+
+<h3>Description</h3>
+
+<p>Independent univariate survival data can be analyzed using AFT models that have a hierarchical structure. The proposed models can accomodate left-truncated and/or interval-censored data. An efficient computational algorithm that gives users the flexibility to adopt either a fully parametric (log-Normal) or a semi-parametric (Dirichlet process mixture) model specification is developed.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">BayesSurv_AFT(Formula, data, model = "LN", hyperParams, startValues,
+                mcmcParams, na.action = "na.fail", subset=NULL, path=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Formula</code></td>
+<td>
+
+<p>a <code>Formula</code> object, with the outcomes on the left of a <code class="reqn">\sim</code>, and covariates on the right. It is of the form, left truncation time | interval- (or right-) censored time to event <code class="reqn">\sim</code> covariates : i.e., <code class="reqn">L</code> | <code class="reqn">y_{L}</code>+<code class="reqn">y_{U}</code> ~ <code class="reqn">x</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>a data.frame in which to interpret the variables named in <code>Formula</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+
+<p>The specification of baseline survival distribution: "LN" or "DPM".
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperParams</code></td>
+<td>
+
+<p>a list containing lists or vectors for hyperparameter values in hierarchical models. Components include,
+<code>LN</code> (a list containing numeric vectors for log-Normal hyperparameters: <code>LN.ab</code>),
+<code>DPM</code> (a list containing numeric vectors for DPM hyperparameters: <code>DPM.mu</code>, <code>DPM.sigSq</code>, <code>DPM.ab</code>, <code>Tau.ab</code>).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startValues</code></td>
+<td>
+
+<p>a list containing vectors of starting values for model parameters. It can be specified as the object returned by the function <code>initiate.startValues_AFT</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmcParams</code></td>
+<td>
+
+<p>a list containing variables required for MCMC sampling. Components include,
+<code>run</code> (a list containing numeric values for setting for the overall run:
+<code>numReps</code>, total number of scans; <code>thin</code>, extent of thinning; <code>burninPerc</code>, the proportion of burn-in).
+<code>tuning</code> (a list containing numeric values relevant to tuning parameters for specific updates in Metropolis-Hastings (MH) algorithm:
+<code>beta.prop.var</code>, the variance of proposal density for <code class="reqn">\beta</code>; <code>mu.prop.var</code>, the variance of proposal density for <code class="reqn">\mu</code>; <code>zeta.prop.var</code>, the variance of proposal density for <code class="reqn">1/\sigma^2</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+
+<p>how NAs are treated. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+
+<p>a specification of the rows to be used: defaults to all rows. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+
+<p>the name of directory where the results are saved.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>BayesSurv_AFT</code> implements Bayesian semi-parametric (DPM) and parametric (log-Normal) models to univariate time-to-event data in the presence of left-truncation and/or interval-censoring. Consider a univariate AFT model that relates the covariate <code class="reqn">x_i</code> to survival time <code class="reqn">T_i</code> for the <code class="reqn">i^{\textrm{th}}</code> subject:
+</p>
+<p style="text-align: center;"><code class="reqn">\log(T_i) =  x_i^{\top}\beta + \epsilon_i,</code>
+</p>
+
+<p>where <code class="reqn">\epsilon_i</code> is a random variable whose distribution determines that of <code class="reqn">T_i</code> and <code class="reqn">\beta</code> is a vector of regression parameters. Considering the interval censoring, the time to the event for the <code class="reqn">i^{\textrm{th}}</code> subject satisfies <code class="reqn">c_{ij}\leq T_i &lt;c_{ij+1}</code>. Let <code class="reqn">L_i</code> denote the left-truncation time.
+For the Bayesian parametric analysis, we take  <code class="reqn">\epsilon_i</code> to follow the Normal(<code class="reqn">\mu</code>, <code class="reqn">\sigma^2</code>) distribution for <code class="reqn">\epsilon_i</code>. The following prior distributions are adopted for the model parameters:
+</p>
+<p style="text-align: center;"><code class="reqn">\pi(\beta, \mu) \propto 1,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\sigma^2 \sim \textrm{Inverse-Gamma}(a_{\sigma}, b_{\sigma}).</code>
+</p>
+
+<p>For the Bayesian semi-parametric analysis, we assume that <code class="reqn">\epsilon_i</code> is taken as draws from the DPM of normal distributions:
+</p>
+<p style="text-align: center;"><code class="reqn">\epsilon\sim DPM(G_0, \tau).</code>
+</p>
+
+<p>We refer readers to <code>print.Bayes_AFT</code> for a detailed illustration of DPM specification. We adopt a non-informative flat prior on the real line for the regression parameters <code class="reqn">\beta</code> and a Gamma(<code class="reqn">a_{\tau}</code>, <code class="reqn">b_{\tau}</code>) hyperprior for the precision parameter <code class="reqn">\tau</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>BayesSurv_AFT</code> returns an object of class <code>Bayes_AFT</code>. <br></p>
+
+
+<h3>Author(s)</h3>
+
+<p>Kyu Ha Lee and Sebastien Haneuse<br>
+Maintainer: Kyu Ha Lee &lt;klee15239@gmail.com&gt;
+</p>
+
+
+<h3>References</h3>
+
+<p>Lee, K. H., Rondeau, V., and Haneuse, S. (2017),
+Accelerated failure time models for semicompeting risks data in the presence of complex censoring, <em>Biometrics</em>, 73, 4, 1401-1412. <br><br>
+Alvares, D., Haneuse, S., Lee, C., Lee, K. H. (2019),
+SemiCompRisks: An R package for the analysis of independent and cluster-correlated semi-competing risks data, <em>The R Journal</em>, 11, 1, 376-400. <br></p>
+
+
+<h3>See Also</h3>
+
+<p><code>initiate.startValues_AFT</code>, <code>print.Bayes_AFT</code>, <code>summary.Bayes_AFT</code>, <code>predict.Bayes_AFT</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+# loading a data set
+data(survData)
+survData$yL &lt;- survData$yU &lt;- survData[,1]
+survData$yU[which(survData[,2] == 0)] &lt;- Inf
+survData$LT &lt;- rep(0, dim(survData)[1])
+
+form &lt;- Formula(LT | yL + yU ~ cov1 + cov2)
+
+#####################
+## Hyperparameters ##
+#####################
+
+## log-Normal model
+##
+LN.ab &lt;- c(0.3, 0.3)
+
+## DPM model
+##
+DPM.mu &lt;- log(12)
+DPM.sigSq &lt;- 100
+DPM.ab &lt;-  c(2, 1)
+Tau.ab &lt;- c(1.5, 0.0125)
+
+##
+hyperParams &lt;- list(LN=list(LN.ab=LN.ab),
+DPM=list(DPM.mu=DPM.mu, DPM.sigSq=DPM.sigSq, DPM.ab=DPM.ab, Tau.ab=Tau.ab))
+
+###################
+## MCMC SETTINGS ##
+###################
+
+## Setting for the overall run
+##
+numReps    &lt;- 100
+thin       &lt;- 1
+burninPerc &lt;- 0.5
+
+## Tuning parameters for specific updates
+##
+##  - those common to all models
+beta.prop.var	&lt;- 0.01
+mu.prop.var	&lt;- 0.1
+zeta.prop.var	&lt;- 0.1
+
+##
+mcmcParams	&lt;- list(run=list(numReps=numReps, thin=thin, burninPerc=burninPerc),
+tuning=list(beta.prop.var=beta.prop.var, mu.prop.var=mu.prop.var,
+zeta.prop.var=zeta.prop.var))
+
+################################################################
+## Analysis of Independent univariate survival data ############
+################################################################
+
+###############
+## logNormal ##
+###############
+
+##
+myModel &lt;- "LN"
+myPath  &lt;- "Output/01-Results-LN/"
+
+startValues      &lt;- initiate.startValues_AFT(form, survData, model=myModel, nChain=2)
+
+##
+fit_LN &lt;- BayesSurv_AFT(form, survData, model=myModel, hyperParams,
+startValues, mcmcParams, path=myPath)
+
+fit_LN
+summ.fit_LN &lt;- summary(fit_LN); names(summ.fit_LN)
+summ.fit_LN
+pred_LN &lt;- predict(fit_LN, time = seq(0, 35, 1), tseq=seq(from=0, to=30, by=5))
+plot(pred_LN, plot.est="Haz")
+plot(pred_LN, plot.est="Surv")
+
+#########
+## DPM ##
+#########
+
+##
+myModel &lt;- "DPM"
+myPath  &lt;- "Output/02-Results-DPM/"
+
+startValues      &lt;- initiate.startValues_AFT(form, survData, model=myModel, nChain=2)
+
+##
+fit_DPM &lt;- BayesSurv_AFT(form, survData, model=myModel, hyperParams,
+startValues, mcmcParams, path=myPath)
+
+fit_DPM
+summ.fit_DPM &lt;- summary(fit_DPM); names(summ.fit_DPM)
+summ.fit_DPM
+pred_DPM &lt;- predict(fit_DPM, time = seq(0, 35, 1), tseq=seq(from=0, to=30, by=5))
+plot(pred_DPM, plot.est="Haz")
+plot(pred_DPM, plot.est="Surv")
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,377 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sar_average</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit a multimodel averaged SAR curve</h2>
+
+<h3>Description</h3>
+
+<p>Construct a multimodel averaged species-area relationship curve
+using information criterion weights and up to twenty SAR models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sar_average(obj = c("power",
+  "powerR","epm1","epm2","p1","p2","loga","koba",
+  "monod","negexpo","chapman","weibull3","asymp",
+  "ratio","gompertz","weibull4","betap","logistic", "heleg", "linear"), data =
+  NULL, crit = "Info", normaTest = "none", homoTest = "none", homoCor =
+  "spearman", neg_check = FALSE, alpha_normtest = 0.05, alpha_homotest =
+  0.05, grid_start = "partial", grid_n = NULL, confInt = FALSE, ciN = 100,
+  verb = TRUE, display = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>Either a vector of model names or a fit_collection object created
+using <code>sar_multi</code>. If a vector of names is provided,
+<code>sar_average</code> first calls <code>sar_multi</code> before generating the
+averaged multimodel curve.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataset in the form of a dataframe with two columns: the first
+with island/site areas, and the second with the species richness of each
+island/site. If <code>obj</code> is a fit_collection object, <code>data</code> should
+be NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crit</code></td>
+<td>
+<p>The criterion used to compare models and compute the model
+weights. The default <code>crit = "Info"</code> switches to AIC or AICc depending
+on the number of data points in the dataset. AIC (<code>crit = "AIC"</code>) or
+AICc (<code>crit = "AICc"</code>) can be chosen regardless of the sample size. For
+BIC, use <code>crit ="Bayes"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normaTest</code></td>
+<td>
+<p>The test used to test the normality of the residuals of each
+model. Can be any of "lillie" (Lilliefors Kolmogorov-Smirnov test),
+"shapiro" (Shapiro-Wilk test of normality), "kolmo" (Kolmogorov-Smirnov
+test), or "none" (no residuals normality test is undertaken; the default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>homoTest</code></td>
+<td>
+<p>The test used to check for homogeneity of the residuals of
+each model. Can be any of "cor.fitted" (a correlation of the squared
+residuals with the model fitted values), "cor.area" (a correlation of the
+squared residuals with the area values), or "none" (no residuals
+homogeneity test is undertaken; the default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>homoCor</code></td>
+<td>
+<p>The correlation test to be used when <code>homoTest !=
+"none"</code>. Can be any of "spearman" (the default), "pearson", or "kendall".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neg_check</code></td>
+<td>
+<p>Whether or not a check should be undertaken to flag any
+models that predict negative richness values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_normtest</code></td>
+<td>
+<p>The alpha value used in the residual normality test
+(default = 0.05, i.e. any test with a P value &lt; 0.05 is flagged as failing
+the test).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_homotest</code></td>
+<td>
+<p>The alpha value used in the residual homogeneity test
+(default = 0.05, i.e. any test with a P value &lt; 0.05 is flagged as failing
+the test).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid_start</code></td>
+<td>
+<p>Should a grid search procedure be implemented to test
+multiple starting parameter values. Can be one of 'none', 'partial' or
+'exhaustive' The default is set to 'partial'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid_n</code></td>
+<td>
+<p>If <code>grid_start = exhaustive</code>, the number of points sampled
+in the starting parameter space (see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>confInt</code></td>
+<td>
+<p>A logical argument specifying whether confidence intervals
+should be calculated for the multimodel curve using bootstrapping.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ciN</code></td>
+<td>
+<p>The number of bootstrap samples to be drawn to calculate the
+confidence intervals (if <code>confInt == TRUE</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verb</code></td>
+<td>
+<p>verbose - Whether or not to print certain warnings 
+(default: <code>verb == TRUE</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>display</code></td>
+<td>
+<p>Show the model fitting output and related messages.
+(default: <code>display == TRUE</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The multimodel SAR curve is constructed using information criterion
+weights (see Burnham &amp; Anderson, 2002; Guilhaumon et al. 2010). If
+<code>obj</code> is a vector of n model names the function fits the n models to
+the dataset provided using the <code>sar_multi</code> function. A dataset must
+have four or more datapoints to fit the multimodel curve. If any models
+cannot be fitted they are removed from the multimodel SAR. If <code>obj</code> is
+a fit_collection object (created using the <code>sar_multi</code> function), any
+model fits in the collection which are NA are removed. In addition, if any
+other model checks have been selected (i.e. residual normality and
+heterogeneity tests, and checks for negative predicted richness values),
+these are undertaken and any model that fails the selected test(s) is
+removed from the multimodel SAR. The order of the additional checks inside
+the function is (if all are turned on): normality of residuals, homogeneity
+of residuals, and a check for negative fitted values. Once a model fails
+one test it is removed and thus is not available for further tests. Thus, a
+model may fail multiple tests but the returned warning will only provide
+information on a single test. We have now changed the defaults so that
+no checks are undertaken, so it is up to the user to select any checks if
+appropriate.
+</p>
+<p>The resultant models are then used to construct the multimodel SAR curve.
+For each model in turn, the model fitted values are multiplied by the
+information criterion weight of that model, and the resultant values are
+summed across all models (Burnham &amp; Anderson, 2002). Confidence intervals
+can be calculated (using <code>confInt</code>) around the multimodel averaged
+curve using the bootstrap procedure outlined in Guilhaumon et al (2010).The
+procedure transforms the residuals from the individual model fits and
+occasionally NAs / Inf values can be produced - in these cases, the model
+is removed from the confidence interval calculation (but not the multimodel
+curve itself). There is also a constraint within the procedure to remove
+any transformed residuals that result in negative richness values. When
+several SAR models are used, when grid_start is turned on and when the
+number of bootstraps (<code>ciN</code>) is large, generating the confidence
+intervals can take a (very) long time. Parallel processing will be added to
+future versions.
+</p>
+<p>Choosing starting parameter values for non-linear regression optimisation
+algorithms is not always straight forward, depending on the data at hand.
+In the package, we use various approaches to choose default starting
+parameters. However, we also use a grid search process which creates a
+large array of different possible starting parameter values (within certain
+bounds) and then randomly selects a proportion of these to test. There are
+three options for the <code>grid_start</code> argument to control this process.
+The default (<code>grid_start = "partial"</code>) randomly samples 500 different
+sets of starting parameter values for each model, adds these to the model's
+default starting values and tests all of these. A more comprehensive set of
+starting parameter estimates can be used (<code>grid_start = "exhaustive"</code>)
+- this option allows the user to choose the number of starting parameter
+sets to be tested (using the <code>grid_n</code> argument) and includes a range
+of additional starting parameter estimates, e.g. very small values and
+particular values we have found to be useful for individual models. Using
+<code>grid_start = "exhaustive"</code> in combination with a large <code>grid_n</code>
+can be very time consuming; however, we would recommend it as it makes it
+more likely that the optimal model fit will be found, particularly for the
+more complex models. This is particularly true if any of the model fits
+does not converge, returns a singular gradient at parameter estimates, or
+the plot of the model fit does not look optimum. The grid start procedure
+can also be turned off (<code>grid_start = "none"</code>), meaning just the
+default starting parameter estimates are used. Note that <code>grid_start</code>
+has been disabled for a small number of models (e.g. Weibull 3 par.). See
+the vignette for more information. Remember that, as grid_start has a
+random component, when <code>grid_start != "none"</code>, you can get slightly
+different results each time you fit a model or run <code>sar_average</code>.
+</p>
+<p>Even with grid_start, occasionally a model fit will be able to be fitted
+and pass the model fitting checks (e.g. residual normality) but the
+resulting fit is nonsensical (e.g. a horizontal line with intercept at
+zero). Thus, it can be useful to plot the resultant 'multi' object to check
+the individual model fits. To re-run the <code>sar_average</code> function
+without a particular model, simply remove it from the <code>obj</code> argument.
+</p>
+<p>The <code>sar_models()</code> function can be used to bring up a list of the 20
+model names. <code>display_sars_models()</code> generates a table of the 20
+models with model information.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If no models have been successfully fitted and passed the model
+checks, an error is returned. If only a single model is successfully
+fitted, this individual model fit object (of class 'sars') is returned,
+given no model averaging can be undertaken. If more than two models have
+been successfully fitted and passed the model checks, a list of class
+"multi" and class "sars" with two elements. The first element ('mmi')
+contains the fitted values of the multimodel sar curve. The second element
+('details') is a list with the following components:
+</p>
+ 
+<ul>
+<li> <p><strong>mod_names</strong>   Names of the models that were successfully
+fitted and passed any model check 
+</p>
+</li>
+<li> <p><strong>fits</strong>   A fit_collection object containing the successful model fits 
+</p>
+</li>
+<li> <p><strong>ic</strong>   The information criterion selected 
+</p>
+</li>
+<li> <p><strong>norm_test</strong>   The residual normality test selected
+</p>
+</li>
+<li> <p><strong>homo_test</strong>   The residual homogeneity test selected
+</p>
+</li>
+<li> <p><strong>alpha_norm_test</strong>   The alpha value used in the residual normality test 
+</p>
+</li>
+<li> <p><strong>alpha_homo_test</strong>  The alpha value used in the residual homogeneity test 
+</p>
+</li>
+<li> <p><strong>ics</strong>   The information criterion values (e.g. AIC values) of the model fits 
+</p>
+</li>
+<li> <p><strong>delta_ics</strong>   The delta information criterion values 
+</p>
+</li>
+<li> <p><strong>weights_ics</strong>   The information criterion weights of each model fit 
+</p>
+</li>
+<li> <p><strong>n_points</strong>   Number of data points 
+</p>
+</li>
+<li> <p><strong>n_mods</strong>   The number of successfully fitted models 
+</p>
+</li>
+<li> <p><strong>no_fit</strong>   Names of the models which could not be fitted or did not pass model checks
+</p>
+</li>
+<li> <p><strong>convergence</strong>   Logical value indicating whether <code>optim</code>
+model convergence code = 0, for each model</p>
+</li>
+</ul>
+<p>The <code>summary.sars</code> function returns a more useful summary of
+the model fit results, and the <code>plot.multi</code> plots the
+multimodel curve.
+</p>
+
+
+<h3>Note</h3>
+
+<p>There are different types of non-convergence and these are dealt with
+differently in the package. If the optimisation algorithm fails to return
+any solution, the model fit is defined as NA and is then removed, and so
+does not appear in the model summary table or multi-model curve etc.
+However, the optimisation algorithm (e.g. Nelder-Mead) can also return
+non-NA model fits but where the solution is potentially non-optimal (e.g.
+degeneracy of the Nelder–Mead simplex) - these cases are identified by any
+<code>optim</code> convergence code that is not zero. We have decided not
+to remove these fits (i.e. they are kept in the model summary table and
+multimodel curve) - as arguably a non-optimal fit is still better than no
+fit - but any instances can be checked using the returned
+<code>details$converged</code> vector and then the model fitting re-run without
+these models, if preferred. Increasing the starting parameters grid search
+(see above) may also help avoid this issue.
+</p>
+<p>The generation of confidence intervals around the multimodel curve (using
+<code>confInt == TRUE</code>), may throw up errors that we have yet to come
+across. Please report any issues to the package maintainer.
+</p>
+<p>There are different formulas for calculating the various information
+criteria (IC) used for model comparison (e.g. AIC, BIC). For example, some
+formulas use the residual sum of squares (rss) and others the
+log-likelihood (ll). Both are valid approaches and will give the same
+parameter estimates, but it is important to only compare IC values that
+have been calculated using the same approach. For example, the 'sars'
+package used to use formulas based on the rss, while the nls
+function function in the stats package uses formulas based on the ll. To
+increase the compatibility between nls and sars, we have changed our
+formulas such that now our IC formulas are the same as those used in the
+nls function. See the "On the calculation of information
+criteria" section in the package vignette for more information.
+</p>
+<p>The mmf model was found to be equivalent to the He &amp; Legendre logistic, and
+so the former has been deprecated (as of Feb 2021). We have removed it from
+the default models in <code>sar_average</code>, although it is still available to
+be used for the time being (using the <code>obj</code> argument). The standard
+logistic model has been added in its place, and is now used as default
+within <code>sar_average</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Burnham, K. P., &amp; Anderson, D. R. (2002). Model selection and
+multi-model inference: a practical information-theoretic approach (2nd
+ed.). New-York: Springer.
+</p>
+<p>Guilhaumon, F., Mouillot, D., &amp; Gimenez, O. (2010). mmSAR: an R-package for
+multimodel species-area relationship inference. Ecography, 33, 420-424.
+</p>
+<p>Matthews, T. J., K. A. Triantis, R. J. Whittaker, &amp; F. Guilhaumon. (2019).
+sars: an R package for fitting, evaluating and comparing species–area
+relationship models. Ecography, 42, 1446–55.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(galap)
+#attempt to construct a multimodel SAR curve using all twenty sar models
+#using no grid_start just for speed here (not recommended generally)
+fit &lt;- sar_average(data = galap, grid_start = "none")
+summary(fit)
+plot(fit)
+
+# construct a multimodel SAR curve using a fit_collection object
+ff &lt;- sar_multi(galap, obj = c("power", "loga", "monod", "weibull3"))
+fit2 &lt;- sar_average(obj = ff, data = NULL)
+summary(fit2)
+
+## Not run:  
+# construct a multimodel SAR curve using a more exhaustive set of starting 
+# parameter values 
+fit3 &lt;- sar_average(data = galap, grid_start = "exhaustive", grid_n = 1000) 
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

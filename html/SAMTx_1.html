@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sensitivity_analysis</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sensitivity Assessment to Unmeasured Confounding with Multiple Treatments</h2>
+
+<h3>Description</h3>
+
+<p>This function implements the nested multiple imputation using Bayesian Additive Regression Trees (BART)
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sensitivity_analysis(
+  covariates,
+  y,
+  A,
+  alpha,
+  n_p,
+  nposterior = 1000,
+  sensitivity_correction = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>covariates</code></td>
+<td>
+<p>Dataframe including all the covariates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>Numeric vector for the binary outcome</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A</code></td>
+<td>
+<p>Numeric vector for the treatment indicator</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Priors for sensitivity parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_p</code></td>
+<td>
+<p>Number of nested imputations to conduct</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nposterior</code></td>
+<td>
+<p>Number of posterior samples, default is 1000</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sensitivity_correction</code></td>
+<td>
+<p>Whether to use sensitivity correction algorithm, default is TRUE</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of dataframes for each ATE between different treatments.
+If number of treatments = 3, it contains
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>ATE12:</code></td>
+<td>
+<p>A dataframe with number of rows =
+n_p * nrow(alpha) and number of columns = length(y)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ATE23:</code></td>
+<td>
+<p>A dataframe with number of rows =
+n_p * nrow(alpha) and number of columns = length(y)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ATE13:</code></td>
+<td>
+<p>A dataframe with number of rows =
+n_p * nrow(alpha) and number of columns = length(y)</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">sample_size = 10
+x1 = rbinom(sample_size, 1, prob=0.4)
+x2 = rbinom(sample_size, 1, prob=0.5)
+lp.A = 0.2 * x1 + 0.4 * x2 + rnorm(sample_size, 0, 0.1)
+lp.B = -0.3 * x1 + 0.8 * x2 + rnorm(sample_size, 0, 0.1)
+lp.C = 0.1 * x1 + 0.5 * x2 + rnorm(sample_size, 0, 0.1)
+# calculate the true probability of assignment
+p.A1 &lt;- exp(lp.A)/(exp(lp.A)+exp(lp.B)+exp(lp.C))
+p.A2 &lt;- exp(lp.B)/(exp(lp.A)+exp(lp.B)+exp(lp.C))
+p.A3 &lt;- exp(lp.C)/(exp(lp.A)+exp(lp.B)+exp(lp.C))
+p.A &lt;- matrix(c(p.A1,p.A2,p.A3),ncol = 3)
+A = NULL
+for (m in 1:sample_size) { # assign treatment
+ A[m] &lt;- sample(c(1, 2, 3),
+                size = 1,
+                replace = TRUE,
+                prob = p.A[m, ])
+}
+table(A)
+# set the binary outcome
+Y2 = 0.3 * x1 + 0.2 * x1 * x2 + 1.3 * x2
+Y1 = -0.6 * x1 + 0.5 * x2 + 0.3 * x1 * x2
+Y0 = -0.8 * x1 - 1.2 * x2 + 1.5 * x2 * x1
+Y2 = rbinom(sample_size, 1, exp(Y2)/(1+exp(Y2)))
+Y1 = rbinom(sample_size, 1, exp(Y1)/(1+exp(Y1)))
+Y0 = rbinom(sample_size, 1, exp(Y0)/(1+exp(Y0)))
+dat = cbind(Y0, Y1, Y2, A)
+Yobs &lt;- apply(dat, 1, function(x)
+ x[1:3][x[4]]) #observed when trt is received
+n = 1
+alpha = cbind(
+ runif(n, mean(Y0[A ==1])-mean(Y0[A ==2]) - 0.001, mean(Y0[A ==1])-mean(Y0[A ==2]) + 0.001),
+ runif(n, mean(Y1[A ==2])-mean(Y1[A ==1]) - 0.001, mean(Y1[A ==2])-mean(Y1[A ==1]) + 0.001),
+ runif(n, mean(Y1[A ==2])-mean(Y1[A ==3]) - 0.001, mean(Y1[A ==2])-mean(Y1[A ==3]) + 0.001),
+ runif(n, mean(Y0[A ==1])-mean(Y0[A ==3]) - 0.001, mean(Y0[A ==1])-mean(Y0[A ==3]) + 0.001),
+ runif(n, mean(Y2[A ==3])-mean(Y2[A ==1]) - 0.001, mean(Y2[A ==3])-mean(Y2[A ==1]) + 0.001),
+ runif(n, mean(Y2[A ==3])-mean(Y2[A ==2]) - 0.001, mean(Y2[A ==3])-mean(Y2[A ==2]) + 0.001))
+y &lt;- Yobs
+n_p &lt;- 1
+sample_gap &lt;- 10
+sensitivity_analysis_result &lt;- sensitivity_analysis(cbind(x1, x2), Yobs,
+A, alpha, n_p = 1, sensitivity_correction = TRUE)
+mean(sensitivity_analysis_result$ATE_12)
+mean(sensitivity_analysis_result$ATE_02)
+mean(sensitivity_analysis_result$ATE_01)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,194 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>AutoHierarchies</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Ensure standardized coding of hierarchies</h2>
+
+<h3>Description</h3>
+
+<p>Automatic convert list of hierarchies coded in different ways to standardized to-from coding
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">AutoHierarchies(
+  hierarchies,
+  data = NULL,
+  total = "Total",
+  hierarchyVarNames = c(mapsFrom = "mapsFrom", mapsTo = "mapsTo", sign = "sign", level =
+    "level"),
+  combineHierarchies = TRUE,
+  unionComplement = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>hierarchies</code></td>
+<td>
+<p>List of hierarchies</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Matrix or data frame with data containing codes of relevant variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>total</code></td>
+<td>
+<p>Within <code>AutoHierarchies</code>: Vector of total codes (possibly recycled) used when running <code>Hrc2DimList</code> or <code>FindDimLists</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hierarchyVarNames</code></td>
+<td>
+<p>Variable names in the hierarchy tables as in <code>HierarchyFix</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>combineHierarchies</code></td>
+<td>
+<p>Whether to combine several hierarchies for same variable into a single hierarchy (see examples).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>unionComplement</code></td>
+<td>
+<p>Logical vector as in <code>Hierarchies2ModelMatrix</code>. The parameter is only in use when hierarchies are combined.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Extra unused parameters</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Input can be to-from coded hierarchies, hierarchies/dimList as in sdcTable, TauArgus coded hierarchies or formulas.
+Automatic coding from data is also supported. Output is on a from ready for input to <code>HierarchyCompute</code>.
+A single string as hierarchy input is assumed to be a total code.
+Then, the hierarchy is created as a simple hierarchy where all codes in data sum up to this total.
+For consistence with <code>HierarchyCompute</code>,
+the codes <code>"rowFactor"</code> and <code>"colFactor"</code> are unchanged.
+An empty string is recoded to  <code>"rowFactor"</code>.
+</p>
+<p>A special possibility is to include character vector(s) as unnamed list element(s) of <code>hierarchies</code>.
+Then the elements of the character vector(s) must be variable names within data.
+This will cause hierarchies to be created from selected data columns by running <code>FindDimLists</code>.
+Total coded can be specified by parameter <code>total</code> or by naming the character vector. See examples.
+</p>
+
+
+<h3>Value</h3>
+
+<p>List of hierarchies
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Øyvind Langsrud
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>FindHierarchies</code>, <code>DimList2Hierarchy</code>, <code>DimList2Hrc</code>,
+<code>Hierarchy2Formula</code>, <code>DummyHierarchies</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># First, create different types of input
+z &lt;- SSBtoolsData("sprt_emp_withEU")
+yearFormula &lt;- c("y_14 = 2014", "y_15_16 = y_all - y_14", "y_all = 2014 + 2015 + 2016")
+yearHier &lt;- Formula2Hierarchy(yearFormula)
+geoDimList &lt;- FindDimLists(z[, c("geo", "eu")], total = "Europe")[[1]]
+geoDimList2 &lt;- FindDimLists(z[, c("geo", "eu")])[[1]]
+geoHrc &lt;- DimList2Hrc(geoDimList)
+ageHier &lt;- SSBtoolsData("sprt_emp_ageHier")
+
+h1 &lt;- AutoHierarchies(list(age = ageHier, geo = geoDimList, year = yearFormula))
+h2 &lt;- AutoHierarchies(list(age = "Y15-64", geo = geoHrc, year = yearHier), data = z, 
+                      total = "Europe")
+h3 &lt;- AutoHierarchies(list(age = "Total", geo = geoDimList2, year = "Total"), data = z)
+h4 &lt;- FindHierarchies(z[, c(1, 2, 3, 5)])
+h5 &lt;- AutoHierarchies(list(age = "Total", geo = "", year = "colFactor"), data = z)
+identical(h1, h2)
+identical(h3, h4)
+
+# Print the resulting hierarchies
+h1 # = h2
+h3 # = h4
+h5
+
+FindHierarchies(z[, c("geo", "eu", "age")])
+
+
+# ===================================================================== 
+#   Examples illustrating the combineHierarchies parameter
+# =====================================================================
+
+# First, create data
+d &lt;- SSBtoolsData("d2ws")[1:3]
+d$isCounty1 &lt;- "NO"
+d$isCounty1[d$county == "county-1"] &lt;- "YES"
+d
+
+# sdcTable coding showing two tree-shaped hierarchies
+dimList &lt;- FindDimLists(d)
+dimList
+
+# Two tree-shaped hierarchies can still be seen 
+# Hierarchies with three and two levels
+hA &lt;- AutoHierarchies(dimList, combineHierarchies = FALSE)
+hA
+
+# A single hierarchy with only one level 
+# Contains the information needed to create a dummy matrix
+hB &lt;- AutoHierarchies(dimList)
+hB
+
+# Dummy matrices from the hierarchies
+DummyHierarchies(hA)
+DummyHierarchies(hB)
+
+
+# ===================================================================== 
+#   Special examples with character vector(s) as unnamed list elements
+# =====================================================================
+
+# Same output as FindHierarchies above
+AutoHierarchies(list(c("geo", "eu", "age")), data = z)
+
+# Now combined with a named list element 
+AutoHierarchies(list(year = yearHier, c("geo", "eu", "age")), data = z)
+
+# Total codes by unnamed list element as named character vector 
+AutoHierarchies(list(year = yearHier, c(Europe = "geo", "eu", All = "age")), data = z)
+
+# Two types of year input. Total codes by using the parameter `total`. 
+AutoHierarchies(list("year", year = yearHier, c("geo", "eu", "age")), data = z, 
+                total = c("allYears", "unused", "Tot"))
+
+# Avoid combineHierarchies to see effect of each year input separately 
+# (even earlier return possible with `combineHierarchies = NA`)
+AutoHierarchies(list("year", year = yearHier, c("geo", "eu", "age")), data = z, 
+                total = c("allYears", "unused", "Tot"), combineHierarchies = FALSE)
+
+</code></pre>
+
+
+</div>

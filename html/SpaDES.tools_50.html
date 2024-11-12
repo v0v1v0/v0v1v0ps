@@ -1,0 +1,797 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spread</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate a spread process on a landscape.</h2>
+
+<h3>Description</h3>
+
+<p>This can be used to simulate fires, seed dispersal, calculation of iterative,
+concentric landscape values (symmetric or asymmetric) and many other things.
+Essentially, it starts from a collection of cells (<code>loci</code>) and spreads
+to neighbours, according to the <code>directions</code> and <code>spreadProb</code> arguments.
+This can become quite general, if <code>spreadProb</code> is 1 as it will expand
+from every loci until all cells in the landscape have been covered.
+With <code>id</code> set to <code>TRUE</code>, the resulting map will be classified
+by the index of the cell where that event propagated from.
+This can be used to examine things like fire size distributions.
+<strong>NOTE:</strong> See also <code>spread2()</code>, which is more robust and can be
+used to build custom functions.
+However, under some conditions, this <code>spread</code> function is faster.
+The two functions can accomplish many of the same things, and key differences are internal.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spread(
+  landscape,
+  loci = NA_real_,
+  spreadProb = 0.23,
+  persistence = 0,
+  mask = NA,
+  maxSize = 100000000L,
+  directions = 8L,
+  iterations = 1000000L,
+  lowMemory = NULL,
+  returnIndices = FALSE,
+  returnDistances = FALSE,
+  mapID = NULL,
+  id = FALSE,
+  plot.it = FALSE,
+  spreadProbLater = NA_real_,
+  spreadState = NA,
+  circle = FALSE,
+  circleMaxRadius = NA_real_,
+  stopRule = NA,
+  stopRuleBehavior = "includeRing",
+  allowOverlap = FALSE,
+  asymmetry = NA_real_,
+  asymmetryAngle = NA_real_,
+  quick = FALSE,
+  neighProbs = NULL,
+  exactSizes = FALSE,
+  relativeSpreadProb = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>landscape</code></td>
+<td>
+<p>A <code>RasterLayer</code> or <code>SpatRaster</code> object. This defines the possible
+locations for spreading events to start and spread into.
+This can also be used as part of <code>stopRule</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loci</code></td>
+<td>
+<p>A vector of locations in <code>landscape</code>.
+These should be cell indices.
+If user has x and y coordinates, these can be converted
+with <code>cellFromXY()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spreadProb</code></td>
+<td>
+<p>Numeric, <code>RasterLayer</code>, or <code>SpatRaster</code>.
+If numeric of length 1, then this is the global probability
+of spreading into each cell from a neighbour.
+If a raster (or a vector of length <code>terra::ncell(landscape)</code>,
+resolution and extent of <code>landscape</code>), then this will
+be the cell-specific probability. Default is <code>0.23</code>.
+If a <code>spreadProbLater</code> is provided, then this is
+only used for the first iteration. Also called "escape
+probability". See section on "Breaking out of spread events".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>persistence</code></td>
+<td>
+<p>A length 1 probability that an active cell will continue
+to burn, per time step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+<p><code>RasterLayer</code> or <code>SpatRaster</code> object congruent with <code>landscape</code>,
+whose elements are <code style="white-space: pre;">⁠0,1⁠</code>, where <code>1</code> indicates "cannot spread to".
+Currently not implemented, but identical behaviour can be
+achieved if <code>spreadProb</code> has zeros in all unspreadable
+locations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxSize</code></td>
+<td>
+<p>Numeric. Maximum number of cells for a single or all events to be spread.
+Recycled to match <code>loci</code> length, if it is not as long as <code>loci</code>.
+See section on <code style="white-space: pre;">⁠Breaking out of spread events⁠</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>directions</code></td>
+<td>
+<p>The number of adjacent cells in which to look;
+default is 8 (Queen case). Can only be 4 or 8.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iterations</code></td>
+<td>
+<p>Number of iterations to spread.
+Leaving this <code>NULL</code> allows the spread to continue
+until stops spreading itself (i.e., exhausts itself).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lowMemory</code></td>
+<td>
+<p>Deprecated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnIndices</code></td>
+<td>
+<p>Logical or numeric. If <code>1</code> or <code>TRUE</code>, will return a <code>data.table</code>
+with indices and values of successful spread events.
+If <code>2</code>, it will simply return a vector of pixel indices of
+all cells that were touched. This will be the fastest option.
+If <code>FALSE</code>, then it will return a raster with values.
+See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnDistances</code></td>
+<td>
+<p>Logical. Should the function include a column with the
+individual cell distances from the locus where that event
+started. Default is <code>FALSE</code>.
+See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mapID</code></td>
+<td>
+<p>Deprecated. Use <code>id</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, returns a raster of events ids.
+If <code>FALSE</code>, returns a raster of iteration numbers,
+i.e., the spread history of one or more events.
+NOTE: this is overridden if <code>returnIndices</code> is <code>TRUE</code>
+or <code>1</code> or <code>2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot.it</code></td>
+<td>
+<p>If <code>TRUE</code>, then plot the raster at every iteration,
+so one can watch the spread event grow.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spreadProbLater</code></td>
+<td>
+<p>Numeric, or <code>RasterLayer</code>. If provided, then this
+will become the <code>spreadProb</code> after the first iteration.
+See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spreadState</code></td>
+<td>
+<p><code>data.table</code>. This should be the output of a previous call
+to <code>spread</code>, where <code>returnIndices</code> was <code>TRUE</code>.
+Default <code>NA</code>, meaning the spread is starting from <code>loci</code>.
+See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>circle</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then outward spread will be by
+equidistant rings, rather than solely by adjacent cells
+(via <code>directions</code> arg.). Default is <code>FALSE</code>.
+Using <code>circle = TRUE</code> can be dramatically slower for large problems.
+Note, this should usually be used with <code>spreadProb = 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>circleMaxRadius</code></td>
+<td>
+<p>Numeric. A further way to stop the outward spread of events.
+If <code>circle</code> is <code>TRUE</code>, then it will grow to this maximum radius.
+See section on <code style="white-space: pre;">⁠Breaking out of spread events⁠</code>.
+Default is <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stopRule</code></td>
+<td>
+<p>A function which will be used to assess whether each
+individual cluster should stop growing.
+This function can be an argument of <code>"landscape"</code>,
+<code>"id"</code>, <code>"cells"</code>, and any other variables passed to
+<code>spread</code> in the <code>...</code>. <code>cells</code> and <code>landscape</code> will both
+be numeric vectors of length of active cells. <code>cells</code> will
+be the raster index, so can be used to extract values
+from another raster passed via ... .
+Default <code>NA</code>, meaning that spreading will not stop
+as a function of the landscape.
+See section on "Breaking out of spread events" and examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stopRuleBehavior</code></td>
+<td>
+<p>Character. Can be one of <code>"includePixel"</code>,
+<code>"excludePixel"</code>, <code>"includeRing"</code>, or
+<code>"excludeRing"</code>.
+If <code>stopRule</code> contains a function, this argument is
+used determine what to do with the cell(s) that caused
+the rule to be <code>TRUE</code>. See details.
+Default is <code>"includeRing"</code> which means to accept the
+entire ring of cells that caused the rule to be <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allowOverlap</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then individual events can overlap
+with one another, i.e., they do not interact (this is slower
+than if <code>allowOverlap = FALSE</code>).
+Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asymmetry</code></td>
+<td>
+<p>A numeric indicating the ratio of the asymmetry to be used.
+Default is <code>NA</code>, indicating no asymmetry.
+See details. This is still experimental.
+<strong>Use with caution.</strong></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asymmetryAngle</code></td>
+<td>
+<p>A numeric indicating the angle in degrees (0 is "up",
+as in North on a map), that describes which way the <code>asymmetry</code> is.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quick</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then several potentially time consuming
+checking (such as <code>inRange</code>) will be skipped.
+This should only be used if there is no concern about checking
+to ensure that inputs are legal.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighProbs</code></td>
+<td>
+<p>A numeric vector, whose sum is 1.
+It indicates the probabilities an individual spread iteration
+spreading to <code>1:length(neighProbs)</code> neighbours.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exactSizes</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then the <code>maxSize</code> will be
+treated as exact sizes, i.e., the spread events will continue
+until they are <code>floor(maxSize)</code>.
+This is overridden by <code>iterations</code>, but if <code>iterations</code>
+is run, and individual events haven't reached <code>maxSize</code>,
+then the returned <code>data.table</code> will still have at least
+one active cell per event that did not achieve <code>maxSize</code>,
+so that the events can continue if passed into <code>spread</code>
+with <code>spreadState</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>relativeSpreadProb</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then <code>spreadProb</code> will
+be rescaled <em>within</em> the <code>directions</code> neighbours, such that
+the sum of the probabilities of all neighbours will be 1. Default
+<code>FALSE</code>, unless <code>spreadProb</code> values are not contained
+between 0 and 1, which will force <code>relativeSpreadProb</code>
+to be <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional named vectors or named list of named vectors required for <code>stopRule</code>.
+These vectors should be as long as required e.g., length <code>loci</code> if there is
+one value per event.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For large rasters, a combination of <code>lowMemory = TRUE</code> and
+<code>returnIndices = TRUE</code> or <code>returnIndices = 2</code>
+will be fastest and use the least amount of memory.
+<strong>2022-07-25: <code>lowMemory = TRUE</code> is deprecated due to removal of package <code>ffbase</code> from CRAN.</strong>
+</p>
+<p>This function can be interrupted before all active cells are exhausted if
+the <code>iterations</code> value is reached before there are no more active
+cells to spread into. If this is desired, <code>returnIndices</code> should be
+<code>TRUE</code> and the output of this call can be passed subsequently as an input
+to this same function. This is intended to be used for situations where external
+events happen during a spread event, or where one or more arguments to the spread
+function change before a spread event is completed. For example, if it is
+desired that the <code>spreadProb</code> change before a spread event is completed because,
+for example, a fire is spreading, and a new set of conditions arise due to
+a change in weather.
+</p>
+<p><code>asymmetry</code> is currently used to modify the <code>spreadProb</code> in the following way.
+First for each active cell, spreadProb is converted into a length 2 numeric of Low and High
+spread probabilities for that cell:
+<code style="white-space: pre;">⁠spreadProbsLH &lt;- (spreadProb*2) // (asymmetry+1)*c(1,asymmetry)⁠</code>,
+whose ratio is equal to
+<code>asymmetry</code>.
+Then, using <code>asymmetryAngle</code>, the angle between the
+initial starting point of the event and all potential
+cells is found. These are converted into a proportion of the angle from
+<code>-asymmetryAngle</code>
+to
+<code>asymmetryAngle</code>
+using:
+<code>angleQuality &lt;- (cos(angles - rad2(asymmetryAngle))+1)/2</code>
+where <code>rad2 &lt;- function (degree) (degree * pi)/180</code>
+</p>
+<p>These are then converted to multiple <code>spreadProbs</code> by
+<code>spreadProbs &lt;- lowSpreadProb + (angleQuality * diff(spreadProbsLH))</code>
+To maintain an expected <code>spreadProb</code> that is the same as the asymmetric
+<code>spreadProbs</code>, these are then rescaled so that the mean of the
+asymmetric spreadProbs is always equal to spreadProb at every iteration:
+<code>spreadProbs &lt;- spreadProbs - diff(c(spreadProb, mean(spreadProbs)))</code>
+</p>
+
+
+<h3>Value</h3>
+
+<p>Either a <code>RasterLayer</code> indicating the spread of the process in
+the landscape or a <code>data.table</code> if <code>returnIndices</code> is <code>TRUE</code>.
+If a <code>RasterLayer</code>, then it represents
+every cell in which a successful spread event occurred. For the case of, say, a fire
+this would represent every cell that burned. If <code>allowOverlap</code> is <code>TRUE</code>,
+This <code>RasterLayer</code> will represent the sum of the individual event ids
+(which are numerics <code>seq_along(loci)</code>.
+This will generally be of minimal use because it won't be possible to distinguish
+if event 2 overlapped with event 5 or if it was just event 7.
+</p>
+<p>If <code>returnIndices</code> is <code>TRUE</code>,
+then this function returns a <code>data.table</code> with columns:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>id</code> </td>
+<td style="text-align: left;"> an arbitrary ID <code>1:length(loci)</code> identifying
+unique clusters of spread events, i.e., all cells
+that have been spread into that have a
+common initial cell.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>initialLocus</code> </td>
+<td style="text-align: left;"> the initial cell number of that particular
+spread event.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>indices</code> </td>
+<td style="text-align: left;"> The cell indices of cells that have
+been touched by the spread algorithm.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>active</code> </td>
+<td style="text-align: left;"> a logical indicating whether the cell is active (i.e.,
+could still be a source for spreading) or not (no
+spreading will occur from these cells).</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>This will generally be more useful when <code>allowOverlap</code> is <code>TRUE</code>.
+</p>
+
+
+<h3>Breaking out of spread events</h3>
+
+<p>There are 4 ways for the spread to "stop" spreading. Here, each "event" is defined as
+all cells that are spawned from a single starting loci. So, one spread call can have
+multiple spreading "events". The ways outlines below are all acting at all times,
+i.e., they are not mutually exclusive. Therefore, it is the user's
+responsibility to make sure the different rules are interacting with
+each other correctly. Using <code>spreadProb</code> or <code>maxSize</code> are computationally
+fastest, sometimes dramatically so.
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>spreadProb</code> </td>
+<td style="text-align: left;"> Probabilistically, if spreadProb is low enough,
+active spreading events will stop. In practice,
+active spreading events will stop. In practice,
+this number generally should be below 0.3 to actually
+see an event stop</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>maxSize</code> </td>
+<td style="text-align: left;"> This is the number of cells that are "successfully" turned
+on during a spreading event. This can be vectorized, one value
+for each event   </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>circleMaxRadius</code> </td>
+<td style="text-align: left;"> If <code>circle</code> is TRUE, then this will be the maximum
+radius reached, and then the event will stop. This is
+vectorized, and if length is &gt;1, it will be matched
+in the order of <code>loci</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>stopRule</code> </td>
+<td style="text-align: left;"> This is a function that can use "landscape", "id", "cells",
+or any named vector passed into <code>spread</code> in the <code>...</code>.
+This can take on relatively complex functions.
+Passing in, say, a <code>RasterLayer</code> to <code>spread</code>
+can access the individual values on that arbitrary
+<code>RasterLayer</code> using "cells".
+These will be calculated within all the cells of the individual
+event (equivalent to a "group_by(event)" in <code>dplyr</code>.
+So, <code>sum(arbitraryRaster[cells])</code> would sum up all
+the raster values on the <code>arbitraryRaster</code> raster
+that are overlaid by the individual event.
+This can then be used in a logical statement. See examples.
+To confirm the cause of stopping, the user can assess the values
+after the function has finished.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>The spread function does not return the result of this <code>stopRule</code>.
+If, say, an event has both <code>circleMaxRadius</code> and <code>stopRule</code>,
+and it is the <code>circleMaxRadius</code> that caused the event spreading to stop,
+there will be no indicator returned from this function that indicates
+which rule caused the stop.
+</p>
+<p><code>stopRule</code> has many use cases. One common use case is evaluating
+a neighbourhood around a focal set of points. This provides,
+therefore, an alternative to the <code>terra::buffer()</code> function or
+<code>terra::focal()</code> function.
+In both of those cases, the window/buffer size must be an input to the function. Here,
+the resulting size can be emergent based on the incremental growing and calculating
+of the <code>landscape</code> values underlying the spreading event.
+</p>
+
+
+<h3><code>stopRuleBehavior</code></h3>
+
+<p>This determines how the <code>stopRule</code> should be implemented. Because
+spreading occurs outwards in concentric circles or shapes, one cell width at a time, there
+are 4 possible ways to interpret the logical inequality defined in <code>stopRule</code>.
+In order of number of cells included in resulting events, from most cells to fewest cells:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>"includeRing"</code> </td>
+<td style="text-align: left;"> Will include the entire ring of cells that, as a group,
+caused <code>stopRule</code> to be <code>TRUE</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>"includePixel"</code> </td>
+<td style="text-align: left;"> Working backwards from the entire ring that caused the
+<code>stopRule</code> to be <code>TRUE</code>, this will iteratively
+random cells in the final ring
+until the <code>stopRule</code> is <code>FALSE</code>. This will add back
+the last removed cell and include it in the return result
+for that event.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>"excludePixel"</code> </td>
+<td style="text-align: left;"> Like <code>"includePixel"</code>, but it will not add back the cell
+that causes <code>stopRule</code> to be <code>TRUE</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>"excludeRing"</code> </td>
+<td style="text-align: left;"> Analogous to <code>"excludePixel"</code>, but for the entire final
+ring of cells added. This will exclude the entire ring of cells
+that caused the <code>stopRule</code> to be <code>TRUE</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p><code>dqrng</code> version 0.4.0 changed the default RNG. If backwards compatibility is needed,
+set <code>dqrng::dqRNGkind("Xoroshiro128+")</code> before running <code>spread</code> to ensure numerical
+reproducibility with previous versions.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eliot McIntire and Steve Cumming
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>spread2()</code> for a different implementation of the same algorithm.
+It is more robust, meaning, there will be fewer unexplainable errors, and the behaviour
+has been better tested, so it is more likely to be exactly as described under all
+argument combinations.
+Also, <code>rings()</code> which uses <code>spread</code> but with specific argument
+values selected for a specific purpose.
+<code>terra::distance()</code>.
+<code>cir()</code> to create "circles"; it is fast for many small problems.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(terra)
+origDTThreads &lt;- data.table::setDTthreads(2L)
+origNcpus &lt;- options(Ncpus = 2L)
+
+# Make random forest cover map
+set.seed(123)
+emptyRas &lt;- rast(ext(0, 1e2, 0, 1e2), res = 1)
+hab &lt;- randomPolygons(emptyRas, numTypes = 40)
+names(hab) &lt;- "hab"
+mask &lt;- rast(emptyRas)
+values(mask) &lt;- 0
+mask[1:5000] &lt;- 1
+numCol &lt;- ncol(emptyRas)
+numCell &lt;- ncell(emptyRas)
+directions &lt;- 8
+
+# Can use transparent as a colour
+coltab(hab) &lt;- paste(c("transparent", grey(0:40/40)))
+
+terra::plot(hab)
+
+# initiate 10 fires
+startCells &lt;- as.integer(sample(1:ncell(emptyRas), 100))
+fires &lt;- spread(hab, loci = startCells, 0.235, persistence = 0, numNeighs = 2,
+                mask = NULL, maxSize = 1e8, directions = 8, iterations = 1e6, id = TRUE)
+
+terra::plot(hab, type = "classes", legend = FALSE)
+fires[fires == 0] &lt;- NA
+terra::plot(fires, add = TRUE, col = "red", type = "continuous", legend = FALSE)
+
+# Instead, to give a colour to the zero values, use \code{zero.color=}
+coltab(fires) &lt;- NULL
+# need to specify "type" to get correct legend
+terra::plot(fires,  col = c(colorRampPalette(c("blue", "green"))(100)),
+            type = "continuous")
+
+##------------------------------------------------------------------------------
+## Continue event by passing interrupted object into spreadState
+##------------------------------------------------------------------------------
+
+## Interrupt a spread event using iterations - need `returnIndices = TRUE` to
+##  use outputs as new inputs in next iteration
+fires &lt;- spread(hab, loci = as.integer(sample(1:ncell(hab), 10)),
+                returnIndices = TRUE, 0.235, 0, NULL, 1e8, 8, iterations = 3, id = TRUE)
+fires[, list(size = length(initialLocus)), by = id]  # See sizes of fires
+
+fires2 &lt;- spread(hab, loci = NA_real_, returnIndices = TRUE, 0.235, 0, NULL,
+                 1e8, 8, iterations = 2, id = TRUE, spreadState = fires)
+# NOTE events are assigned arbitrary IDs, starting at 1
+
+
+## Use data.table and loci...
+fires &lt;- spread(hab, loci = as.integer(sample(1:ncell(hab), 10)),
+                returnIndices = TRUE, 0.235, 0, NULL, 1e8, 8,
+                iterations = 2, id = TRUE)
+fullRas &lt;- rast(hab)
+fullRas[] &lt;- 1:ncell(hab)
+burned &lt;- fires[active == FALSE]
+burnedMap &lt;- rasterizeReduced(burned, fullRas, "id", "indices")
+
+terra::plot(burnedMap, type = "classes")
+
+####################
+## stopRule examples
+####################
+
+# examples with stopRule, which means that the eventual size is driven by the values on the raster
+#  passed in to the landscape argument. It won't be exact because the pixel values
+#  will likely not allow it
+stopRule22 &lt;- function(landscape) sum(landscape) &gt; 100
+
+set.seed(1234)
+stopRule1 &lt;- function(landscape) sum(landscape) &gt; 50
+stopRuleA &lt;- spread(hab, loci = as.integer(sample(1:ncell(hab), 10)), 1, 0, NULL,
+                    maxSize = 1e6, 8, 1e6, id = TRUE, circle = TRUE, stopRule = stopRule1,
+                    stopRuleBehavior = "excludePixel")
+tapply(hab[], stopRuleA[], sum) # all below 50
+
+set.seed(1234)
+# using stopRuleBehavior = "excludePixel"
+stopRuleB &lt;- spread(hab, loci = as.integer(sample(1:ncell(hab), 10)), 1, 0, NULL,
+                    maxSize = 1e6, 8, 1e6, id = TRUE, circle = TRUE, stopRule = stopRule22,
+                    stopRuleBehavior = "excludePixel")
+tapply(hab[], stopRuleB[], sum) # all below 100
+
+if (interactive())
+  terra::plot(c(stopRuleA, stopRuleB))
+# Cellular automata shapes
+# Diamonds - can make them with: a boolean raster, directions = 4,
+#    stopRule in place, spreadProb = 1
+diamonds &lt;- spread(hab &gt; 0, spreadProb = 1, directions = 4, id = TRUE, stopRule = stopRule22)
+
+terra::plot(diamonds)
+
+# Squares - can make them with: a boolean raster, directions = 8,
+#    stopRule in place, spreadProb = 1
+squares &lt;- spread(hab &gt; 0, spreadProb = 1, directions = 8, id = TRUE, stopRule = stopRule22)
+terra::plot(squares)
+
+# Interference shapes - can make them with: a boolean raster, directions = 8,
+#    stopRule in place, spreadProb = 1
+stopRule2 &lt;- function(landscape) sum(landscape) &gt; 200
+squashedDiamonds &lt;- spread(hab &gt; 0, spreadProb = 1,
+                           loci = (ncell(hab) - ncol(hab)) / 2 + c(4, -4),
+                           directions = 4, id = TRUE, stopRule = stopRule2)
+terra::plot(squashedDiamonds)
+
+# Circles with spreadProb &lt; 1 will give "more" circular shapes, but definitely not circles
+stopRule2 &lt;- function(landscape) sum(landscape) &gt; 200
+seed &lt;- sample(1e4, 1)
+set.seed(seed)
+
+circlish &lt;- spread(hab &gt; 0, spreadProb = 1, iterations = 10,
+                   loci = (ncell(hab) - ncol(hab)) / 2 + c(4, -4),
+                   directions = 8, id = TRUE, circle = TRUE)#, stopRule = stopRule2)
+if (interactive())
+  terra::plot(c(circlish))
+
+set.seed(seed)
+regularCA &lt;- spread(hab &gt; 0, spreadProb = 1, iterations = 10,
+                    loci = (ncell(hab) - ncol(hab)) / 2 + c(4, -4),
+                    directions = 8, id = TRUE)#, stopRule = stopRule2)
+
+if (interactive()) # compare to circlish
+  terra::plot(regularCA)
+
+####################
+# complex stopRule
+####################
+
+initialLoci &lt;- sample(seq_len(ncell(hab)), 2)
+endSizes &lt;- seq_along(initialLoci) * 200
+
+# Can be a function of landscape, id, and/or any other named
+#   variable passed into spread
+stopRule3 &lt;- function(landscape, id, endSizes) sum(landscape) &gt; endSizes[id]
+
+set.seed(1)
+twoCirclesDiffSize &lt;- spread(hab, spreadProb = 1, loci = initialLoci,
+                             circle = TRUE, directions = 8, id = TRUE,
+                             stopRule = stopRule3, endSizes = endSizes,
+                             stopRuleBehavior = "excludePixel")
+
+# or using named list of named elements:
+set.seed(1)
+twoCirclesDiffSize2 &lt;- spread(hab, spreadProb = 1, loci = initialLoci,
+                              circle = TRUE, directions = 8, id = TRUE,
+                              stopRule = stopRule3,
+                              vars = list(endSizes = endSizes),
+                              stopRuleBehavior = "excludePixel")
+
+compareGeom(twoCirclesDiffSize, twoCirclesDiffSize2, res = TRUE,
+            stopOnError = FALSE)
+
+terra::plot(c(twoCirclesDiffSize , twoCirclesDiffSize2))
+
+cirs &lt;- values(twoCirclesDiffSize)
+vals &lt;- tapply(hab[][cirs &gt; 0], cirs[cirs &gt; 0], sum) # one is &lt;200, other is &lt;400 as per endSizes
+
+# Stop if sum of landscape is big or mean of quality is too small
+quality &lt;- rast(hab)
+quality[] &lt;- runif(ncell(quality), 0, 1)
+stopRule4 &lt;- function(landscape, quality, cells) {
+  (sum(landscape) &gt; 20) | (mean(values(quality)[cells]) &lt; 0.3)
+}
+
+twoCirclesDiffSize &lt;- spread(hab, spreadProb = 1, loci = initialLoci, circle = TRUE,
+                             directions = 8, id = TRUE, stopRule = stopRule4,
+                             quality = quality, stopRuleBehavior = "excludePixel")
+
+
+## Using alternative algorithm, not probabilistic diffusion
+## Will give exactly correct sizes, yet still with variability
+## within the spreading (i.e., cells with and without successes)
+seed &lt;- sample(1e6, 1)
+set.seed(seed)
+startCells &lt;- startCells[1:4]
+maxSizes &lt;- rexp(length(startCells), rate = 1 / 500)
+fires &lt;- spread(hab, loci = startCells, 1, persistence = 0,
+                neighProbs = c(0.5, 0.5, 0.5) / 1.5,
+                mask = NULL, maxSize = maxSizes, directions = 8,
+                iterations = 1e6, id = TRUE, plot.it = FALSE, exactSizes = TRUE)
+all(table(fires[fires &gt; 0][]) == floor(maxSizes))
+
+terra::plot(fires)
+hist(fires[][fires[] &gt; 0], main = "fire size distribution")
+
+## Example with relativeSpreadProb ... i.e., a relative probability spreadProb
+##  (shown here because because spreadProb raster is not a probability).
+##  Here, we force the events to grow, choosing always 2 neighbours,
+##  according to the relative probabilities contained on hab layer.
+##
+## Note: `neighProbs = c(0,1)` forces each active pixel to move to 2 new pixels
+## (`prob = 0` for 1 neighbour, `prob = 1` for 2 neighbours)
+##
+## Note: set hab3 to be very distinct probability differences, to detect spread
+##  differences
+hab3 &lt;- (hab &lt; 20) * 200 + 1
+seed &lt;- 643503
+set.seed(seed)
+sam &lt;- sample(which(hab3[] == 1), 1)
+set.seed(seed)
+events1 &lt;- spread(hab3, spreadProb = hab3, loci = sam, directions = 8,
+                  neighProbs = c(0, 1), maxSize = c(70), exactSizes = TRUE)
+
+# Compare to absolute probability version
+set.seed(seed)
+events2 &lt;- spread(hab3, id = TRUE, loci = sam, directions = 8,
+                  neighProbs = c(0, 1), maxSize = c(70), exactSizes = TRUE)
+
+terra::plot(events1)
+
+terra::plot(events2, col = c("white", "red", "red"))
+
+hist(events1[], breaks = 30, main = "Event size distribution") ## TODO: fix this plot
+# Compare outputs -- should be more high value hab pixels spread to in event1
+#  (randomness may prevent this in all cases)
+sum(hab3[events1[] &gt; 0]) &gt;= sum(hab3[events2[] &gt; 0]) ## should be usually TRUE
+
+# clean up
+data.table::setDTthreads(origDTThreads)
+options(Ncpus = origNcpus)
+</code></pre>
+
+
+</div>

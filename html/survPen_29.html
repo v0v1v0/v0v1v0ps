@@ -1,0 +1,575 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>survPen</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>(Excess) hazard model with (multidimensional) penalized splines and integrated smoothness estimation</h2>
+
+<h3>Description</h3>
+
+<p>Fits an (excess) hazard model with (multidimensional) penalized splines allowing for
+time-dependent effects, non-linear effects and interactions between several continuous covariates. The linear predictor is specified on the logarithm of the (excess) hazard. Smooth terms are represented using
+cubic regression splines with associated quadratic penalties. For multidimensional smooths, tensor product splines or tensor product interactions
+are available. Smoothness is estimated automatically by optimizing one of two criteria: Laplace approximate marginal likelihood (LAML) or likelihood cross-validation (LCV).
+When specifying the model's formula, no distinction is made between the part relative to the form of the baseline hazard and the one relative
+to the effects of the covariates. Thus, time-dependent effects are naturally specified as interactions with some function of time via "*" or ":". See the examples below for more details.
+The main functions of the survPen package are <code>survPen</code>, <code>smf</code>, <code>tensor</code>, <code>tint</code> and <code>rd</code>. The first one fits the model while the other four are constructors for penalized splines. <br><br>
+The user must be aware that the <code>survPen</code> package does not depend on <code>mgcv</code>. Thus, all the functionalities available in <code>mgcv</code> in terms of types of splines (such as thin plate regression splines or P-splines) are not available in <code>survPen</code> (yet).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">survPen(
+  formula,
+  data,
+  t1,
+  t0 = NULL,
+  event,
+  expected = NULL,
+  lambda = NULL,
+  rho.ini = NULL,
+  max.it.beta = 200,
+  max.it.rho = 30,
+  beta.ini = NULL,
+  detail.rho = FALSE,
+  detail.beta = FALSE,
+  n.legendre = 20,
+  method = "LAML",
+  tol.beta = 1e-04,
+  tol.rho = 1e-04,
+  step.max = 5
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>formula object specifying the model. Penalized terms are specified using <code>smf</code> (comparable to <code>s(...,bs="cr")</code> in <code>mgcv</code>),
+<code>tensor</code> (comparable to <code>te(...,bs="cr")</code> in <code>mgcv</code>), <code>tint</code> (comparable to <code>ti(...,bs="cr")</code> in <code>mgcv</code>),
+or <code>rd</code> (comparable to <code>s(...,bs="re")</code> in <code>mgcv</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t1</code></td>
+<td>
+<p>vector of follow-up times or name of the column in <code>data</code> containing follow-up times</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0</code></td>
+<td>
+<p>vector of origin times or name of the column in <code>data</code> containing origin times; allows to take into account left truncation; default is NULL, in which case it will be a vector of zeroes</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>event</code></td>
+<td>
+<p>vector of right-censoring indicators or name of the column in <code>data</code> containing right-censoring indicators; 1 if the event occurred and 0 otherwise</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expected</code></td>
+<td>
+<p>(for net survival only) vector of expected hazard or name of the column in <code>data</code> containing expected hazard; default is NULL, in which case overall survival will be estimated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>vector of smoothing parameters; default is NULL when it is to be estimated by LAML or LCV</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.ini</code></td>
+<td>
+<p>vector of initial log smoothing parameters; default is NULL, in which case every initial log lambda will be -1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.it.beta</code></td>
+<td>
+<p>maximum number of iterations to reach convergence in the regression parameters; default is 200</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.it.rho</code></td>
+<td>
+<p>maximum number of iterations to reach convergence in the smoothing parameters; default is 30</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.ini</code></td>
+<td>
+<p>vector of initial regression parameters; default is NULL, in which case the first beta will be <code>log(sum(event)/sum(t1))</code> and the others will be zero (except if there are "by" variables or if there is a piecewise constant hazard specification in which cases all betas are set to zero)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detail.rho</code></td>
+<td>
+<p>if TRUE, details concerning the optimization process in the smoothing parameters are displayed; default is FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detail.beta</code></td>
+<td>
+<p>if TRUE, details concerning the optimization process in the regression parameters are displayed; default is FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.legendre</code></td>
+<td>
+<p>number of Gauss-Legendre quadrature nodes to be used to compute the cumulative hazard; default is 20</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>criterion used to select the smoothing parameters. Should be "LAML" or "LCV"; default is "LAML"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol.beta</code></td>
+<td>
+<p>convergence tolerance for regression parameters; default is <code>1e-04</code>. See <code>NR.beta</code> for details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol.rho</code></td>
+<td>
+<p>convergence tolerance for smoothing parameters; default is <code>1e-04</code>. See <code>NR.rho</code> for details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step.max</code></td>
+<td>
+<p>maximum absolute value possible for any component of the step vector (on the log smoothing parameter scale) in LCV or LAML optimization; default is 5. If necessary, consider lowering this value to achieve convergence</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In time-to-event analysis, we may deal with one or several continuous covariates whose functional forms, time-dependent effects and interaction structure are challenging. 
+One possible way to deal with these effects and interactions is to use the classical approximation of the survival likelihood by a Poisson likelihood. Thus, by artificially splitting 
+the data, the package <code>mgcv</code> can then be used to fit penalized hazard models (Remontet et al. 2018). The problem with this option is that the setup is rather complex and the method can fail with huge datasets (before splitting).  
+Wood et al. (2016) provided a general penalized framework that made available smooth function estimation to a wide variety of models. 
+They proposed to estimate smoothing parameters by maximizing a Laplace approximate marginal likelihood (LAML) criterion and demonstrate how statistical consistency is maintained by doing so.
+The <code>survPen</code> function implements the framework described by Wood et al. (2016) for modelling time-to-event data without requiring data splitting and Poisson likelihood approximation.
+The effects of continuous covariates are represented using low rank spline bases with associated quadratic penalties. The <code>survPen</code> function allows to account simultaneously for time-dependent effects, non-linear effects and
+interactions between several continuous covariates without the need to build a possibly demanding model-selection procedure.
+Besides LAML, a likelihood cross-validation (LCV) criterion (O Sullivan 1988) can be used for smoothing parameter estimation.
+First and second derivatives of LCV with respect to the smoothing parameters are implemented so that LCV optimization is computationally equivalent to the LAML optimization proposed by Wood et al. (2016).
+In practice, LAML optimization is generally both a bit faster and a bit more stable so it is used as default. 
+For <code class="reqn">m</code> covariates <code class="reqn">(x_1,\ldots,x_m)</code>, if we note <code class="reqn">h(t,x_1,\ldots,x_m)</code> the hazard at time <code class="reqn">t</code>, the hazard model is the following :
+</p>
+<p style="text-align: center;"><code class="reqn">log[h(t,x_1,\ldots,x_m)]=\sum_j g_j(t,x_1,\ldots,x_m)</code>
+</p>
+
+<p>where each <code class="reqn">g_j</code> is either the marginal basis of a specific covariate or a tensor product smooth of any number of covariates. The marginal bases of the covariates are represented
+as natural (or restricted) cubic splines (as in function <code>ns</code> from library <code>splines</code>) with associated quadratic penalties. Full parametric (unpenalized) terms for the effects of covariates are also possible (see the examples below).
+Each <code class="reqn">g_j</code> is then associated with zero, one or several smoothing parameters. 
+The estimation procedure is based on outer Newton-Raphson iterations for the smoothing parameters and on inner Newton-Raphson iterations for the regression parameters (see Wood et al. 2016).
+Estimation of the regression parameters in the inner algorithm is by direct maximization of the penalized likelihood of the survival model, therefore avoiding data augmentation and Poisson likelihood approximation. 
+The cumulative hazard included in the log-likelihood is approximated by Gauss-Legendre quadrature for numerical stability.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object of class "survPen" (see <code>survPenObject</code> for details)
+</p>
+
+
+<h3>by variables</h3>
+
+<p>The <code>smf</code>, <code>tensor</code> and <code>tint</code> terms used to specify smooths accept an argument <code>by</code>. This <code>by</code> argument allows for building varying-coefficient models i.e. for letting
+smooths interact with factors or parametric terms. If a <code>by</code> variable is numeric, then its ith element multiples the ith row of the model matrix corresponding to the smooth term concerned.
+If a <code>by</code> variable is a factor then it generates an indicator vector for each level of the factor, unless it is an ordered factor. In the non-ordered case, the model matrix for the smooth term is then replicated 
+for each factor level, and each copy has its rows multiplied by the corresponding rows of its indicator variable. The smoothness penalties are also duplicated for each factor level. In short a different smooth is generated 
+for each factor level. The main interest of by variables over separated models is the <code>same.rho</code> argument (for <code>smf</code>, <code>tensor</code> and <code>tint</code>) which allows forcing all smooths to have the same smoothing parameter(s). 
+Ordered <code>by</code> variables are handled in the same way, except that no smooth is generated for the first level of the ordered factor. This is useful if you are interested in differences from a reference level.
+</p>
+<p>See the survival_analysis_with_survPen vignette for more details.
+</p>
+
+
+<h3>Random effects</h3>
+
+<p>i.i.d random effects can be specified using penalization. Indeed, the ridge penalty is equivalent to an assumption that the regression parameters are i.i.d. normal random effects.
+Thus, it is easy to fit a frailty hazard model. For example, consider the model term <code>rd(clust)</code> which will result in a model matrix component corresponding to <code>model.matrix(~clust-1)</code> being added to the model matrix for the whole model. 
+The associated regression parameters are assumed i.i.d. normal, with unknown variance (to be estimated). This assumption is equivalent to an identity penalty matrix (i.e. a ridge penalty) on the regression parameters.
+The unknown smoothing parameter <code class="reqn">\lambda</code> associated with the term <code>rd(clust)</code> is directly linked to the unknown variance <code class="reqn">\sigma^2</code>: <code class="reqn">\sigma^2 = \frac{1}{\lambda * S.scale}</code>.
+Then, the estimated log standard deviation is: <code class="reqn">log(\hat{\sigma})=-0.5*log(\hat{\lambda})-0.5*log(S.scale)</code>. And the estimated variance of the log standard deviation is: <code class="reqn">Var[log(\hat{\sigma})]=0.25*Var[log(\hat{\lambda})]=0.25*inv.Hess.rho</code>.
+See the survival_analysis_with_survPen vignette for more details.
+This approach allows implementing commonly used random effect structures. For example if <code>g</code> is a factor then <code>rd(g)</code> produces a random parameter for each level of <code>g</code>, the random parameters being i.i.d. normal. 
+If <code>g</code> is a factor and <code>x</code> is numeric, then <code>rd(g,x)</code> produces an i.i.d. normal random slope relating the response to <code>x</code> for each level of <code>g</code>.
+Thus, random effects treated as penalized splines allow specifying frailty (excess) hazard models (Charvat et al. 2016). For each individual i from cluster (usually geographical unit)  j, a possible model would be:
+</p>
+<p style="text-align: center;"><code class="reqn">log[h(t_{ij},x_{ij1},\ldots,x_{ijm})]=\sum_k g_k(t_{ij},x_{ij1},\ldots,x_{ijm}) + w_j</code>
+</p>
+
+<p>where <code>w_j</code> follows a normal distribution with mean 0. The random effect associated with the cluster variable is specified with the model term <code>rd(cluster)</code>. We could also specify a random effect depending on age for example with the model term <code>rd(cluster,age)</code>.
+<code>u_j = exp(w_j)</code> is known as the shared frailty.
+</p>
+<p>See the survival_analysis_with_survPen vignette for more details.
+</p>
+
+
+<h3>Excess hazard model</h3>
+
+<p>When studying the survival of patients who suffer from a common pathology we may be interested in the concept of excess mortality that represents the mortality due to that pathology. 
+For example, in cancer epidemiology, individuals may die from cancer or from another cause. The problem is that the cause of death is often either unavailable or unreliable. 
+Supposing that the mortality due to other causes may be obtained from the total mortality of the general population (called expected mortality for cancer patients), we can define the concept of excess mortality. 
+The excess mortality is directly linked to the concept of net survival, which would be the observed survival if patients could not die from other causes. Therefore, when such competing events are present, 
+one may choose to fit an excess hazard model instead of a classical hazard model. Flexible excess hazard models have already been proposed (for examples see Remontet et al. 2007, Charvat et al. 2016) but none of them deals with a penalized framework (in a non-fully Bayesian setting).
+Excess mortality can be estimated supposing that, in patients suffering from a common pathology, mortality due to others causes than the pathology can be obtained from the (all cause) mortality of the general population; the latter is referred to as the expected mortality <code class="reqn">h_P</code>. 
+The mortality observed in the patients (<code class="reqn">h_O</code>) is actually decomposed as the sum of <code class="reqn">h_P</code> and the excess mortality due to the pathology (<code class="reqn">h_E</code>). This may be written as:
+</p>
+<p style="text-align: center;"><code class="reqn">h_O(t,x)=h_E(t,x)+h_P(a+t,z)</code>
+</p>
+
+<p>In that equation, <code class="reqn">t</code> is the time since cancer diagnosis, <code class="reqn">a</code> is the age at diagnosis, <code class="reqn">h_P</code> is the mortality of the general population at age <code class="reqn">a+t</code> given demographical characteristics <code class="reqn">z</code> (<code class="reqn">h_P</code> is considered known and available from national statistics), 
+and <code class="reqn">x</code> a vector of variables that may have an effect on <code class="reqn">h_E</code>. Including the age in the model is necessary in order to deal with the informative censoring due to other causes of death. 
+Thus, for <code class="reqn">m</code> covariates <code class="reqn">(x_1,\ldots,x_m)</code>, if we note <code class="reqn">h_E(t,x_1,\ldots,x_m)</code> the excess hazard at time <code class="reqn">t</code>, the excess hazard model is the following:
+</p>
+<p style="text-align: center;"><code class="reqn">log[h_E(t,x_1,\ldots,x_m)]=\sum_j g_j(t,x_1,\ldots,x_m)</code>
+</p>
+
+
+
+<h3>Convergence</h3>
+
+<p>No convergence indicator is given. If the function returns an object of class <code>survPen</code>, it means that the algorithm has converged. If convergence issues occur, an error message is displayed.
+If convergence issues occur, do not refrain to use detail.rho and/or detail.beta to see exactly what is going on in the optimization process. To achieve convergence, consider lowering step.max and/or changing rho.ini and beta.ini.
+If your excess hazard model fails to converge, consider fitting a hazard model and use its estimated parameters as initial values for the excess hazard model. Finally, do not refrain to change the "method" argument (LCV or LAML) if convergence issues occur.
+</p>
+
+
+<h3>Other</h3>
+
+<p>Be aware that all character variables are transformed to factors before fitting.
+</p>
+
+
+<h3>References</h3>
+
+<p>Charvat, H., Remontet, L., Bossard, N., Roche, L., Dejardin, O., Rachet, B., ... and Belot, A. (2016), A multilevel excess hazard model to estimate net survival on hierarchical data allowing for non linear and non proportional effects of covariates. Statistics in medicine, 35(18), 3066-3084. <br><br>
+Fauvernier, M., Roche, L., Uhry, Z., Tron, L., Bossard, N., Remontet, L. and the CENSUR Working Survival Group. Multidimensional penalized hazard model with continuous covariates: applications for studying trends and social inequalities in cancer survival, in revision in the Journal of the Royal Statistical Society, series C. <br><br>
+O Sullivan, F. (1988), Fast computation of fully automated log-density and log-hazard estimators. SIAM Journal on scientific and statistical computing, 9(2), 363-379. <br><br>
+Remontet, L., Bossard, N., Belot, A., &amp; Esteve, J. (2007), An overall strategy based on regression models to estimate relative survival and model the effects of prognostic factors in cancer survival studies. Statistics in medicine, 26(10), 2214-2228. <br><br>
+Remontet, L., Uhry, Z., Bossard, N., Iwaz, J., Belot, A., Danieli, C., Charvat, H., Roche, L. and CENSUR Working Survival Group (2018) Flexible and structured survival model for a simultaneous estimation of non-linear and non-proportional effects and complex interactions between continuous variables: Performance of this multidimensional penalized spline approach in net survival trend analysis. Stat Methods Med Res. 2018 Jan 1:962280218779408. doi: 10.1177/0962280218779408. [Epub ahead of print]. <br><br>
+Wood, S.N., Pya, N. and Saefken, B. (2016), Smoothing parameter and model selection for general smooth models (with discussion). Journal of the American Statistical Association 111, 1548-1575
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+
+library(survPen)
+data(datCancer) # simulated dataset with 2000 individuals diagnosed with cervical cancer
+
+#-------------------------------------------------------- example 0
+# Comparison between restricted cubic splines and penalized restricted cubic splines
+
+library(splines)
+
+# unpenalized
+f &lt;- ~ns(fu,knots=c(0.25, 0.5, 1, 2, 4),Boundary.knots=c(0,5))
+
+mod &lt;- survPen(f,data=datCancer,t1=fu,event=dead)
+
+# penalized
+f.pen &lt;- ~ smf(fu,knots=c(0,0.25, 0.5, 1, 2, 4,5)) # careful here: the boundary knots are included
+
+mod.pen &lt;- survPen(f.pen,data=datCancer,t1=fu,event=dead)
+
+# predictions
+
+new.time &lt;- seq(0,5,length=100)
+pred &lt;- predict(mod,data.frame(fu=new.time))
+pred.pen &lt;- predict(mod.pen,data.frame(fu=new.time))
+
+par(mfrow=c(1,1))
+plot(new.time,pred$haz,type="l",ylim=c(0,0.2),main="hazard vs time",
+xlab="time since diagnosis (years)",ylab="hazard",col="red")
+lines(new.time,pred.pen$haz,col="blue3")
+legend("topright",legend=c("unpenalized","penalized"),
+col=c("red","blue3"),lty=rep(1,2))
+
+
+
+#-------------------------------------------------------- example 1
+# hazard models with unpenalized formulas compared to a penalized tensor product smooth
+
+library(survPen)
+data(datCancer) # simulated dataset with 2000 individuals diagnosed with cervical cancer
+
+# constant hazard model
+f.cst &lt;- ~1
+mod.cst &lt;- survPen(f.cst,data=datCancer,t1=fu,event=dead)
+
+# piecewise constant hazard model
+f.pwcst &lt;- ~cut(fu,breaks=seq(0,5,by=0.5),include.lowest=TRUE)
+mod.pwcst &lt;- survPen(f.pwcst,data=datCancer,t1=fu,event=dead,n.legendre=200)
+# we increase the number of points for Gauss-Legendre quadrature to make sure that the cumulative
+# hazard is properly approximated
+
+# linear effect of time
+f.lin &lt;- ~fu
+mod.lin &lt;- survPen(f.lin,data=datCancer,t1=fu,event=dead)
+
+# linear effect of time and age with proportional effect of age
+f.lin.age &lt;- ~fu+age
+mod.lin.age &lt;- survPen(f.lin.age,data=datCancer,t1=fu,event=dead)
+
+# linear effect of time and age with time-dependent effect of age (linear)
+f.lin.inter.age &lt;- ~fu*age
+mod.lin.inter.age &lt;- survPen(f.lin.inter.age,data=datCancer,t1=fu,event=dead)
+
+# cubic B-spline of time with a knot at 1 year, linear effect of age and time-dependent effect
+# of age with a quadratic B-spline of time with a knot at 1 year
+library(splines)
+f.spline.inter.age &lt;- ~bs(fu,knots=c(1),Boundary.knots=c(0,5))+age+
+age:bs(fu,knots=c(1),Boundary.knots=c(0,5),degree=2)
+# here, bs indicates an unpenalized cubic spline
+
+mod.spline.inter.age &lt;- survPen(f.spline.inter.age,data=datCancer,t1=fu,event=dead)
+
+
+# tensor of time and age
+f.tensor &lt;- ~tensor(fu,age)
+mod.tensor &lt;- survPen(f.tensor,data=datCancer,t1=fu,event=dead)
+
+
+# predictions of the models at age 60
+
+new.time &lt;- seq(0,5,length=100)
+pred.cst &lt;- predict(mod.cst,data.frame(fu=new.time))
+pred.pwcst &lt;- predict(mod.pwcst,data.frame(fu=new.time))
+pred.lin &lt;- predict(mod.lin,data.frame(fu=new.time))
+pred.lin.age &lt;- predict(mod.lin.age,data.frame(fu=new.time,age=60))
+pred.lin.inter.age &lt;- predict(mod.lin.inter.age,data.frame(fu=new.time,age=60))
+pred.spline.inter.age &lt;- predict(mod.spline.inter.age,data.frame(fu=new.time,age=60))
+pred.tensor &lt;- predict(mod.tensor,data.frame(fu=new.time,age=60))
+
+lwd1 &lt;- 2
+
+par(mfrow=c(1,1))
+plot(new.time,pred.cst$haz,type="l",ylim=c(0,0.2),main="hazard vs time",
+xlab="time since diagnosis (years)",ylab="hazard",col="blue3",lwd=lwd1)
+segments(x0=new.time[1:99],x1=new.time[2:100],y0=pred.pwcst$haz[1:99],col="lightblue2",lwd=lwd1)
+lines(new.time,pred.lin$haz,col="green3",lwd=lwd1)
+lines(new.time,pred.lin.age$haz,col="yellow",lwd=lwd1)
+lines(new.time,pred.lin.inter.age$haz,col="orange",lwd=lwd1)
+lines(new.time,pred.spline.inter.age$haz,col="red",lwd=lwd1)
+lines(new.time,pred.tensor$haz,col="black",lwd=lwd1)
+legend("topright",
+legend=c("cst","pwcst","lin","lin.age","lin.inter.age","spline.inter.age","tensor"),
+col=c("blue3","lightblue2","green3","yellow","orange","red","black"),
+lty=rep(1,7),lwd=rep(lwd1,7))
+
+
+# you can also calculate the hazard yourself with the lpmatrix option.
+# For example, compare the following predictions:
+haz.tensor &lt;- pred.tensor$haz
+
+X.tensor &lt;- predict(mod.tensor,data.frame(fu=new.time,age=60),type="lpmatrix")
+haz.tensor.lpmatrix &lt;- exp(X.tensor%mult%mod.tensor$coefficients)
+
+summary(haz.tensor.lpmatrix - haz.tensor)
+
+#---------------- The 95% confidence intervals can be calculated like this:
+
+# standard errors from the Bayesian covariance matrix Vp
+std &lt;- sqrt(rowSums((X.tensor%mult%mod.tensor$Vp)*X.tensor))
+
+qt.norm &lt;- stats::qnorm(1-(1-0.95)/2)
+haz.inf &lt;- as.vector(exp(X.tensor%mult%mod.tensor$coefficients-qt.norm*std))
+haz.sup &lt;- as.vector(exp(X.tensor%mult%mod.tensor$coefficients+qt.norm*std))
+
+# checking that they are similar to the ones given by the predict function
+summary(haz.inf - pred.tensor$haz.inf)
+summary(haz.sup - pred.tensor$haz.sup)
+
+
+#-------------------------------------------------------- example 2
+
+library(survPen)
+data(datCancer) # simulated dataset with 2000 individuals diagnosed with cervical cancer
+
+# model : unidimensional penalized spline for time since diagnosis with 5 knots
+f1 &lt;- ~smf(fu,df=5)
+# when knots are not specified, quantiles are used. For example, for the term "smf(x,df=df1)",
+# the vector of knots will be: quantile(unique(x),seq(0,1,length=df1)) 
+
+# you can specify your own knots if you want
+# f1 &lt;- ~smf(fu,knots=c(0,1,3,6,8))
+
+# hazard model
+mod1 &lt;- survPen(f1,data=datCancer,t1=fu,event=dead,expected=NULL,method="LAML")
+summary(mod1)
+
+# to see where the knots were placed
+mod1$list.smf
+
+# with LCV instead of LAML
+mod1bis &lt;- survPen(f1,data=datCancer,t1=fu,event=dead,expected=NULL,method="LCV")
+summary(mod1bis)
+
+# hazard model taking into account left truncation (not representative of cancer data, 
+# the begin variable was simulated for illustration purposes only)
+mod2 &lt;- survPen(f1,data=datCancer,t0=begin,t1=fu,event=dead,expected=NULL,method="LAML")
+summary(mod2)
+
+# excess hazard model
+mod3 &lt;- survPen(f1,data=datCancer,t1=fu,event=dead,expected=rate,method="LAML")
+summary(mod3)
+
+# compare the predictions of the models
+new.time &lt;- seq(0,5,length=50)
+pred1 &lt;- predict(mod1,data.frame(fu=new.time))
+pred1bis &lt;- predict(mod1bis,data.frame(fu=new.time))
+pred2 &lt;- predict(mod2,data.frame(fu=new.time))
+pred3 &lt;- predict(mod3,data.frame(fu=new.time))
+
+# LAML vs LCV
+par(mfrow=c(1,2))
+plot(new.time,pred1$haz,type="l",ylim=c(0,0.2),main="LCV vs LAML",
+xlab="time since diagnosis (years)",ylab="hazard")
+lines(new.time,pred1bis$haz,col="blue3")
+legend("topright",legend=c("LAML","LCV"),col=c("black","blue3"),lty=c(1,1))
+
+plot(new.time,pred1$surv,type="l",ylim=c(0,1),main="LCV vs LAML",
+xlab="time since diagnosis (years)",ylab="survival")
+lines(new.time,pred1bis$surv,col="blue3")
+
+
+
+# hazard vs excess hazard
+par(mfrow=c(1,2))
+plot(new.time,pred1$haz,type="l",ylim=c(0,0.2),main="hazard vs excess hazard",
+xlab="time since diagnosis (years)",ylab="hazard")
+lines(new.time,pred3$haz,col="green3")
+legend("topright",legend=c("overall","excess"),col=c("black","green3"),lty=c(1,1))
+
+plot(new.time,pred1$surv,type="l",ylim=c(0,1),main="survival vs net survival",
+xlab="time",ylab="survival")
+lines(new.time,pred3$surv,col="green3")
+legend("topright",legend=c("overall survival","net survival"), col=c("black","green3"), lty=c(1,1)) 
+
+# hazard vs excess hazard with 95% Bayesian confidence intervals (based on Vp matrix, 
+# see predict.survPen)
+par(mfrow=c(1,1))
+plot(new.time,pred1$haz,type="l",ylim=c(0,0.2),main="hazard vs excess hazard",
+xlab="time since diagnosis (years)",ylab="hazard")
+lines(new.time,pred3$haz,col="green3")
+legend("topright",legend=c("overall","excess"),col=c("black","green3"),lty=c(1,1))
+
+lines(new.time,pred1$haz.inf,lty=2)
+lines(new.time,pred1$haz.sup,lty=2)
+
+lines(new.time,pred3$haz.inf,lty=2,col="green3")
+lines(new.time,pred3$haz.sup,lty=2,col="green3")
+
+
+
+#-------------------------------------------------------- example 3
+
+library(survPen)
+data(datCancer) # simulated dataset with 2000 individuals diagnosed with cervical cancer
+
+# models: tensor product smooth vs tensor product interaction of time since diagnosis and 
+# age at diagnosis. Smoothing parameters are estimated via LAML maximization
+f2 &lt;- ~tensor(fu,age,df=c(5,5))
+
+f3 &lt;- ~tint(fu,df=5)+tint(age,df=5)+tint(fu,age,df=c(5,5))
+
+# hazard model
+mod4 &lt;- survPen(f2,data=datCancer,t1=fu,event=dead)
+summary(mod4)
+
+mod5 &lt;- survPen(f3,data=datCancer,t1=fu,event=dead)
+summary(mod5)
+
+# predictions
+new.age &lt;- seq(50,90,length=50)
+new.time &lt;- seq(0,7,length=50)
+
+Z4 &lt;- outer(new.time,new.age,function(t,a) predict(mod4,data.frame(fu=t,age=a))$haz)
+Z5 &lt;- outer(new.time,new.age,function(t,a) predict(mod5,data.frame(fu=t,age=a))$haz)
+
+# color settings
+col.pal &lt;- colorRampPalette(c("white", "red"))
+colors &lt;- col.pal(100)
+
+facet &lt;- function(z){
+
+	facet.center &lt;- (z[-1, -1] + z[-1, -ncol(z)] + z[-nrow(z), -1] + z[-nrow(z), -ncol(z)])/4
+	cut(facet.center, 100)
+	
+}
+
+# plot the hazard surfaces for both models
+par(mfrow=c(1,2))
+persp(new.time,new.age,Z4,col=colors[facet(Z4)],main="tensor",theta=30,
+xlab="time since diagnosis",ylab="age at diagnosis",zlab="excess hazard",ticktype="detailed")
+persp(new.time,new.age,Z5,col=colors[facet(Z5)],main="tint",theta=30,
+xlab="time since diagnosis",ylab="age at diagnosis",zlab="excess hazard",ticktype="detailed")
+
+#-------------------------------------------------------- example 4
+
+library(survPen)
+data(datCancer) # simulated dataset with 2000 individuals diagnosed with cervical cancer
+
+# model : tensor product spline for time, age and yod (year of diagnosis)
+# yod is not centered here since it does not create unstability but be careful in practice
+# and consider centering your covariates if you encounter convergence issues
+f4 &lt;- ~tensor(fu,age,yod,df=c(5,5,5))
+
+# excess hazard model
+mod6 &lt;- survPen(f4,data=datCancer,t1=fu,event=dead,expected=rate)
+summary(mod6)
+
+
+# predictions of the surfaces for ages 50, 60, 70 and 80
+new.year &lt;- seq(1990,2010,length=30)
+new.time &lt;- seq(0,5,length=50)
+
+Z_50 &lt;- outer(new.time,new.year,function(t,y) predict(mod6,data.frame(fu=t,yod=y,age=50))$haz)
+Z_60 &lt;- outer(new.time,new.year,function(t,y) predict(mod6,data.frame(fu=t,yod=y,age=60))$haz)
+Z_70 &lt;- outer(new.time,new.year,function(t,y) predict(mod6,data.frame(fu=t,yod=y,age=70))$haz)
+Z_80 &lt;- outer(new.time,new.year,function(t,y) predict(mod6,data.frame(fu=t,yod=y,age=80))$haz)
+
+
+# plot the hazard surfaces for a given age
+par(mfrow=c(2,2))
+persp(new.time,new.year,Z_50,col=colors[facet(Z_50)],main="age 50",theta=20,
+xlab="time since diagnosis",ylab="yod",zlab="excess hazard",ticktype="detailed")
+persp(new.time,new.year,Z_60,col=colors[facet(Z_60)],main="age 60",theta=20,
+xlab="time since diagnosis",ylab="yod",zlab="excess hazard",ticktype="detailed")
+persp(new.time,new.year,Z_70,col=colors[facet(Z_70)],main="age 70",theta=20,
+xlab="time since diagnosis",ylab="yod",zlab="excess hazard",ticktype="detailed")
+persp(new.time,new.year,Z_80,col=colors[facet(Z_80)],main="age 80",theta=20,
+xlab="time since diagnosis",ylab="yod",zlab="excess hazard",ticktype="detailed")
+
+########################################
+
+
+
+</code></pre>
+
+
+</div>

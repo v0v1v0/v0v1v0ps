@@ -1,0 +1,196 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>surrogater2d</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Create Surrogate Fields
+</h2>
+
+<h3>Description</h3>
+
+<p>Create surrogate fields that have the same power spectrum and pdf as the original field.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">surrogater2d(Im, frac = 0.95, n = 10, lossfun = "mae", maxiter = 100, zero.down = TRUE,
+    verbose = FALSE, ...)
+
+aaft2d(Im, bigdim = NULL)
+
+fft2d(x, bigdim = NULL, ...)
+
+mae(x1, x2, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Im</code></td>
+<td>
+
+<p>matrix from which surrogates are to be made.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>matrix to be Fourier transformed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x1,x2</code></td>
+<td>
+<p>numeric or array of same dimensions giving the two fields over which to calculate the mean aboslute error.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>frac</code></td>
+<td>
+
+<p>single numeric giving the fraction of original amplitudes to maintain.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+
+<p>single numeric giving the number of surrogate fields to create (should be a whole number).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lossfun</code></td>
+<td>
+
+<p>character naming the loss function to use in computing the error between simulated surrogate fields in the iterative process.  Default is the mean absolute error given by the <code>mae</code> function detailed here.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+
+<p>Maximum number of iterations allowed per surrogate.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zero.down</code></td>
+<td>
+
+<p>logical, does <code>Im</code> contain many zeros, and is otherwise positive?  If so, this sets negative numbers and unusually small numbers to zero.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bigdim</code></td>
+<td>
+<p>numeric vector of length two giving the dimensions (larger than dimensions of <code>Im</code>) to compute the FFT's more efficiently (at least potentially).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+
+<p>logical, should progress information be printed to the screen?
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>additional arguments: in the case of <code>fft2d</code>, they are additional arguments to <code>fft</code> (i.e., to use inverse=TRUE), in the case of <code>surrogater2d</code>, they are additional arguments to the loss function given by <code>lossfun</code>, and in the case of <code>mae</code> (default), these are not used.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>fft2d</code> function was written to simplify some of the code in <code>surrogater2d</code> and <code>aaft2d</code>.  It is simply a call to the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> function <code>fft</code>, but it first resets the dimensions to ones that should maximize the efficiency.  It will also return the dimensions if they are not passed in.
+</p>
+<p>Surrogates are used in non-linear time series analysis to simulate similar time series for hypothesis testing purposes (e.g., Kantz and Schreiber, 1997).  Venugopal et al. (2005) use surrogates of two-dimensional fields as part of their Forecast Quality Index (FQI); which is the intention here.  Theiler et al. (1992) proposed a method known as the amplitude adjusted Fourier transform (AAFT) algorithm, and Schreiber and Schmitz (1996) proposed a modification to this approach in order to obtain surrogates with both the same power spectrum and pdf as the original series.
+</p>
+<p>The AAFT method first renders the original data, denoted here as s_n, Gaussian via a rank ordering based on randomly generated Gaussian simulated data.  The resulting series, s_n'=g(s_n), is Gaussian and follows the same measured time evolution as s_n.  Next, phase randomized surrogates are made for s_n', call them s_n".  The rescaling g is then inverted by rank ordering s_n" according to the distribution of the original data, s_n.  This algorithm yields surrogates with the same pdf of amplitudes as s_n by construction, but typically not the same power spectra.  The algorithm proposed by Schreiber and Schmitz (1996) begins with the AAFT, and then iterates through a further algorithm as follows.
+</p>
+<p>1. Hold a sorted list of s_n and the squared amplitudes of the Fourier transform of s_n, denote them by S2_k.
+</p>
+<p>2. Take a random shuffle without replacement of the data, denote as s_n(0).
+</p>
+<p>3. Take the Fourier transform of s_n(i).
+</p>
+<p>4. Replace the S2_k(i) with S2_k.
+</p>
+<p>5. Inverse the Fourier transform with the replaced amplitudes.
+</p>
+<p>6. Rank order the series from 5 in order to assume exactly the values taken by s_n.
+</p>
+<p>7. Check the accuracy of 6 using a loss function of some sort, and repeat steps 3 through 6 until a desired level of accuracy is achieved.
+</p>
+
+
+<h3>Value</h3>
+
+<p>In the case of surrogater2d: A three dimesnional array of matrices with same dimension as Im, and third dimension giving the n surrogate fields.
+</p>
+<p>In the case of aaft2d: A matrix of the same dimension as Im.
+</p>
+<p>In the case of fft2d: If bigdim is NULL, a list object is returned with components fft and bigdim giving the FFT of x and the larger dimesnions used.  Otherwise, a matrix of dimension x is returned giving the FFT (or inverse FFT) of x.
+</p>
+<p>In the case of mae: a single numeric giving the mean absolute error between x1 and x2.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eric Gilleland, this code was adapted from matlab code written by Sukanta Basu (2007) available at: http://projects.ral.ucar.edu/icp/Software/FeaturesBased/FQI/Perturbed.m
+</p>
+
+
+<h3>References</h3>
+
+<p>Kantz, H. and Schreiber, T. (1997) <em>Nonlinear time series analysis</em>.  Cambridge University Press, Cambridge, U.K., 304pp.
+</p>
+<p>Schreiber, T. and Schmitz, A. (1996) Improved surrogate data for nonlinearity tests.  <em>Physical Review Letters</em>, <b>77</b>(4), 635–638.
+</p>
+<p>Theiler, J., Eubank, S. Longtin, A. Galdrikian, B. and Farmer, J. D. (1992) <em>Physica</em> (Amsterdam) <b>58D</b>, 77.
+</p>
+<p>Venugopal, V., Basu, S. and Foufoula-Georgiou, E. (2005) A new metric for comparing precipitation patterns with an application to ensemble forecasts.  <em>J. Geophys. Res.</em>, <b>110</b>, D08111, doi:10.1029/2004JD005395, 11pp.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>fft</code>, <code>locmeasures2d</code>, <code>UIQI</code>, <code>ampstats</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data( "ExampleSpatialVxSet" )
+
+x &lt;- ExampleSpatialVxSet$vx
+
+z &lt;- surrogater2d( x, zero.down=FALSE, n=3)
+
+## Not run: 
+par( mfrow=c(2,2))
+image.plot( look)
+image.plot( look2[,,1])
+image.plot( look2[,,2])
+image.plot( look2[,,3])
+
+  
+## End(Not run)
+</code></pre>
+
+
+</div>

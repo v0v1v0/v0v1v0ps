@@ -1,0 +1,279 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sps</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Stratified sequential Poisson sampling</h2>
+
+<h3>Description</h3>
+
+<p>Draw a stratified probability-proportional-to-size sample using the
+sequential and ordinary Poisson methods, and generate other order sampling
+schemes.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sps(x, n, strata = gl(1, length(x)), prn = NULL, alpha = 0.001, cutoff = Inf)
+
+ps(x, n, strata = gl(1, length(x)), prn = NULL, alpha = 0.001, cutoff = Inf)
+
+order_sampling(dist)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A positive and finite numeric vector of sizes for units in the
+population (e.g., revenue for drawing a sample of businesses).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>A positive integer vector giving the sample size for each stratum,
+ordered according to the levels of <code>strata</code>. A single value is recycled
+for all strata. Non-integers are truncated towards 0.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata</code></td>
+<td>
+<p>A factor, or something that can be coerced into one, giving
+the strata associated with units in the population. The default is to place
+all units into a single stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prn</code></td>
+<td>
+<p>A numeric vector of permanent random numbers for units in the
+population, distributed uniform between 0 and 1. The default does not use
+permanent random numbers, instead generating a random vector when the
+function is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>A numeric vector with values between 0 and 1 for each stratum,
+ordered according to the levels of <code>strata</code>. Units with inclusion
+probabilities greater than or equal to 1 - <code>alpha</code> are set to 1 for
+each stratum. A single value is recycled for all strata. The default is
+slightly larger than 0.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutoff</code></td>
+<td>
+<p>A positive numeric vector of cutoffs for each stratum, ordered
+according to the levels of <code>strata</code>. Units with <code>x &gt;= cutoff</code> get
+an inclusion probability of 1 for each stratum. A single value is recycled
+for all strata. The default does not apply a cutoff.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>A function giving the fixed order distribution shape for an order
+sampling scheme. See details.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>sps()</code> function draws a sample according to the sequential Poisson
+procedure, the details of which are given by Ohlsson (1998). It is also
+called uniform order sampling, as it is a type of order sampling; see Rosén
+(1997, 2000) for a more general presentation of the method. This is the same
+method used by <code>PROC SURVEYSELECT</code> in SAS with <code>METHOD =
+SEQ_POISSON</code>.
+</p>
+<p>For each stratum, the sequential Poisson procedure starts by stratifying
+units in the population based on their (target) inclusion probabilities
+<code class="reqn">\pi</code>. Units with <code class="reqn">\pi = 0</code> are placed into a take-none stratum,
+units with <code class="reqn">0 &lt; \pi &lt; 1</code> are placed into a take-some stratum, and units
+with <code class="reqn">\pi = 1</code> are placed into a take-all stratum. As noted by
+Ohlsson (1998), it can be useful to set <code class="reqn">\alpha</code> to a small positive
+value when calculating inclusion probabilities, and this is the default
+behavior.
+</p>
+<p>After units are appropriately stratified, a sample of take-some units is
+drawn by assigning each unit a value <code class="reqn">\xi = u / \pi</code>, where <code class="reqn">u</code> is a
+random deviate from the uniform distribution between 0 and 1. The units with
+the smallest values for <code class="reqn">\xi</code> are included in the sample, along with the
+take-all units. (Ties in <code class="reqn">\xi</code> are technically a measure-zero event—in
+practice these are broken by position.) This results in a fixed sample size
+at the expense of the sampling procedure being only approximately
+probability-proportional-to-size (i.e., the inclusion probabilities from the
+sample design are close but not exactly equal to <code class="reqn">\pi</code>; see Matei and
+Tillé, 2007, for details on the exact computation).
+</p>
+<p>Ordinary Poisson sampling follows the same procedure as above, except that
+all units with <code class="reqn">\xi &lt; 1</code> are included in the sample; consequently, while
+it does not contain a fixed number of units, the procedure is strictly
+probability-proportional-to-size. Despite this difference, the standard
+Horvitz-Thompson estimator for the total (of the take-some stratum) is
+asymptotically unbiased, normally distributed, and equally efficient under
+both procedures. The <code>ps()</code> function draws a sample using the ordinary
+Poisson method.
+</p>
+<p>A useful feature of sequential and ordinary Poisson sampling is the ability
+to coordinate samples by using permanent random numbers for <code class="reqn">u</code>. Keeping
+<code class="reqn">u</code> fixed when updating a sample retains a larger number of overlapping
+units, whereas switching <code class="reqn">u</code> for <code class="reqn">u - z \bmod 1</code> or
+<code class="reqn">1 - (u - z \bmod 1)</code>, for some <code class="reqn">z</code> between 0 and
+1, when drawing different samples from the same frame reduces the number of
+overlapping units.
+</p>
+<p>Despite the focus on sequential Poisson sampling, all order sampling
+procedures follow the same approach as sequential Poisson sampling. The
+<code>order_sampling()</code> function can be used to generate other order
+sampling functions by passing an appropriate function to make the ranking
+variable <code class="reqn">\xi</code>:
+</p>
+
+<dl>
+<dt>Sequential Poisson sampling</dt>
+<dd>
+<p><code style="white-space: pre;">⁠\(x) x⁠</code></p>
+</dd>
+<dt>Successive sampling</dt>
+<dd>
+<p><code style="white-space: pre;">⁠\(x) log(1 - x)⁠</code></p>
+</dd>
+<dt>Pareto sampling</dt>
+<dd>
+<p><code style="white-space: pre;">⁠\(x) x / (1 - x)⁠</code></p>
+</dd>
+</dl>
+<h3>Value</h3>
+
+<p><code>sps()</code> and <code>ps()</code> return an object of class <code>sps_sample</code>.
+This is an integer vector of indices for the units in the population that
+form the sample, along with a <code>weights</code> attribute that gives the design
+(inverse probability) weights for each unit in the sample (keeping in mind
+that sequential Poisson sampling is only approximately
+probability-proportional-to-size). <code>weights()</code> can be used to access
+the design weights attribute of an <code>sps_sample</code> object, and <code>levels()</code> can
+be used to determine which units are in the take-all or take-some
+strata. Mathematical and binary/unary operators strip
+attributes, as does replacement.
+</p>
+<p><code>order_sampling</code> returns a function the with the same interface as
+<code>sps()</code> and <code>ps()</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Matei, A., and Tillé, Y. (2007). Computational aspects of order
+<code class="reqn">\pi</code>ps sampling schemes. <em>Computational Statistics &amp; Data Analysis</em>,
+51: 3703-3717.
+</p>
+<p>Ohlsson, E. (1998). Sequential Poisson Sampling.
+<em>Journal of Official Statistics</em>, 14(2): 149-162.
+</p>
+<p>Rosén, B. (1997). On sampling with probability proportional to size.
+<em>Journal of Statistical Planning and Inference</em>, 62(2): 159-191.
+</p>
+<p>Rosén, B. (2000). On inclusion probabilities for order <code class="reqn">\pi</code>ps sampling.
+<em>Journal of Statistical Planning and Inference</em>, 90(1): 117-143.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>prop_allocation()</code> for generating proportional-to-size allocations.
+</p>
+<p><code>inclusion_prob()</code> for calculating the inclusion probabilities.
+</p>
+<p><code>sps_repweights()</code> for generating bootstrap replicate weights.
+</p>
+<p>The <code>UPpoisson()</code> and <code>UPopips()</code> functions in the <span class="pkg">sampling</span>
+package for ordinary and sequential Poisson sampling, respectively. Note
+that the algorithm for order sampling in the <code>UPopips()</code> function is
+currently incorrect, giving a worse approximation for the inclusion
+probabilities than it should.
+</p>
+<p>The <code style="white-space: pre;">⁠UP*⁠</code> functions in the <span class="pkg">sampling</span> package, the <code style="white-space: pre;">⁠S.*⁠</code>
+functions in the <span class="pkg">TeachingSampling</span> package, and the <span class="pkg">pps</span> package
+for other probability-proportional-to-size sampling methods.
+</p>
+<p>The <code>pps()</code> function in the <span class="pkg">prnsamplr</span> package for Pareto order
+sampling with permanent random numbers.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Make a population with units of different size
+x &lt;- c(1:10, 100)
+
+#---- Sequential Poisson sampling ----
+# Draw a sequential Poisson sample
+(samp &lt;- sps(x, 5))
+
+# Get the design (inverse probability) weights
+weights(samp)
+
+# All units except 11 are in the take-some (TS) stratum
+levels(samp)
+
+# Ensure that the top 10% of units are in the sample
+sps(x, 5, cutoff = quantile(x, 0.9))
+
+#---- Ordinary Poisson sampling ----
+# Ordinary Poisson sampling gives a random sample size for the
+# take-some stratum
+ps(x, 5)
+
+#---- Stratified Sequential Poisson sampling ----
+# Draw a stratified sample with a proportional allocation
+strata &lt;- rep(letters[1:4], each = 5)
+(allocation &lt;- prop_allocation(1:20, 12, strata))
+(samp &lt;- sps(1:20, allocation, strata))
+
+# Use the Horvitz-Thompson estimator to estimate the total
+y &lt;- runif(20) * 1:20
+sum(weights(samp) * y[samp])
+
+#---- Useful properties of Sequential Poisson sampling ----
+# It can be useful to set 'prn' in order to extend the sample
+# to get a fixed net sample
+u &lt;- runif(11)
+(samp &lt;- sps(x, 6, prn = u))
+
+# Removing unit 5 gives the same net sample
+sps(x[-samp[5]], 6, prn = u[-samp[5]])
+
+# Also useful for topping up a sample
+all(samp %in% sps(x, 7, prn = u))
+
+#---- Other order-sampling methods ----
+# Generate new order-sampling functions from the parameters of
+# the inverse generalized Pareto distribution
+igpd &lt;- function(shape, scale = 1, location = 0) {
+  if (shape == 0) {
+    function(x) -scale * log(1 - x) + location
+  } else {
+    function(x) scale * (1 - (1 - x)^shape) / shape + location
+  }
+}
+
+order_sampling2 &lt;- function(x) order_sampling(igpd(x))
+
+order_sampling2(1)(x, 6, prn = u) # sequential Poisson
+order_sampling2(0)(x, 6, prn = u) # successive
+order_sampling2(-1)(x, 6, prn = u) # Pareto
+
+</code></pre>
+
+
+</div>

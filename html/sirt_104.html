@@ -1,0 +1,202 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dmlavaan</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Comparing Regression Parameters of Different lavaan Models Fitted to the
+Same Dataset
+</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>dmlavaan</code> compares model parameters from different <span class="pkg">lavaan</span>
+models fitted to the same dataset. This leads to dependent coefficients.
+Statistical inference is either conducted by M-estimation (i.e., robust
+sandwich method; <code>method="bootstrap"</code>) or bootstrap (<code>method="bootstrap"</code>).
+See Mize et al. (2019) or Weesie (1999) for more details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dmlavaan(fun1, args1, fun2, args2, method="sandwich", R=50)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fun1</code></td>
+<td>
+
+<p>lavaan function of the first model (e.g., <code>"lavaan"</code>, <code>"cfa"</code>, or
+<code>"sem"</code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args1</code></td>
+<td>
+
+<p>arguments for lavaan function in the first model
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun2</code></td>
+<td>
+
+<p>lavaan function of the second model (e.g., <code>"lavaan"</code>, <code>"cfa"</code>, or
+<code>"sem"</code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args2</code></td>
+<td>
+
+<p>arguments for lavaan function in the second model
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+
+<p>estimation method for standard errors
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R</code></td>
+<td>
+
+<p>Number of bootstrap samples
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In bootstrap estimation, a normal approximation is applied in the
+computation of confidence intervals. Hence, <code>R</code> could be chosen
+relatively small. <br><br>
+TO DO (not yet implemented): <br></p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+1) </td>
+<td style="text-align: left;"> inclusion of sampling weights </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+2) </td>
+<td style="text-align: left;"> cluster robust standard errors in hierarchical sampling </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+3) </td>
+<td style="text-align: left;"> stratification </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with following entries
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>coef</code></td>
+<td>
+<p>Model parameters of both models</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vcov</code></td>
+<td>
+<p>Covariance matrix of model parameters of both models</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>partable</code></td>
+<td>
+<p>Parameter table containing all univariate model parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>More entries</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Mize, T.D., Doan, L., &amp; Long, J.S. (2019).
+A general framework for comparing predictions and marginal effects across models.
+<em>Sociological Methodology, 49</em>(1), 152-189.
+<a href="https://doi.org/10.1177/0081175019852763">doi:10.1177/0081175019852763</a>
+</p>
+<p>Weesie, J. (1999) Seemingly unrelated estimation and the cluster-adjusted sandwich
+estimator. <em>Stata Technical Bulletin, 9</em>, 231-248.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+############################################################################
+# EXAMPLE 1: Confirmatory factor analysis with and without fourth item
+#############################################################################
+
+#**** simulate data
+N &lt;- 200  # number of persons
+I &lt;- 4    # number of items
+
+# loadings and error correlations
+lam &lt;- seq(.7,.4, len=I)
+PSI &lt;- diag( 1-lam^2 )
+
+# define some model misspecification
+sd_error &lt;- .1
+S1 &lt;- matrix( c( -1.84, 0.39,-0.68, 0.13,
+  0.39,-1.31,-0.07,-0.27,
+ -0.68,-0.07, 0.90, 1.91,
+  0.13,-0.27, 1.91,-0.56 ), nrow=4, ncol=4, byrow=TRUE)
+S1 &lt;- ( S1 - mean(S1) ) / sd(S1) * sd_error
+
+Sigma &lt;- lam %*% t(lam) + PSI + S1
+dat &lt;- MASS::mvrnorm(n=N, mu=rep(0,I), Sigma=Sigma)
+colnames(dat) &lt;- paste0("X",1:4)
+dat &lt;- as.data.frame(dat)
+rownames(Sigma) &lt;- colnames(Sigma) &lt;- colnames(dat)
+
+
+#*** define two lavaan models
+lavmodel1 &lt;- "F=~ X1 + X2 + X3 + X4"
+lavmodel2 &lt;- "F=~ X1 + X2 + X3"
+
+#*** define lavaan estimation arguments and functions
+fun2 &lt;- fun1 &lt;- "cfa"
+args1 &lt;- list( model=lavmodel1, data=dat, std.lv=TRUE, estimator="MLR")
+args2 &lt;- args1
+args2$model &lt;- lavmodel2
+
+#* run model comparison
+res1 &lt;- sirt::dmlavaan( fun1=fun1, args1=args1, fun2=fun2, args2=args2)
+
+# inspect results
+sirt:::print_digits(res1$partable, digits=3)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

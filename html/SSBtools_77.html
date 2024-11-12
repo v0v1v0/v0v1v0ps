@@ -1,0 +1,251 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>model_aggregate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Hierarchical aggregation via model specification</h2>
+
+<h3>Description</h3>
+
+<p>Internally a dummy/model matrix is created according to the model specification.
+This model matrix is used in the aggregation process via matrix multiplication and/or the function <code>aggregate_multiple_fun</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">model_aggregate(
+  data,
+  sum_vars = NULL,
+  fun_vars = NULL,
+  fun = NULL,
+  hierarchies = NULL,
+  formula = NULL,
+  dim_var = NULL,
+  remove_empty = NULL,
+  preagg_var = NULL,
+  dummy = TRUE,
+  pre_aggregate = dummy,
+  list_return = FALSE,
+  pre_return = FALSE,
+  verbose = TRUE,
+  mm_args = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame containing data to be aggregated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sum_vars</code></td>
+<td>
+<p>Variables to be summed. This will be done via matrix multiplication.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun_vars</code></td>
+<td>
+<p>Variables to be aggregated by supplied functions.
+This will be done via <code>aggregate_multiple_fun</code> and <code>dummy_aggregate</code> and
+<code>fun_vars</code> is specified as the parameter <code>vars</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>The <code>fun</code>         parameter to <code>aggregate_multiple_fun</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hierarchies</code></td>
+<td>
+<p>The <code>hierarchies</code> parameter to <code>ModelMatrix</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>The <code>formula</code>     parameter to <code>ModelMatrix</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dim_var</code></td>
+<td>
+<p>The <code>dimVar</code>      parameter to <code>ModelMatrix</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>remove_empty</code></td>
+<td>
+<p>When non-NULL, the <code>removeEmpty</code> parameter to <code>ModelMatrix</code>.
+Thus, the actual default value is <code>TRUE</code> with formula input without hierarchy and
+otherwise <code>FALSE</code> (see <code>ModelMatrix</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>preagg_var</code></td>
+<td>
+<p>Extra variables to be used as grouping elements in the pre-aggregate step</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dummy</code></td>
+<td>
+<p>The <code>dummy</code>       parameter to <code>dummy_aggregate</code>.
+When <code>TRUE</code>, only 0s and 1s are assumed in the generated model matrix.
+When <code>FALSE</code>, non-0s in this matrix are passed as an additional first input parameter to the <code>fun</code> functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pre_aggregate</code></td>
+<td>
+<p>Whether to pre-aggregate data to reduce the dimension of the model matrix.
+Note that all original <code>fun_vars</code> observations are retained in the aggregated dataset and <code>pre_aggregate</code> does not affect the final result.
+However, <code>pre_aggregate</code> must be set to <code>FALSE</code> when the <code>dummy_aggregate</code> parameter <code>dummy</code> is set to <code>FALSE</code>
+since then <code>unlist</code> will not be run.
+An exception to this is if the <code>fun</code> functions are written to handle list data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>list_return</code></td>
+<td>
+<p>Whether to return a list of separate components including the model matrix <code>x</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pre_return</code></td>
+<td>
+<p>Whether to return the pre-aggregate data as a two-component list. Can also be combined with <code>list_return</code> (see examples).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Whether to print information during calculations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mm_args</code></td>
+<td>
+<p>List of further arguments passed to <code>ModelMatrix</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further arguments passed to <code>dummy_aggregate</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>With formula input, limited output can be achieved by <code>formula_selection</code> (see example).
+An attribute called <code>startCol</code> has been added to the output data frame to make this functionality work.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data frame or a list.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">z &lt;- SSBtoolsData("sprt_emp_withEU")
+z$age[z$age == "Y15-29"] &lt;- "young"
+z$age[z$age == "Y30-64"] &lt;- "old"
+names(z)[names(z) == "ths_per"] &lt;- "ths"
+z$y &lt;- 1:18
+
+my_range &lt;- function(x) c(min = min(x), max = max(x))
+
+out &lt;- model_aggregate(z, 
+   formula = ~age:year + geo, 
+   sum_vars = c("y", "ths"), 
+   fun_vars = c(sum = "ths", mean = "y", med = "y", ra = "ths"), 
+   fun = c(sum = sum, mean = mean, med = median, ra = my_range))
+
+out
+
+# Limited output can be achieved by formula_selection
+formula_selection(out, ~geo)
+
+
+# Using the single unnamed variable feature.
+model_aggregate(z, formula = ~age, fun_vars = "y", 
+                fun = c(sum = sum, mean = mean, med = median, n = length))
+
+
+# To illustrate list_return and pre_return 
+for (pre_return in c(FALSE, TRUE)) for (list_return in c(FALSE, TRUE)) {
+  cat("\n=======================================\n")
+  cat("list_return =", list_return, ", pre_return =", pre_return, "\n\n")
+  out &lt;- model_aggregate(z, formula = ~age:year, 
+                         sum_vars = c("ths", "y"), 
+                         fun_vars = c(mean = "y", ra = "y"), 
+                         fun = c(mean = mean, ra = my_range), 
+                         list_return = list_return,
+                         pre_return = pre_return)
+  cat("\n")
+  print(out)
+}
+
+
+# To illustrate preagg_var 
+model_aggregate(z, formula = ~age:year, 
+sum_vars = c("ths", "y"), 
+fun_vars = c(mean = "y", ra = "y"), 
+fun = c(mean = mean, ra = my_range), 
+preagg_var = "eu",
+pre_return = TRUE)[["pre_data"]]
+
+
+# To illustrate hierarchies 
+geo_hier &lt;- SSBtoolsData("sprt_emp_geoHier")
+model_aggregate(z, hierarchies = list(age = "All", geo = geo_hier), 
+                sum_vars = "y", 
+                fun_vars = c(sum = "y"))
+
+####  Special non-dummy cases illustrated below  ####
+
+# Extend the hierarchy to make non-dummy model matrix  
+geo_hier2 &lt;- rbind(data.frame(mapsFrom = c("EU", "Spain"), 
+                              mapsTo = "EUandSpain", sign = 1), geo_hier[, -4])
+
+# Warning since non-dummy
+# y and y_sum are different 
+model_aggregate(z, hierarchies = list(age = "All", geo = geo_hier2), 
+                sum_vars = "y", 
+                fun_vars = c(sum = "y"))
+
+# No warning since dummy since unionComplement = TRUE (see ?HierarchyCompute)
+# y and y_sum are equal   
+model_aggregate(z, hierarchies = list(age = "All", geo = geo_hier2), 
+                sum_vars = "y", 
+                fun_vars = c(sum = "y"),
+                mm_args = list(unionComplement = TRUE))
+
+# Non-dummy again, but no warning since dummy = FALSE
+# Then pre_aggregate is by default set to FALSE (error when TRUE) 
+# fun with extra argument needed (see ?dummy_aggregate)
+# y and y_sum2 are equal
+model_aggregate(z, hierarchies = list(age = "All", geo = geo_hier2), 
+                sum_vars = "y", 
+                fun_vars = c(sum2 = "y"),
+                fun = c(sum2 = function(x, y) sum(x * y)),
+                dummy = FALSE) 
+                
+</code></pre>
+
+
+</div>

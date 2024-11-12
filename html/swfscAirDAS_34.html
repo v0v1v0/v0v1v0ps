@@ -1,0 +1,311 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>airdas_process</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Process aerial survey DAS data</h2>
+
+<h3>Description</h3>
+
+<p>Process AirDAS data (the output of <code>airdas_read</code>), 
+including extracting state and condition information for each AirDAS event
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">airdas_process(x, ...)
+
+## S3 method for class 'character'
+airdas_process(x, ...)
+
+## S3 method for class 'data.frame'
+airdas_process(x, ...)
+
+## S3 method for class 'airdas_dfr'
+airdas_process(
+  x,
+  days.gap.part = 0.5/24,
+  days.gap.full = 12/24,
+  gap.message = FALSE,
+  reset.transect = TRUE,
+  trans.upper = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an object of class <code>airdas_dfr</code> object, 
+an object that can be coerced to class <code>airdas_dfr</code>,
+or a character (filepath) which is first passed to <code>airdas_read</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>passed to <code>airdas_read</code> if <code>x</code> is a character.
+Otherwise ignored</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>days.gap.part</code></td>
+<td>
+<p>numeric of length 1; 
+time gap (in days) used to identify when a 'partial reset' is performed, 
+i.e. when propagated info (weather, observers, etc) is reset. 
+Default is 30 minutes; must be less than or equal to <code>days.gap.full</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>days.gap.full</code></td>
+<td>
+<p>numeric of length 1; 
+time gap (in days) used to identify when a 'full reset; is performed, 
+i.e. when all info (transect number and propagated info) is reset. 
+Default is 12 hours; must be greater than <code>days.gap.part</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gap.message</code></td>
+<td>
+<p>logical; default is <code>FALSE</code>.
+Indicates if messages should be printed detailing which row(s) of the 
+output data frame were partially or fully reset</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reset.transect</code></td>
+<td>
+<p>logical; default is <code>TRUE</code>.
+Indicates if propagated info (weather, observers, etc) should be reset 
+to <code>NA</code> when beginning a new transect. See Details section</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trans.upper</code></td>
+<td>
+<p>logical; indicates if all transect codes should be 
+capitalized using <code>toupper</code>.
+Default is <code>FALSE</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <code>x</code> is a character, it is assumed to be a filepath and 
+first passed to <code>airdas_read</code>. 
+This output is then processed.
+</p>
+<p>This function cannot handle concatenated airdas_dfr objects of multiple file types. 
+In other words, AirDAS data must be processed and then concatenated.
+</p>
+<p>AirDAS data is event-based, meaning most events indicate when a state or weather condition changes.
+For instance, a 'W' event indicates when one or more weather conditions 
+(such as Beaufort sea state) change, and the weather conditions 
+are the same for subsequent events until the next 'W' event.
+For each state/condition: a new column is created, 
+the state/condition information is extracted from relevant events, 
+and extracted information is propagated to appropriate subsequent rows (events). 
+Thus, each row in the output data frame contains all 
+pertinent state/condition information for that row.
+</p>
+<p>The following assumptions/decisions are made during processing:
+</p>
+
+<ul>
+<li>
+<p> All '#' events (deleted events) are removed
+</p>
+</li>
+<li>
+<p> 'DateTime', 'Lat', and 'Lon' information are added to '1' events where applicable
+</p>
+</li>
+<li>
+<p> Effort is determined as follows: T/R events turns effort on, 
+and O/E events turn effort off. 
+T/R events themselves will be on effort, while O/E events will be off effort.
+The 'EffortDot' column is ignored
+</p>
+</li>
+<li>
+<p> 'HKR' values are converted to lower case. "Y" values are considered to be "H" values
+</p>
+</li>
+<li>
+<p> Observer ('ObsL', 'ObsB', 'ObsR', 'Rec') values are converted to lower case
+</p>
+</li>
+<li>
+<p> Viewing condition ('VLI', 'VLO', 'VB', 'VRI', 'VRO') values are converted to lower case
+</p>
+</li>
+<li>
+<p> Missing values are <code>NA</code> rather than <code>-1</code>
+</p>
+</li>
+</ul>
+<p>Normally, a T event (to indicate starting/resuming a transect)
+is immediately followed by a VPAW event series, creating a TVPAW event series.
+The <code>reset.transect</code> argument causes the conditions set in the VPAW event series
+(Beaufort, viewing conditions, altitude, etc.) to be reset to <code>NA</code> at each T event
+</p>
+
+
+<h3>Value</h3>
+
+<p>An <code>airdas_df</code> object, which is also a data frame.
+It consists of the input data frame, i.e. the output of <code>airdas_read</code>,
+with the following columns added:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+    <em>State/condition</em>            </td>
+<td style="text-align: left;"> <em>Column name</em> </td>
+<td style="text-align: left;"> <em>Notes</em>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    On/off effort                     </td>
+<td style="text-align: left;"> OnEffort</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Transect code                     </td>
+<td style="text-align: left;"> Trans</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Beaufort sea state                </td>
+<td style="text-align: left;"> Bft</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Percent overcast (cloud cover)    </td>
+<td style="text-align: left;"> CCover</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Jellyfish code                    </td>
+<td style="text-align: left;"> Jelly </td>
+<td style="text-align: left;"> not in PHOCOENA data</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Horizontal sun (clock system)     </td>
+<td style="text-align: left;"> HorizSun</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Vertical sun (clock system)       </td>
+<td style="text-align: left;"> VertSun </td>
+<td style="text-align: left;"> only in PHOCOENA data</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Haze/Kelp/Red tide code           </td>
+<td style="text-align: left;"> HKR</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Haze (from HKR code)              </td>
+<td style="text-align: left;"> Haze</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Kelp (from HKR code)              </td>
+<td style="text-align: left;"> Kelp</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Red tide (from HKR code)          </td>
+<td style="text-align: left;"> RedTide</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Altitude (feet)                   </td>
+<td style="text-align: left;"> AltFt</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Speed (knots)                     </td>
+<td style="text-align: left;"> SpKnot</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Left observer                     </td>
+<td style="text-align: left;"> ObsL</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Belly observer                    </td>
+<td style="text-align: left;"> ObsB</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Right observer                    </td>
+<td style="text-align: left;"> ObsR</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Data recorder                     </td>
+<td style="text-align: left;"> Rec</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Viewing condition - left inside   </td>
+<td style="text-align: left;"> VLI</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Viewing condition - left outside  </td>
+<td style="text-align: left;"> VLO</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Viewing condition - belly         </td>
+<td style="text-align: left;"> VB</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Viewing condition - right inside  </td>
+<td style="text-align: left;"> VRI</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    Viewing condition - right outside </td>
+<td style="text-align: left;"> VRO</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  </td>
+</tr>
+</table>
+<p>See <code>airdas_format_pdf</code> for which data columns the condition information 
+is extracted form for each file type. 
+In addition, warnings are printed with line numbers of unexpected event codes
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">y &lt;- system.file("airdas_sample.das", package = "swfscAirDAS")
+airdas_process(y, trans.upper = FALSE)
+
+y.read &lt;- airdas_read(y)
+airdas_process(y.read)
+
+</code></pre>
+
+
+</div>

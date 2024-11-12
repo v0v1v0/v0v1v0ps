@@ -1,0 +1,180 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>publish_DSD_via_WebService</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Publish a Data Stream via a Web Service</h2>
+
+<h3>Description</h3>
+
+<p>Uses the package plumber to publish a data stream as a web service.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">publish_DSD_via_WebService(
+  dsd,
+  port,
+  task_file = NULL,
+  serializer = "csv",
+  serve = TRUE,
+  background = TRUE,
+  debug = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dsd</code></td>
+<td>
+<p>A character string that creates a DSD.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>port</code></td>
+<td>
+<p>port used to serve the DSD.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>task_file</code></td>
+<td>
+<p>name of the plumber task script file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>serializer</code></td>
+<td>
+<p>method used to serialize the data. By default <code>csv</code> (comma separated values)
+is used. Other methods are <code>json</code> and <code>rds</code> (see plumber::serializer_csv).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>serve</code></td>
+<td>
+<p>if <code>TRUE</code>, then a task file is written and a server started, otherwise,
+only a plumber task file is written.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>background</code></td>
+<td>
+<p>logical; start a background process?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>debug</code></td>
+<td>
+<p>if <code>TRUE</code>, then the service is started locally and a web client is started to explore the interface.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function writes a plumber task script file and starts the web server to serve
+the content of the stream using the endpoints
+</p>
+
+<ul>
+<li> <p><code style="white-space: pre;">⁠http://localhost:port/get_points?n=100⁠</code> and
+</p>
+</li>
+<li> <p><code style="white-space: pre;">⁠http://localhost:port/info⁠</code>.
+</p>
+</li>
+</ul>
+<p>APIs generated using plumber can be easily deployed. See: <a href="https://www.rplumber.io/articles/hosting.html">Hosting</a>. By setting a <code>task_file</code> and <code>serve = FALSE</code> a plumber
+task script file is generated that can be deployment.
+</p>
+<p>A convenient reader for stream data over web services is available as DSD_ReadWebService.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a processx::process object created with <code>callr::r_bg()</code> which runs the plumber server
+in the background. The process can be stopped with <code>rp$kill()</code> or by killing the process
+using the operating system with the appropriate PID. <code>rp$get_result()</code> can
+be used to check for errors in the server process (e.g., when it terminates
+unexpectedly).
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other WebService: 
+<code>DSC_WebService()</code>,
+<code>DSD_ReadWebService()</code>,
+<code>publish_DSC_via_WebService()</code>
+</p>
+<p>Other dsd: 
+<code>DSD_ReadSocket()</code>,
+<code>DSD_ReadWebService()</code>,
+<code>publish_DSD_via_Socket()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># find a free port
+port &lt;- httpuv::randomPort()
+port
+
+# create a background DSD process sending data to the port
+rp1 &lt;- publish_DSD_via_WebService("DSD_Gaussians(k = 3, d = 3)", port = port)
+rp1
+
+# connect to the port and read manually. See DSD_ReadWebService for
+# a more convenient way to connect to the WebService in R.
+library("httr")
+
+# we use RETRY to give the server time to spin up
+resp &lt;- RETRY("GET", paste0("http://localhost:", port, "/info"))
+d &lt;- content(resp, show_col_types = FALSE)
+d
+
+# example: Get 100 points and plot them
+resp &lt;- GET(paste0("http://localhost:", port, "/get_points?n=100"))
+d &lt;- content(resp, show_col_types = FALSE)
+head(d)
+
+dsd &lt;- DSD_Memory(d)
+dsd
+plot(dsd, n = -1)
+
+# end the DSD process. Note: that closing the connection above
+# may already kill the process.
+rp1$kill()
+rp1
+
+# Publish using json
+
+rp2 &lt;- publish_DSD_via_WebService("DSD_Gaussians(k = 3, d = 3)", 
+           port = port, serializer = "json")
+rp2
+
+# connect to the port and read
+# we use RETRY to give the server time to spin up
+resp &lt;- RETRY("GET", paste0("http://localhost:", port, "/info"))
+content(resp, as = "text")
+
+resp &lt;- GET(paste0("http://localhost:", port, "/get_points?n=5"))
+content(resp, as = "text")
+
+# cleanup
+rp2$kill()
+rp2
+
+# Debug the interface (run the service and start a web interface)
+if (interactive())
+  publish_DSD_via_WebService("DSD_Gaussians(k = 3, d = 3)", port = port, 
+         debug = TRUE)
+</code></pre>
+
+
+</div>

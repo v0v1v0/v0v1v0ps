@@ -1,0 +1,537 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>strata.LH</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Generalized Lavallee-Hidiroglou Method of Strata Construction </h2>
+
+<h3>Description</h3>
+
+<p>This function aims at constructing optimal strata with a generalized Lavallee-Hidiroglou (1998) method.
+The function uses Kozak's (2004) algorithm by default, but it can also apply Sethi's (1963) algorithm (argument <code>algo="Sethi"</code>). The function can take into account a discrepancy between the stratification variable <code class="reqn">X</code> and the survey variable <code class="reqn">Y</code>. It can consider a loglinear model with mortality between the variables (Baillargeon and Rivest, 2009). With Kozak's algorithm, two additional models are implemented: an heteroscedastic linear model and a random replacement model as in Rivest (2002). The determination of the optimal boundaries also incorporates, if desired, an anticipated non-response, a take-all stratum for the large units, a take-none stratum for the small units, and a certainty stratum to ensure that some specific units are in the sample.<br><br>
+Sethi's algorithm is not used by default because it can be numerically unstable, especially with a take-none stratum. Better results were obtained with Kozak's algorithm in our numerical experiments.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">strata.LH(x, n = NULL, CV = NULL, Ls = 3, certain = NULL,
+          alloc = list(q1 = 0.5, q2 = 0, q3 = 0.5), takenone = 0, 
+          bias.penalty = 1, takeall = 0, rh = rep(1, Ls), 
+          model = c("none", "loglinear", "linear", "random"), 
+          model.control = list(), initbh = NULL, 
+          algo = c("Kozak", "Sethi"), algo.control = list())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p> A vector containing the values of the stratification variable <code class="reqn">X</code> for every unit in the population. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p> A numeric: the target sample size. It has no default value. The argument <code>n</code> or the argument <code>CV</code> must be input. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CV</code></td>
+<td>
+<p> A numeric: the target coefficient of variation or relative root mean squared error if <code>takenone</code>=1. It has no default value. The argument <code>CV</code> or the argument <code>n</code> must be input. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ls</code></td>
+<td>
+<p> A numeric: the number of sampled strata (take-none and certain strata are not counted in <code>Ls</code>). The default is 3. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>certain</code></td>
+<td>
+<p> A vector giving the position, in the vector <code>x</code>, of the units that must be included in the sample (see <code>stratification-package</code>). By default <code>certain</code> is <code>NULL</code>, which means that no units are chosen a priori to be in the sample. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alloc</code></td>
+<td>
+<p> A list specifying the allocation scheme. The list must contain 3 numerics for the 3 exponents <code>q1</code>, <code>q2</code> and <code>q3</code> in the general allocation scheme (see <code>stratification-package</code>). The default is Neyman allocation (<code>q1</code>=<code>q3</code>=0.5 and <code>q2</code>=0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>takenone</code></td>
+<td>
+<p> A numeric: the number of take-none strata (0 or 1). The default is 0, i.e. no take-none stratum is included.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bias.penalty</code></td>
+<td>
+<p> A numeric between 0 and 1 giving the penalty for the bias in the anticipated mean squared error (MSE) of the survey estimator (see <code>stratification-package</code>). This argument is relevant only if <code>takenone</code>=1. The default is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>takeall</code></td>
+<td>
+<p> A numeric: the number of take-all strata (one of {0, 1, ..., <code>Ls</code>-1}). The default is 0, i.e. no take-all stratum is included.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rh</code></td>
+<td>
+<p> A vector giving the anticipated response rates in each of the <code>Ls</code> sampled strata. A single number can be given if the rates do not vary among strata. The default is 1 in each stratum. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p> A character string identifying the model used to describe the discrepancy between the stratification variable <code class="reqn">X</code> and the survey variable <code class="reqn">Y</code>. It can be <code>"none"</code> if one assumes <code class="reqn">Y=X</code>, <code>"loglinear"</code> for the loglinear model with mortality, <code>"linear"</code> for the heteroscedastic linear model or <code>"random"</code> for the random replacement model (see <code>stratification-package</code> for a description of these models). The default is <code>"none"</code>, so the original Lavallee-Hidiroglou (1998) method of strata construction is used. The last two models <code>"linear"</code> and <code>"random"</code> are only available with Kozak's algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model.control</code></td>
+<td>
+<p> A list of model parameters (see <code>stratification-package</code>). The default values of the parameters correspond to the model <code class="reqn">Y=X</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initbh</code></td>
+<td>
+<p> A vector of initial stratum boundaries  (see <b>Details</b>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>algo</code></td>
+<td>
+<p> A character string identifying which optimization algorithm is to be used. It can be "Kozak" for Kozak's (2004) algorithm or "Sethi" for Sethi's (1963) algorithm (see <b>Details</b>). The default is "Kozak" because it performs better and offers more options than Sethi's algorithm. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>algo.control</code></td>
+<td>
+<p> A list of parameters to control the optimization algorithm (see <b>Details</b>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>CALCULATION OF THE OPTIMIZATION CRITERIA
+</p>
+<p>Kozak's and Sethi's algorithms aim at finding optimal stratum boundaries. This optimality refers to a criteria :<br>
+the total sample size <code class="reqn">n</code> if a target <code>CV</code> was given<br>
+the RRMSE if a target <code>n</code> was given (not available for Sethi's algorithm).<br>
+This criteria, no matter if it is <code class="reqn">n</code> or the RRMSE, is a function of the stratum sample sizes, among others. But these stratum sample sizes can be non-integer (<code>nhnonint</code> obtained directly from applying the allocation rule) or integer (<code>nh</code> obtained from rounding the <code>nhnonint</code>), as mentioned in <code>stratification-package</code>. The optimization criteria does not vary much depending on the sample size used, but it is not exactly the same. Let's call <code>opti.nh</code> the criteria calculated with <code>nh</code> and <code>opti.nhnonint</code> the criteria calculated with <code>nhnonint</code>. Optimizing based on <code>opti.nh</code> vs <code>opti.nhnonint</code> might not give the same result. In fact, according to our numerical tests, it is a little better to optimize based on <code>opti.nh</code>. This is logical since the sample sizes used in practice, to apply a stratified design, are the integer one. Therefore, as of version 2.1-0 of the package, Kozak's algorithm uses by default the integer sample sizes <code>nh</code> to calculate the optimization criteria (but it can also use <code>opti.nhnonint</code> by setting  <code>idopti="nhnonint"</code> in <code>algo.control</code>). However, Sethi's algorithm works with derivatives to perform optimization. Therefore, it does not treat the optimization as a discrete problem as Kozak's algorithm does. It can only work with a real optimization criteria, i.e. the criteria <code>opti.nhnonint</code> calculated with non-integer sample size. This is one more reason to favour Kozak's algorithm over Sethi's one.<br><br></p>
+<p>INITIAL STRATUM BOUNDARIES
+</p>
+<p>Both Kozak's and Sethi's algorithm are iterative and they need starting values. It can be given by the user with the <code>initbh</code> argument. If not given, the default initial boundaries are obtained with the function <code>strata.cumrootf</code> (cumulative root frequency method) for Kozak's algorithm. For Sethi's algorithm, the default value of <code>initbh</code> is the set of <code>Ls</code>-1 equidistant points along the range of the <code class="reqn">X</code>-values (arithmetic starting points of Gunning and Horgan (2007)). Let's define <code class="reqn">d=(max(X)-min(X))/Ls</code>, the arithmetic boundaries are <code class="reqn">b_h = min(X) + h \times d</code> for <code class="reqn">h=1,\ldots,Ls-1</code>. 
+</p>
+<p>The default initial boundaries are not the same for the two algorithms because Kozak's algorithm uses by default the criteria <code>opti.nh</code> whereas Sethi's algorithm can only use <code>opti.nhnonint</code>. In our numerical experiments with the criteria <code>opti.nh</code>, the cumulative root frequency boundaries performed a little better than geometric, arithmetic or robust boundaries (for a definition of theses boundaries, see details about the <code>trymany</code> algorithm parameter). On the other hand, the arithmetic boundaries had good performances (Baillargeon and Rivest 2009) with the criteria <code>opti.nhnonint</code>. Let's note however that we never found, in any of our numerical experiments, initial boundaries clearly better than others.
+</p>
+<p>The length of the vector <code>initbh</code> can be <code>Ls</code>-1 or <code class="reqn">L</code>-1, where <code class="reqn">L</code> is the total number of strata. When <code>takenone=0</code>, <code class="reqn">L</code>=<code>Ls</code> and it does not make any difference. But for a stratified design with a take-none stratum, it means that one can give as <code>initbh</code> argument the vector of initial boundaries <code class="reqn">(b_1, b_2, \ldots, b_{L-1})</code> or <code class="reqn">(b_2, \ldots, b_{L-1})</code>. In the second option, the upper boundary of the take-none stratum is not given. In that case, it is set by default to 
+the first percentile of <code>x</code>. If this first percentile is equal to the minimum value of <code>x</code>, this initial 
+boundary would lead to an empty take-none stratum. In that case, the initial boundary of the take-none stratum is 
+rather set to the second smallest value of <code>x</code>.
+</p>
+<p>Sometimes, the specified initial boundaries are not suitable for Kozak's algorithm. As written below, this algorithm 
+verifies at each iteration that the sampled strata contains at least <code>minNh</code> units and that they have positive 
+sample sizes <code>nh</code>. If the initial boundaries do not meet these conditions, the initial optimization criteria is not comparable to the criteria for boundaries respecting the conditions. Therefore, in such a situation, a warning is produced and the algorithm is not run. <br><br></p>
+<p>ALGORITHMS
+</p>
+<p><b>Sethi:</b> The formulas implemented for Sethi's algorithm are presented in Baillargeon, Rivest and Ferland (2007). As mentioned previously, this algorithm is available for a target CV only. Moreover, it works with derivatives to perform optimization. Therefore, it can only work with a real optimization criteria (<code>opti.nhnonint</code>).
+</p>
+<p><b>Kozak:</b> Kozak's algorithm is described in Kozak (2004). It starts at the initial boundaries <code>initbh</code> and at each iteration, it chooses a stratum boundary at random and a random modification for this boundary among the 2*<code>maxstep</code> possible alternatives. If this modification reduces the optimization criteria, creates sampled strata containing at least <code>minNh</code> units and leads to positive <code>nh</code>, it is accepted. Otherwise, the boundaries are not changed. If the boundaries remain unchanged for <code>maxstill</code> consecutive iterations, the algorithm has reached convergence and it stops.<br>
+Kozak's (2004) used the condition <code>nh</code> &gt;= 2 instead of <code>nh</code> &gt; 0. We chose to modify this requirement because we noticed that more severe conditions sometimes prevented the algorithm from selecting a path leading to the optimal solution. According to our numerical experiments, if one sets a posteriori to 2 the <code>nh</code>'s that are equal to 1 at the end of the algorithm, the new sample size is smaller than or equal to the one obtained with the condition <code>nh</code> &gt;= 2.<br>
+If no <code>initbh</code> argument is given, the algorithm is run with three different sets of initial boundaries (see details of the algorithm parameter <code>trymany</code>). If <code>initbh</code> is given, it uses these initial boundaries. Bot no matter how many initial boundaries are tried, the algorithm is run <code>rep</code> times with each. Running the algorithm many times helps having more stable results. Since the algorithm is random, two runs of the algorithm, event from the same starting point, can lead to different results. Setting <code>rep</code> to a large value and trying more than one set of initial boundaries increases the calculation time, but also increases the chance of finding the global minimum.  also helps in finding the global minimum. 
+</p>
+<p>The optimization of stratum boundaries given a target CV or a target <code class="reqn">n</code> is a discrete problem. The number of possible sets of boundaries is <code>choose(Nu-1,L-1)</code> when <code>takenone=0</code>, and <code>choose(Nu,L-1)</code> when <code>takenone=1</code>, where <code>Nu</code> stands for the number of unique values in the <code>x</code>-vector from which units in the certainty stratum, if any, heve been removed. When this number is not too large, trying them all is numerically possible. That's what the function <code>strata.LH</code> do, for Kozak's algorithm, when the number of possible solutions is lower than the <code>minsol</code> parameter in <code>algo.control</code>. This complete enumeration of all possible cases ensure that the global minimum is reached. 
+</p>
+<p>Note: Since version 2.2-0 of the package <span class="pkg">stratification</span>, the modified Kozak's algorithm, which is a non-random version of Kozak's algorithm, is no more available because it never performed as well as the original Kozak's algorithm in our numerical experiments.<br><br></p>
+<p>ALGORITHM PARAMETERS
+</p>
+<p>The <code>algo.control</code> argument is a list to supply any of the following parameters which control the algorithm. Sethi's algorithm only uses the first argument <code>maxiter</code>.
+</p>
+
+<dl>
+<dt><code>maxiter</code></dt>
+<dd>
+<p> A numeric: the maximal number of iterations. The default is 500 for Sethi's algorithm and 10 000 for Kozak's. It is only used to prevent from infinite loops in case of non-convergence.  </p>
+</dd>
+<dt><code>minsol</code></dt>
+<dd>
+<p> A numeric for Kozak's algorithm only: if the number of possible sets of boundaries is lower than <code>minsol</code>, a complete enumeration of the solutions is performed instead of running the algorithm. Every set of boundaries is tried, which ensures that the global minimum is reached. The default value of <code>minsol</code> is 10 000. This parameter has to take a value between 2 and 2 000 000. </p>
+</dd>
+<dt><code>idopti</code></dt>
+<dd>
+<p> A character string for Kozak's algorithm only: this argument determines which stratum sample sizes are going to be used to calculate the optimization criteria. It can take the value <code>"nh"</code> (criteria calculated with the integer sample sizes <code>nh</code>) or <code>"nhnonint"</code> (criteria calculated with the non-integer sample sizes <code>nhnonint</code>). The default value is <code>"nh"</code> since it gives slightly better results than <code>idopti="nhnonint"</code> and also because the integer sample sizes are the ones used in practice. When a complete enumeration is performed, the criteria is automatically calculated with integer stratum sample sizes. Note: Prior to version 2.1-0 of the package <span class="pkg">stratification</span>, only the option <code>idopti="nhnonint"</code> was available (in fact the algorithm parameter <code>idopti</code> did not exist). </p>
+</dd>
+<dt><code>minNh</code></dt>
+<dd>
+<p> A numeric for Kozak's algorithm only: the minimum number of units required in each sampled stratum (no restriction is put on the take-none stratum, if included). <code>minNh</code> must be greater or equal to 2, which is the default. </p>
+</dd>
+<dt><code>maxstep</code></dt>
+<dd>
+<p> A numeric for Kozak's algorithm only: the maximal step for boundary modification (see the algorithm description above). The default is <code>Nu/10</code>, rounded up and truncated to 100 (<code>Nu</code> is the number of unique values in the <code>x</code>-vector from which units in the certainty stratum, if any, heve been removed). This default value is, for most populations, much larger than the initial suggestion by Kozak (2004) of a integer no bigger than 5. Our numerical experiments showed us that a <code>maxstep</code> value of about 3 (package <span class="pkg">stratification</span> initial default value) is adequate when the optimization criteria is calculated with non-integer stratum sample sizes (<code>opti.nhnonint</code>). However, when this criteria is calculated with integer stratum sample sizes (<code>opti.nh</code>), the algorithm never do worst and sometimes reaches an even lower optimization criteria with a larger <code>maxstep</code>. The parameter <code>maxstill</code> must be increased consequently (see below).  The downside of large <code>maxstep</code> and <code>maxstill</code> values is that many iterations are needed for the algorithm to converge, making it longer to run. We implemented a solution to this problem. This solution is based on the fact that when the algorithm is close to the solution, it can only accept boundaries modifications with small steps. The large steps are useful during the first iterations of the algorithm to let the boundaries move freely, but it becomes useless when convergence is close. Therefore, the values of <code>maxstep</code> and <code>maxstill</code> are brought down to 3 and 50, respectively, when new boundaries are accepted under these circumstances : the step in the boundary modification is lower than 3 in absolute value, more than 50 iterations without change happened before this change, the relative change in the optimization criteria is small. This rule is arbitrary, but it seems to work well so far. It gives results as good as without changing the values of <code>maxstep</code> and <code>maxstill</code>, but it runs much faster because it needs less iterations to converge.</p>
+</dd>
+<dt><code>maxstill</code></dt>
+<dd>
+<p> A numeric for Kozak's algorithm only: the maximal number of iterations without a change in the boundaries (see the algorithm description above). The default is <code>maxstep</code>*10, bounded between 50 and 500. It depends on the value of <code>maxstep</code> because we increased the default value of this parameter by making it a function of the number of unique values in the <code>x</code>-vector (see above). The upper bound of 500 ensures that the algorithm does not have to make too much iterations (which take time) to converge. </p>
+</dd>
+<dt><code>rep</code></dt>
+<dd>
+<p> A numeric for Kozak's algorithm only: the number of repetitions of the algorithm (see the algorithm description above). The default is 5. Since version 2.2-0 of the package <span class="pkg">stratification</span>, the option <code>rep="change"</code> has been replaced by the option <code>trymany=TRUE</code>.</p>
+</dd>
+<dt><code>trymany</code></dt>
+<dd>
+<p> A logical for Kozak's algorithm only: if <code>trymany=TRUE</code>, three sets of initial boundaries are tried instead of one. These boundaries are cumulative root frequency (Dalenius and Hodges, 1959), geometric (Gunning and Horgan, 2004) and robust ones. Robust boundaries were created in order to have boundaries respecting as often as possible the conditions imposed on boundaries in Kozak's algorithm: strata containing at least <code>minNh</code> units and positive <code>nh</code>. Robust boundaries give an empty take-none stratum if such a stratum is requested, take-all strata as small as possible, and take-some strata with approximately the same number of unique <code class="reqn">X</code>-values. When <code>trymany=TRUE</code>, the same values for the other algorithm parameters (the one given by the user or otherwise the default) are used for every set of initial boundaries. If <code>trymany=FALSE</code>, only the given or default (see above) initial boundaries are used. If a user give an <code>initbh</code> argument, but also select <code>trymany=TRUE</code>, the later is ignored and only the <code>initbh</code> initial boundaries are used.<br><br></p>
+</dd>  
+</dl>
+<p>CONVERGENCE
+</p>
+<p>It is possible for the algorithm not to converge. In this case, a warning is printed. The only possible cause of non-convergence for Kozak's algorithm is to reach the maximum number of iterations before the stopping rule has been met. For the algorithm to converge, the argument <code>maxiter</code> has to be increased. On the other hand, non-convergence of Sethi's algorithm has several possible causes:
+</p>
+
+<ul>
+<li>
+<p> a division by zero caused by an empty stratum can occur ;
+</p>
+</li>
+<li>
+<p> a division by zero caused by a 0 stratum variance can occur ;
+</p>
+</li>
+<li>
+<p> the square root of a negative number (negative discriminant) can occur ;
+</p>
+</li>
+<li>
+<p> the maximum number of iterations can be reached (often because the algorithm is caught in a loop of non-optimal sets of boundaries).
+</p>
+</li>
+</ul>
+<p>If a non-convergence happens, the user can try to change the initial boundaries or the model parameters. The user can also choose to work with Kozak's algorithm which should converge given an appropriate maximum number of iterations.<br><br></p>
+<p>WARNING ABOUT LOCAL MINIMA
+</p>
+<p>Let's note that even if the algorithm converges, it is not guaranteed that it has reached a global minimum. Local minimum can occur both with Sethi's and Kozak's algorithms (Rivest and Baillargeon, 2009).
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>bh </code></td>
+<td>
+<p>A vector of the <code class="reqn">L-1</code> optimal stratum boundaries found by the algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Nh </code></td>
+<td>
+<p>A vector of length <code class="reqn">L</code> containing the population sizes <code class="reqn">N_h</code>, i.e. the number of units in each stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nh </code></td>
+<td>
+<p>A vector of length <code class="reqn">L</code> containing the sample sizes <code class="reqn">n_h</code>, i.e. the number of units to sample in each stratum. See <code>stratification-package</code> for information about the rounding used to get these integer values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n </code></td>
+<td>
+<p>The total sample size (<code>sum(nh)</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nhnonint </code></td>
+<td>
+<p>A vector of length <code class="reqn">L</code> containing the non-integer values of the sample sizes, obtained directly from applying the allocation rule (see <code>stratification-package</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>certain.info </code></td>
+<td>
+<p>A vector giving statistics for the certainty stratum (see <code>stratification-package</code>). It contains <code>Nc</code>, the number of units chosen a priori to be in the sample, and <code>meanc</code>, the anticipated mean of <code class="reqn">Y</code> for these units. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opti.criteria </code></td>
+<td>
+<p>The final value of the criteria to optimize : either <code class="reqn">n</code> if a target <code>CV</code> was given or the RRMSE if a target <code>n</code> was given. If the algorithm parameter <code>idopti</code> takes the value <code>"nh"</code> (the default), the stratum sample sizes used for the calculation of this criteria are the integer ones (<code>nh</code>). If the algorithm parameter <code>idopti</code> takes the value <code>"nhnonint"</code>, the non-integer stratum sample sizes (<code>nhnonint</code>) are used. In other words, <code>idopti</code> determines here if <code>opti.criteria</code> is <code>opti.nh</code> or <code>opti.nhnonint</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meanh </code></td>
+<td>
+<p>A vector of length <code class="reqn">L</code> containing the anticipated means of <code class="reqn">Y</code> in each stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varh </code></td>
+<td>
+<p>A vector of length <code class="reqn">L</code> containing the anticipated variances of <code class="reqn">Y</code> in each stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mean </code></td>
+<td>
+<p>A numeric: the anticipated global mean value of <code class="reqn">Y</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RMSE </code></td>
+<td>
+<p>A numeric: the root mean squared error (or standard error if <code>takenone</code>=0) of the anticipated global mean of <code class="reqn">Y</code>. This is defined as the squared root of: (<code>bias.penalty</code> x bias of the mean)^2 + variance of the mean.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RRMSE </code></td>
+<td>
+<p>A numeric: the anticipated relative root mean squared error (or coefficient of variation if <code>takenone</code>=0) for the mean of <code class="reqn">Y</code>, i.e. <code>RMSE</code> divided by <code>mean</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>relativebias </code></td>
+<td>
+<p>A numeric: the anticipated relative bias of the estimator, i.e. (<code>bias.penalty</code> x bias of the mean) divided by <code>mean</code>. If <code>takenone</code>=0, this numeric is zero. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>propbiasMSE </code></td>
+<td>
+<p>A numeric: the proportion of the MSE attributable to the bias of the estimator, i.e. (<code>bias.penalty</code> x bias of the mean)^2 divided by the MSE of the <code>mean</code>. If <code>takenone</code>=0, this numeric is zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stratumID</code></td>
+<td>
+<p>A factor, having the same length as the input <code>x</code>, which values are either 1, 2, ..., <code class="reqn">L</code> or <code>"certain"</code>. The value <code>"certain"</code> is given to units a priori chosen to be in the sample. This factor identifies, for each observation, the stratum to which it has been assigned.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>takeall </code></td>
+<td>
+<p>The number of take-all strata in the final solution. Note: It is possible that <code class="reqn">n_h=N_h</code> for non take-all strata because the condition for an automatic addition of a take-all stratum is <code class="reqn">n_h&gt;N_h</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>call </code></td>
+<td>
+<p>The function call (object of class "call").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>date </code></td>
+<td>
+<p>A character string that contains the system date and time when the function ended. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args </code></td>
+<td>
+<p>A list of all the argument values input to the function or set by default. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter.detail </code></td>
+<td>
+<p>Only if an iterative algorithm is run (thus not int the output when a complete enumeration is performed): a data frame giving, for each iteration of the algorithm:<br><code>"bh"</code>: the stratum boundaries;<br><code>"opti.nh"</code>: the value of the criteria to optimize calculated with integer stratum sample sizes (for Kozak's algorithm only);<br><code>"opti.nhnonint"</code>: the value of the criteria to optimize calculated with non-integer stratum sample sizes;<br><code>"takeall"</code>: the number of take-all strata for the corresponding boundaries, after making, if needed, an adjustment for non requested take-all strata;<br><code>"step"</code>: the step in the boundary modification (for Kozak's algorithm only);<br><code>"iter"</code>: the iteration identification number;<br><code>"run"</code>: the run identification number (for Kozak's algorithm only) because when <code>trymany=TRUE</code> or <code>rep</code>&gt;1 the algorithm is run more than once.<br>
+For Kozak's algorithm, a row is added to <code>iter.detail</code> only for accepted boundaries, i.e. boundaries decreasing the optimization criteria while respecting the conditions on <code class="reqn">N_h</code> and <code class="reqn">n_h</code> (see <b>Details</b> for the algorithm description). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>niter </code></td>
+<td>
+<p>Only if an iterative algorithm is run: the total number of iterations before convergence of the algorithm. For Kozak's algorithm, this number includes all the iterations, even the ones with discarded boundaries. <code>niter</code> is a vector if the algorithm was run more than once and if more than one run lead to the output solution. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>converge </code></td>
+<td>
+<p>Only if an iterative algorithm is run: a logical indicating if the algorithm has converged (see <b>Details</b>). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.detail </code></td>
+<td>
+<p>Only for Kozak's algorithm when it is run more than once: a data frame giving the final solution for every run of the algorithm. It contains, for each run:<br><code>"bh"</code>: the stratum boundaries at convergence;<br><code>"opti.nh"</code>: the value of the criteria to optimize calculated with integer stratum sample sizes;<br><code>"opti.nhnonint"</code>: the value of the criteria to optimize calculated with non-integer stratum sample sizes;<br><code>"takeall"</code>: the number of take-all strata for the corresponding boundaries, after making, if needed, an adjustment for non requested take-all strata;<br><code>"niter"</code>: the number of iterations of the algorithm;<br><code>"initbh.type"</code>: the type of initial boundaries requested (<code>"initbh"</code> for user-given boundaries, <code>"cumrootf"</code>, <code>"geo"</code> or <code>robust</code>);<br><code>"ibh"</code>: the initial boundaries used to run the algorithm;<br><code>"rep"</code>: the repetition number (because the algorithm is run <code>rep</code> times for each set of initial boundaries tried).<br>
+When <code>trymany=TRUE</code>, if a set of initial boundaries do not meet the conditions on <code class="reqn">N_h</code> and <code class="reqn">n_h</code> (see <b>Details</b> for the algorithm description), the algorithm is not run with these boundaries and no rows are added to <code>run.detail</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.min </code></td>
+<td>
+<p>Only for Kozak's algorithm when it is run more than once: the identification number of every algorithm run leading to the optimal plan, i.e. the rows of <code>run.detail</code> containing the proposed solution. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sol.detail</code></td>
+<td>
+<p>Only for Kozak's algorithm when the number of possible sets of boundaries is lower than <code>minsol</code>: a data frame giving information for the possible solutions fulfilling the conditions <code class="reqn">N_h \geq</code> <code>minNh</code> and <code>nh</code> &gt; 0. It contains:<br><code>"bh"</code>: the stratum boundaries;<br><code>"Nh"</code>: the number of units in each stratum;<br><code>"opti.nh"</code>: the value of the criteria to optimize calculated with integer stratum sample sizes;<br><code>"opti.nhnonint"</code>: the value of the criteria to optimize calculated with non-integer stratum sample sizes;<br><code>"takeall"</code>: the number of take-all strata for the corresponding boundaries, after making, if needed, an adjustment for non requested take-all strata. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sol.min</code></td>
+<td>
+<p>Only for Kozak's algorithm when the number of possible sets of boundaries is lower than <code>minsol</code>: the rows of <code>sol.detail</code> containing the optimal solution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsol</code></td>
+<td>
+<p>Only for Kozak's algorithm : the number of possible sets of boundaries (see <b>Details</b>).</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p> Sophie Baillargeon <a href="mailto:Sophie.Baillargeon@mat.ulaval.ca">Sophie.Baillargeon@mat.ulaval.ca</a> and<br>
+Louis-Paul Rivest <a href="mailto:Louis-Paul.Rivest@mat.ulaval.ca">Louis-Paul.Rivest@mat.ulaval.ca</a> </p>
+
+
+<h3>References</h3>
+
+<p>Baillargeon, S., Rivest, L.-P., Ferland, M. (2007). Stratification en enquetes entreprises : Une revue et quelques avancees. <em>Proceedings of the Survey Methods Section, 2007 SSC Annual Meeting</em>.
+</p>
+<p>Baillargeon, S. and Rivest, L.-P. (2009). A general algorithm for univariate stratification. <em>International Stratification Review</em>, <b>77</b>(3), 331-344.
+</p>
+<p>Baillargeon, S. and  Rivest L.-P. (2011). The construction of stratified designs in R with the package stratification. <em>Survey Methodology</em>, <b>37</b>(1), 53-65.
+</p>
+<p>Dalenius, T. and Hodges, J.L., Jr. (1959). Minimum variance stratification. <em>Journal of the American Statistical Association</em>, <b>54</b>, 88-101.
+</p>
+<p>Gunning, P. and Horgan, J.M. (2004). A new algorithm for the construction of stratum boundaries in skewed populations. <em>Survey Methodology</em>, <b>30</b>(2), 159-166.
+</p>
+<p>Gunning, P. and Horgan, J.M. (2007). Improving the Lavallee and Hidiroglou algorithm for stratification of skewed populations. <em>Journal of Statistical Computation and Simulation</em>, <b>77</b>(4), 277-291.
+</p>
+<p>Kozak, M. (2004). Optimal stratification using random search method in agricultural surveys. <em>Statistics in Transition</em>, <b>6</b>(5), 797-806.
+</p>
+<p>Lavallee, P. and Hidiroglou, M.A. (1988). On the stratification of skewed populations. <em>Survey Methodology</em>, <b>14</b>, 33-43.
+</p>
+<p>Rivest, L.-P. (1999). Stratum jumpers: Can we avoid them? <em>Proceedings of the Section on Survey Methods Research of the American Statistical Association</em>, 64-72.
+</p>
+<p>Rivest, L.-P. (2002). A generalization of the Lavallee and Hidiroglou algorithm for stratification in business surveys. <em>Survey Methodology</em>, <b>28</b>(2), 191-198.
+</p>
+<p>Sethi, V. K. (1963). A note on optimum stratification of populations for estimating the population means. <em>The Australian Journal of Statistics</em>, <b>5</b>, 20-33.
+</p>
+
+
+<h3>See Also</h3>
+
+ <p><code>print.strata</code>, <code>plot.strata</code>, <code>strata.cumrootf</code>, <code>strata.geo</code> </p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#########################################################
+### Sethi's algorithm versus Kozak's algorithm
+
+# LACK OF CONVERGENCE
+# Here is an example of numerical difficulties met with Sethi but not with Kozak  
+Sethi &lt;- strata.LH(x=UScities, CV=0.01, Ls=3, alloc=c(0.35,0.35,0), takenone=0, takeall=1,
+         rh=1, model="loglinear", model.control=list(beta=1, sig2=0.5, ph=0.85), 
+         algo="Sethi", algo.control=list(maxiter=20))
+Sethi
+Sethi$iter.detail[1:5,]
+# Kozak's algorithm with arithmetic initial boundaries 
+# (default initial boundaries for Sethi's algorithm) 
+Kozak&lt;-strata.LH(x=UScities, initbh=c(18,27), CV=0.01, Ls=3, alloc=c(0.35,0.35,0),
+       takenone=0, takeall=1, rh=1, model="loglinear",
+       model.control=list(beta=1, sig2=0.5, ph=0.85), algo="Kozak")
+Kozak
+Kozak$iter.detail[Kozak$iter.detail[,"run"]==Kozak$run.min[1],]
+# Looking at the iteration history for the optimization with Sethi and Kozak, 
+# we see that the initial boundaries are very close from the optimal ones. 
+# Kozak reaches very quickly a minimum. However, Sethi increases n instead of 
+# minimizing it and afterwards it oscillates between two sets of boundaries 
+# without converging.
+
+# LOCAL MINIMUM
+# In this example, Sethi's algorithm obviously reaches a local minimum since Kozak 
+# proposes a much smaller n.
+Sethi&lt;-strata.LH(x=UScities, CV=0.01, Ls=4, alloc=c(0.5,0,0), takenone=0, takeall=1, 
+       rh=0.85, model="loglinear", model.control=list(beta=1.1, sig2=0, ph=1),
+       algo="Sethi")
+Sethi
+Kozak&lt;-strata.LH(x=UScities, CV=0.01, Ls=4, alloc=c(0.5,0,0), takenone=0, takeall=1,
+       rh=0.85, model="loglinear", model.control=list(beta=1.1, sig2=0, ph=1),
+       algo="Kozak")
+Kozak
+
+
+#########################################################
+### Take-none stratum
+
+# As illustrated in the following example (presented in Baillargeon and Rivest 2011), 
+# it is sometimes beneficial to include a take-none stratum in the stratified design 
+# (possibly with a bias penalty lower than 1).
+notn &lt;- strata.LH(x=MRTS, CV=0.1, Ls=3, alloc=c(0.5,0,0.5))
+notn
+tn1 &lt;- strata.LH(x=MRTS, CV=0.1, Ls=3, alloc=c(0.5,0,0.5), takenone=1)
+tn1
+tn0.5 &lt;- strata.LH(x=MRTS, CV=0.1, Ls=3, alloc=c(0.5,0,0.5), takenone=1, bias.penalty=0.5)
+tn0.5
+
+# Note: Sethi does not converge here. This occurs often with a take-none stratum.
+tn1.Sethi &lt;- strata.LH(x=MRTS, CV=0.1, Ls=3, alloc=c(0.5,0,0.5), takenone=1, algo="Sethi")
+tn1.Sethi
+
+
+#########################################################
+### Automatic detection of a take-all stratum
+
+# # As in the following example, a beneficial take-all stratum is not always detected 
+# # by the algorithm. Therefore, it is often a good idea to obtain a stratified design
+# # with and without a take-all stratum and to compare the results.
+# sans&lt;-strata.LH(x=UScities, n=300, Ls=3, alloc=c(0.35,0.35,0), takeall=0,
+#       model="loglinear", model.control=list(beta=0.9, sig2=0, ph=1),
+#       algo.control=list(trymany=FALSE))
+# sans
+# avec&lt;-strata.LH(x=UScities, n=300, Ls=3, alloc=c(0.35,0.35,0), takeall=1,
+#       model="loglinear", model.control=list(beta=0.9,sig2=0,ph=1),
+#       algo.control=list(trymany=FALSE))
+# avec
+# # We see that for the target sample size, the anticipated CV is 17% lower with a 
+# # take-all stratum (0.01081053 vs 0.009002313).
+
+
+#########################################################
+### Models for the discrepancy between Y and X
+
+# LOGLINEAR MODEL WITH MORTALITY: see help(Sweden)
+
+# HETEROSCEDASTIC LINEAR MODEL:  We fix gamma=2.
+beta.lin &lt;- mean(Sweden$RMT85/Sweden$REV84)
+sig2.lin &lt;- var(Sweden$RMT85/Sweden$REV84)
+strata.LH(x=Sweden$REV84, CV=0.05, Ls=5, alloc=c(0.5,0,0.5), takeall=1,
+          model="linear", model.control=list(beta=beta.lin, sig2=sig2.lin, gamma=2),
+          algo="Kozak")
+# Verification of equation 3.6 of Rivest (2002)
+beta.log &lt;- 1
+sig2.log &lt;- log(1+sig2.lin/beta.lin^2)
+strata.LH(x=Sweden$REV84, CV=0.05, Ls=5, alloc=c(0.5,0,0.5), takeall=1,
+          model="loglinear", model.control=list(beta=beta.log, sig2=sig2.log, ph=1),
+          algo="Kozak")
+# The two models give the same stratified design.
+
+# RANDOM REPLACEMENT MODEL: example in Rivest (1999)
+strata.LH(x=Sweden$REV84, CV=0.05, Ls=5, alloc=c(0.5,0,0.5), takeall=1,
+       model="none", algo="Sethi")     # Table 1 with a different rounding of the nh's
+e0 &lt;- strata.LH(x=Sweden$REV84, CV=0.05, Ls=5, alloc=c(0.5,0,0.5), takeall=1,
+       model="none", algo="Kozak")
+e0                                    # Better than Sethi
+var.strata(e0, y=Sweden$RMT85)
+e0.001 &lt;- strata.LH(x=Sweden$REV84, CV=0.05, Ls=5, alloc=c(0.5,0,0.5), takeall=1,
+          model="random", model.control=list(epsilon=0.011), algo="Kozak")
+e0.001                          # Table 2 part 3 with a different rounding of the nh's
+var.strata(e0.001 ,y=Sweden$RMT85)
+
+</code></pre>
+
+
+</div>

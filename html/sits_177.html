@@ -1,0 +1,226 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sits_regularize</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build a regular data cube from an irregular one</h2>
+
+<h3>Description</h3>
+
+<p>Produces regular data cubes for analysis-ready data (ARD)
+image collections. Analysis-ready data (ARD) collections available in
+AWS, MPC, USGS and DEAfrica are not regular in space and time.
+Bands may have different resolutions,
+images may not cover the entire time, and time intervals are not regular.
+For this reason, subsets of these collection need to be converted to
+regular data cubes before further processing and data analysis.
+This function requires users to include the cloud band in their ARD-based
+data cubes.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sits_regularize(
+  cube,
+  ...,
+  period,
+  res,
+  output_dir,
+  roi = NULL,
+  tiles = NULL,
+  multicores = 2L,
+  progress = TRUE
+)
+
+## S3 method for class 'raster_cube'
+sits_regularize(
+  cube,
+  ...,
+  period,
+  res,
+  output_dir,
+  roi = NULL,
+  multicores = 2L,
+  progress = TRUE
+)
+
+## S3 method for class 'sar_cube'
+sits_regularize(
+  cube,
+  ...,
+  period,
+  res,
+  output_dir,
+  roi = NULL,
+  tiles = NULL,
+  multicores = 2L,
+  progress = TRUE
+)
+
+## S3 method for class 'dem_cube'
+sits_regularize(
+  cube,
+  ...,
+  res,
+  output_dir,
+  roi = NULL,
+  tiles = NULL,
+  multicores = 2L,
+  progress = TRUE
+)
+
+## S3 method for class 'derived_cube'
+sits_regularize(cube, ...)
+
+## Default S3 method:
+sits_regularize(cube, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>cube</code></td>
+<td>
+<p><code>raster_cube</code> object whose observation
+period and/or spatial resolution is not constant.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional parameters for <code>fn_check</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>period</code></td>
+<td>
+<p>ISO8601-compliant time period for regular
+data cubes, with number and unit, where
+"D", "M" and "Y" stand for days, month and year;
+e.g., "P16D" for 16 days.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>res</code></td>
+<td>
+<p>Spatial resolution of regularized images (in meters).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output_dir</code></td>
+<td>
+<p>Valid directory for storing regularized images.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>roi</code></td>
+<td>
+<p>A named <code>numeric</code> vector with a region of interest.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tiles</code></td>
+<td>
+<p>MGRS tiles to be produced (only for Sentinel-1 cubes)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multicores</code></td>
+<td>
+<p>Number of cores used for regularization;
+used for parallel processing of input (integer)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>show progress bar?</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>raster_cube</code> object with aggregated images.
+</p>
+
+
+<h3>Note</h3>
+
+<p>The "roi" parameter defines a region of interest. It can be
+an sf_object, a shapefile, or a bounding box vector with
+named XY values ("xmin", "xmax", "ymin", "ymax") or
+named lat/long values ("lat_min", "lat_max", "long_min", "long_max").
+<code>sits_regularize()</code> function will crop the images
+that contain the region of interest().
+</p>
+<p>The aggregation method used in <code>sits_regularize</code>
+sorts the images based on cloud cover, where images with the fewest
+clouds at the top of the stack. Once
+the stack of images is sorted, the method uses the first valid value to
+create the temporal aggregation.
+</p>
+<p>The input (non-regular) ARD cube needs to include the cloud band for
+the regularization to work.
+</p>
+
+
+<h3>References</h3>
+
+<p>Appel, Marius; Pebesma, Edzer. On-demand processing of data cubes
+from satellite image collections with the gdalcubes library. Data, v. 4,
+n. 3, p. 92, 2019. DOI: 10.3390/data4030092.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (sits_run_examples()) {
+    # define a non-regular Sentinel-2 cube in AWS
+    s2_cube_open &lt;- sits_cube(
+        source = "AWS",
+        collection = "SENTINEL-2-L2A",
+        tiles = c("20LKP", "20LLP"),
+        bands = c("B8A", "CLOUD"),
+        start_date = "2018-10-01",
+        end_date = "2018-11-01"
+    )
+    # regularize the cube
+    rg_cube &lt;- sits_regularize(
+        cube = s2_cube_open,
+        period = "P16D",
+        res = 60,
+        multicores = 2,
+        output_dir = tempdir()
+    )
+
+    ## Sentinel-1 SAR
+    roi &lt;- c("lon_min" = -50.410, "lon_max" = -50.379,
+             "lat_min" = -10.1910, "lat_max" = -10.1573)
+    s1_cube_open &lt;- sits_cube(
+        source = "MPC",
+        collection = "SENTINEL-1-GRD",
+        bands = c("VV", "VH"),
+        orbit = "descending",
+        roi = roi,
+        start_date = "2020-06-01",
+        end_date = "2020-09-28"
+    )
+    # regularize the cube
+    rg_cube &lt;- sits_regularize(
+        cube = s1_cube_open,
+        period = "P12D",
+        res = 60,
+        roi = roi,
+        multicores = 2,
+        output_dir = tempdir()
+    )
+}
+
+</code></pre>
+
+
+</div>

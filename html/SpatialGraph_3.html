@@ -1,0 +1,154 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>distSG</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate across-network distance for a set of sparse points</h2>
+
+<h3>Description</h3>
+
+<p>This function obtains the across-network distance for a set
+of sparse points, by using the distance slot in a SpatialGraph. The
+calculation is supported by a previously calculated between vertex
+distance matrix
+[via a call to the library <code>igraph</code> by the function distSGv].
+The SpatialGraph is considered as undirected for distance
+calculation.
+If <code>euc=TRUE</code> [default], the distance between two points is defined within this function
+as the maximum of both the minimum along-network distance and the Euclidean
+distance. The distance itself between the points
+in x,y and the network is neglected in the function for the
+along-network distance.
+Both, <code>x</code> and <code>y</code>, are <code>SpatialPointsDataFrame</code>
+objects, which must contain at least the fields
+<code>eID</code> and <code>chain</code>, which describe their relationship with
+the <code>SpatialGraph</code> object defined by <code>SG</code>. These can be
+obtained with either the function <code>pointsSLDFchain</code> or
+pointsToLines (the latter is faster, but depends on GEOS)
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R"> distSG(SG, x, y = NULL, euc = TRUE, wei = NULL, getpath = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>SG</code></td>
+<td>
+<p>SpatialGraph</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code>SpatialPointsDataFrame</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code>SpatialPointsDataFrame</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>euc</code></td>
+<td>
+<p>boolean scalar, whether to use Euclidean distance as
+minimum threshold for resulting distances</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wei</code></td>
+<td>
+<p>if not null, field in <code>SG@e</code> with a variable to obtain
+a state-related weight. See details below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>getpath</code></td>
+<td>
+<p>if TRUE (and wei != NULL), <code>eID</code> identifiers for
+each path from <code>x</code> to <code>y</code> elements is returned</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The application of state-related weights in this version is a simple
+state-dependent weight matrix related to some field in <code>SG@e</code> [i.e. the
+edges in the input <code>SpatialGraph</code>]. The only current calculation
+evaluates the path between queried points (x,y), and along the path, for
+every junction and jump into a new edge, the ratio for the evaluated state variable (taken as
+the highest value divided by the lowest value) between the two edges at
+the junction is obtained. Currently a
+maximum ratio equal to 10.0 is hard-coded. The product
+of ratios along the path gives the weight.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>wei=NULL</code>, a matrix of distances between <code>x</code> and
+<code>y</code>. If <code>wei</code> is not <code>NULL</code>, a list with a distance
+matrix and weight matrix (plus a matrix with eID identifiers
+for the path, if <code>getpath=TRUE</code>) is returned.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Javier Garcia-Pintado, e-mail: <a href="mailto:jgarciapintado@marum.de">jgarciapintado@marum.de</a></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">  if (1 &gt; 2) { # not run
+    dem &lt;- readGDAL(file.path(system.file('external',package='hydrosim'),
+                    'watershed1','IDRISI_maps','dem','dem.rst'))   # SpatialGridDataFrame
+    plotGmeta(layer=dem, xlim=662500 + 2500 * c(-1,+1),
+              ylim=4227500 + 2500 * c(-1,1), zlim='strloc', as.na=0)
+
+    # generate some crossing lines
+    zz &lt;- list()
+    zz[[1]] &lt;- digitGmeta(layer=dem, type='Lines', ID=1)
+    zz[[2]] &lt;- digitGmeta(layer=dem, type='Lines', ID=2)
+    zz[[3]] &lt;- digitGmeta(layer=dem, type='Lines', ID=3)
+    SL &lt;- SpatialLines(zz)
+    SG &lt;- sl2sg(SL, getpath=TRUE)
+    points(SG@v, cex=2)                    # plot SpatialGraph vertices
+
+    apath &lt;- SG@path[[1,2]]                # iteratively plot a path as an example
+    for (iv in 1:length(apath$v)) {
+      points(SG@v[apath$v[iv],], cex=2,pch=2)
+      if (iv == length(apath$v))
+        break
+      lines(SG@e[apath$e[iv],],col='blue',lwd=2,lty=2)
+      Sys.sleep(1)
+    }
+
+    # sample a few points [as a matrix] close to some edges
+    xy    &lt;- digit()                    # sample locations
+    xych  &lt;- pointsToLines(xy, SG@e)    # SpatialPointsDataFrame mapping
+    points(xy, col='blue', pch=3)
+    points(xych, col='darkgreen', pch=19)
+
+    # along-network distance
+    xyndis &lt;- distSG(SG, xych)
+
+    # state-dependent weighted along-network distance
+    SG@e@data$wxs &lt;- 3+round(runif(nrow(SG@e@data)),2)         # [m2] foo wetted cross-section areas
+    SG@e@data
+
+    xywdis &lt;- distSG(SG, xych, wei='wxs')
+    xywdis &lt;- xywdis$dis * xywdis$wei       # Schur weight application into distance estimation
+  }
+</code></pre>
+
+
+</div>

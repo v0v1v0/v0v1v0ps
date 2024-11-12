@@ -1,0 +1,172 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>composite-ranef</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Composite random effects
+</h2>
+
+<h3>Description</h3>
+
+<p>An example of a composite random effect is <code>corrMatrix(sex|pair)</code>. It combines features of a random-coefficient model <code>(sex|pair)</code> and of an autocorrelated random effect <code>corrMatrix(.|.)</code>. The random-coefficient model is characterized by a <code class="reqn">2*2</code> covariance matrix <b>C</b> for the random effects <code class="reqn">u_{1,pair}</code> and <code class="reqn">u_{2,pair}</code> both affecting each of the two sexes for each <code>pair</code>, and the <code>corrMatrix</code> random effect assumes that elements of each of the two vectors <code class="reqn">u_i=(u_{i,pair})</code> for <code>pair</code>=1,...,<code class="reqn">P</code> are correlated according to a given <code class="reqn">P*P</code> correlation matrix <b>A</b>. Then the composite random effect is defined as the one with 2<code class="reqn">P*</code>2<code class="reqn">P</code> covariance matrix <code>kronecker</code>(<b>C</b>,<b>A</b>).
+</p>
+<p>The definition of composite random effects through the <code>kronecker</code> product may be motivated and understood in light of a quantitative-genetics application (see help("Gryphon") for an example). In this context the two response variables are typically two individual traits. Each trait is affected by two sets of genes, the effect of each set being represented by a gaussian random effect (<code>u_1</code> or <code>u_2</code>). The effect of genetic relatedness on the correlation of random effects <code>u_i,ID</code> among individuals <code>ID</code> within each set <code class="reqn">i</code> of genes is described by the corrMatrix <b>A</b>. The effects on the two traits for each individual are interpreted as different linear combinations of these two random effects (the coefficients of these linear combinations determining the <b>C</b> matrix). Under these assumptions the correlation matrix of the responses (in order (trait, individual)=(1,1)...(1,ID)... (2,1)...(2,ID)...) is indeed <code>kronecker</code>(<b>C</b>,<b>A</b>).
+</p>
+<p>Composite random effects are not restricted to <code>corrMatrix</code> terms, and can also be fitted for multivariate-response models. For example, <code>Matern(mv(1,2)|longitude+latitude)</code> terms can be fitted, in which case the correlation model is still defined through the Kronecker product, where <b>A</b> will be a (fitted) Matérn correlation matrix, and <b>C</b> will be the correlation matrix of the fitted random-coefficient model for the <code>mv</code> virtual factor for multivariate response. 
+</p>
+<p>Implementation and tests of composite random effects is work in progress, with the following ones having been tested: <code>corrMatrix</code>, <code>Matern</code>, <code>Cauchy</code>, <code>adjacency</code>, <code>IMRF</code>, <code>AR1</code>, and to a lesser extent <code>MaternIMRFa</code>. Fits of other composite terms may fail. Even if they succeed, not all post-fit procedures may be operational: in particular, prediction (and then, simulation) with <code>newdata</code> may not yet work. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+Further, as for random-coefficient terms in univariate-response models, some components of the computed prediction variance depend on a poorly characterized approximation, yielding different results for different fitting algorithms (see Details in <code>predVar</code>).
+</p>
+<p>The summary of the model provides fitted parameters for <b>A</b> if this matrix derives from a parametric correlation model (e.g., <code>Matern</code>), and a description of the <b>C</b> matrix where it is viewed as a covariance matrix, parametrized by its variances and its correlation coefficient(s). In a standard random-coefficient model these variances would be those of the correlated  random effects (see <code>summary.HLfit</code>). In the composite random-effect model this is not necessarily so as the variance of the correlated random effects also depend on the variances implied by the <b>A</b> matrix, which are not necessarily 1 if <b>A</b> is a covariance matrix rather than simply a correlation matrix.    
+</p>
+<p>A <code>&lt;prefix&gt;(&lt;LHS&gt;|&lt;RHS&gt;)</code> term is *not* a composite random effect when the LHS in boolean, a factor from boolean, or “0+numeric”. See the Matérn examples, and the corrMatrix “<code>&lt;LHS&gt; is 0+numeric</code>” example, below.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (spaMM.getOption("example_maxtime")&gt;1.8) {
+
+########################
+#### corrMatrix examples
+########################
+
+## Toy data preparation
+
+data("blackcap")
+toy &lt;- blackcap
+toy$ID &lt;- gl(7,2)
+grp &lt;- rep(1:2,7)
+toy$migStatus &lt;- toy$migStatus +(grp==2)
+toy$loc &lt;- rownames(toy) # to use as levels matching the corrMatrix dimnames
+
+toy$grp &lt;- factor(grp)
+toy$bool &lt;- toy$grp==1L
+toy$boolfac &lt;- factor(toy$bool)
+toy$num &lt;- seq(from=1, to=2, length.out=14)
+
+## Build a toy corrMatrix as perturbation of identity matrix:
+n_rhs &lt;- 14L
+eps &lt;- 0.1
+set.seed(123)
+rcov &lt;- ((1-eps)*diag(n_rhs)+eps*rWishart(1,n_rhs,diag(n_rhs)/n_rhs)[,,1])
+# eigen(rcov)$values
+colnames(rcov) &lt;- rownames(rcov) &lt;- toy$loc # DON'T FORGET NAMES
+
+
+##### Illustrating the different LHS types
+
+### &lt;LHS&gt; is logical (TRUE/FALSE) =&gt; No induced random-coefficient C matrix; 
+#   corrMatrix affects only responses for which &lt;LHS&gt; is TRUE:
+#
+(fit1 &lt;- fitme(migStatus ~ bool + corrMatrix(bool|loc), data=toy, corrMatrix=rcov))
+#
+# Matrix::image(get_ZALMatrix(fit1))
+
+
+### &lt;RHS&gt; is a factor built from a logical =&gt; same a 'logical' case above:
+#
+(fit2 &lt;- fitme(migStatus ~ boolfac + corrMatrix(boolfac|loc), data=toy, corrMatrix=rcov))
+#
+# Matrix::image(get_ZALMatrix(fit2))
+
+
+### &lt;RHS&gt; is a factor not built from a logical: 
+# (grp|.) and (0+grp|.) lead to equivalent fits of the same composite model, 
+#   but contrasts are not used in the second case and the C matrices differ,
+#   as for standard random-coefficient models.
+#
+(fit1 &lt;- fitme(migStatus ~ grp +  corrMatrix(grp|loc), data=toy, corrMatrix=rcov))
+(fit2 &lt;- fitme(migStatus ~ grp +  corrMatrix(0+grp|loc), data=toy, corrMatrix=rcov))
+# 
+# =&gt; same fits, but different internal structures:
+Matrix::image(fit1$ZAlist[[1]]) # (contrasts used) 
+Matrix::image(fit2$ZAlist[[1]]) # (contrasts not used)
+# Also compare ranef(fit1) versus ranef(fit2) 
+#
+#
+## One can fix the C matrix, as for standard random-coefficient terms 
+#
+(fit1 &lt;- fitme(migStatus ~ grp +  corrMatrix(0+grp|loc),data=toy, corrMatrix=rcov, 
+               fixed=list(ranCoefs=list("1"=c(1,0.5,1)))))
+#       
+# same result without contrasts hence different 'ranCoefs':             
+#
+(fit2 &lt;- fitme(migStatus ~ grp +  corrMatrix(grp|loc), data=toy, corrMatrix=rcov, 
+               fixed=list(ranCoefs=list("1"=c(1,-0.5,1)))))
+
+
+### &lt;LHS&gt; is numeric (but not '0+numeric'):
+# composite model with C being 2*2 for Intercept and numeric variable
+#
+(fitme(migStatus ~ num +  corrMatrix(num|loc), data=toy, corrMatrix=rcov))
+
+### &lt;LHS&gt; is 0+numeric: no random-coefficient C matrix 
+#  as the Intercept is removed, but the correlated random effects 
+#  arising from the corrMatrix are multiplied by sqrt(&lt;numeric variable&gt;)
+#
+(fitme(migStatus ~ num +  corrMatrix(0+num|loc), data=toy, corrMatrix=rcov))
+
+
+### &lt;LHS&gt; for multivariate response (see help("Gryphon") for more typical example)
+## More toy data preparation for multivariate response
+ch &lt;- chol(rcov)
+set.seed(123)
+v1 &lt;- tcrossprod(ch,t(rnorm(14,sd=1)))
+v2 &lt;- tcrossprod(ch,t(rnorm(14,sd=1)))
+toy$status &lt;- 2*v1+v2
+toy$status2 &lt;- 2*v1-v2
+
+## Fit:
+fitmv(submodels=list(mod1=list(status ~ 1+ corrMatrix(0+mv(1,2)|loc)),
+                     mod2=list(status2 ~ 1+ corrMatrix(0+mv(1,2)|loc))), 
+      data=toy, corrMatrix=rcov)
+      
+##################################################
+#### Matern examples: sex-dependent random effects
+##################################################
+
+if (spaMM.getOption("example_maxtime")&gt;2) {
+data(Leuca)
+subLeuca &lt;- Leuca[c(1:10,79:88),] # subset for faster examples
+
+# The random effects in the following examples are composite because 'sex' is not 
+# boolean nor factor from boolean. If 'Matern(factor(female)|x+y)' were used, the effect 
+# would be the same 'Matern(female|x)', fitting 
+
+  fitme(fec_div ~ 1 + Matern(sex|x+y),data=subLeuca)  # =&gt; builds a random effect
+# correlated across sexes, from 2 independent realizations u_1 and u_2 of 20 values 
+# (for the 20 locations in the data). In a (sex|x) term the 20 values would be 
+# independent from each other within each u_i. In the Matern(sex|x+y) such 20 values 
+# are autocorrelated within each u_i.
+
+# For pedagogic purposes, one can also fit
+  fitme(fec_div ~ 1 + Matern(sex|x + y %in% sex),data=subLeuca)
+# which again builds a random effect from 2 independent realizations 
+# u_1 and u_2, but each u_i now contains two realizations u_i1 and u_i2 of 10 values,
+# autocorrelated within each u_ij following the Matern model, 
+# but independent between u_i1 and u_i2. As a result, the overall random effect in each sex, 
+# v_m or v_f, is a weighted sum of two sex-specific Matern random effect, 
+# so that v_m and v_f are independent from each other. 
+}
+
+}
+</code></pre>
+
+
+</div>

@@ -1,0 +1,279 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hoods2d</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Neighborhood Verification Statistics for a Gridded Verification Set.
+</h2>
+
+<h3>Description</h3>
+
+<p>Calculates most of the various neighborhood verification statistics for a gridded verification set as reviewed in Ebert (2008).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">hoods2d(object, which.methods = c("mincvr", "multi.event",
+                 "fuzzy", "joint", "fss", "pragmatic"), time.point = 1,
+                 obs = 1, model = 1, Pe = NULL, levels = NULL, max.n =
+                 NULL, smooth.fun = "hoods2dsmooth", smooth.params =
+                 NULL, rule = "&gt;=", verbose = FALSE)
+
+## S3 method for class 'hoods2d'
+plot(x, ..., add.text = FALSE)
+
+## S3 method for class 'hoods2d'
+print(x, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>list object of class “SpatialVx”.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which.methods</code></td>
+<td>
+<p>character vector giving the names of the methods.  Default is for the entire list to be executed.  See Details section for specific option information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time.point</code></td>
+<td>
+<p>numeric or character indicating which time point from the “SpatialVx” verification set to select for analysis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs, model</code></td>
+<td>
+<p>numeric indicating which observation/forecast model to select for the analysis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Pe</code></td>
+<td>
+<p>(optional) numeric vector of length q &gt;= 1 to be applied to the fields sPy and possibly sPx (see details section).  If NULL, then it is taken to be the most relaxed requirement (i.e., that an event occurs at least once in a neighborhood) of Pe=1/(nlen^2), where nlen is the length of the neighborhood.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>levels</code></td>
+<td>
+<p>numeric vector giving the successive values of the smoothing parameter.  For example, for the default method, these are the neighborhood lengths over which the levels^2 nearest neighbors are averaged for each point.  Values should make sense for the specific smoothing function.  For example, for the default method, these should be odd integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.n</code></td>
+<td>
+<p>(optional) single numeric giving the maximum neighborhood length to use.  Only used if levels are NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth.fun</code></td>
+<td>
+<p>character giving the name of a smoothing function to be applied.  Default is an average over the n^2 nearest neighbors, where n is taken to be each value of the <code>levels</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth.params</code></td>
+<td>
+<p>list object containing any optional arguments to <code>smooth.fun</code>.  Use NULL if none.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rule</code></td>
+<td>
+<p>character string giving the threshold rule to be applied.  See help file for <code>thresholder</code> function for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical, should progress information be printed to the screen?  Will also give the amount of time (in hours, minutes, or seconds) that the function took to run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>list object output from <code>hoods2d</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>add.text</code></td>
+<td>
+<p>logical, should the text values of FSS be added to its quilt plot?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>not used.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>hoods2d</code> uses an object of class “SpatialVx” that includes some information utilized by this function, including the thresholds to be used.  The neighborhood methods (cf. Ebert 2008, 2009; Gilleland et al., 2009, 2010) apply a (kernel) smoothing filter (cf. Hastie and Tibshirani, 1990) to either the raw forecast (and possibly also the observed) field(s) or to the binary counterpart(s) determined by thresholding.
+</p>
+<p>The specific smoothing filter applied for these methods could be of any type, but those described in Ebert (2008) are generally taken to be “neighborhood” filters.  In some circles, this is referred to as a convolution filter with a boxcar kernel.  Because the smoothing filter can be represented this way, it is possible to use the convolution theorem with the Fast Fourier Transform (FFT) to perform the neighborhood smoothing operation very quickly. The particular approach used here “zero pads” the field, and replaces all missing values with zero as well, which is also the approach proposed in Roberts and Lean (2008).  If any missing values are introduced after the convolution, they are removed.
+</p>
+<p>To simplify the notation for the descriptions of the specific methods employed here, the notation of Ebert (2008) is adopted.  That is, if a method uses neighborhood smoothed observations (NO), then the neighborhood smoothed observed field is denoted &lt;X&gt;s, and the associated binary field, by &lt;Ix&gt;s.  Otherwise, if the observation field is not smoothed (denoted by SO in Ebert, 2008), then simply X or Ix are used.  Similarly, for the forecast field, &lt;Y&gt;s or &lt;Iy&gt;s are used for neighborhood smoothed forecast fields (NF).  If it is the binary fields that are smoothed (e.g., the original fields are thresholded before smoothing), then the resulting fields are denoted &lt;Px&gt;s and &lt;Py&gt;s, resp.  Below, NO-NF indicates that a neighborhood smoothed observed field (&lt;Yx&gt;s, &lt;Ix&gt;s, or &lt;Px&gt;s) is compared with a neighborhood smoothed forecast field, and SO-NF indicates that the observed field is not smoothed.
+</p>
+<p>Options for which.methods include:
+</p>
+<p>“mincvr”: (NO-NF) The minimum coverage method compares &lt;Ix&gt;s and &lt;Iy&gt;s by thresholding the neighborhood smoothed fields &lt;Px&gt;s and &lt;Py&gt;s (i.e., smoothed versions of Ix and Iy) to obtain &lt;Ix&gt;s and &lt;Iy&gt;s.  Indicator fields &lt;Ix&gt;s and &lt;Iy&gt;s are created by thresholding &lt;Px&gt;s and &lt;Py&gt;s by frequency threshold <code>Pe</code> given by the <code>obj</code> argument.  Scores calculated between &lt;Ix&gt;s and &lt;Iy&gt;s include: probability of detecting an event (pod, also known as the hit rate), false alarm ratio (far) and ets (cf. Ebert, 2008, 2009).
+</p>
+<p>“multi.event”: (SO-NF) The Multi-event Contingency Table method compares the binary observed field Ix against the smoothed forecast indicator field, &lt;Iy&gt;s, which is determined similarly as for “mincvr” (i.e., using Pe as a threshold on &lt;Py&gt;s).  The hit rate and false alarm rate (F) are calculated (cf. Atger, 2001).
+</p>
+<p>“fuzzy”: (NO-NF) The fuzzy logic approach compares &lt;Px&gt;s to &lt;Py&gt;s by creating a new contingency table where hits = sum_i min(&lt;Px&gt;s_i,&lt;Py&gt;s_i), misses = sum_i min(&lt;Px&gt;s_i,1-&lt;Py&gt;s_i), false alarms = sum_i min(1-&lt;Px&gt;s_i,&lt;Py&gt;s_i), and correct negatives = sum_i min(1-&lt;Px&gt;s_i,1-&lt;Py&gt;s_i) (cf. Ebert 2008).
+</p>
+<p>“joint”: (NO-NF) Similar to “fuzzy” above, but hits  = sum_i prod(&lt;Px&gt;s_i,&lt;Py&gt;s_i), misses = sum_i prod(&lt;Px&gt;s_i,1-&lt;Py&gt;s_i), false alarms = sum_i prod(1-&lt;Px&gt;s_i,&lt;Py&gt;s_i), and correct negatives = sum_i prod(1-&lt;Px&gt;s_i,1-&lt;Py&gt;s_i) (cf. Ebert, 2008).
+</p>
+<p>“fss”: (NO-NF) Compares &lt;Px&gt;s and &lt;Py&gt;s directly using a Fractions Brier and Fractions Skill Score (FBS and FSS, resp.), where FBS is the mean square difference between &lt;Px&gt;s and &lt;Py&gt;s, and the FSS is one minus the FBS divided by a reference MSE given by the sum of the sum of squares of &lt;Px&gt;s and &lt;Py&gt;s individually, divided by the total (cf. Roberts and Lean, 2008).
+</p>
+<p>“pragmatic”: (SO-NF) Compares Ix with &lt;Py&gt;s, calculating the Brier and Brier Skill Score (BS and BSS, resp.), where the reference forecast used for the BSS is taken to be the mean square error between the base rate and Ix (cf. Theis et al., 2005).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list object of class “hoods2d” with components determined by the <code>which.methods</code> argument.  Each component is itself a list object containing relevant components to the given method.  For example, hit rate is abbreviated pod here, and if this is an output for a method, then there will be a component named pod (all lower case).  The Gilbert Skill Score is abbreviated 'ets' (equitable threat score; again all lower case here).  The list components will be some or all of the following.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>mincvr </code></td>
+<td>
+<p>list with components: pod, far and ets</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multi.event </code></td>
+<td>
+<p>list with components: pod, f and hk</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fuzzy</code></td>
+<td>
+<p>list with components: pod, far and ets</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>joint </code></td>
+<td>
+<p>list with components: pod, far and ets</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fss</code></td>
+<td>
+<p>list with components: fss, fss.uniform, fss.random</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pragmatic</code></td>
+<td>
+<p>list with components: bs and bss</p>
+</td>
+</tr>
+</table>
+<p>New attributes are added giving the values for some of the optional arguments: levels, max.n, smooth.fun, smooth.params and Pe.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Thresholded fields are taken to be &gt;= the threshold.</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eric Gilleland
+</p>
+
+
+<h3>References</h3>
+
+<p>Atger, F. (2001) Verification of intense precipitation forecasts from single models and ensemble prediction systems.  <em>Nonlin. Proc. Geophys.</em>, <b>8</b>, 401–417.
+</p>
+<p>Ebert, E. E. (2008) Fuzzy verification of high resolution gridded forecasts: A review and proposed framework.  <em>Meteorol. Appl.</em>, <b>15</b>, 51–64. doi:10.1002/met.25 
+</p>
+<p>Ebert, E. E. (2009) Neighborhood verification: A strategy for rewarding close forecasts.  <em>Wea. Forecasting</em>, <b>24</b>, 1498–1510, doi:10.1175/2009WAF2222251.1.
+</p>
+<p>Gilleland, E., Ahijevych, D., Brown, B. G., Casati, B. and Ebert, E. E. (2009) Intercomparison of Spatial Forecast Verification Methods. <em>Wea. Forecasting</em>, <b>24</b>, 1416–1430, doi:10.1175/2009WAF2222269.1.
+</p>
+<p>Gilleland, E., Ahijevych, D. A., Brown, B. G. and Ebert, E. E. (2010) Verifying Forecasts Spatially. <em>Bull. Amer. Meteor. Soc.</em>, October, 1365–1373.
+</p>
+<p>Hastie, T. J. and Tibshirani, R. J. (1990) <em>Generalized Additive Models</em>. Chapman and Hall/CRC Monographs on Statistics and Applied Probability 43, 335pp.
+</p>
+<p>Roberts, N. M. and Lean, H. W. (2008) Scale-selective verification of rainfall accumulations from high-resolution forecasts of convective events.  <em>Mon. Wea. Rev.</em>, <b>136</b>, 78–97. doi:10.1175/2007MWR2123.1.
+</p>
+<p>Theis, S. E., Hense, A. Damrath, U. (2005) Probabilistic precipitation forecasts from a deterministic model: A pragmatic approach.  <em>Meteorol. Appl.</em>, <b>12</b>, 257–268.
+</p>
+<p>Yates, E., Anquetin, S. Ducrocq, V., Creutin, J.-D., Ricard, D. and Chancibault, K. (2006) Point and areal validation of forecast precipitation fields.  <em>Meteorol. Appl.</em>, <b>13</b>, 1–20.
+</p>
+<p>Zepeda-Arce, J., Foufoula-Georgiou, E., Droegemeier, K. K. (2000) Space-time rainfall organization and its role in validating quantitative precipitation forecasts.  <em>J. Geophys. Res.</em>, <b>105</b>(D8), 10,129–10,146.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>fft</code>, <code>kernel2dsmooth</code>, <code>plot.hoods2d</code>, <code>vxstats</code>, <code>thresholder</code> </p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">x &lt;- y &lt;- matrix( 0, 50, 50)
+x[ sample(1:50,10), sample(1:50,10)] &lt;- rexp( 100, 0.25)
+y[ sample(1:50,20), sample(1:50,20)] &lt;- rexp( 400)
+hold &lt;- make.SpatialVx( x, y, thresholds = c(0.1, 0.5), field.type = "Random Exp. Var." )
+look &lt;- hoods2d( hold, which.methods=c("multi.event", "fss"), levels=c(1, 3, 19))
+look
+plot(look)
+
+## Not run: 
+data( "UKobs6" )
+data( "UKfcst6" )
+data( "UKloc" )
+
+hold &lt;- make.SpatialVx( UKobs6, UKfcst6, thresholds = c(0.01, 20.01),
+    projection = TRUE, map = TRUE, loc = UKloc, loc.byrow = TRUE,
+    field.type = "Precipitation", units = "mm/h",
+    data.name = "Nimrod", obs.name = "Observations 6",
+    model.name = "Forecast 6" )
+
+hold
+plot(hold)
+hist(hold, col="darkblue")
+
+look &lt;- hoods2d(hold, which.methods=c("multi.event", "fss"), 
+    levels=c(1, 3, 5, 9, 17), verbose=TRUE)
+plot(look)
+
+data( "geom001" )
+data( "geom000" )
+data( "ICPg240Locs" )
+
+hold &lt;- make.SpatialVx( geom000, geom001, thresholds = c(0.01, 50.01),
+    projection = TRUE, map = TRUE, loc = ICPg240Locs, loc.byrow = TRUE,
+    field.type = "Geometric Objects Pretending to be Precipitation",
+    units = "mm/h", data.name = "ICP Geometric Cases", obs.name = "geom000",
+    model.name = "geom001" )
+
+look &lt;- hoods2d(hold, levels=c(1, 3, 9, 17, 33, 65, 129, 257), verbose=TRUE)
+
+plot( look) # Might want to use 'pdf' first.
+
+    
+## End(Not run)
+</code></pre>
+
+
+</div>

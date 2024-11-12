@@ -1,0 +1,294 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>semlbci</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Likelihood-Based Confidence Interval</h2>
+
+<h3>Description</h3>
+
+<p>Find the likelihood-based confidence intervals (LBCIs) for
+selected free parameters in an SEM output.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">semlbci(
+  sem_out,
+  pars = NULL,
+  include_user_pars = TRUE,
+  remove_variances = TRUE,
+  remove_intercepts = TRUE,
+  ciperc = 0.95,
+  standardized = FALSE,
+  method = c("wn", "ur"),
+  robust = c("none", "satorra.2000"),
+  try_k_more_times = 2,
+  semlbci_out = NULL,
+  check_fit = TRUE,
+  ...,
+  parallel = FALSE,
+  ncpus = 2,
+  use_pbapply = TRUE,
+  loadbalancing = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sem_out</code></td>
+<td>
+<p>The SEM output. Currently supports
+lavaan::lavaan outputs only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars</code></td>
+<td>
+<p>The positions of the parameters for which the LBCIs are
+to be searched. Use the position as appeared on the parameter
+tables of the <code>sem_out</code>. If <code>NULL</code>, the default, then LBCIs for
+all free parameters will be searched. Can also be a vector of
+strings to indicate the parameters on the parameter table. The
+parameters should be specified in <code>lavaan::lavaan()</code> syntax. The
+vector of strings will be converted by <code>syntax_to_i()</code> to
+parameter positions. See <code>syntax_to_i()</code> on how to specify the parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_user_pars</code></td>
+<td>
+<p>Logical. Whether all user-defined parameters
+are automatically included when <code>pars</code> is not set. Default is <code>TRUE</code>.
+If <code>pars</code> is explicitly set, this argument will be ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>remove_variances</code></td>
+<td>
+<p>Logical. Whether variances and error variances
+will be removed. Default is <code>TRUE</code>, removing all variances and error
+variances even if specified in <code>pars</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>remove_intercepts</code></td>
+<td>
+<p>Logical. Whether intercepts will be removed.
+Default is <code>TRUE</code>, removing all intercepts (parameters with operator <code>~1</code>).
+Intercepts are not yet supported in standardized solution and so will
+always be removed if <code>standardized = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ciperc</code></td>
+<td>
+<p>The proportion of coverage for the confidence
+interval. Default is .95, requesting a 95 percent confidence
+interval.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>standardized</code></td>
+<td>
+<p>If <code>TRUE</code>, the LBCI is for the standardized estimates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>The method to be used to search for the confidence
+bounds. Supported methods are<code>"wn"</code> (Wu-Neale-2012), the default,
+and <code>"ur"</code> (root finding by <code>stats::uniroot()</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>robust</code></td>
+<td>
+<p>Whether the LBCI based on robust likelihood ratio
+test is to be found. Only <code>"satorra.2000"</code> in <code>lavaan::lavTestLRT()</code>
+is supported for now, implemented by the method proposed by Falk
+(2018). If <code>"none"</code>, the default, then likelihood ratio test based
+on maximum likelihood estimation will be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>try_k_more_times</code></td>
+<td>
+<p>How many more times to try if failed.
+Default is 2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>semlbci_out</code></td>
+<td>
+<p>An <code>semlbci-class</code> object. If provided, parameters already
+with LBCIs formed will be excluded from <code>pars</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_fit</code></td>
+<td>
+<p>If <code>TRUE</code> (default), the input (<code>sem_out</code>) will
+be checked by <code>check_sem_out()</code>. If not
+supported, an error will be raised. If <code>FALSE</code>,
+the check will be skipped and the LBCIs will be
+searched even for a model or parameter not
+supported. Set to <code>TRUE</code> only for testing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments to be passed to <code>ci_bound_wn_i()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>If <code>TRUE</code>, will use parallel processing to do the search.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncpus</code></td>
+<td>
+<p>The number of workers, if <code>parallel</code> is <code>TRUE</code>.
+Default is 2. This number should not be larger than the number CPU
+cores.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_pbapply</code></td>
+<td>
+<p>If <code>TRUE</code> and <code>pbapply</code>
+is installed, <code>pbapply::pbapply()</code> will be used to display a
+progress bar when finding the intervals. Default is <code>TRUE</code>.
+Ignored if <code>pbapply</code> is not installed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loadbalancing</code></td>
+<td>
+<p>Whether load
+balancing is used when <code>parallel</code>
+is <code>TRUE</code> and <code>use_pbapply</code> is
+<code>TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>semlbci()</code> finds the positions of the selected parameters
+in the parameter table and then calls <code>ci_i_one()</code> once for each
+of them. For the technical details, please see <code>ci_i_one()</code> and
+the functions it calls to find a confidence bound, currently
+<code>ci_bound_wn_i()</code>. <code>ci_bound_wn_i()</code> uses the approach proposed by
+Wu and Neale (2012) and illustrated by Pek and Wu (2015).
+</p>
+<p>It supports updating an output of <code>semlbci()</code> by setting
+<code>semlbci_out</code>. This allows forming LBCIs for some parameters after
+those for some others have been formed.
+</p>
+<p>If possible, parallel processing should be used (see <code>parallel</code> and
+<code>ncpus</code>), especially for a model with many parameters.
+</p>
+<p>If the search for some of the confidence bounds failed, with <code>NA</code> for the
+bounds, try increasing <code>try_k_more_times</code>.
+</p>
+<p>The SEM output will first be checked by <code>check_sem_out()</code> to see
+whether the model and the estimation method are supported. To skip this
+test (e.g., for testing or experimenting with some models and estimators),
+set <code>check_fit</code> to <code>FALSE</code>.
+</p>
+<p>Examples and technical details can be found at Cheung
+and Pesigan (2023), the website of the <code>semlbci</code>
+package (https://sfcheung.github.io/semlbci/),
+and the technical appendices at
+(https://sfcheung.github.io/semlbci/articles/).
+</p>
+<p>It currently supports lavaan::lavaan outputs only.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>semlbci</code>-class object similar to the parameter table
+generated by <code>lavaan::parameterEstimates()</code>, with the LBCIs for
+selected parameters added. Diagnostic information, if requested,
+will be included in the attributes. See <code>print.semlbci()</code> for options
+available.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Shu Fai Cheung <a href="https://orcid.org/0000-0002-9871-9448">https://orcid.org/0000-0002-9871-9448</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Cheung, S. F., &amp; Pesigan, I. J. A. (2023). <em>semlbci</em>:
+An R package for forming likelihood-based confidence
+intervals for parameter estimates, correlations,
+indirect effects, and other derived parameters.
+<em>Structural Equation Modeling: A Multidisciplinary Journal</em>,
+<em>30</em>(6), 985–999.
+<a href="https://doi.org/10.1080/10705511.2023.2183860">doi:10.1080/10705511.2023.2183860</a>
+</p>
+<p>Falk, C. F. (2018). Are robust standard errors the best approach
+for interval estimation with nonnormal data in structural equation
+modeling? <em>Structural Equation Modeling: A Multidisciplinary
+Journal, 25</em>(2), 244-266.
+<a href="https://doi.org/10.1080/10705511.2017.1367254">doi:10.1080/10705511.2017.1367254</a>
+</p>
+<p>Pek, J., &amp; Wu, H. (2015). Profile likelihood-based confidence
+intervals and regions for structural equation models.
+<em>Psychometrika, 80</em>(4), 1123-1145.
+<a href="https://doi.org/10.1007/s11336-015-9461-1">doi:10.1007/s11336-015-9461-1</a>
+</p>
+<p>Wu, H., &amp; Neale, M. C. (2012). Adjusted confidence intervals for a
+bounded parameter. <em>Behavior Genetics, 42</em>(6), 886-898.
+<a href="https://doi.org/10.1007/s10519-012-9560-z">doi:10.1007/s10519-012-9560-z</a>
+</p>
+<p>Pritikin, J. N., Rappaport, L. M., &amp; Neale, M. C. (2017). Likelihood-based
+confidence intervals for a parameter with an upper or lower bound.
+<em>Structural Equation Modeling: A Multidisciplinary Journal, 24</em>(3), 395-401.
+<a href="https://doi.org/10.1080/10705511.2016.1275969">doi:10.1080/10705511.2016.1275969</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>print.semlbci()</code>, <code>confint.semlbci()</code>, <code>ci_i_one()</code>, <code>ci_bound_wn_i()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(lavaan)
+mod &lt;-
+"
+m ~ a*x
+y ~ b*m
+ab := a * b
+"
+fit_med &lt;- sem(mod, simple_med, fixed.x = FALSE)
+p_table &lt;- parameterTable(fit_med)
+p_table
+lbci_med &lt;- semlbci(fit_med,
+                    pars = c("m ~ x",
+                             "y ~ m",
+                             "ab :="))
+lbci_med
+
+</code></pre>
+
+
+</div>

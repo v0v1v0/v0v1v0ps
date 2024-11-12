@@ -1,0 +1,170 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>NR.rho</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Outer Newton-Raphson algorithm for smoothing parameters estimation via LCV or LAML optimization</h2>
+
+<h3>Description</h3>
+
+<p>Applies Newton-Raphson algorithm for smoothing parameters estimation. Two specific modifications aims at guaranteeing
+convergence : first the hessian is perturbed whenever it is not positive definite and second, at each step, if LCV or -LAML
+is not minimized, the step is halved until it is.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">NR.rho(
+  build,
+  rho.ini,
+  data,
+  formula,
+  max.it.beta = 200,
+  max.it.rho = 30,
+  beta.ini = NULL,
+  detail.rho = FALSE,
+  detail.beta = FALSE,
+  nb.smooth,
+  tol.beta = 1e-04,
+  tol.rho = 1e-04,
+  step.max = 5,
+  method = "LAML"
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>build</code></td>
+<td>
+<p>list of objects returned by <code>model.cons</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.ini</code></td>
+<td>
+<p>vector of initial log smoothing parameters; if it is NULL, all log lambda are set to -1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>formula object specifying the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.it.beta</code></td>
+<td>
+<p>maximum number of iterations to reach convergence in the regression parameters; default is 200</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.it.rho</code></td>
+<td>
+<p>maximum number of iterations to reach convergence in the smoothing parameters; default is 30</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.ini</code></td>
+<td>
+<p>vector of initial regression parameters; default is NULL, in which case the first beta will be <code>log(sum(event)/sum(t1))</code> and the others will be zero (except if there are "by" variables or if there is a piecewise constant hazard specification in which cases all betas are set to zero)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detail.rho</code></td>
+<td>
+<p>if TRUE, details concerning the optimization process in the smoothing parameters are displayed; default is FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detail.beta</code></td>
+<td>
+<p>if TRUE, details concerning the optimization process in the regression parameters are displayed; default is FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb.smooth</code></td>
+<td>
+<p>number of smoothing parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol.beta</code></td>
+<td>
+<p>convergence tolerance for regression parameters; default is <code>1e-04</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol.rho</code></td>
+<td>
+<p>convergence tolerance for smoothing parameters; default is <code>1e-04</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step.max</code></td>
+<td>
+<p>maximum absolute value possible for any component of the step vector (on the log smoothing parameter scale); default is 5</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>LCV or LAML; default is LAML</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If we note <code>val</code> the current LCV or LAML value,
+<code>val.old</code> the previous one and <code>grad</code> the gradient vector of LCV or LAML with respect to the log smoothing parameters, the algorithm goes on
+<code>while(abs(val-val.old)&gt;tol.rho|any(abs(grad)&gt;tol.rho))</code>
+</p>
+
+
+<h3>Value</h3>
+
+<p>object of class survPen (see <code>survPen.fit</code> for details)
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(survPen)
+
+# standard spline of time with 4 knots
+
+data &lt;- data.frame(time=seq(0,5,length=100),event=1,t0=0)
+
+form &lt;- ~ smf(time,knots=c(0,1,3,5))
+
+t1 &lt;- eval(substitute(time), data)
+t0 &lt;- eval(substitute(t0), data)
+event &lt;- eval(substitute(event), data)
+	
+# Setting up the model before fitting
+model.c &lt;- model.cons(form,lambda=0,data.spec=data,t1=t1,t1.name="time",
+t0=rep(0,100),t0.name="t0",event=event,event.name="event",
+expected=0,expected.name=NULL,type="overall",n.legendre=20,
+cl="survPen(form,data,t1=time,event=event)",beta.ini=NULL)
+ 
+# Estimating the smoothing parameter and the regression parameters
+# we need to apply a reparameterization to model.c before fitting
+constructor &lt;- repam(model.c)$build # model constructor
+constructor$optim.rho &lt;- 1 # we tell it we want to estimate the log smoothing parameters (rho)
+Newton2 &lt;- NR.rho(constructor,rho.ini=-1,data,form,nb.smooth=1,detail.rho=TRUE)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,151 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smooths</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Smooth Terms in SECR Models </h2>
+
+<h3>Description</h3>
+
+<p>From version 2.9.0, the model formulae provided to <code>secr.fit</code> may
+include smooth terms as specified for the <span class="pkg">mgcv</span> function ‘gam’,
+with some restrictions. Smooth terms may be used for both density and
+detection parameters.
+</p>
+
+
+<h3>Details</h3>
+
+<p>The specification of smooth terms is explained in
+<code>formula.gam</code>. Only a subset of options are relevant
+to ‘secr’. Penalized splines are not available. The smooth function
+may be ‘s’ or ‘te’.
+</p>
+<p>The ‘wiggliness’ of the curve is controlled by the argument k,
+which in this implementation is set by the user. The argument ‘fx’
+should be set to TRUE.
+</p>
+
+
+
+
+
+
+
+<p>See also the example in <a href="https://www.otago.ac.nz/density/pdfs/secr-densitysurfaces.pdf">secr-densitysurfaces.pdf</a>.
+</p>
+
+
+<h3>Background</h3>
+
+<p>Regression splines are a very flexible way to represent non-linear
+responses in generalized additive models (e.g., <span class="pkg">mgcv</span>, Wood
+2006). Borchers and Kidney (2014) have shown how they may be used
+to model 2-dimensional trend in density in <span class="pkg">secrgam</span>, an <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span>
+package that extends <span class="pkg">secr</span>. Their approach is to use <span class="pkg">mgcv</span>
+to construct regression spline basis functions from mask x- and
+y-coordinates, and possibly additional mask covariates, and to pass
+these as covariates to <span class="pkg">secr</span>. The idea of using <span class="pkg">mgcv</span> to
+construct the basis functions is applied within <span class="pkg">secr</span> from version 2.9.
+</p>
+<p>Smooth semi-parametric responses are also useful for modelling
+variation in detection parameters such as g0 and sigma over time, or
+in response to individual or detector-level covariates, when (1) a
+linear or other parametric response is arbitrary or implausible, and
+(2) sampling spans a range of times or levels of the covariate(s).
+</p>
+<p>For a concrete example, consider a population sampled monthly for a
+year (i.e., 12 ‘sessions’). If home range size varies seasonally then
+the parameter sigma may vary in a more-or-less sinusoidal fashion. A
+linear trend is obviously inadequate, and a quadratic is not much
+better. However, a sine curve is hard to fit (we would need to
+estimate its phase, amplitude, mean and spatial scale) and assumes the
+increase and decrease phases are equally steep. An extreme solution is
+to treat month as a factor and estimate a separate parameter for each
+level (month). A smooth (semi-parametric) curve may capture the main
+features of seasonal variation with fewer parameters.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>This implementation of smooth models results in large fitted objects, on
+account of the need to store setup information from <span class="pkg">mgcv</span>. It is
+also vulnerable to future changes in <span class="pkg">mgcv</span>.
+</p>
+<p>Expect that the implementation will change in later versions of
+<span class="pkg">secr</span>, and that smooth models fitted in the this version will not
+necessarily be compatible with <code>predict</code> and
+<code>predictDsurface</code> in later versions.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Setting the intercept of a smooth to zero is not a canned option in
+<span class="pkg">mgcv</span>, and is not offered in <span class="pkg">secr</span>. It may be achieved by
+placing a knot at zero and hacking the matrix of basis functions to
+drop the corresponding column, plus some more jiggling.
+
+</p>
+
+
+<h3>References</h3>
+
+ 
+<p>Borchers, D. L. and Kidney, D. (2014) <em>Flexible density surface estimation for spatially explicit capture–recapture surveys</em>. Technical Report, University of St Andrews.
+</p>
+<p>Wood, S. N. (2006) <em>Generalized Additive Models: An Introduction with
+R.</em> Chapman and Hall/CRC.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>formula.gam</code> 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+## smooth density surface
+possum.model.sxy &lt;- secr.fit(possumCH, mask = possummask,
+    model = D ~ s(x,y, k = 6, fx = TRUE), trace = FALSE)
+fittedsurface &lt;- predictDsurface(possum.model.sxy)
+par(mar = c(1,1,1,6))
+plot(fittedsurface)
+plot(fittedsurface, plottype = 'contour', add = TRUE)
+par(mar = c(5,4,4,2) + 0.1)  ## reset to default
+
+## Now try smooth on g0
+
+## For the smooth we use 'Session' which is coded numerically (0:4)
+## rather than the factor 'session' ('2005', '2006', '2007', '2008',
+## '2009')
+
+ovenbird.model.g0 &lt;- secr.fit(ovenCH, mask = ovenmask,
+    model = g0 ~ session, trace = FALSE)
+ovenbird.model.sg0 &lt;- secr.fit(ovenCH, mask = ovenmask,
+    model = g0 ~ s(Session, k = 3, fx = TRUE), trace = FALSE)
+
+AIC(ovenbird.model.g0, ovenbird.model.sg0)
+
+## Or over occasions within a session...
+
+fit.sT3 &lt;- secr.fit(captdata, model = g0 ~ s(T, k = 3, fx = TRUE),
+    trace = FALSE)
+pred &lt;- predict(fit.sT3, newdata = data.frame(T = 0:4))
+
+plot(sapply(pred, '[', 'g0', 'estimate'))
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

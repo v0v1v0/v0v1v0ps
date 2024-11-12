@@ -1,0 +1,202 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spiro</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Import and process raw data from metabolic carts/spiroergometric measures</h2>
+
+<h3>Description</h3>
+
+<p><code>spiro()</code> wraps multiple functions to import and process raw data from
+metabolic carts into a <code>data.frame</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spiro(
+  file,
+  device = NULL,
+  bodymass = NULL,
+  hr_file = NULL,
+  hr_offset = 0,
+  protocol = NULL,
+  anonymize = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>file</code></td>
+<td>
+<p>The absolute or relative path of the file that contains the gas
+exchange data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>device</code></td>
+<td>
+<p>A character string, specifying the device for measurement. By
+default the device type is guessed by the characteristics of the
+<code>file</code>. This can be overridden by setting the argument to
+<code>"cortex"</code>, <code>"cosmed"</code>, <code>"vyntus"</code> or <code>"zan"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bodymass</code></td>
+<td>
+<p>Numeric value for the individual's body mass, if the default
+value saved in the <code>file</code> should be overridden.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hr_file</code></td>
+<td>
+<p>The absolute or relative path of a <code>*tcx</code> file that
+contains additional heart rate data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hr_offset</code></td>
+<td>
+<p>An integer, corresponding to the temporal offset of the
+heart-rate file. By default the start of the heart rate measurement is
+linked to the start of the gas exchange measurement. A positive value
+means, that the heart rate measurement started after the begin of the gas
+exchange measurements; a negative value means it started before.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>protocol</code></td>
+<td>
+<p>A <code>data.frame</code> by <code>set_protocol</code> or
+<code>set_protocol_manual</code> containing the test protocol. This is
+automatically guessed by default. Set to NA to skip protocol guessing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>anonymize</code></td>
+<td>
+<p>Whether meta data should be anonymized during import.
+Defaults to TRUE. See <code>get_anonid</code> for more information.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function performs multiple operations on raw data from metabolic carts.
+It imports the raw data from a file, which might be complemented by an
+additional <code>.tcx</code> file with heart rate data.
+</p>
+<p>After using this function, you may summarize the resulting data frame with
+<code>spiro_summary</code> and <code>spiro_max</code>, or plot it with
+<code>spiro_plot</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>data.frame</code> of the class <code>spiro</code> with cardiopulmonary
+parameters interpolated to seconds and the corresponding load data.
+</p>
+<p>The attribute <code>"protocol"</code> provides additional information on the
+underlying testing protocol. The attribute <code>"info"</code> contains
+additional meta data from the original raw data file. The attribute
+<code>"raw"</code> gives the imported raw data (without interpolation, similar to
+calling <code>spiro_raw</code>).
+</p>
+
+
+<h3>Import</h3>
+
+<p>Different metabolic carts yield different output formats for their data. By
+default, this function will guess the used device based on the
+characteristics of the given file. This behavior can be overridden by
+explicitly stating the <code>device</code> argument.
+</p>
+<p>The currently supported metabolic carts are:
+</p>
+
+<ul>
+<li> <p><strong>CORTEX</strong> (<code>.xlsx</code>, <code>.xls</code> or files <code>.xml</code> in
+English or German language)
+</p>
+</li>
+<li> <p><strong>COSMED</strong> (<code>.xlsx</code> or <code>.xls</code> files, in English or
+German language)
+</p>
+</li>
+<li> <p><strong>Vyntus</strong> (<code>.txt</code> files in French, German or Norwegian
+language)
+</p>
+</li>
+<li> <p><strong>ZAN</strong> (<code>.dat</code> files in German language, usually with
+names in the form of <code>"EXEDxxx"</code>)
+</p>
+</li>
+</ul>
+<p>The spiro function can import personal meta data (name, sex, birthday, ...).
+By default this data is anonymized with <code>anonymize = TRUE</code>, see
+<code>get_anonid</code> for more information.
+</p>
+
+
+<h3>Processing</h3>
+
+<p>Breath-by-breath data is linearly interpolated to get data points for every
+full second. Based on the given load data, the underlying exercise protocol
+is guessed and applied to the data. If no load data is available or the
+protocol guess turns wrong, you can manually specify the exercise
+<code>protocol</code> by using <code>set_protocol</code> or
+<code>set_protocol_manual</code>. If you want to skip the automated protocol
+guessing without providing an alternative, set <code>protocol = NA</code>. Note
+that in this case, some functions relying on load data (such as
+<code>spiro_summary</code>) will not work.
+</p>
+<p>Additional variables of gas exchange are calculated for further analysis. Per
+default the body mass saved in the file's metadata is used for calculating
+relative measures. It is possible to specify <code>bodymass</code> manually to the
+function, overriding that value.
+</p>
+<p>Protocols, heart rate data and body mass information can also be given in a
+piping coding style using the functions <code>add_protocol</code>,
+<code>add_hr</code> and <code>add_bodymass</code> (see examples).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># get example file
+file &lt;- spiro_example("zan_gxt")
+
+out &lt;- spiro(file)
+head(out)
+
+# import with user-defined test profile
+p &lt;- set_protocol(pt_pre(60), pt_steps(300, 2, 0.4, 9, 30))
+out2 &lt;- spiro(file, protocol = p)
+head(out2)
+
+# import with additional heart rate data
+oxy_file &lt;- spiro_example("zan_ramp")
+hr_file &lt;- spiro_example("hr_ramp.tcx")
+
+out3 &lt;- spiro(oxy_file, hr_file = hr_file)
+head(out3)
+
+# use the add_* functions in a pipe
+# Note: base R pipe requires R version 4.1 or greater)
+## Not run: 
+spiro(file) |&gt;
+  add_hr(hr_file = hr_file, hr_offset = 0) |&gt;
+  add_bodymass(68.2)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

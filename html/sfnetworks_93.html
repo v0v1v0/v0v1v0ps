@@ -1,0 +1,225 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>st_network_paths</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Paths between points in geographical space</h2>
+
+<h3>Description</h3>
+
+<p>Combined wrapper around <code>shortest_paths</code>,
+<code>all_shortest_paths</code> and
+<code>all_simple_paths</code> from <code>igraph</code>,
+allowing to provide any geospatial point as <code>from</code> argument and any
+set of geospatial points as <code>to</code> argument. If such a geospatial point
+is not equal to a node in the network, it will be snapped to its nearest
+node before calculating the shortest or simple paths.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">st_network_paths(
+  x,
+  from,
+  to = igraph::V(x),
+  weights = NULL,
+  type = "shortest",
+  use_names = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object of class <code>sfnetwork</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from</code></td>
+<td>
+<p>The geospatial point from which the paths will be
+calculated. Can be an object an object of class <code>sf</code> or
+<code>sfc</code>, containing a single feature. When multiple features
+are given, only the first one is used.
+Alternatively, it can be an integer, referring to the index of the
+node from which the paths will be calculated, or a character,
+referring to the name of the node from which the paths will be
+calculated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>to</code></td>
+<td>
+<p>The (set of) geospatial point(s) to which the paths will be
+calculated. Can be an object of  class <code>sf</code> or
+<code>sfc</code>.
+Alternatively it can be a numeric vector containing the indices of the nodes
+to which the paths will be calculated, or a character vector
+containing the names of the nodes to which the paths will be
+calculated. By default, all nodes in the network are included.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>The edge weights to be used in the shortest path calculation.
+Can be a numeric vector giving edge weights, or a column name referring to
+an attribute column in the edges table containing those weights. If set to
+<code>NULL</code>, the values of a column named <code>weight</code> in the edges table
+will be used automatically, as long as this column is present. If not, the
+geographic edge lengths will be calculated internally and used as weights.
+If set to <code>NA</code>, no weights are used, even if the edges have a
+<code>weight</code> column. Ignored when <code>type = 'all_simple'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Character defining which type of path calculation should be
+performed. If set to <code>'shortest'</code> paths are calculated using
+<code>shortest_paths</code>, if set to
+<code>'all_shortest'</code> paths are calculated using
+<code>all_shortest_paths</code>, if set to
+<code>'all_simple'</code> paths are calculated using
+<code>all_simple_paths</code>. Defaults to <code>'shortest'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_names</code></td>
+<td>
+<p>If a column named <code>name</code> is present in the nodes
+table, should these names be used to encode the nodes in a path, instead of
+the node indices? Defaults to <code>TRUE</code>. Ignored when the nodes table does
+not have a column named <code>name</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments passed on to the corresponding
+<code>igraph</code> or
+<code>igraph</code> function. Arguments
+<code>predecessors</code> and <code>inbound.edges</code> are ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Spatial features provided to the <code>from</code> and/or
+<code>to</code> argument don't necessarily have to be points. Internally, the
+nearest node to each feature is found by calling
+<code>st_nearest_feature</code>, so any feature with a geometry type
+that is accepted by that function can be provided as <code>from</code> and/or
+<code>to</code> argument.
+</p>
+<p>When directly providing integer node indices or character node names to the
+<code>from</code> and/or <code>to</code> argument, keep the following in mind. A node
+index should correspond to a row-number of the nodes table of the network.
+A node name should correspond to a value of a column in the nodes table
+named <code>name</code>. This column should contain character values without
+duplicates.
+</p>
+<p>For more details on the wrapped functions from <code>igraph</code>
+see the <code>shortest_paths</code> or
+<code>all_simple_paths</code> documentation pages.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>tbl_df</code> with one row per
+returned path. Depending on the setting of the <code>type</code> argument,
+columns can be <code>node_paths</code> (a list column with for each path the
+ordered indices of nodes present in that path) and <code>edge_paths</code>
+(a list column with for each path the ordered indices of edges present in
+that path). <code>'all_shortest'</code> and <code>'all_simple'</code> return only
+<code>node_paths</code>, while <code>'shortest'</code> returns both.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>st_network_cost</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(sf, quietly = TRUE)
+library(tidygraph, quietly = TRUE)
+
+# Create a network with edge lengths as weights.
+# These weights will be used automatically in shortest paths calculation.
+net = as_sfnetwork(roxel, directed = FALSE) %&gt;%
+  st_transform(3035) %&gt;%
+  activate("edges") %&gt;%
+  mutate(weight = edge_length())
+
+# Providing node indices.
+paths = st_network_paths(net, from = 495, to = 121)
+paths
+
+node_path = paths %&gt;%
+  slice(1) %&gt;%
+  pull(node_paths) %&gt;%
+  unlist()
+node_path
+
+oldpar = par(no.readonly = TRUE)
+par(mar = c(1,1,1,1))
+plot(net, col = "grey")
+plot(slice(activate(net, "nodes"), node_path), col = "red", add = TRUE)
+par(oldpar)
+
+# Providing nodes as spatial points.
+# Points that don't equal a node will be snapped to their nearest node.
+p1 = st_geometry(net, "nodes")[495] + st_sfc(st_point(c(50, -50)))
+st_crs(p1) = st_crs(net)
+p2 = st_geometry(net, "nodes")[121] + st_sfc(st_point(c(-10, 100)))
+st_crs(p2) = st_crs(net)
+
+paths = st_network_paths(net, from = p1, to = p2)
+paths
+
+node_path = paths %&gt;%
+  slice(1) %&gt;%
+  pull(node_paths) %&gt;%
+  unlist()
+node_path
+
+oldpar = par(no.readonly = TRUE)
+par(mar = c(1,1,1,1))
+plot(net, col = "grey")
+plot(c(p1, p2), col = "black", pch = 8, add = TRUE)
+plot(slice(activate(net, "nodes"), node_path), col = "red", add = TRUE)
+par(oldpar)
+
+# Using another column for weights.
+net %&gt;%
+  activate("edges") %&gt;%
+  mutate(foo = runif(n(), min = 0, max = 1)) %&gt;%
+  st_network_paths(p1, p2, weights = "foo")
+
+# Obtaining all simple paths between two nodes.
+# Beware, this function can take long when:
+# --&gt; Providing a lot of 'to' nodes.
+# --&gt; The network is large and dense.
+net = as_sfnetwork(roxel, directed = TRUE)
+st_network_paths(net, from = 1, to = 12, type = "all_simple")
+
+# Obtaining all shortest paths between two nodes.
+# Not using edge weights.
+# Hence, a shortest path is the paths with the least number of edges.
+st_network_paths(net, from = 5, to = 1, weights = NA, type = "all_shortest")
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,237 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sar_threshold</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit threshold SAR models</h2>
+
+<h3>Description</h3>
+
+<p>Fit up to six piecewise (threshold) regression models to SAR
+data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sar_threshold(data, mod = "All", interval = NULL, nisl = NULL,
+  non_th_models = TRUE, logAxes = "area", con = 1, logT = log, parallel =
+  FALSE, cores = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataset in the form of a dataframe with at least two columns:
+the first with island/site areas, and the second with the species richness
+of each island/site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mod</code></td>
+<td>
+<p>A vector of model names: an individual model, a set of models, or
+all models. Can be any of 'All' (fit all models), 'ContOne' (continuous
+one-threshold), 'ZslopeOne' (left-horizontal one-threshold), 'DiscOne'
+(discontinuous one-threshold), 'ContTwo' (continuous two-threshold),
+'ZslopeTwo' (left-horizontal two-threshold), or 'DiscTwo' (discontinuous
+two-threshold).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>The amount to increment the threshold value by in the
+iterative model fitting process (not applicable for the discontinuous
+models). The default for non-transformed area reverts to 1, while for
+log-transformed area it is 0.01. However, these values may not be suitable
+depending on the range of area values in a dataset, and thus users are
+advised to manually set this argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nisl</code></td>
+<td>
+<p>Set the minimum number of islands to be contained within each of
+the two segments (in the case of one-threshold models), or the first and
+last segments (in the case of two-threshold models). It needs to be less
+than than half of the total number of islands in the dataset. Default =
+NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>non_th_models</code></td>
+<td>
+<p>Logical argument (default = TRUE) of whether two
+non-threshold models (i.e. a simple linear regression: y ~ x; and an
+intercept only model: y ~ 1) should also be fitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logAxes</code></td>
+<td>
+<p>What log-transformation (if any) should be applied to the area
+and richness values. Should be one of "none" (no transformation), "area"
+(only area is log-transformed; default) or "both" (both area and richness
+log-transformed).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>con</code></td>
+<td>
+<p>The constant to add to the species richness values in cases where
+one of the islands has zero species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logT</code></td>
+<td>
+<p>The log-transformation to apply to the area and richness values.
+Can be any of <code>log</code>(default), <code>log2</code> or <code>log10</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>Logical argument for whether parallel processing should be
+used. Only applicable when the continuous two-threshold and left-horizontal
+two-threshold models are being fitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>Number of cores to use. Only applicable when <code>parallel =
+TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is described in more detail in the accompanying paper
+(Matthews &amp; Rigal, 2020).
+</p>
+<p>Fitting the continuous and left-horizontal piecewise models (particularly
+the two-threshold models) can be time consuming if the range in area is
+large and/or the <code>interval</code> argument is small. For the two-threshold
+continuous slope and left-horizontal models, the use of parallel processing
+(using the <code>parallel</code> argument) is recommended. The number of cores
+(<code>cores</code>) must be provided.
+</p>
+<p>Note that the interval argument is not used to fit discontinuous models,
+as, in these cases, the breakpoint must be at a datapoint.
+</p>
+<p>There has been considerable debate regarding the number of parameters that
+are included in different piecewise models. Here (and thus in our
+calculation of AIC, AICc, BIC etc) we consider ContOne to have five
+parameters, ZslopeOne - 4, DiscOne - 6, ContTwo - 7, ZslopeTwo - 6, DiscTwo
+- 8. The standard linear model and the intercept model are considered to
+have 3 and 2 parameters, respectively. The raw <code>lm</code> model fits
+are provided in the output, however, if users want to calculate information
+criteria using different numbers of parameters.
+</p>
+<p>The raw <code>lm</code> model fits can also be used to explore classic
+diagnostic plots for linear regression analysis in R using the function
+<code>plot</code> or other diagnostic tests such <code>outlierTest</code>,
+<code>leveragePlots</code> or <code>influencePlot</code>, available in the <code>car</code>
+package. This is advised as currently there are no model validation checks
+undertaken automatically, unlike elsewhere in the sars package. 
+</p>
+<p>Confidence intervals around the breakpoints in the one-threshold continuous
+and left- horizontal models can be calculated using the
+<code>threshold_ci</code> function. The intercepts and slopes of the
+different segments in the fitted breakpoint models can be calculated using
+the <code>get_coef</code> function.
+</p>
+<p>Rarely, multiple breakpoint values can return the same minimum rss (for a
+given model fit). In these cases, we just randomly choose and return one
+and also produce a warning. If this occurs it is worth checking the data
+and model fits carefully.
+</p>
+<p>The <code>nisl</code> argument can be useful to avoid situations where a segment
+contains only one island, for example. However, setting strict criteria on
+the number of data points to be included in segments could be seen as
+"forcing" the fit of the model, and arguably if a model fit is not
+interpretable, it is simply that the model does not provide a good
+representation of the data. Thus, it should not be used without careful
+thought.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of class "threshold" and "sars" with five elements. The first
+element contains the different model fits (lm objects). The second element
+contains the names of the fitted models, the third  contains the threshold
+values, the fourth element the dataset (i.e. a dataframe with area and
+richness values), and the fifth contains details of any axes
+log-transformations undertaken. <code>summary.sars</code> provides a more
+user-friendly ouput (including a model summary table) and
+<code>plot.threshold</code> plots the model fits.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Due to the increased number of parameters, fitting piecewise regression
+models to datasets with few islands is not recommended. In particular, we
+would advise against fitting the two-threshold models to small SAR datasets
+(e.g. fewer than 10 islands for the one threshold models, and 20 islands
+for the two threshold models).
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Francois Rigal and Thomas J. Matthews
+</p>
+
+
+<h3>References</h3>
+
+<p>Lomolino, M.V. &amp; Weiser, M.D. (2001) Towards a more general
+species-area relationship: diversity on all islands, great and small.
+Journal of Biogeography, 28, 431-445.
+</p>
+<p>Gao, D., Cao, Z., Xu, P. &amp; Perry, G. (2019) On piecewise models and
+species-area patterns. Ecology and Evolution, 9, 8351-8361.
+</p>
+<p>Matthews, T.J. et al. (2020) Unravelling the small-island effect
+through phylogenetic community ecology. Journal of Biogeography.
+</p>
+<p>Matthews, T.J. &amp; Rigal, F. (2021) Thresholds and the species–area
+relationship: a set of functions for fitting, evaluating and plotting a
+range of commonly used piecewise models. Frontiers of Biogeography, 13,
+e49404.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(aegean2)
+a2 &lt;- aegean2[1:168,]
+fitT &lt;- sar_threshold(data = a2, mod = c("ContOne", "DiscOne"), 
+interval = 0.1, non_th_models = TRUE, logAxes = "area", logT = log10)
+summary(fitT)
+plot(fitT)
+#diagnostic plots for the ContOne model
+par(mfrow=c(2, 2))
+plot(fitT[[1]][[1]])
+#Plot multiple model fits in the same plot, with different colour for each 
+#model fit
+plot(fitT, multPlot = FALSE, lcol = c("yellow", "red", "green", "purple"))
+#Making a legend. First extract the model order:
+fitT[[2]]
+#Then use the legend function - note you may need to play around with the 
+#legend location depending on your data.
+legend("topleft", legend=c("ContOne", "DiscOne","Linear", "Intercept"), fill =
+c("yellow", "red", "green", "purple"))
+</code></pre>
+
+
+</div>

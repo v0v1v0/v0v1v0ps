@@ -1,0 +1,265 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>suggest.buffer</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Mask Buffer Width
+</h2>
+
+<h3>Description</h3>
+
+<p>Determines a suitable buffer width for an integration mask. The
+‘buffer’ in question defines a concave polygon around a detector array
+constructed using <code>make.mask</code> with <code>type = "trapbuffer"</code>.  The
+method relies on an approximation to the bias of maximum likelihood
+density estimates (M. Efford unpubl).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">suggest.buffer(object, detectfn = NULL, detectpar = NULL, 
+    noccasions = NULL, ignoreusage = FALSE, ncores = NULL, RBtarget = 0.001,
+    interval = NULL, binomN = NULL, ...)
+
+bias.D (buffer, traps, detectfn, detectpar, noccasions, binomN = NULL,
+    control = NULL)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p> single-session ‘secr’, ‘traps’ or ‘capthist’ object </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectfn</code></td>
+<td>
+<p> integer code or character string for shape of
+detection function 0 = halfnormal etc. – see detectfn</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>detectpar</code></td>
+<td>
+<p> list of values for named parameters of detection
+function – see detectpar </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noccasions</code></td>
+<td>
+<p> number of sampling occasions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ignoreusage</code></td>
+<td>
+<p>logical for whether to discard usage information from
+<code>traps(capthist)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p> integer number of threads to use for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RBtarget</code></td>
+<td>
+<p> numeric target for relative bias of density estimate </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p> a vector containing the end-points of the interval to
+be searched </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binomN</code></td>
+<td>
+<p> integer code for distribution of counts (see
+<code>secr.fit</code>) </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p> other argument(s) passed to <code>bias.D</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>buffer</code></td>
+<td>
+<p> vector of buffer widths </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>traps</code></td>
+<td>
+<p> ‘traps’ object </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p> list of mostly obscure numerical settings (see Details) </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The basic input style of <code>suggest.buffer</code> uses a ‘traps’ object and
+a detection model specified by ‘detectpar’, ‘detectfn’ and ‘noccasions’,
+plus a target relative bias (RB). A numerical search is conducted for
+the buffer width that is predicted to deliver the requested RB. If
+<code>interval</code> is omitted it defaults to (1, 100S) where S is the
+spatial scale of the detection function (usually
+<code>detectpar$sigma</code>). An error is reported if the required buffer
+width is not within <code>interval</code>. This often happens with
+heavy-tailed detection functions (e.g., hazard-rate): choose another
+function, a larger <code>RBtarget</code> or a wider <code>interval</code>.
+</p>
+<p>Setting <code>ncores = NULL</code> uses the existing value from the environment variable 
+RCPP_PARALLEL_NUM_THREADS (see <code>setNumThreads</code>).
+</p>
+<p>Convenient alternative input styles are –
+</p>
+
+<ul>
+<li> <p><code>secr</code> object containing a fitted model. Values of ‘traps’,
+‘detectpar’, ‘detectfn’ and ‘noccasions’ are extracted from
+<code>object</code> and any values supplied for these arguments are ignored.
+</p>
+</li>
+<li> <p><code>capthist</code> object containing raw data. If <code>detectpar</code> is
+not supplied then <code>autoini</code> is used to get ‘quick and dirty’
+values of <code>g0</code> and <code>sigma</code> for a halfnormal detection
+function. <code>noccasions</code> is ignored. <code>autoini</code> tends to
+underestimate <code>sigma</code>, and the resulting buffer also tends to be
+too small.
+</p>
+</li>
+</ul>
+<p><code>bias.D</code> is called internally by <code>suggest.buffer</code>.
+
+
+
+
+
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>suggest.buffer</code> returns a scalar value for the suggested buffer
+width in metres, or a vector of such values in the case of a
+multi-session <code>object</code>.
+</p>
+<p><code>bias.D</code> returns a dataframe with columns <code>buffer</code> and <code>RB.D</code>
+(approximate bias of density estimate using finite buffer width,
+relative to estimate with infinite buffer).
+</p>
+
+
+<h3>Note</h3>
+
+<p>The algorithm in <code>bias.D</code> uses one-dimensional numerical
+integration of a polar approximation to site-specific detection
+probability. This uses a further 3-part linear approximation for the
+length of contours of distance-to-nearest-detector (<code class="reqn">r</code>) as a
+function of <code class="reqn">r</code>.
+</p>
+<p>The approximation seems to work well for a compact detector array, but
+it should not be taken as an estimate of the bias for any other purpose:
+do <em>not</em> report <code>RB.D</code> as "the relative bias of the density
+estimate". <code>RB.D</code> addresses only the effect of using a finite
+buffer. The effect of buffer width on final estimates should be checked
+with <code>mask.check</code>.
+</p>
+<p>The default buffer type in <code>make.mask</code>, and hence in
+<code>secr.fit</code>, is ‘traprect’, not ‘trapbuffer’, but a buffer width
+that is adequate for ‘trapbuffer’ is always adequate for ‘traprect’.
+</p>
+<p><code>control</code> contains various settings of little interest to the
+user.
+</p>
+<p>The potential components of <code>control</code> are –
+</p>
+
+<dl>
+<dt><code>method = 1 </code></dt>
+<dd>
+<p> code for method of modelling <em>p.(X)</em> as a
+function of buffer (<em>q(r)</em>)</p>
+</dd>
+<dt><code>bfactor = 20 </code></dt>
+<dd> <p><em>q(r)</em> vs <em>p.(X)</em> calibration
+mask buffer width in multiples of trap spacing </p>
+</dd>
+<dt><code>masksample = 1000 </code></dt>
+<dd>
+<p> maximum number of points sampled from
+calibration mask </p>
+</dd>
+<dt><code>spline.df = 10 </code></dt>
+<dd>
+<p> effective degrees of freedom for
+<code>smooth.spline</code> </p>
+</dd>
+<dt><code>ncores = NULL</code></dt>
+<dd>
+<p> integer number of cores</p>
+</dd>
+</dl>
+<h3>See Also</h3>
+
+<p><code>mask</code>, <code>make.mask</code>, <code>mask.check</code>, <code>esaPlot</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+temptraps &lt;- make.grid()
+detpar &lt;-  list(g0 = 0.2, sigma = 25)
+suggest.buffer(temptraps, "halfnormal", detpar, 5)
+
+suggest.buffer(secrdemo.0)
+
+suggest.buffer(ovenCH[[1]])
+
+RB &lt;- bias.D(50:150, temptraps, "halfnormal", detpar, 5)
+plot(RB)
+
+detpar &lt;-  list(g0 = 0.2, sigma = 25, z=5)
+RB &lt;- bias.D(50:150, temptraps, "hazard rate", detpar, 5)
+lines(RB)
+
+## compare to esa plot
+esaPlot (temptraps, max.buffer = 150, spacing = 4, detectfn = 0,
+  detectpar = detpar, noccasions = 5, type = "density")
+
+## compare detection histories and fitted model as input
+suggest.buffer(captdata)
+suggest.buffer(secrdemo.0)
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

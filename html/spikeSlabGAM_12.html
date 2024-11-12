@@ -1,0 +1,375 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spikeAndSlab</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Set up and sample a spike-and-slab prior model.</h2>
+
+<h3>Description</h3>
+
+<p>This function sets up a spike-and-slab model for variable selection and model
+choice in generalized additive models and samples its posterior. It uses a
+blockwise Metropolis-within-Gibbs sampler and the redundant multiplicative
+parameter expansion described in the reference. This routine is not meant to
+be called directly by the user – <code>spikeSlabGAM</code> provides a
+formula-based interface for specifying models and takes care of (most of) the
+housekeeping. Sampling of the chains is done in parallel using package
+<code>parallel</code>. A "SOCK" cluster is set up under Windows to do so (and
+closed after computations are done, I try to clean up after myself), see
+<code>makeCluster</code> etc. Use <code>options(mc.cores =&lt;foo&gt;)</code>
+to set the (maximal) number of processes forked by the parallelization. If
+<code>options()$mc.cores</code> is unspecified, it is set to 2.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spikeAndSlab(
+  y,
+  X,
+  family = c("gaussian", "binomial", "poisson"),
+  hyperparameters = list(),
+  model = list(),
+  mcmc = list(),
+  start = list()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>response</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>design matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>(character) the family of the response, defaults to
+normal/Gaussian response</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperparameters</code></td>
+<td>
+<p>a list of hyperparameters controlling the priors (see
+details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>a list with information about the grouping structure of the
+model (see details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc</code></td>
+<td>
+<p>(optional) list setting arguments for the sampler (see details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>(optional) list containing the starting values for <code class="reqn">\beta,
+\gamma, \tau^2, \sigma^2, w</code> and, optionally, the random seed</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Details for model specification: </p>
+
+<dl>
+<dt><code>hyperparameters</code></dt>
+<dd>
+<dl>
+<dt><code>w</code></dt>
+<dd>
+<p>hyperparameters for the <code class="reqn">Beta</code>-prior for <code class="reqn">w</code>;
+defaults to <code>c(alphaW = 1, betaW = 1)</code>, i.e. a uniform distribution.</p>
+</dd>
+<dt><code>tau2</code></dt>
+<dd>
+<p>hyperparameters for the <code class="reqn">\Gamma^{-1}</code>-prior of the
+hypervariances <code class="reqn">\tau^2</code>; defaults to <code>c(a1 = 5, a2 = 25)</code></p>
+</dd>
+<dt><code>gamma</code></dt>
+<dd>
+<p>sets <code class="reqn">v_0</code>, the ratio between the spike and slab
+variances, defaults to <code>c(v0 = 0.00025)</code></p>
+</dd>
+<dt><code>sigma2</code></dt>
+<dd>
+<p>hyperparameters for <code class="reqn">\Gamma^{-1}</code>-prior for error
+variance; defaults to <code>c(b1 = 1e-4, b2 = 1e-4)</code>. Only relevant for Gaussian
+response.</p>
+</dd> <dt><code>varKsi</code></dt>
+<dd>
+<p>variance for prior of <code class="reqn">\xi</code>, defaults to
+1</p>
+</dd> <dt><code>ksiDF</code></dt>
+<dd>
+<p>defaults to 0 for a gaussian prior for <code class="reqn">\xi</code>, else
+induces a t-prior for <code class="reqn">\xi</code></p>
+</dd>
+</dl>
+<p> with <code>ksiDF</code> degrees of freedom.</p>
+</dd>
+<dt><code>model</code></dt>
+<dd>
+<dl>
+<dt><code>groupIndicators</code></dt>
+<dd>
+<p>a factor that maps the columns of X to the
+different model terms</p>
+</dd> <dt><code>H</code></dt>
+<dd>
+<p>a matrix containing the hierarchy of
+the penalized model terms</p>
+</dd> <dt><code>n</code></dt>
+<dd>
+<p>number of observations</p>
+</dd>
+<dt><code>q</code></dt>
+<dd>
+<p>length of <code class="reqn">\beta</code></p>
+</dd> <dt><code>scale</code></dt>
+<dd>
+<p>scale/weights of
+the response, defaults to <code>rep(1, n)</code>, use this to specify number of
+trials for binomial data</p>
+</dd> <dt><code>offset</code></dt>
+<dd>
+<p>defaults to <code>rep(0,
+n)</code></p>
+</dd>
+</dl>
+</dd> 
+<dt><code>mcmc</code></dt>
+<dd>
+<dl>
+<dt><code>nChains</code></dt>
+<dd>
+<p>how many parallel chains to run: defaults to 3</p>
+</dd>
+<dt><code>chainLength</code></dt>
+<dd>
+<p>how many samples should be generated per chain,
+defaults to 500</p>
+</dd> <dt><code>burnin</code></dt>
+<dd>
+<p>how many initial iterations should be
+discarded, defaults to 100</p>
+</dd> <dt><code>thin</code></dt>
+<dd>
+<p>save only every <code>thin</code>-th
+iteration, defaults to 5</p>
+</dd> <dt><code>verbose</code></dt>
+<dd>
+<p>verbose output and  report
+progress? defaults to TRUE</p>
+</dd> <dt><code>returnSamples</code></dt>
+<dd>
+<p>defaults to TRUE</p>
+</dd>
+<dt><code>sampleY</code></dt>
+<dd>
+<p>generate samples of y and its conditional expectation
+from posterior predictive? defaults to FALSE</p>
+</dd>
+<dt><code>useRandomStart</code></dt>
+<dd>
+<p>use random draw or ridge estimate for beta as
+starting value? defaults to TRUE, i.e. random starting values.</p>
+</dd>
+<dt><code>blocksize</code></dt>
+<dd>
+<p>approx. blocksizes of the updates for <code class="reqn">\alpha,
+\xi</code>. Defaults to 50 for gaussian responses and 5/15 for non-gaussian
+responses.</p>
+</dd> <dt><code>scalemode</code></dt>
+<dd>
+<p>how to do term-wise rescaling of
+subvectors of <code class="reqn">\xi</code> in each iteration:  0 means no rescaling, 1 means
+rescaling s.t. each mean<code class="reqn">(|\xi_g|) = 1</code>,  2 means rescaling s.t. each
+max<code class="reqn">(|\xi_g|) = 1</code></p>
+</dd> <dt><code>modeSwitching</code></dt>
+<dd>
+<p>probability to do P-IWLS
+with the mode of the proposal set to the current value, which is useful if
+the chain gets stuck. Defaults to <code class="reqn">0.05</code>. Increase this if acceptance rates
+are too low.</p>
+</dd> <dt><code>reduceRet</code></dt>
+<dd>
+<p>don't return data and samples for
+<code class="reqn">\alpha, \xi, \tau^2</code>? defaults to FALSE</p>
+</dd>
+</dl>
+</dd>
+<dt><code>start</code></dt>
+<dd><dl>
+<dt><code>beta</code></dt>
+<dd>
+<p>starting
+values for <code class="reqn">\beta</code>. Defaults to a modified approximate ridge-penalized ML
+estimate. See vignette for details on default specification.</p>
+</dd>
+<dt><code>gamma</code></dt>
+<dd>
+<p>starting values for <code class="reqn">\gamma</code>. Defaults to a vector of
+1's if <code>mcmc$useRandomStart</code> is <code>FALSE</code>, otherwise drawn from the
+prior.</p>
+</dd> <dt><code>tau2</code></dt>
+<dd>
+<p>starting values for <code class="reqn">\tau^2</code>. Defaults to the
+mode of the prior if <code>mcmc$useRandomStart</code> is <code>FALSE</code>, otherwise
+drawn from the prior.</p>
+</dd> <dt><code>sigma2</code></dt>
+<dd>
+<p>starting values for
+<code class="reqn">\sigma^2</code>. Only relevant for Gaussian response. Defaults to the variance
+of the response divided by the number of covariates if
+<code>mcmc$useRandomStart</code> is <code>FALSE</code>, otherwise drawn from the prior.</p>
+</dd>
+<dt><code>w</code></dt>
+<dd>
+<p>starting value for <code class="reqn">w</code>. Defaults to the mean of the prior
+if <code>mcmc$useRandomStart</code> is <code>FALSE</code>, otherwise drawn from the
+prior.</p>
+</dd> <dt><code>seed</code></dt>
+<dd>
+<p>Sets RNG seed for reproducible results. Parallel
+chains are seeded with this seed incremented by the number of the chain.</p>
+</dd>
+</dl></dd>
+</dl>
+<h3>Value</h3>
+
+<p>a list with components:</p>
+ <dl>
+<dt><code>formula</code></dt>
+<dd>
+<p>see
+arguments</p>
+</dd> <dt><code>data</code></dt>
+<dd>
+<p>see arguments</p>
+</dd> <dt><code>family</code></dt>
+<dd>
+<p>see
+arguments</p>
+</dd> <dt><code>y</code></dt>
+<dd>
+<p>see arguments</p>
+</dd> <dt><code>X</code></dt>
+<dd>
+<p>see arguments</p>
+</dd>
+<dt><code>hyperparameters</code></dt>
+<dd>
+<p>see arguments</p>
+</dd> <dt><code>model</code></dt>
+<dd>
+<p>see
+arguments</p>
+</dd> <dt><code>mcmc</code></dt>
+<dd>
+<p>see arguments</p>
+</dd> <dt><code>start</code></dt>
+<dd>
+<p>see
+arguments</p>
+</dd> <dt><code>posteriorPred</code></dt>
+<dd>
+<p>a list with entries <code>mu</code> and
+<code>y</code> containing samples of the expected values and realizations of the
+response from the posterior predictive</p>
+</dd> <dt><code>postMeans</code></dt>
+<dd>
+<p>a list
+containing the posterior means of the parameters: </p>
+
+<dl>
+<dt><code>beta</code></dt>
+<dd>
+<p>the regression coefficients</p>
+</dd> <dt><code>alpha</code></dt>
+<dd></dd>
+<dt><code>ksi</code></dt>
+<dd></dd> <dt><code>tau</code></dt>
+<dd>
+<p>hypervariances of the penalized model
+terms</p>
+</dd> <dt><code>gamma</code></dt>
+<dd>
+<p>inclusion indicator variables of the model
+terms</p>
+</dd> <dt><code>pV1</code></dt>
+<dd>
+<p><code class="reqn">P(\gamma = 1)</code></p>
+</dd> <dt><code>w</code></dt>
+<dd>
+<p>hyperparameter
+for <code>gamma</code></p>
+</dd> <dt><code>sigma2</code></dt>
+<dd>
+<p>error variance (for Gaussian data)</p>
+</dd>
+<dt><code>logLik</code></dt>
+<dd>
+<p>log likelihood</p>
+</dd> <dt><code>logPost</code></dt>
+<dd>
+<p>log of
+(unnormalized) posterior</p>
+</dd>
+</dl>
+</dd> <dt><code>samples</code></dt>
+<dd>
+<p>a list containing the
+posterior samples of the parameters, see above for explanation of the
+entries</p>
+</dd> <dt><code>DIC</code></dt>
+<dd>
+<p>a vector with <code class="reqn">DIC, pD, \bar{D},\hat{D}</code>.
+Usually doesn't make much sense for this kind of model because of the
+posterior's multimodality.</p>
+</dd> <dt><code>fitted</code></dt>
+<dd>
+<p>a matrix with the
+posterior mean of the linear predictor in the first column and the
+posterior mean of the expected response in the second.</p>
+</dd>
+<dt><code>runTime</code></dt>
+<dd>
+<p>of the sampler, in seconds</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Fabian Scheipl, Daniel Sabanes Bove
+</p>
+
+
+<h3>References</h3>
+
+<p>Scheipl, F. (2010) Normal-Mixture-of-Inverse-Gamma Priors for
+Bayesian Regularization and Model Selection in Structured Additive
+Regression Models. <em>LMU Munich, Department of Statistics</em>: Technical
+Reports, No.84 (<a href="https://epub.ub.uni-muenchen.de/11785/">https://epub.ub.uni-muenchen.de/11785/</a>)
+</p>
+
+
+</div>

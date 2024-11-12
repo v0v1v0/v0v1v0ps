@@ -1,0 +1,152 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>lung.saemix</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>NCCTG Lung Cancer Data, in SAEM format</h2>
+
+<h3>Description</h3>
+
+<p>The <code>lung.saemix</code> contains survival data in patients with advanced lung cancer from the North Central Cancer Treatment Group.
+Performance scores rate how well the patient can perform usual daily activities. This data is available in the survival library for R
+and has been reformatted here for use in saemix (see details).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">lung.saemix
+</code></pre>
+
+
+<h3>Format</h3>
+
+<p>This data frame contains the following columns:
+</p>
+
+<dl>
+<dt>id</dt>
+<dd>
+<p>subject index in file</p>
+</dd>
+<dt>inst</dt>
+<dd>
+<p>institution code</p>
+</dd>
+<dt>time</dt>
+<dd>
+<p>observation time since the beginning of follow-up</p>
+</dd>
+<dt>status</dt>
+<dd>
+<p>0=alive, 1=dead</p>
+</dd>
+<dt>cens</dt>
+<dd>
+<p>0=observed, 1=censored</p>
+</dd>
+<dt>sex</dt>
+<dd>
+<p>patient gender (0=male, 1=female)</p>
+</dd>
+<dt>age</dt>
+<dd>
+<p>age in years</p>
+</dd>
+<dt>ph.ecog</dt>
+<dd>
+<p>ECOG performance score as rated by the physician. 0=asymptomatic,
+1= symptomatic but completely ambulatory, 2= in bed &lt;50% of the day, 3= in bed &gt; 50% of the day but not bedbound,
+4 = bedbound</p>
+</dd>
+<dt>ph.karno</dt>
+<dd>
+<p>Karnofsky performance score (bad=0-good=100) rated by physician (%)</p>
+</dd>
+<dt>pat.karno</dt>
+<dd>
+<p>Karnofsky performance score (bad=0-good=100) rated by patient (%)</p>
+</dd>
+<dt>meal.cal</dt>
+<dd>
+<p>calories consumed at meals (cal)</p>
+</dd>
+<dt>wt.loss</dt>
+<dd>
+<p>weight loss in last six months (pounds)</p>
+</dd>
+</dl>
+<h3>Details</h3>
+
+<p>The data in the <code>lung.saemix</code> was reformatted from the lung cancer dataset (see data(cancer, package="survival")).
+Patients with missing age, sex, institution or physician assessments were removed from the dataset. Status was recoded as 1 for death
+and 0 for a censored event, and a censoring column was added to denote whether the patient was dead or alive at the time of
+the last observation. For saemix, a line at time=0 was added for all subjects. Finally, subjects were numbered consecutively from 0 to 1.
+</p>
+
+
+<h3>Source</h3>
+
+<p>Terry Therneau from the survival package in R
+</p>
+
+
+<h3>References</h3>
+
+<p>CL Loprinzi, JA Laurie, HS Wieand, JE Krook, PJ Novotny, JW Kugler, et al. (1994).
+Prospective evaluation of prognostic variables from patient-completed questionnaires.
+North Central Cancer Treatment Group. Journal of Clinical Oncology. 12(3):601-7.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(lung.saemix)
+
+saemix.data&lt;-saemixData(name.data=lung.saemix,header=TRUE,name.group=c("id"),
+name.predictors=c("time","status","cens"),name.response=c("status"),
+name.covariates=c("age", "sex", "ph.ecog", "ph.karno", "pat.karno", "wt.loss","meal.cal"),
+units=list(x="days",y="",covariates=c("yr","","-","%","%","cal","pounds")))
+weibulltte.model&lt;-function(psi,id,xidep) {
+  T&lt;-xidep[,1]
+  y&lt;-xidep[,2] # events (1=event, 0=no event)
+  cens&lt;-which(xidep[,3]==1) # censoring times (subject specific)
+  init &lt;- which(T==0)
+  lambda &lt;- psi[id,1] # Parameters of the Weibull model
+  beta &lt;- psi[id,2]
+  Nj &lt;- length(T)
+  ind &lt;- setdiff(1:Nj, append(init,cens)) # indices of events
+  hazard &lt;- (beta/lambda)*(T/lambda)^(beta-1) # H'
+  H &lt;- (T/lambda)^beta # H
+  logpdf &lt;- rep(0,Nj) # ln(l(T=0))=0
+  logpdf[cens] &lt;- -H[cens] + H[cens-1] # ln(l(T=censoring time))
+  logpdf[ind] &lt;- -H[ind] + H[ind-1] + log(hazard[ind]) # ln(l(T=event time))
+  return(logpdf)
+}
+saemix.model&lt;-saemixModel(model=weibulltte.model,description="time model",modeltype="likelihood",
+                psi0=matrix(c(1,2),ncol=2,byrow=TRUE,dimnames=list(NULL,  c("lambda","beta"))),
+                transform.par=c(1,1),covariance.model=matrix(c(1,0,0,0),ncol=2, byrow=TRUE))
+saemix.options&lt;-list(seed=632545,save=FALSE,save.graphs=FALSE, displayProgress=FALSE)
+
+tte.fit&lt;-saemix(saemix.model,saemix.data,saemix.options)
+
+# The fit from saemix using the above Weibull model may be compared 
+# to the non-parametric KM estimate
+## Not run: 
+library(survival)
+  lung.surv&lt;-lung.saemix[lung.saemix$time&gt;0,]
+  lung.surv$status&lt;-lung.surv$status+1
+  Surv(lung.surv$time, lung.surv$status) # 1=censored, 2=dead
+  f1 &lt;- survfit(Surv(time, status) ~ 1, data = lung.surv)
+  xtim&lt;-seq(0,max(lung.saemix$time), length.out=200)
+  estpar&lt;-tte.fit@results@fixed.effects
+  ypred&lt;-exp(-(xtim/estpar[1])^(estpar[2]))
+  plot(f1, xlab = "Days", ylab = "Overall survival probability")
+  lines(xtim,ypred, col="red",lwd=2)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

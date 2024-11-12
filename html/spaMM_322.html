@@ -1,0 +1,397 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>HLfit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit mixed models with given correlation matrix</h2>
+
+<h3>Description</h3>
+
+<p>This function fits GL(M)Ms as well as some hierarchical generalized linear models (HGLM; Lee and Nelder 2001). It may be called on its own but is now better seen as a backend for the main fitting function <code>fitme</code> (or <code>fitmv</code> for multivariate-response models). This documentation completes the documentation of the latter functions with respect to some arguments they pass to <code>HLfit</code> and with respect to the structure of the objects they return.
+</p>
+<p>On its own, <code>HLfit</code> fits both fixed effects parameters, and dispersion parameters i.e. the variance of the random effects (full covariance for random-coefficient models), and the variance of the residual error. The linear predictor is of the standard form <code>offset+ X beta + Z b</code>, where X is the design matrix of fixed effects and Z is a design matrix of random effects (typically an incidence matrix with 0s and 1s, but not necessarily). Models are fitted by an iterative algorithm alternating estimation of fixed effects and of dispersion parameters. The residual dispersion may follow a “structured-dispersion model” modeling heteroscedasticity. 
+Estimation of the latter parameters is performed by a form of fit of debiased residuals, which allows fitting a structured-dispersion model (Smyth et al. 2001).  However, evaluation of the debiased residuals can be slow in particular for large datasets. For models without structured dispersion, it is then worth using the <code>fitme</code> function. Ths function (as well as <code>corrHLfit</code>) can optimize the likelihood of <code>HLfit</code> fits for different given values of the dispersion parameters (“outer optimization”), thereby avoiding the need to estimate debiased residuals. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">HLfit(formula, data, family = gaussian(), rand.family = gaussian(), 
+      resid.model = ~1, REMLformula = NULL, verbose = c(inner = FALSE), 
+      HLmethod = "HL(1,1)", method="REML", control.HLfit = list(), 
+      control.glm = list(), init.HLfit = list(), fixed=list(), ranFix, 
+      etaFix = list(), prior.weights = NULL, weights.form = NULL, 
+      processed = NULL)
+## see 'rand.family' argument for inverse.Gamma
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+
+<p>A <code>formula</code>; or a <code>predictor</code>, i.e. a formula with attributes created by <code>Predictor</code>, if design matrices for random effects have to be provided. See Details in <code>spaMM</code> for allowed terms in the formula (except spatial ones).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>A data frame containing the variables named in the model formula.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+
+<p>A <code>family</code> object describing the distribution of the response variable. See Details in <code>spaMM</code> for handled families.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rand.family</code></td>
+<td>
+
+<p>A <code>family</code> object describing the distribution of the random effect, or a <code>list</code> of 
+family objects for different random effects (see Examples). Possible options are
+<code>gaussian()</code>, <code>Gamma(log)</code>, <code>Gamma(identity)</code> (see Details), <code>Beta(logit)</code>, <code>inverse.Gamma(-1/mu)</code>, and <code>inverse.Gamma(log)</code>.
+For discussion of these alternatives see Lee and Nelder 2001 or Lee et al. 2006, p. 178-.
+Here the family gives the distribution of a random effect <code class="reqn">u</code> 
+and the link gives <code>v</code> as function of <code class="reqn">u</code> (see Details).
+If there are several random effects and only one family is given, this family holds for all random effects.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resid.model</code></td>
+<td>
+<p>Used to specify a model for the dispersion parameter of the mean-response family. See the <code>resid.model</code> documentation, and the more specific <code>phi-resid.model</code> one for the <code class="reqn">phi</code> parameter of gaussian and Gamma response families.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>REMLformula</code></td>
+<td>
+
+<p>A model <code>formula</code> that controls the estimation of dispersion parameters and the computation of restricted likelihood (<code>p_bv</code>), where the conditioning inherent in REML is defined by a model different from the predictor <code>formula</code>. A simple example (useless in practice) of its effect is to replicate an ML fit by specifying <code>method="REML"</code> and an <code>REMLformula</code> with no fixed effect. The latter implies that no conditioning is performed and that <code>p_bv</code> equals the marginal likelihood (or its approximation), <code>p_v</code>. One of the examples in <code>update.HLfit</code> shows how <code>REMLformula</code> can be useful, but otherwise this argument may never be needed for standard REML or ML fits. For non-standard likelihood ratio tests using <code>REMLformula</code>, see <code>fixedLRT</code>.    
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+
+<p>A vector of booleans or integers. The <code>inner</code> element controls various diagnostic messages (possibly messy) about the iterations. This should be distinguished from the <code>TRACE</code> element, meaningful in <code>fitme</code> or <code>corrHLfit</code> calls, and much more useful. The <code>phifit</code> element controls messages about the progress of <code>phi-resid.model</code> fits (see the latter documentation). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Character: the fitting method. 
+allowed values include <code>"REML"</code>, <code>"ML"</code>, <code>"EQL-"</code> and <code>"EQL+"</code> for all models, and <code>"PQL"</code> (=<code>"REPQL"</code>) and <code>"PQL/L"</code> for GLMMs only. <code>method=c(&lt;"ML" or "REML"&gt;,"exp")</code> can be distinctly useful for slow fits of models with <code>Gamma(log)</code> response family. See (see <code>method</code>) for details, and further possible values for those curious to experiment. <b>The default is REML</b> (standard REML for LMMs, 
+an extended definition for other models). REML can be viewed as a form of conditional inference, and non-standard conditionings can be called by using a non-standard <code>REMLformula</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>HLmethod</code></td>
+<td>
+<p>Same as <code>method</code>. It is useless to specify <code>HLmethod</code> when <code>method</code> is specified. The default value <code>"HL(1,1)"</code> means the same as <code>method="REML"</code>, but more accurately relates to definitions of approximations of likelihood in the <code class="reqn">h</code>-likelihood literature.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control.HLfit</code></td>
+<td>
+
+<p>A list of parameters controlling the fitting algorithms, which should mostly be ignored in routine use. 
+See <code>control.HLfit</code> for possible controls.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control.glm</code></td>
+<td>
+
+<p>List of parameters controlling calls to <code>glm</code>-“like” fits, passed to <code>glm.control</code>; e.g.<br><code>control.glm=list(maxit=100)</code>. See <code>glm.control</code> for further details. <code>glm</code>-“like” fits may be performed as part of mixed-effect model fitting procedures, in particular to provide initial values (possibly using <code>llm.fit</code> for non-GLM families), and for “inner” estimation of dispersion parameters.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init.HLfit</code></td>
+<td>
+
+<p>A list of initial values for the iterative algorithm, with possible elements of the list are 
+<code>fixef</code> for fixed effect estimates (beta),  
+<code>v_h</code> for random effects vector <b>v</b> in the linear predictor,
+<code>lambda</code> for the parameter determining the variance of random effects <code class="reqn">u</code> as drawn from the <code>rand.family</code> distribution,  
+and <code>phi</code> for the residual variance. 
+However, this argument can be ignored in routine use. 
+</p>
+</td>
+</tr>
+</table>
+<table>
+<tr style="vertical-align: top;">
+<td><code>fixed, ranFix</code></td>
+<td>
+
+<p>A list of fixed values of random effect parameters. <code>ranFix</code> is the old argument, maintained for back compatibility; <code>fixed</code> is the new argument, uniform across <span class="pkg">spaMM</span> fitting functions. See <code>ranFix</code> for further information.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>etaFix</code></td>
+<td>
+
+<p>A list of given values of the coefficients of the linear predictor. See <code>etaFix</code> for further information.     
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior.weights</code></td>
+<td>
+
+<p>An optional vector of prior weights as in <code>glm</code>. This fits the data to a probability model with residual variance parameter given as <code>phi/prior.weights</code> instead of the canonical parameter <code>phi</code> of the response family, and all further outputs are defined to be consistent with this (see section IV in Details). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights.form</code></td>
+<td>
+
+<p>Specification of prior weights by a one-sided formula: use <code>weights.form = ~ pw</code> instead of <code>prior.weights = pw</code>. The effect will be the same except that such an argument, known to evaluate to an object of class <code>"formula"</code>, is suitable to enforce safe programming practices (see <code>good-practice</code>).  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>processed</code></td>
+<td>
+
+<p>A list of preprocessed arguments, for programming purposes only.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><b>I. Approximations of likelihood:</b> see <code>method</code>.
+</p>
+<p><b>II. Possible structure of Random effects:</b> see <code>random-effects</code>, but note that <code>HLfit</code> does not fit models with autocorrelated random effects.
+</p>
+<p><b>III. The standard errors</b> reported may sometimes be misleading. For each set of parameters among <code class="reqn">\beta</code>, <code class="reqn">\lambda</code>, and <code class="reqn">\phi</code> parameters these are computed assuming that the other parameters are known without error. This is why they are labelled <code>Cond. SE</code> (conditional standard error). This is most uninformative in the unusual case where <code class="reqn">\lambda</code> and <code class="reqn">\phi</code> are not separately estimable parameters. Further, the SEs for <code class="reqn">\lambda</code> and <code class="reqn">\phi</code> are rough approximations as discussed in particular by Smyth et al. (2001; <code class="reqn">V_1</code> method).    
+</p>
+<p><b>IV. prior weights</b>. This controls the likelihood analysis of heteroscedastic models. In particular, changing the weights by a constant factor <em>f</em> should, and will, yield a fit with unchanged likelihood and (Intercept) estimates of <code>phi</code> also increased by <em>f</em> (except if a non-trivial <code>resid.formula</code> with log link is used). This is consistent with what <code>glm</code> does, but other packages may not follow this logic (whatever their documentation may say: check by yourself by changing the weights by a constant factor). Further, post-fit functiosn (in particular those extracting various forms of residuals) may be inconsistent in their handling of prior weights.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>HLfit</code>, which is a list with many elements, not all of which are documented. 
+</p>
+<p>Various extractor functions are available (see <code>extractors</code>, <code>vcov</code>, <code>get_fittedPars</code>, <code>get_matrix</code>, and so on). They should be used as far as possible as they should be backward-compatible from version 2.0.0 onwards, while the structure of the return object may still evolve. The following information may be useful for extracting further elements of the object.
+</p>
+<p>Elements include <b>descriptors of the fit</b>:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>eta</code></td>
+<td>
+<p>Fitted values on the linear scale  (including the predicted random effects). <code>predict(.,type="link")</code> can be used as a formal extractor;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fv</code></td>
+<td>
+<p>Fitted values (<code class="reqn">\mu=</code>&lt;inverse-link&gt;(<code class="reqn">\eta</code>)) of the response variable. <code>fitted(.)</code> or <code>predict(.)</code> can be used as formal extractors;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixef</code></td>
+<td>
+<p>The fixed effects coefficients, <code class="reqn">\beta</code> (returned by the <code>fixef</code> function);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>v_h</code></td>
+<td>
+<p>The random effects on the linear scale, <code class="reqn">v</code>, with atttribute the random effects <code class="reqn">u</code> (returned by <code>ranef(*,type="uncorrelated")</code>;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phi</code></td>
+<td>
+<p>The residual variance <code class="reqn">\phi</code>. See <code>residVar</code> for one extractor;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phi.object</code></td>
+<td>
+<p>A possibly more complex object describing <code class="reqn">\phi</code> (see <code>residVar</code> again);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>The random-effect (<code class="reqn">u</code>) variance(s) <code class="reqn">\lambda</code> in compact form;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda.object</code></td>
+<td>
+<p>A possibly more complex object describing <code class="reqn">\lambda</code> (see <code>get_ranPars(.,which="lambda"))</code> and <code>VarCorr</code> extractors);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ranef_info</code></td>
+<td>
+<p>environment where information about the structure of random effects is stored (see <code>Corr</code>);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corrPars</code></td>
+<td>
+<p>Agglomerates information on correlation parameters, either fixed, or estimated ((see <code>get_ranPars(.,which="corrPars"))</code>);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>APHLs</code></td>
+<td>
+<p>A list whose elements are various likelihood components, including conditional likelihood, h-likelihood, and the Laplace approximations: the (approximate) marginal <b>likelihood</b> <code>p_v</code> and the (approximate) <b>restricted likelihood</b> <code>p_bv</code> (the latter two available through the <code>logLik</code> function). See the extractor function <code>get_any_IC</code> for information criteria (“AIC”) and effective degrees of freedom;</p>
+</td>
+</tr>
+</table>
+<p>The covariance matrix of <code class="reqn">\beta</code> estimates is not included as such, but can be extracted by <code>vcov</code>.
+</p>
+<p><b>Information about the input</b> is contained in output elements named as arguments of the fitting function calls (<code>data,family,resid.family,ranFix,prior.weights</code>), with the following notable exceptions or modifications:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>predictor</code></td>
+<td>
+<p>The <code>formula</code>, possibly reformatted (returned by the <code>formula</code> extractor);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resid.predictor</code></td>
+<td>
+<p>Analogous to <code>predictor</code>, for the residual variance (see <code>residVar(., which="formula")</code>);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rand.families</code></td>
+<td>
+<p>corresponding to the <code>rand.family</code> input;</p>
+</td>
+</tr>
+</table>
+<p><b>Further miscellaneous diagnostics and descriptors of model structure:</b>
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>X.pv</code></td>
+<td>
+<p>The design matrix for fixed effects (returned by the <code>model.matrix</code> extractor);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ZAlist,strucList</code></td>
+<td>
+<p>Two lists of matrices, respectively the design matrices “<b>Z</b>”, and the “<b>L</b>” matrices, for the different random-effect terms. The extractor <code>get_ZALMatrix</code> can be used to reconstruct a single “<b>ZL</b>” matrix for all terms.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>BinomialDen</code></td>
+<td>
+<p>(binomial data only) the binomial denominators;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>the response vector; for binomial data, the frequency response.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>models</code></td>
+<td>
+<p>Additional information on model structure for <code class="reqn">\eta</code>, <code class="reqn">\lambda</code> and <code class="reqn">\phi</code>;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>HL</code></td>
+<td>
+<p>A set of indices that characterize the approximations used for likelihood;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>leve_phi,lev_lambda</code></td>
+<td>
+<p>Leverages (see <code>hatvalues</code> extractor);</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dfs</code></td>
+<td>
+<p>list (possibly structured): some information about degrees of freedom for different components of the model. But its details may be difficult to interpret and the <code>DoF</code> extractor should be used;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>how</code></td>
+<td>
+<p>A list containing the information properly extracted by the <code>how</code> function;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>warnings</code></td>
+<td>
+<p>A list of warnings for events that may have occurred during the fit.</p>
+</td>
+</tr>
+</table>
+<p>Finally, the object includes programming tools: <code>call, spaMM.version, fit_time</code> and an environment <code>envir</code> that may contain whatever may be needed in some post-fit operations..
+</p>
+
+
+<h3>References</h3>
+
+<p>Lee, Y., Nelder, J. A. (2001)  Hierarchical generalised linear models: A
+synthesis of generalised linear models, random-effect models and structured
+dispersions. Biometrika 88, 987-1006.
+</p>
+<p>Lee, Y., Nelder, J. A. and Pawitan, Y. (2006). Generalized linear models with random effects: unified analysis via
+h-likelihood. Chapman &amp; Hall: London.
+</p>
+<p>Smyth GK, Huele AF, Verbyla AP (2001). Exact and approximate REML for heteroscedastic regression. Statistical Modelling 1, 161-175. 
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>HLCor</code> for estimation with given spatial correlation parameters;
+<code>corrHLfit</code> for joint estimation with spatial correlation parameters;
+<code>fitme</code> as an alternative to all these functions.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("wafers")
+## Gamma GLMM with log link
+
+HLfit(y ~ X1+X2+X1*X3+X2*X3+I(X2^2)+(1|batch), family=Gamma(log),
+          resid.model = ~ X3+I(X3^2) ,data=wafers)
+
+## Gamma - inverseGamma HGLM with log link
+HLfit(y ~ X1+X2+X1*X3+X2*X3+I(X2^2)+(1|batch), family=Gamma(log),
+          rand.family=inverse.Gamma(log),
+          resid.model = ~ X3+I(X3^2) , data=wafers)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,199 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>add_candidates</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Add model definitions to a data stack</h2>
+
+<h3>Description</h3>
+
+<p><code>add_candidates()</code> collates the assessment set predictions
+and additional attributes from the supplied model definition
+(i.e. set of "candidates") to a data stack.
+</p>
+<p>Behind the scenes, data stack objects are just tibble::tbl_dfs,
+where the first column gives the true response values,
+and the remaining columns give the assessment set predictions
+for each candidate. In the regression setting, there's only
+one column per ensemble member. In classification settings,
+there are as many columns per candidate ensemble member
+as there are levels of the outcome variable.
+</p>
+<p>To initialize a data stack, use the <code>stacks()</code> function.
+Model definitions are appended to a data stack iteratively
+using several calls to <code>add_candidates()</code>. Data stacks are
+evaluated using the <code>blend_predictions()</code> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">add_candidates(
+  data_stack,
+  candidates,
+  name = deparse(substitute(candidates)),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data_stack</code></td>
+<td>
+<p>A <code>data_stack</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>candidates</code></td>
+<td>
+<p>A (set of) model definition(s) defining candidate model
+stack members. Should inherit from <code>tune_results</code> or <code>workflow_set</code>.
+</p>
+
+<ul>
+<li> <p><code>tune_results</code>: An object outputted from <code>tune::tune_grid()</code>,
+<code>tune::tune_bayes()</code>, or <code>tune::fit_resamples()</code>.
+</p>
+</li>
+<li> <p><code>workflow_set</code>: An object outputted from <code>workflowsets::workflow_map()</code>.
+This approach allows for supplying multiple sets of candidate members
+with only one call to <code>add_candidates</code>. See the "Stacking With Workflow Sets"
+article on the <a href="https://stacks.tidymodels.org/">package website</a> for example code!
+</p>
+</li>
+</ul>
+<p>Regardless, these results must have been fitted with the <code>control</code> settings
+<code style="white-space: pre;">⁠save_pred = TRUE, save_workflow = TRUE⁠</code>—see the <code>control_stack_grid()</code>,
+<code>control_stack_bayes()</code>, and <code>control_stack_resamples()</code>
+documentation for helper functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>The label for the model definition—defaults to the name
+of the <code>candidates</code> object. Ignored if <code>candidates</code> inherits from
+<code>workflow_set</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments. Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>data_stack</code> object–see <code>stacks()</code> for more details!
+</p>
+
+
+<h3>Example Data</h3>
+
+<p>This package provides some resampling objects and datasets for use in examples
+and vignettes derived from a study on 1212 red-eyed tree frog embryos!
+</p>
+<p>Red-eyed tree frog (RETF) embryos can hatch earlier than their normal
+7ish days if they detect potential predator threat. Researchers wanted
+to determine how, and when, these tree frog embryos were able to detect
+stimulus from their environment. To do so, they subjected the embryos
+at varying developmental stages to "predator stimulus" by jiggling
+the embryos with a blunt probe. Beforehand, though some of the embryos
+were treated with gentamicin, a compound that knocks out their lateral
+line (a sensory organ.) Researcher Julie Jung and her crew found that
+these factors inform whether an embryo hatches prematurely or not!
+</p>
+<p>Note that the data included with the stacks package is not necessarily
+a representative or unbiased subset of the complete dataset, and is
+only for demonstrative purposes.
+</p>
+<p><code>reg_folds</code> and <code>class_folds</code> are <code>rset</code> cross-fold validation objects
+from <code>rsample</code>, splitting the training data into for the regression
+and classification model objects, respectively. <code>tree_frogs_reg_test</code> and
+<code>tree_frogs_class_test</code> are the analogous testing sets.
+</p>
+<p><code>reg_res_lr</code>, <code>reg_res_svm</code>, and <code>reg_res_sp</code> contain regression tuning results
+for a linear regression, support vector machine, and spline model, respectively,
+fitting <code>latency</code> (i.e. how long the embryos took to hatch in response
+to the jiggle) in the <code>tree_frogs</code> data, using most all of the other
+variables as predictors. Note that the data underlying these models is
+filtered to include data only from embryos that hatched in response to
+the stimulus.
+</p>
+<p><code>class_res_rf</code> and <code>class_res_nn</code> contain multiclass classification tuning
+results for a random forest and neural network classification model,
+respectively, fitting <code>reflex</code> (a measure of ear function) in the
+data using most all of the other variables as predictors.
+</p>
+<p><code>log_res_rf</code> and <code>log_res_nn</code>, contain binary classification tuning results
+for a random forest and neural network classification model, respectively,
+fitting <code>hatched</code> (whether or not the embryos hatched in response
+to the stimulus) using most all of the other variables as predictors.
+</p>
+<p>See <code>?example_data</code> to learn more about these objects, as well as browse
+the source code that generated them.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other core verbs: 
+<code>blend_predictions()</code>,
+<code>fit_members()</code>,
+<code>stacks()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# see the "Example Data" section above for
+# clarification on the objects used in these examples!
+
+# put together a data stack using
+# tuning results for regression models
+reg_st &lt;- 
+  stacks() %&gt;%
+  add_candidates(reg_res_lr) %&gt;%
+  add_candidates(reg_res_svm) %&gt;%
+  add_candidates(reg_res_sp)
+  
+reg_st
+  
+# do the same with multinomial classification models
+class_st &lt;-
+  stacks() %&gt;%
+  add_candidates(class_res_nn) %&gt;%
+  add_candidates(class_res_rf)
+  
+class_st
+  
+# ...or binomial classification models
+log_st &lt;-
+  stacks() %&gt;%
+  add_candidates(log_res_nn) %&gt;%
+  add_candidates(log_res_rf)
+  
+log_st
+  
+# use custom names for each model:
+log_st2 &lt;-
+  stacks() %&gt;%
+  add_candidates(log_res_nn, name = "neural_network") %&gt;%
+  add_candidates(log_res_rf, name = "random_forest")
+  
+log_st2
+  
+# these objects would likely then be
+# passed to blend_predictions():
+log_st2 %&gt;% blend_predictions()
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,170 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>computeV</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute Covariance Matrix</h2>
+
+<h3>Description</h3>
+
+<p>Observations are averages over congruent rectangular plots that like
+in a lattice.  For extensive observations one needs to multiply the
+matrix by the $area^2$ where $area$ is the common area of
+each plot.
+</p>
+<p>Various different classes of covariance functions, generalised
+covariance functions and their derivatives wrt parameters
+are built into this library.  These include the Cauchy and Mat\'ern
+covariance functions as well as specific sub models such as the
+Bessel$_0$, Exponential, Bessel$_1$, spline and logarithmic covariance
+functions.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">computeV(info, class = "ldt", params, rel.tol = .Machine$double.eps^0.25,
+         abs.tol = rel.tol, cat.level = 0, K = NULL)
+ </code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>info</code></td>
+<td>
+<p>Result of the precompute stage</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>class</code></td>
+<td>
+<p>The class of covariance functions,"ldt", "bess0", "exp",
+"bess1", "power", "powerNI", "matern", "spline", "cauchy".  Can also
+be used to
+compute the derivatives of the covariance matrices for specific
+models, for example "dbess0", "dexp", "dexp2", "dbess1",
+"dpowerNI".  Can also be used for any isotropic function K, simply
+define a function K in the workspace that has two arguments,
+distance and a vector of parameters.  Then call
+<code>computeV</code> with <code>class="special"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>params</code></td>
+<td>
+<p>Parameters that go with a specific class of models, for
+the "matern" class it requires an inverse range parameter and a
+smoothness parameter, for example <code>params=c(1,0.5)</code>, this
+corresponds to the case when <code>class="exp", params=c(1)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rel.tol</code></td>
+<td>
+<p>Relative Tolerance for one dimensional numerical
+integration</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>abs.tol</code></td>
+<td>
+<p>Absolute Tolerance for one dimensional numerical integration</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cat.level</code></td>
+<td>
+<p>Controls level of time output, takes values 0, 0.5,
+1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>If class="misc" pass your own covariance function K here, see
+example below</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>David Clifford</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Example for extensive variables - variances of combined plots
+library(spatialCovariance)
+nrows &lt;- 1
+ncols &lt;- 2
+rowwidth &lt;- 1.1
+colwidth &lt;- 1.2
+rowsep &lt;- 0
+colsep &lt;- 0
+
+info &lt;- precompute(nrows,ncols,rowwidth,colwidth,rowsep,colsep)
+V &lt;- computeV(info,class="matern",params=c(1,1))
+
+info2 &lt;- precompute(nrows=1,ncols=1,rowwidth=rowwidth,colwidth=colwidth*2,0,0)
+V2 &lt;- computeV(info2,class="matern",params=c(1,1))
+
+c(1,1) 
+
+(rowwidth * (2*colwidth))^2 * V2
+
+## Bring in anisotropy
+V
+info &lt;- precompute.update(info,aniso=2)  ## geometric anisotropy update
+V &lt;- computeV(info,class="matern",params=c(1,1))
+V
+info &lt;- precompute.update(info,aniso=5)  ## geometric anisotropy update
+V
+
+## Second Example - define your own covariance function, here we use a
+## spherical one
+
+library(spatialCovariance)
+
+K &lt;- function(d,params) {
+  frac &lt;- d/params
+  ret &lt;- rep(0,length(d))
+  ind &lt;- which(frac&lt;1)
+  if(length(ind)) ret[ind] &lt;- (1 - 2/pi*(frac[ind]*sqrt(1 - frac[ind]^2) + asin(frac[ind])))
+  return(ret)
+}
+
+dVals &lt;- seq(0,10,l=1001)
+plot(dVals,K(dVals,8),type="l")
+lines(dVals,K(dVals,7),col=2)
+
+nrows &lt;- 1
+ncols &lt;- 3
+rowwidth &lt;- 2
+colwidth &lt;- 2
+rowsep &lt;- 0
+colsep &lt;- 0
+
+info &lt;- precompute(nrows,ncols,rowwidth,colwidth,rowsep,colsep)
+V &lt;- computeV(info,class="misc",params=c(8),K=K)
+V
+
+## Now if we have a low value of theta_2 we should see that the first
+## and third plot are independent as there is a 2 unit gap between
+## them, so that term in V will be zero
+V &lt;- computeV(info,class="misc",params=c(1),K=K)
+V
+
+## If theta_2 gets a little bigger than 2 then we should see no
+## non-zero entries in V
+V &lt;- computeV(info,class="misc",params=c(2.005),K=K)
+V
+
+## Check V is positive definite
+eigen(V)$values ## should all be positive
+
+</code></pre>
+
+
+</div>

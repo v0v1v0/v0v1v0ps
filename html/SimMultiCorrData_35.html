@@ -1,0 +1,296 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>nonnormvar1</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generation of One Non-Normal Continuous Variable Using the Power Method</h2>
+
+<h3>Description</h3>
+
+<p>This function simulates one non-normal continuous variable using either Fleishman's Third-Order (<code>method</code> = "Fleishman",
+doi: <a href="http://doi.org/10.1007/BF02293811">10.1007/BF02293811</a>) or Headrick's Fifth-Order (<code>method</code> = "Polynomial", doi: <a href="http://doi.org/10.1016/S0167-9473(02)00072-5">10.1016/S0167-9473(02)00072-5</a>) Polynomial
+Transformation.  If only one variable is desired and that variable is continuous, this function should be used.  The power method
+transformation is a computationally efficient algorithm that simulates continuous distributions through the method of moments.
+It works by matching standardized cumulants – the first four (mean, variance, skew, and standardized kurtosis) for Fleishman's
+method, or the first six (mean, variance, skew, standardized kurtosis, and standardized fifth and sixth cumulants) for Headrick's
+method.  The transformation is expressed as follows:
+</p>
+<p><code class="reqn">Y = c_{0} + c_{1} * Z + c_{2} * Z^2 + c_{3} * Z^3 + c_{4} * Z^4 + c_{5} * Z^5</code>,
+</p>
+<p>where <code class="reqn">Z ~ N(0,1)</code>, and <code class="reqn">c_{4}</code> and <code class="reqn">c_{5}</code> both equal <code class="reqn">0</code> for Fleishman's method.  The real constants are calculated by
+<code>find_constants</code>.  All variables are simulated with mean <code class="reqn">0</code> and variance <code class="reqn">1</code>, and then
+transformed to the specified mean and variance at the end.
+</p>
+<p>The required parameters for simulating continuous variables include: mean, variance, skewness, standardized kurtosis (kurtosis - 3), and
+standardized fifth and sixth cumulants (for <code>method</code> = "Polynomial").  If the goal is to simulate a theoretical distribution
+(i.e. Gamma, Beta, Logistic, etc.), these values can be obtained using <code>calc_theory</code>.  If the goal is to
+mimic an empirical data set, these values can be found using <code>calc_moments</code> (using the method of moments) or
+<code>calc_fisherk</code> (using Fisher's k-statistics).  If the standardized cumulants
+are obtained from <code>calc_theory</code>, the user may need to use rounded values as inputs (i.e. <code>skews = round(skews, 8)</code>).  Due to the nature
+of the integration involved in <code>calc_theory</code>, the results are approximations.  Greater accuracy can be achieved by increasing the number of
+subdivisions (<code>sub</code>) used in the integration process.  For example, in order to ensure that skew is exactly 0 for symmetric distributions.
+</p>
+<p>For some sets of cumulants, it is either not possible to find power method constants or the
+calculated constants do not generate valid power method pdfs.  In these situations, adding a value to the sixth cumulant may
+provide solutions (see <code>find_constants</code>).  If simulation results indicate that a continuous variable
+does not generate a valid pdf, the user can try <code>find_constants</code> with various sixth cumulant correction
+vectors to determine if a valid pdf can be found.
+</p>
+<p>Headrick &amp; Kowalchuk (2007, doi: <a href="http://doi.org/10.1080/10629360600605065">10.1080/10629360600605065</a>) outlined a general
+method for comparing a simulated distribution <code class="reqn">Y</code> to a given theoretical distribution <code class="reqn">Y^*</code>.  These steps can be found in
+the example and the <b>Comparison of Simulated Distribution to Theoretical Distribution or Empirical Data</b> vignette.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">nonnormvar1(method = c("Fleishman", "Polynomial"), means = 0, vars = 1,
+  skews = 0, skurts = 0, fifths = 0, sixths = 0, Six = NULL,
+  cstart = NULL, n = 10000, seed = 1234)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the method used to generate the continuous variable.  "Fleishman" uses Fleishman's third-order polynomial transformation
+and "Polynomial" uses Headrick's fifth-order transformation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>means</code></td>
+<td>
+<p>mean for the continuous variable (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vars</code></td>
+<td>
+<p>variance (default = 1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skews</code></td>
+<td>
+<p>skewness value (default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skurts</code></td>
+<td>
+<p>standardized kurtosis (kurtosis - 3, so that normal variables have a value of 0; default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fifths</code></td>
+<td>
+<p>standardized fifth cumulant (not necessary for <code>method</code> = "Fleishman"; default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sixths</code></td>
+<td>
+<p>standardized sixth cumulant (not necessary for <code>method</code> = "Fleishman"; default = 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Six</code></td>
+<td>
+<p>a vector of correction values to add to the sixth cumulant if no valid pdf constants are found,
+ex: <code>Six = seq(0.01, 2, by = 0.01)</code>; if no correction is desired, set <code>Six = NULL</code> (default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cstart</code></td>
+<td>
+<p>initial values for root-solving algorithm (see <code>multiStart</code> for <code>method</code> = "Fleishman"
+or <code>nleqslv</code> for <code>method</code> = "Polynomial").  If user specified,
+must be input as a matrix. If NULL and all 4 standardized cumulants (rounded to 3 digits) are within
+0.01 of those in Headrick's common distribution table (see <code>Headrick.dist</code>
+data), uses his constants as starting values; else, generates n sets of random starting values from
+uniform distributions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>the sample size (i.e. the length of the simulated variable; default = 10000)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>the seed value for random number generation (default = 1234)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with the following components:
+</p>
+<p><code>constants</code> a data.frame of the constants
+</p>
+<p><code>continuous_variable</code> a data.frame of the generated continuous variable
+</p>
+<p><code>summary_continuous</code> a data.frame containing a summary of the variable
+</p>
+<p><code>summary_targetcont</code> a data.frame containing a summary of the target variable
+</p>
+<p><code>sixth_correction</code> the sixth cumulant correction value
+</p>
+<p><code>valid.pdf</code> "TRUE" if constants generate a valid pdf, else "FALSE"
+</p>
+<p><code>Constants_Time</code> the time in minutes required to calculate the constants
+</p>
+<p><code>Simulation_Time</code> the total simulation time in minutes
+</p>
+
+
+<h3>Choice of Fleishman's third-order or Headrick's fifth-order method</h3>
+
+<p>Using the fifth-order approximation allows additional control over the fifth and sixth moments of the generated distribution, improving
+accuracy.  In addition, the range of feasible standardized kurtosis values, given skew and standardized fifth (<code class="reqn">\gamma_{3}</code>) and sixth
+(<code class="reqn">\gamma_{4}</code>) cumulants, is larger than with Fleishman's method (see <code>calc_lower_skurt</code>).
+For example, the Fleishman method can not be used to generate a
+non-normal distribution with a ratio of <code class="reqn">\gamma_{3}^2/\gamma_{4} &gt; 9/14</code> (see Headrick &amp; Kowalchuk, 2007).  This eliminates the
+Chi-squared family of distributions, which has a constant ratio of <code class="reqn">\gamma_{3}^2/\gamma_{4} = 2/3</code>.  However, if the fifth and
+sixth cumulants do not exist, the Fleishman approximation should be used.
+</p>
+
+
+<h3>Overview of Simulation Process</h3>
+
+<p>1) The constants are calculated for the continuous variable using <code>find_constants</code>.  If no
+solutions are found that generate a valid power method pdf, the function will return constants that produce an invalid pdf
+(or a stop error if no solutions can be found).  Possible solutions include: 1) changing the seed, or 2) using a <code>Six</code> vector
+of sixth cumulant correction values (if <code>method</code> = "Polynomial").  Errors regarding constant
+calculation are the most probable cause of function failure.
+</p>
+<p>2) An intermediate standard normal variate X of length n is generated.
+</p>
+<p>3) Summary statistics are calculated.
+</p>
+
+
+<h3>Reasons for Function Errors</h3>
+
+<p>1) The most likely cause for function errors is that no solutions to <code>fleish</code> or
+<code>poly</code> converged when using <code>find_constants</code>.  If this happens,
+the simulation will stop.  It may help to first use <code>find_constants</code> for each continuous variable to
+determine if a vector of sixth cumulant correction values is needed.  The solutions can be used as starting values (see <code>cstart</code> below).
+If the standardized cumulants are obtained from <code>calc_theory</code>, the user may need to use rounded values as inputs (i.e.
+<code>skews = round(skews, 8)</code>).
+</p>
+<p>2) In addition, the kurtosis may be outside the region of possible values.  There is an associated lower boundary for kurtosis associated
+with a given skew (for Fleishman's method) or skew and fifth and sixth cumulants (for Headrick's method).  Use
+<code>calc_lower_skurt</code> to determine the boundary for a given set of cumulants.
+</p>
+
+
+<h3>References</h3>
+
+<p>Fleishman AI (1978). A Method for Simulating Non-normal Distributions. Psychometrika, 43, 521-532. doi: <a href="http://doi.org/10.1007/BF02293811">10.1007/BF02293811</a>.
+</p>
+<p>Headrick TC (2002). Fast Fifth-order Polynomial Transforms for Generating Univariate and Multivariate
+Non-normal Distributions. Computational Statistics &amp; Data Analysis, 40(4):685-711. doi: <a href="http://doi.org/10.1016/S0167-9473(02)00072-5">10.1016/S0167-9473(02)00072-5</a>.
+(<a href="http://www.sciencedirect.com/science/article/pii/S0167947302000725">ScienceDirect</a>)
+</p>
+<p>Headrick TC (2004). On Polynomial Transformations for Simulating Multivariate Nonnormal Distributions.
+Journal of Modern Applied Statistical Methods, 3(1), 65-71. doi: <a href="http://doi.org/10.22237/jmasm/1083370080">10.22237/jmasm/1083370080</a>.
+</p>
+<p>Headrick TC, Kowalchuk RK (2007). The Power Method Transformation: Its Probability Density Function, Distribution
+Function, and Its Further Use for Fitting Data. Journal of Statistical Computation and Simulation, 77, 229-249. doi: <a href="http://doi.org/10.1080/10629360600605065">10.1080/10629360600605065</a>.
+</p>
+<p>Headrick TC, Sawilowsky SS (1999). Simulating Correlated Non-normal Distributions: Extending the Fleishman Power
+Method. Psychometrika, 64, 25-35. doi: <a href="http://doi.org/10.1007/BF02294317">10.1007/BF02294317</a>.
+</p>
+<p>Headrick TC, Sheng Y, &amp; Hodis FA (2007). Numerical Computing and Graphics for the Power Method Transformation Using
+Mathematica. Journal of Statistical Software, 19(3), 1 - 17. doi: <a href="http://doi.org/10.18637/jss.v019.i03">10.18637/jss.v019.i03</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>find_constants</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Normal distribution with Headrick's fifth-order PMT:
+N &lt;- nonnormvar1("Polynomial", 0, 1, 0, 0, 0, 0)
+
+## Not run: 
+# Use Headrick &amp; Kowalchuk's (2007) steps to compare a simulated exponential
+# (mean = 2) variable to the theoretical exponential(mean = 2) density:
+
+# 1) Obtain the standardized cumulants:
+stcums &lt;- calc_theory(Dist = "Exponential", params = 0.5) # rate = 1/mean
+
+# 2) Simulate the variable:
+H_exp &lt;- nonnormvar1("Polynomial", means = 2, vars = 2, skews = stcums[3],
+                    skurts = stcums[4], fifths = stcums[5],
+                    sixths = stcums[6], n = 10000, seed = 1234)
+
+H_exp$constants
+#           c0        c1       c2         c3          c4           c5
+# 1 -0.3077396 0.8005605 0.318764 0.03350012 -0.00367481 0.0001587076
+
+# 3) Determine whether the constants produce a valid power method pdf:
+
+H_exp$valid.pdf
+# [1] "TRUE"
+
+# 4) Select a critical value:
+
+# Let alpha = 0.05.
+y_star &lt;- qexp(1 - 0.05, rate = 0.5) # note that rate = 1/mean
+y_star
+# [1] 5.991465
+
+# 5) Solve m_{2}^{1/2} * p(z') + m_{1} - y* = 0 for z', where m_{1} and
+# m_{2} are the 1st and 2nd moments of Y*:
+
+# The exponential(2) distribution has a mean and standard deviation equal
+# to 2.
+# Solve 2 * p(z') + 2 - y_star = 0 for z'
+# p(z') = c0 + c1 * z' + c2 * z'^2 + c3 * z'^3 + c4 * z'^4 + c5 * z'^5
+
+f_exp &lt;- function(z, c, y) {
+  return(2 * (c[1] + c[2] * z + c[3] * z^2 + c[4] * z^3 + c[5] * z^4 +
+              c[6] * z^5) + 2 - y)
+}
+
+z_prime &lt;- uniroot(f_exp, interval = c(-1e06, 1e06),
+                   c = as.numeric(H_exp$constants), y = y_star)$root
+z_prime
+# [1] 1.644926
+
+# 6) Calculate 1 - Phi(z'), the corresponding probability for the
+# approximation Y to Y* (i.e. 1 - Phi(z') = 0.05), and compare to target
+# value alpha:
+
+1 - pnorm(z_prime)
+# [1] 0.04999249
+
+# 7) Plot a parametric graph of Y* and Y:
+
+plot_sim_pdf_theory(sim_y = as.numeric(H_exp$continuous_variable[, 1]),
+                    Dist = "Exponential", params = 0.5)
+
+# Note we can also plot the empirical cdf and show the cumulative
+# probability up to y_star:
+
+plot_sim_cdf(sim_y = as.numeric(H_exp$continuous_variable[, 1]),
+             calc_cprob = TRUE, delta = y_star)
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

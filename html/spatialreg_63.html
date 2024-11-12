@@ -1,0 +1,178 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>invIrM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute SAR generating operator</h2>
+
+<h3>Description</h3>
+
+<p>Computes the matrix used for generating simultaneous autoregressive random variables, for a given value of rho, a neighbours list object or a matrix, a chosen coding scheme style, and optionally a list of general weights corresponding to neighbours.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">invIrM(neighbours, rho, glist=NULL, style="W", method="solve",
+ feasible=NULL)
+invIrW(x, rho, method="solve", feasible=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>neighbours</code></td>
+<td>
+<p>an object of class <code>nb</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>autoregressive parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glist</code></td>
+<td>
+<p>list of general weights corresponding to neighbours</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>style</code></td>
+<td>
+<p><code>style</code> can take values W, B, C, and S</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>default <code>solve</code>, can also take value <code>chol</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>feasible</code></td>
+<td>
+<p>if NULL, the given value of rho is checked to see if it lies within its feasible range, if TRUE, the test is not conducted</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>either a <code>listw</code> object from for example <code>nb2listw</code> or a square spatial weights matrix, optionally a sparse matrix</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>invIrW</code> function generates the full weights matrix V, checks that rho lies in its feasible range between 1/min(eigen(V)) and 1/max(eigen(V)), and returns the nxn inverted matrix </p>
+<p style="text-align: center;"><code class="reqn">(I - \rho V)^{-1}</code>
+</p>
+<p>. With method=“chol” (only for a listw object), Cholesky decomposition is used, thanks to contributed code by Markus Reder and Werner Mueller.
+</p>
+<p>Note that, in some situations in simulation, it may matter that the random vector from <code>rnorm</code> or similar will not be exactly N(0, 1), and it will also contain random amounts of spatial autocorrelection itself, which will mix with the spatial autocorrelection injected by the process operator </p>
+<p style="text-align: center;"><code class="reqn">(I - \rho V)^{-1}</code>
+</p>
+<p>. In addition, it will not follow the stipulated distribution exactly either, so that several steps may be needed to scale the random vector, to remove artefacts coming from its deviance from distributional parameters, and to remove random spatial autocorrelation - see the examples below. Thanks to Rune Østergaard Pedersen for bring up this question.
+</p>
+<p>The <code>powerWeights</code> function uses power series summation to cumulate the product </p>
+<p style="text-align: center;"><code class="reqn">(I - \rho V)^{-1} \%*\% X</code>
+</p>
+<p> from </p>
+<p style="text-align: center;"><code class="reqn">(I + \rho V + (\rho V)^2 + \dots) \%*\% X</code>
+</p>
+<p>, which can be done by storing only sparse V and several matrices of the same dimensions as X. This makes it possible to handle larger spatial weights matrices, but is sensitive to the power weights order and the tolerance arguments when the spatial coefficient is close to its bounds, leading to incorrect estimates of the implied inverse matrix.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An nxn matrix with a "call" attribute; the <code>powerWeights</code> function returns a matrix of the same dimensions as X which has been multipled by the power series equivalent of the dense matrix </p>
+<p style="text-align: center;"><code class="reqn">(I - \rho V)^{-1}</code>
+</p>
+<p>.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Before version 0.6-10, <code>powerWeights</code> only worked correctly for positive rho, with differences from true values increasing as rho approached -1, and exploding between -1 and the true negative bound.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Roger Bivand <a href="mailto:Roger.Bivand@nhh.no">Roger.Bivand@nhh.no</a></p>
+
+
+<h3>References</h3>
+
+<p>Tiefelsdorf, M., Griffith, D. A., Boots, B. 1999 A variance-stabilizing coding scheme for spatial link matrices, Environment and Planning A, 31, pp. 165-180; Tiefelsdorf, M. 2000 Modelling spatial processes, Lecture notes in earth sciences, Springer, p. 76; Haining, R. 1990 Spatial data analysis in the social and environmental sciences, Cambridge University Press, p. 117; Cliff, A. D., Ord, J. K. 1981 Spatial processes, Pion, p. 152; Reder, M. and Mueller, W. (2007) An Improvement of the invIrM Routine of the Geostatistical R-package spdep by Cholesky Inversion, Statistical Projects, LV No: 238.205, SS 2006, Department of Applied Statistics, Johannes Kepler University, Linz</p>
+
+
+<h3>See Also</h3>
+
+<p><code>nb2listw</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(spdep)
+nb7rt &lt;- cell2nb(7, 7, torus=TRUE)
+lw &lt;- nb2listw(nb7rt, style="W")
+set.seed(1)
+x &lt;- matrix(sample(rnorm(500*length(nb7rt))), nrow=length(nb7rt))
+if (requireNamespace("spatialreg", quietly=TRUE)) {
+# Only needed in some simulation settings where the input and
+# output distributions must agree in all but autocorrelation
+if (FALSE) {
+e &lt;- spatialreg::eigenw(lw)
+x &lt;- apply(x, 2, scale)
+st &lt;- apply(x, 2, function(x) shapiro.test(x)$p.value)
+x &lt;- x[, (st &gt; 0.2 &amp; st &lt; 0.8)]
+x &lt;- apply(x, 2, function(v) spatialreg::residuals.spautolm(
+ spatialreg::spautolm(v ~ 1, listw=lw, method="eigen",
+ control=list(pre_eig=e, fdHess=FALSE))))
+x &lt;- apply(x, 2, scale)
+}
+res0 &lt;- apply(invIrM(nb7rt, rho=0.0, method="chol",
+ feasible=TRUE) %*% x, 2, function(x) var(x)/length(x))
+res2 &lt;- apply(invIrM(nb7rt, rho=0.2, method="chol",
+ feasible=TRUE) %*% x, 2, function(x) var(x)/length(x))
+res4 &lt;- apply(invIrM(nb7rt, rho=0.4, method="chol",
+ feasible=TRUE) %*% x, 2, function(x) var(x)/length(x))
+res6 &lt;- apply(invIrM(nb7rt, rho=0.6, method="chol",
+ feasible=TRUE) %*% x, 2, function(x) var(x)/length(x))
+res8 &lt;- apply(invIrM(nb7rt, rho=0.8, method="chol",
+ feasible=TRUE) %*% x, 2, function(x) var(x)/length(x))
+res9 &lt;- apply(invIrM(nb7rt, rho=0.9, method="chol",
+ feasible=TRUE) %*% x, 2, function(x) var(x)/length(x))
+plot(density(res9), col="red", xlim=c(-0.01, max(density(res9)$x)),
+  ylim=range(density(res0)$y),
+  xlab="estimated variance of the mean",
+  main=expression(paste("Effects of spatial autocorrelation for different ",
+    rho, " values")))
+lines(density(res0), col="black")
+lines(density(res2), col="brown")
+lines(density(res4), col="green")
+lines(density(res6), col="orange")
+lines(density(res8), col="pink")
+legend(c(-0.02, 0.01), c(7, 25),
+ legend=c("0.0", "0.2", "0.4", "0.6", "0.8", "0.9"),
+ col=c("black", "brown", "green", "orange", "pink", "red"), lty=1, bty="n")
+}
+## Not run: 
+x &lt;- matrix(rnorm(length(nb7rt)), ncol=1)
+system.time(e &lt;- invIrM(nb7rt, rho=0.9, method="chol", feasible=TRUE) %*% x)
+system.time(e &lt;- invIrM(nb7rt, rho=0.9, method="chol", feasible=NULL) %*% x)
+system.time(e &lt;- invIrM(nb7rt, rho=0.9, method="solve", feasible=TRUE) %*% x)
+system.time(e &lt;- invIrM(nb7rt, rho=0.9, method="solve", feasible=NULL) %*% x)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

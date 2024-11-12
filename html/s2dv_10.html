@@ -1,0 +1,344 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>CDORemap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Interpolate arrays with longitude and latitude dimensions using CDO</h2>
+
+<h3>Description</h3>
+
+<p>This function takes as inputs a multidimensional array (optional), a vector 
+or matrix of longitudes, a vector or matrix of latitudes, a destination grid 
+specification, and the name of a method to be used to interpolate (one of 
+those available in the 'remap' utility in CDO). The interpolated array is 
+returned (if provided) together with the new longitudes and latitudes.<br><br><code>CDORemap()</code> permutes by default the dimensions of the input array (if 
+needed), splits it in chunks (CDO can work with data arrays of up to 4 
+dimensions), generates a file with the data of each chunk, interpolates it 
+with CDO, reads it back into R and merges it into a result array. If no 
+input array is provided, the longitude and latitude vectors will be 
+transformed only. If the array is already on the desired destination grid, 
+no transformation is performed (this behvaiour works only for lonlat and 
+gaussian grids). <br><br>
+Any metadata attached to the input data array, longitudes or latitudes will 
+be preserved or accordingly modified.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">CDORemap(
+  data_array = NULL,
+  lons,
+  lats,
+  grid,
+  method,
+  avoid_writes = TRUE,
+  crop = TRUE,
+  force_remap = FALSE,
+  write_dir = tempdir(),
+  print_sys_msg = FALSE,
+  ncores = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data_array</code></td>
+<td>
+<p>Multidimensional numeric array to be interpolated. If 
+provided, it must have at least a longitude and a latitude dimensions, 
+identified by the array dimension names. The names for these dimensions 
+must be one of the recognized by s2dverification (can be checked with 
+<code>s2dv:::.KnownLonNames()</code> and <code>s2dv:::.KnownLatNames()</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lons</code></td>
+<td>
+<p>Numeric vector or array of longitudes of the centers of the grid 
+cells. Its size must match the size of the longitude/latitude dimensions 
+of the input array.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lats</code></td>
+<td>
+<p>Numeric vector or array of latitudes of the centers of the grid 
+cells. Its size must match the size of the longitude/latitude dimensions 
+of the input array.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p>Character string specifying either a name of a target grid 
+(recognized by CDO; e.g.: 'r256x128', 't106grid') or a path to another 
+NetCDF file which to read the target grid from (a single grid must be 
+defined in such file).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Character string specifying an interpolation method 
+(recognized by CDO; e.g.: 'con', 'bil', 'bic', 'dis', 'con2', 'laf', 'nn').
+The following long names are also supported: 'conservative', 'bilinear', 
+'bicubic' and 'distance-weighted'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>avoid_writes</code></td>
+<td>
+<p>The step of permutation is needed when the input array 
+has more than 3 dimensions and none of the longitude or latitude dimensions
+in the right-most position (CDO would not accept it without permuting 
+previously). This step, executed by default when needed, can be avoided 
+for the price of writing more intermediate files (whis usually is 
+unconvenient) by setting the parameter <code>avoid_writes = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crop</code></td>
+<td>
+<p>Whether to crop the data after interpolation with 
+'cdo sellonlatbox' (TRUE) or to extend interpolated data to the whole
+world as CDO does by default (FALSE). The default value is TRUE.<br></p>
+
+<ul>
+<li>
+<p>If <code>crop = TRUE</code>, the longitude and latitude borders to be cropped
+at are taken as the limits of the cells at the borders (not the values
+of 'lons' and 'lats', which are perceived as cell centers), i.e., the
+resulting array will contain data that covers the same area as the input
+array. This is equivalent to specifying <code>crop = 'preserve'</code>, i.e.,
+preserving area. Notice that the longitude range of returning array will
+follow the original data 'lons' instead of the target grid 'grid'.
+
+</p>
+</li>
+<li>
+<p>If <code>crop = FALSE</code>, the returning array is not cropped, i.e., a 
+global domain, and the longitude range will be the same as the target
+grid 'grid'.
+
+</p>
+</li>
+<li>
+<p>If <code>crop = 'tight'</code>, the borders to be cropped at are taken as the 
+minimum and maximum cell centers in 'lons' and 'lats', i.e., the area
+covered by the resulting array may be smaller if interpolating from a 
+coarse grid to a fine grid. 
+
+</p>
+</li>
+<li>
+<p>The parameter 'crop' also accepts a numeric vector of customized borders
+to be cropped at:<br>
+c(western border, eastern border, southern border, northern border).
+
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>force_remap</code></td>
+<td>
+<p>Whether to force remapping, even if the input data array 
+is already on the target grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>write_dir</code></td>
+<td>
+<p>Path to the directory where to create the intermediate 
+files for CDO to work. By default, the R session temporary directory is 
+used (<code>tempdir()</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print_sys_msg</code></td>
+<td>
+<p>A logical value indicating to print the messages from 
+system CDO commands. The default is FALSE to keep function using clean.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>An integer indicating the number of theads used for 
+interpolation (i.e., <code>-P</code> in cdo command.) The default value is NULL
+and <code>-P</code> is not used.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>'data_array'</code></td>
+<td>
+<p>The interpolated data array (if an input array 
+is provided at all, NULL otherwise).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>'lons'</code></td>
+<td>
+<p>The longitudes of the data on the destination grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>'lats'</code></td>
+<td>
+<p>The latitudes of the data on the destination grid.</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R"> ## Not run: 
+# Interpolating only vectors of longitudes and latitudes
+lon &lt;- seq(0, 360 - 360/50, length.out = 50)
+lat &lt;- seq(-90, 90, length.out = 25)
+tas2 &lt;- CDORemap(NULL, lon, lat, 't170grid', 'bil', TRUE)
+
+# Minimal array interpolation
+tas &lt;- array(1:50, dim = c(25, 50))
+names(dim(tas)) &lt;- c('lat', 'lon')
+lon &lt;- seq(0, 360 - 360/50, length.out = 50)
+lat &lt;- seq(-90, 90, length.out = 25)
+tas2 &lt;- CDORemap(tas, lon, lat, 't170grid', 'bil', TRUE)
+
+# Metadata can be attached to the inputs. It will be preserved and 
+# accordignly modified.
+tas &lt;- array(1:50, dim = c(25, 50))
+names(dim(tas)) &lt;- c('lat', 'lon')
+lon &lt;- seq(0, 360 - 360/50, length.out = 50)
+metadata &lt;- list(lon = list(units = 'degrees_east'))
+attr(lon, 'variables') &lt;- metadata
+lat &lt;- seq(-90, 90, length.out = 25)
+metadata &lt;- list(lat = list(units = 'degrees_north'))
+attr(lat, 'variables') &lt;- metadata
+metadata &lt;- list(tas = list(dim = list(lat = list(len = 25,
+                                                 vals = lat),
+                                      lon = list(len = 50,
+                                                 vals = lon)
+                                     )))
+attr(tas, 'variables') &lt;- metadata
+tas2 &lt;- CDORemap(tas, lon, lat, 't170grid', 'bil', TRUE)
+
+# Arrays of any number of dimensions in any order can be provided.
+num_lats &lt;- 25
+num_lons &lt;- 50
+tas &lt;- array(1:(10*num_lats*10*num_lons*10), 
+            dim = c(10, num_lats, 10, num_lons, 10))
+names(dim(tas)) &lt;- c('a', 'lat', 'b', 'lon', 'c')
+lon &lt;- seq(0, 360 - 360/num_lons, length.out = num_lons)
+metadata &lt;- list(lon = list(units = 'degrees_east'))
+attr(lon, 'variables') &lt;- metadata
+lat &lt;- seq(-90, 90, length.out = num_lats)
+metadata &lt;- list(lat = list(units = 'degrees_north'))
+attr(lat, 'variables') &lt;- metadata
+metadata &lt;- list(tas = list(dim = list(a = list(),
+                                      lat = list(len = num_lats,
+                                                 vals = lat),
+                                      b = list(),
+                                      lon = list(len = num_lons,
+                                                 vals = lon),
+                                      c = list()
+                                     )))
+attr(tas, 'variables') &lt;- metadata
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil', TRUE)
+# The step of permutation can be avoided but more intermediate file writes
+# will be performed.
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil', FALSE)
+
+# If the provided array has the longitude or latitude dimension in the 
+# right-most position, the same number of file writes will be performed,
+# even if avoid_wrties = FALSE.
+num_lats &lt;- 25
+num_lons &lt;- 50
+tas &lt;- array(1:(10*num_lats*10*num_lons*10), 
+            dim = c(10, num_lats, 10, num_lons))
+names(dim(tas)) &lt;- c('a', 'lat', 'b', 'lon')
+lon &lt;- seq(0, 360 - 360/num_lons, length.out = num_lons)
+metadata &lt;- list(lon = list(units = 'degrees_east'))
+attr(lon, 'variables') &lt;- metadata
+lat &lt;- seq(-90, 90, length.out = num_lats)
+metadata &lt;- list(lat = list(units = 'degrees_north'))
+attr(lat, 'variables') &lt;- metadata
+metadata &lt;- list(tas = list(dim = list(a = list(),
+                                      lat = list(len = num_lats,
+                                                 vals = lat),
+                                      b = list(),
+                                      lon = list(len = num_lons,
+                                                 vals = lon)
+                                     )))
+attr(tas, 'variables') &lt;- metadata
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil', TRUE)
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil', FALSE)
+
+# An example of an interpolation from and onto a rectangular regular grid
+num_lats &lt;- 25
+num_lons &lt;- 50
+tas &lt;- array(1:(1*num_lats*num_lons), dim = c(num_lats, num_lons))
+names(dim(tas)) &lt;- c('y', 'x')
+lon &lt;- array(seq(0, 360 - 360/num_lons, length.out = num_lons), 
+            dim = c(num_lons, num_lats))
+metadata &lt;- list(lon = list(units = 'degrees_east'))
+names(dim(lon)) &lt;- c('x', 'y')
+attr(lon, 'variables') &lt;- metadata
+lat &lt;- t(array(seq(-90, 90, length.out = num_lats), 
+              dim = c(num_lats, num_lons)))
+metadata &lt;- list(lat = list(units = 'degrees_north'))
+names(dim(lat)) &lt;- c('x', 'y')
+attr(lat, 'variables') &lt;- metadata
+tas2 &lt;- CDORemap(tas, lon, lat, 'r100x50', 'bil')
+
+# An example of an interpolation from an irregular grid onto a gaussian grid
+num_lats &lt;- 25
+num_lons &lt;- 50
+tas &lt;- array(1:(10*num_lats*10*num_lons*10), 
+            dim = c(10, num_lats, 10, num_lons))
+names(dim(tas)) &lt;- c('a', 'j', 'b', 'i')
+lon &lt;- array(seq(0, 360 - 360/num_lons, length.out = num_lons), 
+            dim = c(num_lons, num_lats))
+metadata &lt;- list(lon = list(units = 'degrees_east'))
+names(dim(lon)) &lt;- c('i', 'j')
+attr(lon, 'variables') &lt;- metadata
+lat &lt;- t(array(seq(-90, 90, length.out = num_lats), 
+        dim = c(num_lats, num_lons)))
+metadata &lt;- list(lat = list(units = 'degrees_north'))
+names(dim(lat)) &lt;- c('i', 'j')
+attr(lat, 'variables') &lt;- metadata
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil')
+
+# Again, the dimensions can be in any order
+num_lats &lt;- 25
+num_lons &lt;- 50
+tas &lt;- array(1:(10*num_lats*10*num_lons), 
+            dim = c(10, num_lats, 10, num_lons))
+names(dim(tas)) &lt;- c('a', 'j', 'b', 'i')
+lon &lt;- array(seq(0, 360 - 360/num_lons, length.out = num_lons), 
+            dim = c(num_lons, num_lats))
+names(dim(lon)) &lt;- c('i', 'j')
+lat &lt;- t(array(seq(-90, 90, length.out = num_lats), 
+              dim = c(num_lats, num_lons)))
+names(dim(lat)) &lt;- c('i', 'j')
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil')
+tas2 &lt;- CDORemap(tas, lon, lat, 't17grid', 'bil', FALSE)
+# It is ossible to specify an external NetCDF file as target grid reference
+tas2 &lt;- CDORemap(tas, lon, lat, 'external_file.nc', 'bil')
+
+## End(Not run)
+</code></pre>
+
+
+</div>

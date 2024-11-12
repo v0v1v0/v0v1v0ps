@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>segmag</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create Segmentation Object</h2>
+
+<h3>Description</h3>
+
+<p>This function creates a segmag object from a vector of participant ids and
+a vector of times when the participants pressed the segmentation key on the keyboard.
+All functions in the segmag package work on this object (e.g., plotting results, 
+determining event boundaries). The additional parameters define the size and
+offset of the Gaussian that is centered around each key press and the time window
+in the data set to consider (time_min, time_max, time_steps).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">segmag(ids, time_keypresses, data = NULL,
+  time_min = (min(min(time_keypresses), (min(time_keypresses) + gauss_offset))
+  - gauss_cutoff), time_max = (max(max(time_keypresses), (max(time_keypresses)
+  + gauss_offset)) + gauss_cutoff), time_steps = 0.01, gauss_offset = 0,
+  gauss_sd = 1, gauss_cutoff = 6 * gauss_sd)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>factor assigning a participant id to each key press (same length as
+time_keypresses)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time_keypresses</code></td>
+<td>
+<p>numeric vector with the times when the segmentation key
+was pressed on the keyboard</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>optional data.frame where ids and time_keypresses are stored in</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time_min</code></td>
+<td>
+<p>time window of key press times used in calculations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time_max</code></td>
+<td>
+<p>time window of key press times used in calculations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time_steps</code></td>
+<td>
+<p>interval length of time steps within time window</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gauss_offset</code></td>
+<td>
+<p>offset the overlaid Gaussian relative to the key press times
+in order to account for manual reaction times (0: centered,
+negative values: assume that event boundary occurred before key press)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gauss_sd</code></td>
+<td>
+<p>sd of overlaid Gaussian</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gauss_cutoff</code></td>
+<td>
+<p>speed up calculations by not considering values of the overlaid Gaussian
+that are more than gauss_cutoff units from the center of the Gaussian away
+(because they are very close to 0)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>First, segmentation magnitude for each participant across time is calculated 
+by centering a Gaussian around each key press. If multiple Gaussians overlap
+across time then only the maximum values is used (not sum) to ensure an equal
+weight of each participant on the overall segmentation magnitude. Thereafter,
+the segmentation magnitudes of the participants are summed up to define the
+overall segmentation magnitude across time. The higher the segmentation magnitude
+at one point in time the more participants pressed a key around this time
+point. To account for the fact that participants have a certain temporal error
+in their key presses, Gaussians are used to expand the influence of a single key press
+into time. Furthermore, an offset to these Gaussians can be defined in order to
+account for manual reaction times and to get a better estimate of the "real"
+time point of an event boundary.
+</p>
+<p>In order to achieve a decent calculation speed, a fixed time scale with interval length
+time_steps and starting from time_min is used. All key-press times are rounded to their closest
+interval. A warning is issued if this changes the raw key-press times.
+</p>
+
+
+<h3>Value</h3>
+
+<p>segmag object (also contains a data.frame with segmentation magnitude across time as $data)
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>bootstrap_critical_cutoffs</code>, <code>get_eb_times</code>, <code>plot.segmag</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># segmentation responses (key presses) of 6 participants watching a movie (30 seconds long)
+participant_ids &lt;- factor(c(1,1,1,1,2,2,3,3,3,3,4,4,4,5,5,6,6,6))
+time_keypresses &lt;- c(7,12,18,25,12.1,24.9,6.9,10,25.2,29,7.2,12.05,17.5,7.05,25,6.9,16.1,25)
+
+# create segmag object
+segmag1 &lt;- segmag(participant_ids, time_keypresses, time_min=0, time_max=30)
+
+## Not run: 
+# estimate the critical cutoff against an alpha level of 0.05
+# Note: This is an estimate an will vary slightly against multiple calls of this function
+#       (variation is the lower the higher n_bootstrap is set)
+critical_cutoff &lt;- bootstrap_critical_cutoffs(segmag1, 5000, .95)
+
+## End(Not run)
+
+
+# timestamps of significant event boundaries within the movie
+eb_times &lt;- get_eb_times(segmag1, critical_cutoff)
+
+plot(segmag1, critical_cutoff, eb_times)
+
+</code></pre>
+
+
+</div>

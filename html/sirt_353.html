@@ -1,0 +1,978 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>invariance.alignment</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Alignment Procedure for Linking under Approximate Invariance
+</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>invariance.alignment</code> performs alignment under approximate
+invariance for <code class="reqn">G</code> groups and <code class="reqn">I</code> items
+(Asparouhov &amp; Muthen, 2014; Byrne &amp; van de Vijver, 2017; DeMars, 2020; Finch, 2016;
+Fischer &amp; Karl, 2019; Flake &amp; McCoach, 2018; Kim et al., 2017; Marsh et al., 2018;
+Muthen &amp; Asparouhov, 2014, 2018; Pokropek, Davidov &amp; Schmidt, 2019).
+It is assumed that item loadings and intercepts are
+previously estimated as a unidimensional factor model under the assumption of a factor
+with zero mean and a variance of one.
+</p>
+<p>The function <code>invariance_alignment_constraints</code> postprocesses the output of the
+<code>invariance.alignment</code> function and estimates item parameters under equality
+constraints for prespecified absolute values of parameter tolerance.
+</p>
+<p>The function <code>invariance_alignment_simulate</code> simulates a one-factor model
+for multiple groups for given matrices of <code class="reqn">\nu</code> and <code class="reqn">\lambda</code> parameters of
+item intercepts and item slopes (see Example 6).
+</p>
+<p>The function <code>invariance_alignment_cfa_config</code> estimates one-factor
+models separately for each group as a preliminary step for invariance
+alignment (see Example 6). Sampling weights are accommodated by the
+argument <code>weights</code>.  The computed variance matrix <code>vcov</code> by this function
+can be used to obtain standard errors in the <code>invariance.alignment</code> function
+if it is supplied as the argument <code>vcov</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">invariance.alignment(lambda, nu, wgt=NULL, align.scale=c(1, 1),
+    align.pow=c(.5, .5), eps=1e-3, psi0.init=NULL, alpha0.init=NULL, center=FALSE,
+    optimizer="optim", fixed=NULL, meth=1, vcov=NULL, eps_grid=seq(0,-10, by=-.5),
+    num_deriv=FALSE, ...)
+
+## S3 method for class 'invariance.alignment'
+summary(object, digits=3, file=NULL, ...)
+
+invariance_alignment_constraints(model, lambda_parm_tol, nu_parm_tol )
+
+## S3 method for class 'invariance_alignment_constraints'
+summary(object, digits=3, file=NULL, ...)
+
+invariance_alignment_simulate(nu, lambda, err_var, mu, sigma, N, output="data",
+     groupwise=FALSE, exact=FALSE)
+
+invariance_alignment_cfa_config(dat, group, weights=NULL, model="2PM", verbose=FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+
+<p>A <code class="reqn">G \times I</code> matrix with item loadings
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nu</code></td>
+<td>
+
+<p>A <code class="reqn">G \times I</code> matrix with item intercepts
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wgt</code></td>
+<td>
+
+<p>A <code class="reqn">G \times I</code> matrix for weighing groups
+for each item
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>align.scale</code></td>
+<td>
+
+<p>A vector of length two containing scale parameter
+<code class="reqn">a_\lambda</code> and <code class="reqn">a_\nu</code> (see Details)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>align.pow</code></td>
+<td>
+
+<p>A vector of length two containing power
+<code class="reqn">p_\lambda</code> and <code class="reqn">p_\nu</code> (see Details)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps</code></td>
+<td>
+
+<p>A parameter in the optimization function
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi0.init</code></td>
+<td>
+
+<p>An optional vector of initial <code class="reqn">\psi_0</code> parameters
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha0.init</code></td>
+<td>
+
+<p>An optional vector of initial <code class="reqn">\alpha_0</code> parameters
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>center</code></td>
+<td>
+
+<p>Logical indicating whether estimated means and standard deviations should
+be centered.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>optimizer</code></td>
+<td>
+<p>Name of the optimizer chosen for alignment. Options are
+<code>"optim"</code> (using <code>stats::optim</code>)
+or <code>"nlminb"</code> (using <code>stats::nlminb</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed</code></td>
+<td>
+<p>Logical indicating whether SD of first group should
+be fixed to one. If <code>fixed=FALSE</code>, the product of all SDs is set to one.
+If <code>NULL</code>, then <code>fixed</code> is automatically chosen by default. For many groups,
+<code>fixed=FALSE</code> is chosen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meth</code></td>
+<td>
+<p>Type of method used for optimization function. <code>meth=1</code> is the default
+and the optimization function used in Mplus. <code>meth=2</code> uses logarithmized
+item loadings in alignment. The choice <code>meth=4</code> uses the constraint
+<code class="reqn">\prod_g \psi_g=1</code> and adds the penalty <code class="reqn">\lambda \sum_g \alpha_g^2</code> for
+a fixed value <code class="reqn">\lambda</code> that depends on the weights <code>wgt</code>
+(similar to Mplus' free method).
+The choice <code>meth=3</code> only uses the constraint
+<code class="reqn">\prod_g \psi_g=1</code> (similar to Mplus' FIXED method).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vcov</code></td>
+<td>
+<p>Variance matrix produced by <code>invariance_alignment_cfa_config</code>
+for standard error computation. If a matrix is provided, standard errors
+are computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps_grid</code></td>
+<td>
+<p>Grid of logarithmized epsilon values in optimization</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_deriv</code></td>
+<td>
+<p>Logical indicating whether numerical derivatives should be used</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+
+<p>Object of class <code>invariance.alignment</code>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>digits</code></td>
+<td>
+<p>Number of digits used for rounding</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>file</code></td>
+<td>
+<p>Optional file name in which summary should be sunk</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Further optional arguments to be passed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Model of class <code>invariance.alignment</code>.
+For <code>invariance_alignment_cfa_config</code>: Model type: <code>"2PM"</code> for two-parameter
+model with unequal loadings
+and <code>"1PM"</code> with equal loadings and equal residual variances</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_parm_tol</code></td>
+<td>
+<p>Parameter tolerance for <code class="reqn">\lambda</code> parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nu_parm_tol</code></td>
+<td>
+<p>Parameter tolerance for <code class="reqn">\nu</code> parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>err_var</code></td>
+<td>
+<p>Error variance</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>Vector of means</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>Vector of standard deviations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>Vector of sample sizes per group</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>Specifies output type: <code>"data"</code> for dataset and <code>"suffstat"</code>
+for sufficient statistics (i.e., means and covariance matrices)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groupwise</code></td>
+<td>
+<p>Logical indicating whether group-wise output is requested</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exact</code></td>
+<td>
+<p>Logical indicating whether distributions should be exactly preserved in
+simulated data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dat</code></td>
+<td>
+<p>Dataset with items or a list containing sufficient statistics</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p>Vector containing group indicators</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>Optional vector of sampling weights</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Logical indicating whether progress should be printed</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For <code class="reqn">G</code> groups and <code class="reqn">I</code> items, item loadings <code class="reqn">\lambda_{ig0}</code>
+and intercepts <code class="reqn">\nu_{ig0}</code> are available and have been estimated
+in a 1-dimensional factor analysis assuming a standardized factor.
+</p>
+<p>The alignment procedure searches means <code class="reqn">\alpha_{g0}</code>
+and standard deviations <code class="reqn">\psi_{g0}</code> using an alignment
+optimization function <code class="reqn">F</code>. This function is defined as
+</p>
+<p style="text-align: center;"><code class="reqn">F=\sum_i \sum_{ g_1 &lt; g_2} w_{i,g1} w_{i,g2}
+    f_\lambda( \lambda_{i g_1,1} - \lambda_{i g_2,1} )
+    + \sum_i \sum_{ g_1 &lt; g_2} w_{i,g1} w_{i,g2}
+f_\nu( \nu_{i g_1,1} - \nu_{i g_2,1} ) </code>
+</p>
+
+<p>where the aligned item parameters <code class="reqn">\lambda_{i g,1}</code>
+and <code class="reqn">\nu_{i g,1}</code> are defined such that
+</p>
+<p style="text-align: center;"><code class="reqn"> \lambda_{i g,1}=\lambda_{i g 0} / \psi_{g0}
+    \qquad \mbox{and} \qquad
+    \nu_{i g,1}=\nu_{i g 0} -  \alpha_{g0} \lambda_{ig0} / \psi_{g0}
+            </code>
+</p>
+
+<p>and the optimization functions are defined as
+</p>
+<p style="text-align: center;"><code class="reqn"> f_\lambda (x)=| x/ a_\lambda | ^{p_\lambda}
+\approx [ ( x/ a_\lambda )^2 + \varepsilon ]^{p_\lambda / 2}
+    \qquad \mbox{and} \qquad
+    f_\nu (x)=|  x/ a_\nu ]^{p_\nu}
+    \approx [ ( x/ a_\nu )^2 + \varepsilon ]^{p_\nu / 2}
+            </code>
+</p>
+
+<p>using a small <code class="reqn"> \varepsilon &gt; 0</code> (e.g. .001) to obtain
+a differentiable optimization function. For <code class="reqn">p_\nu=0</code> or <code class="reqn">p_\lambda=0</code>, the
+optimization function essentially counts the number of different parameter
+and mimicks a <code class="reqn">L_0</code> penalty which is zero iff the argument is zero
+and one otherwise. It is approximated by
+</p>
+<p style="text-align: center;"><code class="reqn">f(x)=x^2 (x^2 + \varepsilon )^{-1} </code>
+</p>
+
+<p>(O'Neill &amp; Burke, 2023).
+</p>
+<p>For identification reasons, the product <code class="reqn">\Pi_g \psi_{g0}</code> (<code>meth</code>=0,0.5)
+of all group standard deviations or <code class="reqn">\psi_1</code> (<code>meth</code>=1,2)
+is set to one. The mean
+<code class="reqn">\alpha_{g0}</code> of the first group is set to zero (<code>meth</code>=0.5,1,2) or
+a penalty function is added to the linking function (<code>meth</code>=0).
+</p>
+<p>Note that Asparouhov and Muthen (2014) use <code class="reqn">a_\lambda=a_\nu=1</code>
+(which can be modified in <code>align.scale</code>)
+and <code class="reqn">p_\lambda=p_\nu=0.5</code> (which can be modified in <code>align.pow</code>).
+In case of <code class="reqn">p_\lambda=2</code>, the penalty is approximately
+<code class="reqn">f_\lambda(x)=x^2 </code>, in case of <code class="reqn">p_\lambda=0.5</code>
+it is approximately <code class="reqn">f_\lambda(x)=\sqrt{|x|} </code>. Note that <span class="pkg">sirt</span> used a
+different parametrization in versions up to 3.5. The <code class="reqn">p</code> parameters have to be halved
+for consistency with previous versions (e.g., the Asparouhov &amp; Muthen parametrization
+corresponds to <code class="reqn">p=.25</code>; see also Fischer &amp; Karl, 2019, for an application of
+the previous parametrization).
+</p>
+<p>Effect sizes of approximate invariance based on <code class="reqn">R^2</code> have
+been proposed by Asparouhov and Muthen (2014). These are
+calculated separately for item loading and intercepts, resulting
+in <code class="reqn">R^2_\lambda</code> and <code class="reqn">R^2_\nu</code> measures which are
+included in the output <code>es.invariance</code>. In addition,
+the average correlation of aligned item parameters among groups (<code>rbar</code>)
+is reported.
+</p>
+<p><em>Metric invariance</em> means that all aligned item loadings <code class="reqn">\lambda_{ig,1}</code>
+are equal across groups and therefore <code class="reqn">R^2_\lambda=1</code>.
+<em>Scalar invariance</em> means that all aligned item loadings
+<code class="reqn">\lambda_{ig,1}</code> and aligned item intercepts <code class="reqn">\nu_{ig,1}</code> are
+equal across groups and therefore <code class="reqn">R^2_\lambda=1</code> and <code class="reqn">R^2_\nu=1</code>
+(see Vandenberg &amp; Lance, 2000).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with following entries
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>pars</code></td>
+<td>
+<p>Aligned distribution parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>itempars.aligned</code></td>
+<td>
+<p>Aligned item parameters for all groups</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>es.invariance</code></td>
+<td>
+<p>Effect sizes of approximate invariance</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda.aligned</code></td>
+<td>
+<p>Aligned <code class="reqn"> \lambda_{i g,1}</code> parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda.resid</code></td>
+<td>
+<p>Residuals of <code class="reqn"> \lambda_{i g,1}</code> parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nu.aligned</code></td>
+<td>
+<p>Aligned <code class="reqn"> \nu_{i g,1}</code> parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nu.resid</code></td>
+<td>
+<p>Residuals of <code class="reqn"> \nu_{i g,1}</code> parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Niter</code></td>
+<td>
+<p>Number of iterations for <code class="reqn">f_\lambda</code> and
+<code class="reqn">f_\nu</code> optimization functions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fopt</code></td>
+<td>
+<p>Minimum optimization value</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>align.scale</code></td>
+<td>
+<p>Used alignment scale parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>align.pow</code></td>
+<td>
+<p>Used alignment power parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vcov</code></td>
+<td>
+<p>Estimated variance matrix of aligned means and
+standard deviations</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Asparouhov, T., &amp; Muthen, B. (2014). Multiple-group factor analysis alignment.
+<em>Structural Equation Modeling, 21</em>(4), 1-14.
+<a href="https://doi.org/10.1080/10705511.2014.919210">doi:10.1080/10705511.2014.919210</a>
+</p>
+<p>Byrne, B. M., &amp; van de Vijver, F. J. R. (2017). The maximum likelihood alignment
+approach to testing for approximate measurement invariance:
+A paradigmatic cross-cultural application. <em>Psicothema, 29</em>(4), 539-551.
+<a href="https://doi.org/10.7334/psicothema2017.178">doi:10.7334/psicothema2017.178</a>
+</p>
+<p>DeMars, C. E. (2020). Alignment as an alternative to anchor purification in DIF analyses.
+<em>Structural Equation Modeling, 27</em>(1), 56-72.
+<a href="https://doi.org/10.1080/10705511.2019.1617151">doi:10.1080/10705511.2019.1617151</a>
+</p>
+<p>Finch, W. H. (2016). Detection of differential item functioning for more
+than two groups: A Monte Carlo comparison of methods.
+<em>Applied Measurement in Education, 29</em>,(1), 30-45,
+<a href="https://doi.org/10.1080/08957347.2015.1102916">doi:10.1080/08957347.2015.1102916</a>
+</p>
+<p>Fischer, R., &amp; Karl, J. A. (2019). A primer to (cross-cultural) multi-group invariance
+testing possibilities in R.
+<em>Frontiers in Psychology | Cultural Psychology, 10</em>:1507.
+<a href="https://doi.org/10.3389/fpsyg.2019.01507">doi:10.3389/fpsyg.2019.01507</a>
+</p>
+<p>Flake, J. K., &amp; McCoach, D. B. (2018). An investigation of the alignment method with
+polytomous indicators under conditions of partial measurement invariance.
+<em>Structural Equation Modeling, 25</em>(1), 56-70.
+<a href="https://doi.org/10.1080/10705511.2017.1374187">doi:10.1080/10705511.2017.1374187</a>
+</p>
+<p>Kim, E. S., Cao, C., Wang, Y., &amp; Nguyen, D. T. (2017). Measurement invariance testing
+with many groups: A comparison of five approaches.
+<em>Structural Equation Modeling, 24</em>(4), 524-544.
+<a href="https://doi.org/10.1080/10705511.2017.1304822">doi:10.1080/10705511.2017.1304822</a>
+</p>
+<p>Marsh, H. W., Guo, J., Parker, P. D., Nagengast, B., Asparouhov, T., Muthen, B.,
+&amp; Dicke, T. (2018). What to do when scalar invariance fails: The extended alignment
+method for multi-group factor analysis comparison of latent means across many groups.
+<em>Psychological Methods, 23</em>(3), 524-545.
+doi: 10.1037/met0000113
+</p>
+<p>Muthen, B., &amp; Asparouhov, T. (2014). IRT studies of many groups: The alignment method.
+<em>Frontiers in Psychology | Quantitative Psychology and Measurement, 5</em>:978.
+<a href="https://doi.org/10.3389/fpsyg.2014.00978">doi:10.3389/fpsyg.2014.00978</a>
+</p>
+<p>Muthen, B., &amp; Asparouhov, T. (2018). Recent methods for the study of measurement
+invariance with many groups: Alignment and random effects.
+<em>Sociological Methods &amp; Research, 47</em>(4), 637-664.
+<a href="https://doi.org/10.1177/0049124117701488">doi:10.1177/0049124117701488</a>
+</p>
+<p>O'Neill, M., &amp; Burke, K. (2023). Variable selection using a smooth information criterion
+for distributional regression models. <em>Statistics and Computing, 33</em>(3), 71.
+<a href="https://doi.org/10.1007/s11222-023-10204-8">doi:10.1007/s11222-023-10204-8</a>
+</p>
+<p>Pokropek, A., Davidov, E., &amp; Schmidt, P. (2019). A Monte Carlo simulation study to
+assess the appropriateness of traditional and newer approaches to test for
+measurement invariance. <em>Structural Equation Modeling, 26</em>(5), 724-744.
+<a href="https://doi.org/10.1080/10705511.2018.1561293">doi:10.1080/10705511.2018.1561293</a>
+</p>
+<p>Vandenberg, R. J., &amp; Lance, C. E. (2000). A review and synthesis of the
+measurement invariance literature: Suggestions, practices, and
+recommendations for organizational research. <em>Organizational Research
+Methods, 3</em>, 4-70.
+<a href="https://doi.org/10.1177/109442810031002">doi:10.1177/109442810031002</a>s
+</p>
+
+
+<h3>See Also</h3>
+
+<p>For IRT linking see also <code>linking.haberman</code> or
+<code>TAM::tam.linking</code>.
+</p>
+<p>For modeling random item effects for loadings and intercepts
+see <code>mcmc.2pno.ml</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#############################################################################
+# EXAMPLE 1: Item parameters cultural activities
+#############################################################################
+
+data(data.activity.itempars, package="sirt")
+lambda &lt;- data.activity.itempars$lambda
+nu &lt;- data.activity.itempars$nu
+Ng &lt;-  data.activity.itempars$N
+wgt &lt;- matrix( sqrt(Ng), length(Ng), ncol(nu) )
+
+#***
+# Model 1: Alignment using a quadratic loss function
+mod1 &lt;- sirt::invariance.alignment( lambda, nu, wgt, align.pow=c(2,2) )
+summary(mod1)
+
+#****
+# Model 2: Different powers for alignment
+mod2 &lt;- sirt::invariance.alignment( lambda, nu, wgt,  align.pow=c(.5,1),
+              align.scale=c(.95,.95))
+summary(mod2)
+
+# compare means from Models 1 and 2
+plot( mod1$pars$alpha0, mod2$pars$alpha0, pch=16,
+    xlab="M (Model 1)", ylab="M (Model 2)", xlim=c(-.3,.3), ylim=c(-.3,.3) )
+lines( c(-1,1), c(-1,1), col="gray")
+round( cbind( mod1$pars$alpha0, mod2$pars$alpha0 ), 3 )
+round( mod1$nu.resid, 3)
+round( mod2$nu.resid,3 )
+
+# L0 penalty
+mod2b &lt;- sirt::invariance.alignment( lambda, nu, wgt,  align.pow=c(0,0),
+              align.scale=c(.3,.3))
+summary(mod2b)
+
+#****
+# Model 3: Low powers for alignment of scale and power
+# Note that setting increment.factor larger than 1 seems necessary
+mod3 &lt;- sirt::invariance.alignment( lambda, nu, wgt, align.pow=c(.5,.75),
+            align.scale=c(.55,.55), psi0.init=mod1$psi0, alpha0.init=mod1$alpha0 )
+summary(mod3)
+
+# compare mean and SD estimates of Models 1 and 3
+plot( mod1$pars$alpha0, mod3$pars$alpha0, pch=16)
+plot( mod1$pars$psi0, mod3$pars$psi0, pch=16)
+
+# compare residuals for Models 1 and 3
+# plot lambda
+plot( abs(as.vector(mod1$lambda.resid)), abs(as.vector(mod3$lambda.resid)),
+      pch=16, xlab="Residuals lambda (Model 1)",
+      ylab="Residuals lambda (Model 3)", xlim=c(0,.1), ylim=c(0,.1))
+lines( c(-3,3),c(-3,3), col="gray")
+# plot nu
+plot( abs(as.vector(mod1$nu.resid)), abs(as.vector(mod3$nu.resid)),
+      pch=16, xlab="Residuals nu (Model 1)", ylab="Residuals nu (Model 3)",
+      xlim=c(0,.4),ylim=c(0,.4))
+lines( c(-3,3),c(-3,3), col="gray")
+
+## Not run: 
+#############################################################################
+# EXAMPLE 2: Comparison 4 groups | data.inv4gr
+#############################################################################
+
+data(data.inv4gr)
+dat &lt;- data.inv4gr
+miceadds::library_install("semTools")
+
+model1 &lt;- "
+    F=~ I01 + I02 + I03 + I04 + I05 + I06 + I07 + I08 + I09 + I10 + I11
+    F ~~ 1*F
+    "
+
+res &lt;- semTools::measurementInvariance(model1, std.lv=TRUE, data=dat, group="group")
+  ##   Measurement invariance tests:
+  ##
+  ##   Model 1: configural invariance:
+  ##       chisq        df    pvalue       cfi     rmsea       bic
+  ##     162.084   176.000     0.766     1.000     0.000 95428.025
+  ##
+  ##   Model 2: weak invariance (equal loadings):
+  ##       chisq        df    pvalue       cfi     rmsea       bic
+  ##     519.598   209.000     0.000     0.973     0.039 95511.835
+  ##
+  ##   [Model 1 versus model 2]
+  ##     delta.chisq      delta.df delta.p.value     delta.cfi
+  ##         357.514        33.000         0.000         0.027
+  ##
+  ##   Model 3: strong invariance (equal loadings + intercepts):
+  ##       chisq        df    pvalue       cfi     rmsea       bic
+  ##    2197.260   239.000     0.000     0.828     0.091 96940.676
+  ##
+  ##   [Model 1 versus model 3]
+  ##     delta.chisq      delta.df delta.p.value     delta.cfi
+  ##        2035.176        63.000         0.000         0.172
+  ##
+  ##   [Model 2 versus model 3]
+  ##     delta.chisq      delta.df delta.p.value     delta.cfi
+  ##        1677.662        30.000         0.000         0.144
+  ##
+
+# extract item parameters separate group analyses
+ipars &lt;- lavaan::parameterEstimates(res$fit.configural)
+# extract lambda's: groups are in rows, items in columns
+lambda &lt;- matrix( ipars[ ipars$op=="=~", "est"], nrow=4,  byrow=TRUE)
+colnames(lambda) &lt;- colnames(dat)[-1]
+# extract nu's
+nu &lt;- matrix( ipars[ ipars$op=="~1"  &amp; ipars$se !=0, "est" ], nrow=4,  byrow=TRUE)
+colnames(nu) &lt;- colnames(dat)[-1]
+
+# Model 1: least squares optimization
+mod1 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu )
+summary(mod1)
+  ##   Effect Sizes of Approximate Invariance
+  ##          loadings intercepts
+  ##   R2       0.9826     0.9972
+  ##   sqrtU2   0.1319     0.0526
+  ##   rbar     0.6237     0.7821
+  ##   -----------------------------------------------------------------
+  ##   Group Means and Standard Deviations
+  ##     alpha0  psi0
+  ##   1  0.000 0.965
+  ##   2 -0.105 1.098
+  ##   3 -0.081 1.011
+  ##   4  0.171 0.935
+
+# Model 2: sparse target function
+mod2 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu, align.pow=c(.5,.5) )
+summary(mod2)
+  ##   Effect Sizes of Approximate Invariance
+  ##          loadings intercepts
+  ##   R2       0.9824     0.9972
+  ##   sqrtU2   0.1327     0.0529
+  ##   rbar     0.6237     0.7856
+  ##   -----------------------------------------------------------------
+  ##   Group Means and Standard Deviations
+  ##     alpha0  psi0
+  ##   1 -0.002 0.965
+  ##   2 -0.107 1.098
+  ##   3 -0.083 1.011
+  ##   4  0.170 0.935
+
+#############################################################################
+# EXAMPLE 3: European Social Survey data.ess2005
+#############################################################################
+
+data(data.ess2005)
+lambda &lt;- data.ess2005$lambda
+nu &lt;- data.ess2005$nu
+
+# Model 1: least squares optimization
+mod1 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu, align.pow=c(2,2) )
+summary(mod1)
+
+# Model 2: sparse target function and definition of scales
+mod2 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu, control=list(trace=2) )
+summary(mod2)
+
+#############################################################################
+# EXAMPLE 4: Linking with item parameters containing outliers
+#############################################################################
+
+# see Help file in linking.robust
+
+# simulate some item difficulties in the Rasch model
+I &lt;- 38
+set.seed(18785)
+itempars &lt;- data.frame("item"=paste0("I",1:I) )
+itempars$study1 &lt;- stats::rnorm( I, mean=.3, sd=1.4 )
+# simulate DIF effects plus some outliers
+bdif &lt;- stats::rnorm(I, mean=.4, sd=.09) +
+             (stats::runif(I)&gt;.9 )*rep( 1*c(-1,1)+.4, each=I/2 )
+itempars$study2 &lt;- itempars$study1 + bdif
+# create input for function invariance.alignment
+nu &lt;- t( itempars[,2:3] )
+colnames(nu) &lt;- itempars$item
+lambda &lt;- 1+0*nu
+
+# linking using least squares optimization
+mod1 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu )
+summary(mod1)
+  ##   Group Means and Standard Deviations
+  ##          alpha0 psi0
+  ##   study1 -0.286    1
+  ##   study2  0.286    1
+
+# linking using powers of .5
+mod2 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu, align.pow=c(1,1) )
+summary(mod2)
+  ##   Group Means and Standard Deviations
+  ##          alpha0 psi0
+  ##   study1 -0.213    1
+  ##   study2  0.213    1
+
+# linking using powers of .25
+mod3 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu, align.pow=c(.5,.5) )
+summary(mod3)
+  ##   Group Means and Standard Deviations
+  ##          alpha0 psi0
+  ##   study1 -0.207    1
+  ##   study2  0.207    1
+
+#############################################################################
+# EXAMPLE 5: Linking gender groups with data.math
+#############################################################################
+
+data(data.math)
+dat &lt;- data.math$data
+dat.male &lt;- dat[ dat$female==0, substring( colnames(dat),1,1)=="M"  ]
+dat.female &lt;- dat[ dat$female==1, substring( colnames(dat),1,1)=="M"  ]
+
+#*************************
+# Model 1: Linking using the Rasch model
+mod1m &lt;- sirt::rasch.mml2( dat.male )
+mod1f &lt;- sirt::rasch.mml2( dat.female )
+
+# create objects for invariance.alignment
+nu &lt;- rbind( mod1m$item$thresh, mod1f$item$thresh )
+colnames(nu) &lt;- mod1m$item$item
+rownames(nu) &lt;- c("male", "female")
+lambda &lt;- 1+0*nu
+
+# mean of item difficulties
+round( rowMeans(nu), 3 )
+
+# Linking using least squares optimization
+res1a &lt;- sirt::invariance.alignment( lambda, nu, align.scale=c( .3, .5 ) )
+summary(res1a)
+
+# Linking using optimization with absolute value function (pow=.5)
+res1b &lt;- sirt::invariance.alignment( lambda, nu, align.scale=c( .3, .5 ),
+                align.pow=c(1,1) )
+summary(res1b)
+
+#-- compare results with Haberman linking
+I &lt;- ncol(dat.male)
+itempartable &lt;- data.frame( "study"=rep( c("male", "female"), each=I ) )
+itempartable$item &lt;- c( paste0(mod1m$item$item),  paste0(mod1f$item$item) )
+itempartable$a &lt;- 1
+itempartable$b &lt;- c( mod1m$item$b, mod1f$item$b )
+# estimate linking parameters
+res1c &lt;- sirt::linking.haberman( itempars=itempartable )
+
+#-- results of sirt::equating.rasch
+x &lt;- itempartable[ 1:I, c("item", "b") ]
+y &lt;- itempartable[ I + 1:I, c("item", "b") ]
+res1d &lt;- sirt::equating.rasch( x, y )
+round( res1d$B.est, 3 )
+  ##     Mean.Mean Haebara Stocking.Lord
+  ##   1     0.032   0.032         0.029
+
+#*************************
+# Model 2: Linking using the 2PL model
+I &lt;- ncol(dat.male)
+mod2m &lt;- sirt::rasch.mml2( dat.male, est.a=1:I)
+mod2f &lt;- sirt::rasch.mml2( dat.female, est.a=1:I)
+
+# create objects for invariance.alignment
+nu &lt;- rbind( mod2m$item$thresh, mod2f$item$thresh )
+colnames(nu) &lt;- mod2m$item$item
+rownames(nu) &lt;- c("male", "female")
+lambda &lt;- rbind( mod2m$item$a, mod2f$item$a )
+colnames(lambda) &lt;- mod2m$item$item
+rownames(lambda) &lt;- c("male", "female")
+
+res2a &lt;- sirt::invariance.alignment( lambda, nu, align.scale=c( .3, .5 ) )
+summary(res2a)
+
+res2b &lt;- sirt::invariance.alignment( lambda, nu, align.scale=c( .3, .5 ),
+                align.pow=c(1,1) )
+summary(res2b)
+
+# compare results with Haberman linking
+I &lt;- ncol(dat.male)
+itempartable &lt;- data.frame( "study"=rep( c("male", "female"), each=I ) )
+itempartable$item &lt;- c( paste0(mod2m$item$item),  paste0(mod2f$item$item ) )
+itempartable$a &lt;- c( mod2m$item$a, mod2f$item$a )
+itempartable$b &lt;- c( mod2m$item$b, mod2f$item$b )
+# estimate linking parameters
+res2c &lt;- sirt::linking.haberman( itempars=itempartable )
+
+#############################################################################
+# EXAMPLE 6: Data from Asparouhov &amp; Muthen (2014) simulation study
+#############################################################################
+
+G &lt;- 3  # number of groups
+I &lt;- 5  # number of items
+# define lambda and nu parameters
+lambda &lt;- matrix(1, nrow=G, ncol=I)
+nu &lt;- matrix(0, nrow=G, ncol=I)
+
+# define size of noninvariance
+dif &lt;- 1
+
+#- 1st group: N(0,1)
+lambda[1,3] &lt;- 1+dif*.4; nu[1,5] &lt;- dif*.5
+
+#- 2nd group: N(0.3,1.5)
+gg &lt;- 2 ; mu &lt;- .3; sigma &lt;- sqrt(1.5)
+lambda[gg,5] &lt;- 1-.5*dif; nu[gg,1] &lt;- -.5*dif
+nu[gg,] &lt;- nu[gg,] + mu*lambda[gg,]
+lambda[gg,] &lt;- lambda[gg,] * sigma
+
+#- 3nd group: N(.8,1.2)
+gg &lt;- 3 ; mu &lt;- .8; sigma &lt;- sqrt(1.2)
+lambda[gg,4] &lt;- 1-.7*dif; nu[gg,2] &lt;- -.5*dif
+nu[gg,] &lt;- nu[gg,] + mu*lambda[gg,]
+lambda[gg,] &lt;- lambda[gg,] * sigma
+
+# define alignment scale
+align.scale &lt;- c(.2,.4)   # Asparouhov and Muthen use c(1,1)
+# define alignment powers
+align.pow &lt;- c(.5,.5)   # as in Asparouhov and Muthen
+
+#*** estimate alignment parameters
+mod1 &lt;- sirt::invariance.alignment( lambda, nu, eps=.01, optimizer="optim",
+            align.scale=align.scale, align.pow=align.pow, center=FALSE )
+summary(mod1)
+
+#--- find parameter constraints for prespecified tolerance
+cmod1 &lt;- sirt::invariance_alignment_constraints(model=mod1, nu_parm_tol=.4,
+            lambda_parm_tol=.2 )
+summary(cmod1)
+
+#############################################################################
+# EXAMPLE 7: Similar to Example 6, but with data simulation and CFA estimation
+#############################################################################
+
+#--- data simulation
+
+set.seed(65)
+G &lt;- 3  # number of groups
+I &lt;- 5  # number of items
+# define lambda and nu parameters
+lambda &lt;- matrix(1, nrow=G, ncol=I)
+nu &lt;- matrix(0, nrow=G, ncol=I)
+err_var &lt;- matrix(1, nrow=G, ncol=I)
+
+# define size of noninvariance
+dif &lt;- 1
+#- 1st group: N(0,1)
+lambda[1,3] &lt;- 1+dif*.4; nu[1,5] &lt;- dif*.5
+#- 2nd group: N(0.3,1.5)
+gg &lt;- 2 ;
+lambda[gg,5] &lt;- 1-.5*dif; nu[gg,1] &lt;- -.5*dif
+#- 3nd group: N(.8,1.2)
+gg &lt;- 3
+lambda[gg,4] &lt;- 1-.7*dif; nu[gg,2] &lt;- -.5*dif
+#- define distributions of groups
+mu &lt;- c(0,.3,.8)
+sigma &lt;- sqrt(c(1,1.5,1.2))
+N &lt;- rep(1000,3) # sample sizes per group
+
+#* simulate data
+dat &lt;- sirt::invariance_alignment_simulate(nu, lambda, err_var, mu, sigma, N)
+head(dat)
+
+#--- estimate CFA models
+pars &lt;- sirt::invariance_alignment_cfa_config(dat[,-1], group=dat$group)
+print(pars)
+
+#--- invariance alignment
+# define alignment scale
+align.scale &lt;- c(.2,.4)
+# define alignment powers
+align.pow &lt;- c(.5,.5)
+mod1 &lt;- sirt::invariance.alignment( lambda=pars$lambda, nu=pars$nu, eps=.01,
+            optimizer="optim", align.scale=align.scale, align.pow=align.pow, center=FALSE)
+#* find parameter constraints for prespecified tolerance
+cmod1 &lt;- sirt::invariance_alignment_constraints(model=mod1, nu_parm_tol=.4,
+            lambda_parm_tol=.2 )
+summary(cmod1)
+
+#--- estimate CFA models with sampling weights
+
+#* simulate weights
+weights &lt;- stats::runif(sum(N), 0, 2)
+#* estimate models
+pars2 &lt;- sirt::invariance_alignment_cfa_config(dat[,-1], group=dat$group, weights=weights)
+print(pars2$nu)
+print(pars$nu)
+
+#--- estimate one-parameter model
+pars &lt;- sirt::invariance_alignment_cfa_config(dat[,-1], group=dat$group, model="1PM")
+print(pars)
+
+#############################################################################
+# EXAMPLE 8: Computation of standard errors
+#############################################################################
+
+G &lt;- 3  # number of groups
+I &lt;- 5  # number of items
+# define lambda and nu parameters
+lambda &lt;- matrix(1, nrow=G, ncol=I)
+nu &lt;- matrix(0, nrow=G, ncol=I)
+
+# define size of noninvariance
+dif &lt;- 1
+
+mu1 &lt;- c(0,.3,.8)
+sigma1 &lt;- c(1,1.25,1.1)
+
+#- 1st group
+lambda[1,3] &lt;- 1+dif*.4; nu[1,5] &lt;- dif*.5
+
+#- 2nd group
+gg &lt;- 2
+lambda[gg,5] &lt;- 1-.5*dif; nu[gg,1] &lt;- -.5*dif
+
+#- 3nd group
+gg &lt;- 3
+lambda[gg,4] &lt;- 1-.7*dif; nu[gg,2] &lt;- -.5*dif
+
+dat &lt;- sirt::invariance_alignment_simulate(nu=nu, lambda=lambda, err_var=1+0*lambda,
+                mu=mu1, sigma=sigma1, N=500, output="data", exact=TRUE)
+
+#* estimate CFA
+res &lt;- sirt::invariance_alignment_cfa_config(dat=dat[,-1], group=dat$group )
+
+#- perform invariance alignment
+eps &lt;- .001
+align.pow &lt;- 0.5*rep(1,2)
+lambda &lt;- res$lambda
+nu &lt;- res$nu
+mod1 &lt;- sirt::invariance.alignment( lambda=lambda, nu=nu, eps=eps, optimizer="optim",
+             align.pow=align.pow, meth=meth, vcov=res$vcov)
+# variance matrix and standard errors
+mod1$vcov
+sqrt(diag(mod1$vcov))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,146 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sits_uncertainty_sampling</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Suggest samples for enhancing classification accuracy</h2>
+
+<h3>Description</h3>
+
+<p>Suggest samples for regions of high uncertainty as predicted by the model.
+The function selects data points that have confused an algorithm.
+These points don't have labels and need be manually labelled by experts
+and then used to increase the classification's training set.
+</p>
+<p>This function is best used in the following context:
+1. Select an initial set of samples.
+2. Train a machine learning model.
+3. Build a data cube and classify it using the model.
+4. Run a Bayesian smoothing in the resulting probability cube.
+5. Create an uncertainty cube.
+6. Perform uncertainty sampling.
+</p>
+<p>The Bayesian smoothing procedure will reduce the classification outliers
+and thus increase the likelihood that the resulting pixels with high
+uncertainty have meaningful information.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sits_uncertainty_sampling(
+  uncert_cube,
+  n = 100L,
+  min_uncert = 0.4,
+  sampling_window = 10L,
+  multicores = 1L,
+  memsize = 1L
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>uncert_cube</code></td>
+<td>
+<p>An uncertainty cube.
+See <code>sits_uncertainty</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>Number of suggested points.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_uncert</code></td>
+<td>
+<p>Minimum uncertainty value to select a sample.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sampling_window</code></td>
+<td>
+<p>Window size for collecting points (in pixels).
+The minimum window size is 10.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multicores</code></td>
+<td>
+<p>Number of workers for parallel processing
+(integer, min = 1, max = 2048).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>memsize</code></td>
+<td>
+<p>Maximum overall memory (in GB) to run the
+function.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A tibble with longitude and latitude in WGS84 with locations
+which have high uncertainty and meet the minimum distance
+criteria.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Alber Sanchez, <a href="mailto:alber.ipia@inpe.br">alber.ipia@inpe.br</a>
+</p>
+<p>Rolf Simoes, <a href="mailto:rolf.simoes@inpe.br">rolf.simoes@inpe.br</a>
+</p>
+<p>Felipe Carvalho, <a href="mailto:felipe.carvalho@inpe.br">felipe.carvalho@inpe.br</a>
+</p>
+<p>Gilberto Camara, <a href="mailto:gilberto.camara@inpe.br">gilberto.camara@inpe.br</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Robert Monarch, "Human-in-the-Loop Machine Learning: Active learning
+and annotation for human-centered AI". Manning Publications, 2021.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (sits_run_examples()) {
+    # create a data cube
+    data_dir &lt;- system.file("extdata/raster/mod13q1", package = "sits")
+    cube &lt;- sits_cube(
+        source = "BDC",
+        collection = "MOD13Q1-6.1",
+        data_dir = data_dir
+    )
+    # build a random forest model
+    rfor_model &lt;- sits_train(samples_modis_ndvi, ml_method = sits_rfor())
+    # classify the cube
+    probs_cube &lt;- sits_classify(
+        data = cube, ml_model = rfor_model, output_dir = tempdir()
+    )
+    # create an uncertainty cube
+    uncert_cube &lt;- sits_uncertainty(probs_cube,
+        type = "entropy",
+        output_dir = tempdir()
+    )
+    # obtain a new set of samples for active learning
+    # the samples are located in uncertain places
+    new_samples &lt;- sits_uncertainty_sampling(
+        uncert_cube,
+        n = 10, min_uncert = 0.4
+    )
+}
+
+</code></pre>
+
+
+</div>

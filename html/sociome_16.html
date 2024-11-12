@@ -1,0 +1,251 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>synthetic_population</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create a synthetic population simulating US Census areas</h2>
+
+<h3>Description</h3>
+
+<p>Returns a data set of synthetic individuals based on user-specified US Census
+areas. The age, sex, race, and ethnicity of each individual is probabilistic,
+based on the demographics of the areas as reported in a user-specified US
+Census data set.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">synthetic_population(
+  geography,
+  state = NULL,
+  county = NULL,
+  geoid = NULL,
+  zcta = NULL,
+  year,
+  dataset = c("acs5", "acs3", "acs1", "decennial"),
+  geometry = FALSE,
+  cache_tables = TRUE,
+  max_age = 115,
+  rate = 0.25,
+  key = NULL,
+  seed = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>geography</code></td>
+<td>
+<p>A character string denoting the level of US census geography
+at which you want to create a synthetic population. Required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>state</code></td>
+<td>
+<p>A character string specifying states whose population you want
+to synthesize. Defaults to <code>NULL</code>. Can contain full state names, two-letter
+state abbreviations, or a two-digit FIPS code/GEOID (must be a vector of
+strings, so use quotation marks and leading zeros if necessary). Must be
+left as <code>NULL</code> if using the <code>geoid</code> or <code>zcta</code> parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>county</code></td>
+<td>
+<p>A vector of character strings specifying the counties whose
+population you want to synthesize. Defaults to <code>NULL</code>. If not <code>NULL</code>, the
+<code>state</code> parameter must have a length of 1. County names and three-digit
+FIPS codes are accepted (must contain strings, so use quotation marks and
+leading zeros if necessary). Must be blank if using the <code>geoid</code> parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>geoid</code></td>
+<td>
+<p>A character vector of GEOIDs (use quotation marks and leading
+zeros). Defaults to <code>NULL</code>. Must be blank if <code>state</code>, <code>county</code>, or <code>zcta</code>
+is used. Can contain different levels of geography (see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zcta</code></td>
+<td>
+<p>A character vector of ZCTAs or the leading digit(s) of ZCTAs (use
+quotation marks and leading zeros). Defaults to <code>NULL</code>. Must be blank if
+<code>state</code>, <code>county</code>, or <code>geoid</code> is used.
+</p>
+<p>Strings under 5 digits long will yield all ZCTAs that begin with those
+digits.
+</p>
+<p>Requires that <code>geography = "zcta"</code>. If <code>geography = "zcta"</code> and <code>zcta = NULL</code>, all ZCTAs in the US will be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>year, dataset</code></td>
+<td>
+<p>Specifies the US Census data set on which to base the
+demographic profile of your synthetic population.
+</p>
+<p><code>year</code> must be a single integer specifying the year of US Census data to
+use.The data set used to calculate ADIs and ADI-3s.
+</p>
+<p><code>dataset</code> must be one of <code>c("acs5", "acs3", "acs1", "decennial")</code>, denoting
+the 5-, 3-, and 1-year ACS along with the decennial census. Defaults to
+<code>"acs5"</code>.
+</p>
+<p>When <code>dataset = "decennial"</code>, <code>year</code> must be in <code>c(1990, 2000, 2010)</code>.
+</p>
+<p>Important: data are not always available depending on the level of
+geography and data set chosen. See
+<a href="https://www.census.gov/programs-surveys/acs/guidance/estimates.html">https://www.census.gov/programs-surveys/acs/guidance/estimates.html</a>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>geometry</code></td>
+<td>
+<p>Logical value indicating whether or not shapefile data should
+be included in the result, making the result an <code>sf</code> object
+instead of a plain <code>tibble</code>. Defaults to <code>FALSE</code>.
+</p>
+<p>The shapefile data that is returned is somewhat customizable by passing
+certain arguments along to the <code>tidycensus</code> functions via <code>...</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cache_tables</code></td>
+<td>
+<p>The plural version of the <code>cache_table</code> argument in
+<code>tidycensus::get_acs()</code> or <code>tidycensus::get_decennial()</code>. (<code>get_adi()</code>
+calls the necessary <code>tidycensus</code> function many times in order to return
+ADIs and ADI-3s, so many tables are cached if <code>TRUE</code>). Defaults to <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_age</code></td>
+<td>
+<p>A single integer representing the largest possible age that
+can appear in the data set. Simulated age values exceeding this value will
+be top-coded to this value. Defaults to 115. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rate</code></td>
+<td>
+<p>A single number, passed to <code>stats::rexp()</code> when synthesizing the
+ages of the highest age bracket. Defaults to 0.25. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>key</code></td>
+<td>
+<p>Your Census API key as a character string. Obtain one at
+<a href="http://api.census.gov/data/key_signup.html">http://api.census.gov/data/key_signup.html</a>. Defaults to <code>NULL</code>. Not
+necessary if you have already loaded your key with <code>census_api_key()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Passed onto <code>set.seed()</code>, which is called before
+probabilistically synthesizing the age values with <code>sample()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments to be passed onto <code>tidycensus::get_acs()</code> or
+<code>tidycensus::get_decennial()</code>. These must all be named. Must not match any
+of the <code>tidycensus</code> formal arguments that <code>sociome</code> needs to set
+explicitly.
+</p>
+<p>This may be found to be helpful when setting <code>geometry = TRUE</code>, since the
+<code>tidycensus</code> functions pass <code>...</code> onto the appropriate <code>tigris</code> function
+(namely, one of <code>tigris::states()</code>, <code>tigris::counties()</code>,
+<code>tigris::tracts()</code>, <code>tigris::block_groups()</code>, or <code>tigris::zctas()</code>,
+according to the the value of <code>geography</code>). This enables the user to
+somewhat customize the shapefile data obtained.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Returns a <code>tibble</code> or <code>sf</code> object where each row
+represents a synthetic person. Each person has an age, sex, race, and
+ethnicity. The probability of what each person's age/sex/race/ethnicity will
+be is equal to the proportions in their census area as reported in the
+user-specified US Census data set (e.g., 2010 Decennial Census or 2017 ACS
+5-year estimates). The number of rows in the data set will equal the number
+of people living in the user-specified US Census areas, as reported in the
+same US Census data set.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>geometry = FALSE</code>, (the default) a <code>tibble</code>. If
+<code>geometry = TRUE</code> is specified, an <code>sf</code>.
+</p>
+
+
+<h3>Synthesizing ages from US Census Data</h3>
+
+<p>US Census data provides
+counts of the number of people in different age brackets of varying widths.
+The <code>age_lo</code> and <code>age_hi</code> columns in the output depict the age bracket of
+each individual in the synthetic population. There is also an <code>age</code> column
+that probabilistically generates a non-whole-number age within the age
+bracket. A uniform distribution (via <code>stats::runif()</code>) guides this age
+generation for all age brackets except the highest age bracket ("age 85 and
+over" in the extant ACS and Decennial Census data). An exponential
+distribution (via <code>stats::rexp()</code>) guides the age generation for this
+highest age bracket, and the user can specify <code>rate</code> to customize the
+exponential distribution that is used.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Wrapped in \dontrun{} because all these examples take &gt;5 seconds
+# and require a Census API key.
+
+# Synthetic population for Utah, using the 2019 ACS 5-year estimates:
+synthetic_population(geography = "state", state = "UT", year = 2019)
+
+# Same, but make it so that survival past age 85 is highly unlikely
+# (via rate = 10), and so that 87 is the maximum possible age
+synthetic_population(
+  geography = "state",
+  state = "UT",
+  year = 2019,
+  max_age = 87,
+  rate = 10
+)
+
+# Synthetic population of the Delmarva Peninsula at the census tract level,
+# using 2000 Decennial Census data
+synthetic_population(
+  geography = "tract",
+  geoid = 
+    # This two-digit GEOID is the state of Delaware.
+    c("10",
+    
+    # These five-digit GEOIDs are specific counties in Virginia and Maryland
+      "51001", "51131", "24015", "24029", "24035", "24011", "24041", "24019",
+      "24045", "24039", "24047"),
+  year = 2000,
+  dataset = "decennial"
+)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

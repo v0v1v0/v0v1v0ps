@@ -1,0 +1,179 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>st_network_cost</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute a cost matrix of a spatial network</h2>
+
+<h3>Description</h3>
+
+<p>Wrapper around <code>distances</code> to calculate costs of
+pairwise shortest paths between points in a spatial network. It allows to
+provide any set of geospatial point as <code>from</code> and <code>to</code> arguments.
+If such a geospatial point is not equal to a node in the network, it will
+be snapped to its nearest node before calculating costs.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">st_network_cost(
+  x,
+  from = igraph::V(x),
+  to = igraph::V(x),
+  weights = NULL,
+  direction = "out",
+  Inf_as_NaN = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object of class <code>sfnetwork</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from</code></td>
+<td>
+<p>The (set of) geospatial point(s) from which the shortest paths
+will be calculated. Can be an object of  class <code>sf</code> or
+<code>sfc</code>.
+Alternatively it can be a numeric vector containing the indices of the nodes
+from which the shortest paths will be calculated, or a character vector
+containing the names of the nodes from which the shortest paths will be
+calculated. By default, all nodes in the network are included.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>to</code></td>
+<td>
+<p>The (set of) geospatial point(s) to which the shortest paths will
+be calculated. Can be an object of class <code>sf</code> or
+<code>sfc</code>.
+Alternatively it can be a numeric vector containing the indices of the nodes
+to which the shortest paths will be calculated, or a character vector
+containing the names of the nodes to which the shortest paths will be
+calculated. Duplicated values will be removed before calculating the cost
+matrix. By default, all nodes in the network are included.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>The edge weights to be used in the shortest path calculation.
+Can be a numeric vector giving edge weights, or a column name referring to
+an attribute column in the edges table containing those weights. If set to
+<code>NULL</code>, the values of a column named <code>weight</code> in the edges table
+will be used automatically, as long as this column is present. If not, the
+geographic edge lengths will be calculated internally and used as weights.
+If set to <code>NA</code>, no weights are used, even if the edges have a
+<code>weight</code> column.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>direction</code></td>
+<td>
+<p>The direction of travel. Defaults to <code>'out'</code>, meaning
+that the direction given by the network is followed and costs are calculated
+from the points given as argument <code>from</code>. May be set to <code>'in'</code>,
+meaning that the opposite direction is followed an costs are calculated
+towards the points given as argument <code>from</code>. May also be set to
+<code>'all'</code>, meaning that the network is considered to be undirected. This
+argument is ignored for undirected networks.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Inf_as_NaN</code></td>
+<td>
+<p>Should the cost values of unconnected nodes be stored as
+<code>NaN</code> instead of <code>Inf</code>? Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments passed on to <code>distances</code>. Argument
+<code>mode</code> is ignored. Use <code>direction</code> instead.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Spatial features provided to the <code>from</code> and/or
+<code>to</code> argument don't necessarily have to be points. Internally, the
+nearest node to each feature is found by calling
+<code>st_nearest_feature</code>, so any feature with a geometry type
+that is accepted by that function can be provided as <code>from</code> and/or
+<code>to</code> argument.
+</p>
+<p>When directly providing integer node indices or character node names to the
+<code>from</code> and/or <code>to</code> argument, keep the following in mind. A node
+index should correspond to a row-number of the nodes table of the network.
+A node name should correspond to a value of a column in the nodes table
+named <code>name</code>. This column should contain character values without
+duplicates.
+</p>
+<p>For more details on the wrapped function from <code>igraph</code>
+see the <code>distances</code> documentation page.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An n times m numeric matrix where n is the length of the <code>from</code>
+argument, and m is the length of the <code>to</code> argument.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>st_network_paths</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(sf, quietly = TRUE)
+library(tidygraph, quietly = TRUE)
+
+# Create a network with edge lengths as weights.
+# These weights will be used automatically in shortest paths calculation.
+net = as_sfnetwork(roxel, directed = FALSE) %&gt;%
+  st_transform(3035) %&gt;%
+  activate("edges") %&gt;%
+  mutate(weight = edge_length())
+
+# Providing node indices.
+st_network_cost(net, from = c(495, 121), to = c(495, 121))
+
+# Providing nodes as spatial points.
+# Points that don't equal a node will be snapped to their nearest node.
+p1 = st_geometry(net, "nodes")[495] + st_sfc(st_point(c(50, -50)))
+st_crs(p1) = st_crs(net)
+p2 = st_geometry(net, "nodes")[121] + st_sfc(st_point(c(-10, 100)))
+st_crs(p2) = st_crs(net)
+
+st_network_cost(net, from = c(p1, p2), to = c(p1, p2))
+
+# Using another column for weights.
+net %&gt;%
+  activate("edges") %&gt;%
+  mutate(foo = runif(n(), min = 0, max = 1)) %&gt;%
+  st_network_cost(c(p1, p2), c(p1, p2), weights = "foo")
+
+# Not providing any from or to points includes all nodes by default.
+with_graph(net, graph_order()) # Our network has 701 nodes.
+cost_matrix = st_network_cost(net)
+dim(cost_matrix)
+
+</code></pre>
+
+
+</div>

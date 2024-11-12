@@ -1,0 +1,191 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rakesvy</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Flexibly Calculate Rake Weights</h2>
+
+<h3>Description</h3>
+
+<p>Calculate rake weights on a data frame, or on a
+<code>survey.design</code> object from <code>survey::svydesign()</code>. Targets may be counts or
+percentages, in vector, matrix, data frame, or w8margin form. Before
+weighting, targets are converted to w8margins, checked for validity, and
+matched to variables in observed data, <code>rakesvy</code> returns a weighted
+<code>svydesign</code> object, while <code>rakew8</code> returns a vector of weights.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rakesvy(
+  design,
+  ...,
+  samplesize = "from.data",
+  match.levels.by = "name",
+  na.targets = "fail",
+  rebase.tol = 0.01,
+  control = list(maxit = 10, epsilon = 1, verbose = FALSE)
+)
+
+rakew8(
+  design,
+  ...,
+  samplesize = "from.data",
+  match.levels.by = "name",
+  na.targets = "fail",
+  rebase.tol = 0.01,
+  control = list(maxit = 10, epsilon = 1, verbose = FALSE)
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>A <code>survey.design</code> object from <code>survey::svydesign()</code>,
+or a data frame that  can be coerced to one. When a data frame is coerced, the
+coercion assuming no clustering or design weighting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Formulas specifying weight targets, with an object that can be coerced
+to class w8margin (see <code>as.w8margin()</code>) on the right-hand side, and
+(optionally) a matching variable or transformation of it on the left-hand side.
+Objects that can be coerced to w8margin include named numeric vectors and matrices,
+and data frames in the format accepted by <code>rake</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplesize</code></td>
+<td>
+<p>Either a number specifying the desired post-raking sample
+size, or a character string "from.data" or "from.targets" specifying how to
+calculate the desired sample size (see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>match.levels.by</code></td>
+<td>
+<p>A character string that specifies how to match levels in
+the target with the observed data, either "name" (the default) or "order"
+(see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.targets</code></td>
+<td>
+<p>A characters string that specifies how to  handle NAs in <em>targets</em>,
+either "fail" (the default) or "observed" (see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rebase.tol</code></td>
+<td>
+<p>Numeric between 0 and 1. If targets are rebased, and
+the rebased sample sizes differs from the original sample size by more than
+this percentage, generates a warning.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>Parameters passed to the <code>control</code> argument of <code>survey::rake()</code>,
+to control the details of convergence in weighting.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>rakesvy and rakew8 wrangles observed data and targets into compatible formats,
+before using <code>survey::rake()</code> to make underlying weighting calculations.
+The function matches weight targets to observed
+variables, cleans both targets and observed variables, and then checks the
+validity of weight targets (partially by calling
+<code>w8margin_matched()</code>) before raking. It also allows a weight
+target of zero, and assigns an automatic weight of zero to cases on this target
+level.
+</p>
+<p>Weight target levels can be matched with observed variable levels in
+two ways, specified via the <code>match.levels.by</code> parameter. "name" (the
+default) matches based on name, disregarding order (so a "male" level in
+the weight target will be matched with a "male" level in the observed
+data). "order" matches based on order, disregarding name (so the first
+level or row of the target will match with the first level of the observed
+factor variable).
+</p>
+<p>By default, with parameter <code>na.targets = "fail"</code>), an NA in weight targets
+will cause an error. With <code>na.targets = "observed"</code>, rakesvy() and rakew8() will instead
+compute a target that matches the observed data. The category with an NA target will
+therefore have a similar incidence rate in the pre-raking and post-raking dataset.
+This is accomplished by calling <code>impute_w8margin()</code> before raking; see
+the impute_w8margin documentation for more details. Note that NAs in <em>observed</em>
+data (as opposed to targets) will always cause failure, and are not affected by this parameter.
+</p>
+<p>The desired sample size (in other words, the desired sum of weights
+after raking)  is specified via the <code>samplesize</code> parameter. This can
+be a numeric value. Alternatively, "from.data" specifies that the observed
+sample size before weighting (taken from <code>sum(weights(design))</code> if
+applicable, or <code>nrow()</code> if not); "from.targets" specifies that the total
+sample sizes in target objects should be followed, and should only be used
+if all targets specify the same sample size.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>rakesvy()</code> returns a <code>survey.design</code> object with rake weights applied. Any changes
+made to the variables in <code>design</code> in order to call <code>rake</code>, such as
+dropping empty factor levels, are temporary and <em>not</em> returned in the
+output object.
+</p>
+<p><code>rakew8()</code> returns a vector of weights. This avoids creating
+duplicated <code>survey.design</code> objects, which can be useful when calculating multiple
+sets of weights for the same data.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Computing only rake weights
+# EG, for a survey conducted with simple random sampling
+gles17$simple_weight &lt;- rakew8(design = gles17, 
+    gender ~ c("Male" = .495, "Female" = .505),
+    eastwest ~ c("East Germany" = .195, "West Germany" = .805)
+)
+
+# Specifying a recode of variable in observed dataset
+require(dplyr)
+gles17_raked &lt;- rakesvy(design = gles17, 
+    gender ~ c("Male" = .495, "Female" = .505),
+    dplyr::recode(agecat, `&lt;=29` = "&lt;=39", `30-39` = "&lt;=39") ~ 
+        c("&lt;=39" = .31, "40-49" = .15, "50-59" = .19, "60-69" = .15, "&gt;=70" = .21)
+)
+
+# Computing rake weights after design weights
+# EG, for a survey with complex sampling design
+require(survey)
+gles17_dweighted &lt;- svydesign(ids = gles17$vpoint, weights = gles17$dweight, 
+    strata = gles17$eastwest, data = gles17, nest = TRUE)
+gles17_raked &lt;- rakesvy(design = gles17_dweighted, 
+    gender ~ c("Male" = .495, "Female" = .505),
+    agecat ~ c("&lt;=29" = .16, "30-39" = .15, "40-49" = .15, 
+        "50-59" = .19, "60-69" = .15, "&gt;=70" = .21)
+)
+
+# With unnamed target levels, using match.levels.by = "order"
+rakew8(design = gles17, 
+    gender ~ c(.495, .505),
+    eastwest ~ c(.195, .805),
+    match.levels.by = "order"
+)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,563 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>systemfit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Linear Equation System Estimation</h2>
+
+<h3>Description</h3>
+
+<p>Fits a set of linear structural equations using Ordinary Least
+Squares (OLS), Weighted Least Squares (WLS), Seemingly Unrelated Regression (SUR),
+Two-Stage Least Squares (2SLS), Weighted Two-Stage Least Squares (W2SLS)
+or Three-Stage Least Squares (3SLS).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">systemfit( formula, method = "OLS",
+           inst=NULL, data=list(),
+           restrict.matrix = NULL, restrict.rhs = NULL, restrict.regMat = NULL,
+           pooled = FALSE, control = systemfit.control( ... ), ... )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>an object of class <code>formula</code>
+(for single-equation models)
+or (typically) a list of objects of class <code>formula</code>
+(for multiple-equation models);
+if argument <code>data</code> is of class <code>pdata.frame</code>
+(created with <code>pdata.frame()</code>),
+this argument must be a single object of class <code>formula</code>
+that represents the formula to be estimated for all individuals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the estimation method, one of "OLS", "WLS", "SUR",
+"2SLS", "W2SLS", or "3SLS" (see details);
+iterated estimation methods can be specified by setting control parameter
+<code>maxiter</code> larger than 1 (e.g. 500).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inst</code></td>
+<td>
+<p>one-sided model formula specifying the instrumental variables
+(including exogenous explanatory variables)
+or a list of one-sided model formulas if different instruments should
+be used for the different equations (only needed for 2SLS, W2SLS, and
+3SLS estimations).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame
+containing the variables in the model.
+By default the variables are taken from the environment from which
+systemfit is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict.matrix</code></td>
+<td>
+<p>an optional j x k matrix to impose linear
+restrictions on the coefficients by <code>restrict.matrix</code> * <code class="reqn">b</code> = <code>restrict.rhs</code>
+(j = number of restrictions, k = number of all coefficients,
+<code class="reqn">b</code> = vector of all coefficients)
+or a character vector giving the restrictions in symbolic form
+(see documentation of <code>linearHypothesis</code>
+in package "car" for details).
+The number and the names of the coefficients can be obtained
+by estimating the system without restrictions and applying
+the <code>coef</code> method to the returned object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict.rhs</code></td>
+<td>
+<p>an optional vector with j elements to impose linear
+restrictions (see <code>restrict.matrix</code>); default is a vector
+that contains j zeros.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict.regMat</code></td>
+<td>
+<p>an optional matrix to impose restrictions
+on the coefficients by post-multiplying the regressor matrix
+with this matrix (see details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>list of control parameters.
+The default is constructed by the function <code>systemfit.control</code>.
+See the documentation of <code>systemfit.control</code> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pooled</code></td>
+<td>
+<p>logical, restrict coefficients to be equal in all equations
+(only for panel-like data).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments passed to <code>systemfit.control</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The estimation of systems of equations with unequal numbers
+of observations has not been thoroughly tested yet.
+Currently, <code>systemfit</code> calculates the residual covariance matrix
+only from the residuals/observations that are available
+in all equations.
+</p>
+<p>If argument <code>data</code> is of class <code>pdata.frame</code>
+(created with <code>pdata.frame()</code> and thus, contains panel data in long format),
+argument <code>formula</code> must be a single equation
+that is applied to all individuals.
+In this case, argument <code>pooled</code> specifies
+whether the coefficients are restricted to be equal for all
+individuals.
+</p>
+<p>If argument <code>restrict.regMat</code> is specified,
+the regressor matrix <code class="reqn">X</code> is post-multiplied by this matrix:
+<code class="reqn">X^{*} = X \cdot</code> <code>restrict.regMat</code>.
+Then, this modified regressor matrix <code class="reqn">X^{*}</code> is used for the
+estimation of the coefficient vector <code class="reqn">b^{*}</code>.
+This means that the coefficients of the original regressors (<code class="reqn">X</code>),
+vector <code class="reqn">b</code>,
+can be represented by <code class="reqn">b =</code> <code>restrict.regMat</code> <code class="reqn">\cdot b^{*}</code>.
+If <code>restrict.regMat</code> is a non-singular quadratic matrix,
+there are no restrictions on the coefficients imposed,
+but the coefficients <code class="reqn">b^{*}</code> are linear combinations of
+the original coefficients <code class="reqn">b</code>.
+If <code>restrict.regMat</code> has less columns than rows,
+linear restrictions are imposed on the coefficients <code class="reqn">b</code>.
+However, imposing linear restrictions
+by the <code>restrict.regMat</code> matrix is less flexible than
+by providing the matrix <code>restrict.matrix</code> and the
+vector <code>restrict.rhs</code>.
+The advantage of imposing restrictions on the coefficients
+by the matrix <code>restrict.regMat</code> is that the matrix,
+which has to be inverted during the estimation,
+gets smaller by this procedure, while it gets larger
+if the restrictions are imposed by <code>restrict.matrix</code> and <code>restrict.rhs</code>.
+</p>
+<p>In the context of multi-equation models, 
+the term “weighted” in “weighted least squares” (WLS) and
+“weighted two-stage least squares” (W2SLS) means
+that the <em>equations</em> might have different weights
+and <em>not</em>
+that the <em>observations</em> have different weights.
+</p>
+<p>It is important to realize the limitations on estimating the residuals
+covariance matrix imposed by the number of observations <code class="reqn">T</code>
+in each equation.
+With <code class="reqn">g</code> equations we estimate <code class="reqn">g*(g+1)/2</code> elements using
+<code class="reqn">T*g</code> observations total.
+Beck and Katz (1995,1993) discuss the issue and the resulting overconfidence
+when the ratio of <code class="reqn">T/g</code> is small (e.g. 3).
+Even for <code class="reqn">T/g=5</code> the estimate is unstable both numerically
+and statistically
+and the 95
+approximately <code class="reqn">[0.5*\sigma^2, 3*\sigma^2]</code>,
+which is inadequate precision if the covariance matrix will be used
+for simulation of asset return paths either for investment or risk
+management decisions.
+For a starter on models with large cross-sections see Reichlin (2002).
+[This paragraph has been provided by Stephen C. Bond – Thanks!]
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>systemfit</code> returns a list of the class <code>systemfit</code> and
+contains all results that belong to the whole system.
+This list contains one special object: "eq". It is a list and contains
+one object for each estimated equation. These objects are of the class
+<code>systemfit.equation</code> and contain the results that belong only to the
+regarding equation.
+</p>
+<p>The objects of the class <code>systemfit</code> and
+<code>systemfit.equation</code> have the following components (the elements of
+the latter are marked with an asterisk (<code class="reqn">*</code>)):
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>the matched call.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>estimation method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rank</code></td>
+<td>
+<p>total number of linear independent coefficients
+= number of coefficients minus number of linear restrictions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df.residual</code></td>
+<td>
+<p>degrees of freedom of the whole system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter</code></td>
+<td>
+<p>number of iteration steps.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coefficients</code></td>
+<td>
+<p>vector of all estimated coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coefCov</code></td>
+<td>
+<p>estimated covariance matrix of <code>coefficients</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residCov</code></td>
+<td>
+<p>estimated residual covariance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residCovEst</code></td>
+<td>
+<p>residual covariance matrix used for estimation
+(only WLS, W2SLS, SUR and 3SLS).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict.matrix</code></td>
+<td>
+<p>the restriction matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict.rhs</code></td>
+<td>
+<p>the restriction vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict.regMat</code></td>
+<td>
+<p>matrix used to impose restrictions
+on the coefficients by post-multiplying the regressor matrix
+with this matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>list of control parameters used for the estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>panelLike</code></td>
+<td>
+<p>logical. Was this an analysis with panel-like data?</p>
+</td>
+</tr>
+</table>
+<p>## elements of the class systemfit.eq
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>eq</code></td>
+<td>
+<p>a list that contains the results that belong to the individual equations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eqnLabel*</code></td>
+<td>
+<p>the label of this equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eqnNo*</code></td>
+<td>
+<p>the number of this equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>terms*</code></td>
+<td>
+<p>the 'terms' object used for the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inst*</code></td>
+<td>
+<p>instruments of the ith equation (only 2SLS, W2SLS, and 3SLS).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>termsInst*</code></td>
+<td>
+<p>the 'terms' object of the instruments 
+used for the ith equation (only 2SLS, W2SLS, and 3SLS).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rank*</code></td>
+<td>
+<p>number of linear independent coefficients in the ith equation
+(differs from the number of coefficients only if there are
+restrictions that are not cross-equation).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCoef.sys*</code></td>
+<td>
+<p>total number of coefficients in all equations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rank.sys*</code></td>
+<td>
+<p>total number of linear independent coefficients
+in all equations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df.residual*</code></td>
+<td>
+<p>degrees of freedom of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df.residual.sys*</code></td>
+<td>
+<p>degrees of freedom of the whole system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coefficients*</code></td>
+<td>
+<p>estimated coefficients of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covb*</code></td>
+<td>
+<p>estimated covariance matrix of <code>coefficients</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model*</code></td>
+<td>
+<p>if requested (the default), the model frame of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modelInst*</code></td>
+<td>
+<p>if requested (the default), the model frame 
+of the instrumental variables of the ith equation 
+(only 2SLS, W2SLS, and 3SLS).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x*</code></td>
+<td>
+<p>if requested, the model matrix of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y*</code></td>
+<td>
+<p>if requested, the response of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z*</code></td>
+<td>
+<p>if requested, the matrix of instrumental variables
+of the ith equation (only 2SLS, W2SLS, and 3SLS).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fitted.values*</code></td>
+<td>
+<p>vector of fitted values of the ith equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residuals*</code></td>
+<td>
+<p>vector of residuals of the ith equation.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Arne Henningsen <a href="mailto:arne.henningsen@googlemail.com">arne.henningsen@googlemail.com</a>,<br>
+Jeff D. Hamann <a href="mailto:jeff.hamann@forestinformatics.com">jeff.hamann@forestinformatics.com</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Beck, N.; J.N. Katz (1995)
+What to do (and not to do) with Time-Series Cross-Section Data,
+<em>The American Political Science Review</em>, 89, pp. 634-647.
+</p>
+<p>Beck, N.; J.N. Katz; M.R. Alvarez; G. Garrett; P. Lange (1993)
+Government Partisanship, Labor Organization, and Macroeconomic Performance:
+a Corrigendum, <em>American Political Science Review</em>, 87,
+pp. 945-48.
+</p>
+<p>Greene, W. H. (2003)
+<em>Econometric Analysis, Fifth Edition</em>, Prentice Hall.
+</p>
+<p>Judge, George G.; W. E. Griffiths; R. Carter Hill; Helmut Luetkepohl and Tsoung-Chao Lee (1985)
+<em>The Theory and Practice of Econometrics, Second Edition</em>, Wiley.
+</p>
+<p>Kmenta, J. (1997)
+<em>Elements of Econometrics, Second Edition</em>, University of
+Michigan Publishing.
+</p>
+<p>Reichlin, L. (2002)
+<em>Factor models in large cross-sections of time series</em>,
+Working Paper, ECARES and CEPR.
+</p>
+<p>Schmidt, P. (1990)
+<em>Three-Stage Least Squares with different Instruments for different equations</em>,
+Journal of Econometrics 43, p. 389-394.
+</p>
+<p>Theil, H. (1971)
+<em>Principles of Econometrics</em>, Wiley, New York.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>lm</code> and <code>nlsystemfit</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data( "Kmenta" )
+eqDemand &lt;- consump ~ price + income
+eqSupply &lt;- consump ~ price + farmPrice + trend
+system &lt;- list( demand = eqDemand, supply = eqSupply )
+
+## OLS estimation
+fitols &lt;- systemfit( system, data=Kmenta )
+print( fitols )
+
+## OLS estimation with 2 restrictions
+Rrestr &lt;- matrix(0,2,7)
+Rrestr[1,3] &lt;-  1
+Rrestr[1,7] &lt;- -1
+Rrestr[2,2] &lt;- -1
+Rrestr[2,5] &lt;-  1
+qrestr &lt;- c( 0, 0.5 )
+fitols2 &lt;- systemfit( system, data = Kmenta,
+                      restrict.matrix = Rrestr, restrict.rhs = qrestr )
+print( fitols2 )
+
+## OLS estimation with the same 2 restrictions in symbolic form
+restrict &lt;- c( "demand_income - supply_trend = 0",
+   "- demand_price + supply_price = 0.5" )
+fitols2b &lt;- systemfit( system, data = Kmenta, restrict.matrix = restrict )
+print( fitols2b )
+
+# test whether both restricted estimators are identical
+all.equal( coef( fitols2 ), coef( fitols2b ) )
+
+## OLS with restrictions on the coefficients by modifying the regressor matrix
+## with argument restrict.regMat
+modReg &lt;- matrix( 0, 7, 6 )
+colnames( modReg ) &lt;- c( "demIntercept", "demPrice", "demIncome",
+   "supIntercept", "supPrice2", "supTrend" )
+modReg[ 1, "demIntercept" ] &lt;- 1
+modReg[ 2, "demPrice" ]     &lt;- 1
+modReg[ 3, "demIncome" ]    &lt;- 1
+modReg[ 4, "supIntercept" ] &lt;- 1
+modReg[ 5, "supPrice2" ]    &lt;- 1
+modReg[ 6, "supPrice2" ]    &lt;- 1
+modReg[ 7, "supTrend" ]     &lt;- 1
+fitols3 &lt;- systemfit( system, data = Kmenta, restrict.regMat = modReg )
+print( fitols3 )
+
+
+## iterated SUR estimation
+fitsur &lt;- systemfit( system, "SUR", data = Kmenta, maxit = 100 )
+print( fitsur )
+
+## 2SLS estimation
+inst &lt;- ~ income + farmPrice + trend
+fit2sls &lt;- systemfit( system, "2SLS", inst = inst, data = Kmenta )
+print( fit2sls )
+
+## 2SLS estimation with different instruments in each equation
+inst1 &lt;- ~ income + farmPrice
+inst2 &lt;- ~ income + farmPrice + trend
+instlist &lt;- list( inst1, inst2 )
+fit2sls2 &lt;- systemfit( system, "2SLS", inst = instlist, data = Kmenta )
+print( fit2sls2 )
+
+## 3SLS estimation with GMM-3SLS formula
+inst &lt;- ~ income + farmPrice + trend
+fit3sls &lt;- systemfit( system, "3SLS", inst = inst, data = Kmenta,
+   method3sls = "GMM" )
+print( fit3sls )
+
+
+## Examples how to use systemfit() with panel-like data
+## Repeating the SUR estimations in Greene (2003, p. 351)
+data( "GrunfeldGreene" )
+if( requireNamespace( 'plm', quietly = TRUE ) ) {
+library( "plm" )
+GGPanel &lt;- pdata.frame( GrunfeldGreene, c( "firm", "year" ) )
+formulaGrunfeld &lt;- invest ~ value + capital
+# SUR
+greeneSur &lt;- systemfit( formulaGrunfeld, "SUR",
+   data = GGPanel, methodResidCov = "noDfCor" )
+summary( greeneSur )
+# SUR Pooled
+greeneSurPooled &lt;- systemfit( formulaGrunfeld, "SUR",
+   data = GGPanel, pooled = TRUE, methodResidCov = "noDfCor",
+   residCovWeighted = TRUE )
+summary( greeneSurPooled )
+}
+
+## Further examples are in the documentation to the data sets
+## 'KleinI' and 'GrunfeldGreene'.
+</code></pre>
+
+
+</div>

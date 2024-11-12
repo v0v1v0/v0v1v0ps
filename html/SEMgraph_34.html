@@ -1,0 +1,204 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SEMgsa</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SEM-based gene set analysis</h2>
+
+<h3>Description</h3>
+
+<p>Gene Set Analysis (GSA) via self-contained test for group
+effect on signaling (directed) pathways based on SEM. The core of the
+methodology is implemented in the RICF algorithm of <code>SEMrun()</code>,
+recovering from RICF output node-specific group effect p-values, and
+Brown’s combined permutation p-values of node activation and inhibition.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SEMgsa(g = list(), data, group, method = "BH", alpha = 0.05, n_rep = 1000, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>A list of pathways to be tested.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A matrix or data.frame. Rows correspond to subjects, and
+columns to graph nodes (variables).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p>A binary vector. This vector must be as long as the number
+of subjects. Each vector element must be 1 for cases and 0 for control
+subjects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Multiple testing correction method. One of the values
+available in <code>p.adjust</code>. By default, method is set
+to "BH" (i.e., Benjamini-Hochberg correction).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Gene set test significance level (default = 0.05).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_rep</code></td>
+<td>
+<p>Number of randomization replicates (default = 1000).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For gaining more biological insights into the functional roles
+of pre-defined subsets of genes, node perturbation obtained from RICF
+fitting has been combined with up- or down-regulation of genes from KEGG
+to obtain overall pathway perturbation as follows: 
+</p>
+
+<ul>
+<li>
+<p> The node perturbation is defined as activated when the minimum among
+the p-values is positive; if negative, the status is inhibited. 
+</p>
+</li>
+<li>
+<p> Up- or down- regulation of genes (derived from KEGG database) has
+been obtained from the weighted adjacency matrix of each pathway as column
+sum of weights over each source node. If the overall sum of node weights
+is below 1, the pathway is flagged as down-regulated otherwise as up-regulated. 
+</p>
+</li>
+<li>
+<p> The combination between these two quantities allows to define the
+direction (up or down) of gene perturbation. Up- or down regulated gene status,
+associated with node inhibition, indicates a decrease in activation (or
+increase in inhibition) in cases with respect to control group. Conversely,
+up- or down regulated gene status, associated with node activation, indicates
+an increase in activation (or decrease in inhibition) in cases with
+respect to control group.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>A list of 2 objects:
+</p>
+
+<ol>
+<li>
+<p> "gsa", A data.frame reporting the following information for each
+pathway in the input list:
+</p>
+
+<ul>
+<li>
+<p> "No.nodes", pathway size (number of nodes);
+</p>
+</li>
+<li>
+<p> "No.DEGs", number of differential espression genes (DEGs) within
+the pathway, after multiple test correction with one of the methods
+available in <code>p.adjust</code>;
+</p>
+</li>
+<li>
+<p> "pert", pathway perturbation status (see details);
+</p>
+</li>
+<li>
+<p> "pNA", Brown's combined P-value of pathway node activation;
+</p>
+</li>
+<li>
+<p> "pNI", Brown's combined P-value of pathway node inhibition;
+</p>
+</li>
+<li>
+<p> "PVAL", Bonferroni combined P-value of pNA, and pNI; i.e.,
+2* min(pNA, PNI);
+</p>
+</li>
+<li>
+<p> "ADJP", Adjusted Bonferroni P-value of pathway perturbation; i.e.,
+min(No.pathways * PVAL; 1).
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> "DEG", a list with DEGs names per pathways.
+</p>
+</li>
+</ol>
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Grassi, M., Tarantino, B. SEMgsa: topology-based pathway enrichment analysis with
+structural equation models. BMC Bioinformatics 23, 344 (2022).
+https://doi.org/10.1186/s12859-022-04884-8
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+# Nonparanormal(npn) transformation
+als.npn &lt;- transformData(alsData$exprs)$data
+
+# Selection of FTD-ALS pathways from kegg.pathways.Rdata
+
+paths.name &lt;- c("MAPK signaling pathway",
+                "Protein processing in endoplasmic reticulum",
+                "Endocytosis",
+                "Wnt signaling pathway",
+                "Neurotrophin signaling pathway",
+                "Amyotrophic lateral sclerosis")
+
+j &lt;- which(names(kegg.pathways) %in% paths.name)
+
+GSA &lt;- SEMgsa(kegg.pathways[j], als.npn, alsData$group,
+              method = "bonferroni", alpha = 0.05,
+              n_rep = 1000)
+GSA$gsa
+GSA$DEG
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

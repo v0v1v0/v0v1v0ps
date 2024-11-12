@@ -1,0 +1,159 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>staggered_sa</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate the Sun &amp; Abraham (2020) estimator for staggered rollouts</h2>
+
+<h3>Description</h3>
+
+<p>This functions calculates the Sun &amp; Abraham (2020) estimator for staggered rollout designs using last-treated-treated units (never-treated, if availabe) as controls.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">staggered_sa(
+  df,
+  i = "i",
+  t = "t",
+  g = "g",
+  y = "y",
+  estimand = NULL,
+  A_theta_list = NULL,
+  A_0_list = NULL,
+  eventTime = 0,
+  return_full_vcv = FALSE,
+  compute_fisher = FALSE,
+  num_fisher_permutations = 500,
+  skip_data_check = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+<p>A data frame containing panel data with the variables y (an outcome), i (an individual identifier), t (the period in which the outcome is observe), g (the period in which i is first treated, with Inf denoting never treated)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>i</code></td>
+<td>
+<p>The name of column containing the individual (cross-sectional unit) identifier. Default is "i".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t</code></td>
+<td>
+<p>The name of the column containing the time periods. Default is "t".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>The name of the column containing the first period when a particular observation is treated, with Inf denoting never treated. Default is "g".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>The name of the column containing the outcome variable. Default is "y".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimand</code></td>
+<td>
+<p>The estimand to be calculated: "simple" averages all treated (t,g) combinations with weights proportional to N_g; "cohort" averages the ATEs for each cohort g, and then takes an N_g-weighted average across g; "calendar" averages ATEs for each time period, weighted by N_g for treated units, and then averages across time. "eventstudy" returns the average effect at the ”event-time” given in the parameter EventTime.  The parameter can be left blank if a custom parameter is provided in A_theta_list. The argument is not case-sensitive.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A_theta_list</code></td>
+<td>
+<p>This parameter allows for specifying a custom estimand, and should be left as NULL if estimand is specified. It is a list of matrices A_theta_g so that the parameter of interest is sum_g A_theta_g Ybar_g, where Ybar_g = 1/N sum_i Y_i(g)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A_0_list</code></td>
+<td>
+<p>This parameter allow for specifying the matrices used to construct the Xhat vector of pre-treatment differences. If left NULL, the default is to use the scalar set of controls used in Callaway and Sant'Anna. If use_DiD_A0 = FALSE, then it uses the full vector possible comparisons of (g,g') in periods t&lt;g,g'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eventTime</code></td>
+<td>
+<p>If using estimand = "eventstudy", specify what eventTime you want the event-study parameter for. The default is 0, the period in which treatment occurs. If a vector is provided, estimates are returned for all the event-times in the vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_full_vcv</code></td>
+<td>
+<p>If this is true and estimand = "eventstudy", then the function returns a list containing the full variance-covariance matrix for the event-plot estimates in addition to the usual dataframe with the estimates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compute_fisher</code></td>
+<td>
+<p>If true, computes a Fisher Randomization Test using the studentized estimator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_fisher_permutations</code></td>
+<td>
+<p>The number of permutations to use in the Fisher Randomization Test (if compute_fisher = TRUE). Default is 500.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skip_data_check</code></td>
+<td>
+<p>If true, skips checks that the data is balanced and contains the colums i,t,g,y. Used in internal recursive calls to increase speed, but not recommended for end-user.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>resultsDF A data.frame containing: estimate (the point estimate), se (the standard error), and se_neyman (the Neyman standard error). If a vector-valued eventTime is provided, the data.frame contains multiple rows for each eventTime and an eventTime column. If return_full_vcv = TRUE and estimand = "eventstudy", the function returns a list containing resultsDF and the full variance covariance for the event-study estimates (vcv) as well as the Neyman version of the covariance matrix (vcv_neyman).
+</p>
+
+
+<h3>References</h3>
+
+<p><cite>Sun, Liyang, and Abraham, Sarah (2020),
+'Estimating dynamic treatment effects in event studies with heterogeneous treatment effects', Forthcoming at the Journal of Econometrics,
+<a href="https://doi.org/10.1016/j.jeconom.2020.09.006">doi:10.1016/j.jeconom.2020.09.006</a>.</cite>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(1234)
+# load the officer data and subset it
+df &lt;- pj_officer_level_balanced
+group_random &lt;- sample(unique(df$assigned), 3)
+df &lt;- df[df$assigned %in% group_random,]
+# We modify the data so that the time dimension is named t,
+# the period of treatment is named g,
+# the outcome is named y,
+# and the individual identifiers are named i
+#  (this allow us to use default arguments on \code{staggered_cs}).
+oldnames &lt;- c("period", "complaints", "first_trained", "uid")
+names(df)[match(oldnames, names(df))] &lt;- c("t", "y", "g", "i")
+# Calculate Sun and Abraham estimator for the simple weighted average
+staggered_sa(df = df, estimand = "simple")
+# Calculate Sun and Abraham estimator for the cohort weighted average
+staggered_sa(df = df, estimand = "cohort")
+# Calculate Sun and Abraham estimator for the calendar weighted average
+staggered_sa(df = df, estimand = "calendar")
+# Calculate Sun and Abraham event-study coefficients for the first 24 months
+# (month 0 is instantaneous effect)
+eventPlotResults &lt;- staggered_sa(df = df, estimand = "eventstudy", eventTime = 0:23)
+head(eventPlotResults)
+
+</code></pre>
+
+
+</div>

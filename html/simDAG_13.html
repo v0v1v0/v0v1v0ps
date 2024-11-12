@@ -1,0 +1,250 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>node</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Create a node object to grow a DAG step-by-step
+</h2>
+
+<h3>Description</h3>
+
+<p>These functions should be used in conjunction with the <code>empty_dag</code> function to create <code>DAG</code> objects, which can then be used to simulate data using the <code>sim_from_dag</code> function or the <code>sim_discrete_time</code> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">node(name, type, parents=NULL, formula=NULL, ...)
+
+node_td(name, type, parents=NULL, formula=NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+
+<p>A character vector with at least one entry specifying the name of the node. If a character vector containing multiple different names is supplied, one separate node will be created for each name. These nodes are completely independent, but have the exact same node definition as supplied by the user. If only a single character string is provided, only one node is generated.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+
+<p>A single character string specifying the type of the node. Depending on whether the node is a root node, a child node or a time-dependent node different node types are allowed. See details. Alternatively, a suitable function may be passed directly to this argument.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parents</code></td>
+<td>
+
+<p>A character vector of names, specifying the parents of the node or <code>NULL</code> (default). If <code>NULL</code>, the node is treated as a root node. For convenience it is also allowed to set <code>parents=""</code> to indicate that the node is a root node.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+
+<p>An optional <code>formula</code> object to describe how the node should be generated or <code>NULL</code> (default). If supplied it should start with <code>~</code>, having nothing else on the left hand side. The right hand side should define the entire structural equation, including the betas and intercepts. It may contain any valid formula syntax, such as <code>~ -2 + A*3 + B*4</code> or <code>~ -2 + A*3 + B*4 + I(A^2)*0.3 + A:B*1.1</code>, allowing arbitrary non-linear effects, arbitrary interactions and multiple coefficients for categorical variables. If this argument is defined, there is no need to define the <code>betas</code> and <code>intercept</code> argument. The <code>parents</code> argument should still be specified whenever a categorical variable is used in the formula. This argument is currently only supported for nodes of type <code>"binomial"</code>, <code>"gaussian"</code>, <code>"poisson"</code>, <code>"negative_binomial"</code> and <code>"cox"</code>. See examples and the associated vignette for an in-depth explanation.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Further named arguments needed to specify the node. Those can be parameters of distribution functions such as the <code>p</code> argument in the <code>rbernoulli</code> function for root nodes or arbitrary named arguments such as the <code>betas</code> argument of the <code>node_gaussian</code> function.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>To generate data using the <code>sim_from_dag</code> function or the <code>sim_discrete_time</code> function, it is required to create a <code>DAG</code> object first. This object needs to contain information about the causal structure of the data (e.g. which variable causes which variable) and the specific structural equations for each variable (information about causal coefficients, type of distribution etc.). In this package, the <code>node</code> and/or <code>node_td</code> function is used in conjunction with the <code>empty_dag</code> function to create this object.
+</p>
+<p>This works by first initializing an empty <code>DAG</code> using the <code>empty_dag</code> function and then adding multiple calls to the <code>node</code> and/or <code>node_td</code> functions to it using a simple <code>+</code>, where each call to <code>node</code> and/or <code>node_td</code> adds information about a single node that should be generated. Multiple examples are given below.
+</p>
+<p>In each call to <code>node</code> or <code>node_td</code> the user needs to indicate what the node should be called (<code>name</code>), which function should be used to generate the node (<code>type</code>), whether the node has any parents and if so which (<code>parents</code>) and any additional arguments needed to actually call the data-generating function of this node later passed to the three-dot syntax (<code>...</code>).
+</p>
+<p><strong><em><code>node</code> vs. <code>node_td</code></em></strong>:
+</p>
+<p>By calling <code>node</code> you are indicating that this node is a time-fixed variable which should only be generated once. By using <code>node_td</code> you are indicating that it is a time-dependent node, which will be updated at each step in time when using a discrete-time simulation.
+</p>
+<p><code>node_td</code> should only be used if you are planning to perform a discrete-time simulation with the <code>sim_discrete_time</code> function. <code>DAG</code> objects including time-dependent nodes may not be used in the <code>sim_from_dag</code> function.
+</p>
+<p><strong><em>Implemented Root Node Types</em></strong>:
+</p>
+<p>Any function can be used to generate root nodes. The only requirement is that the function has at least one named argument called <code>n</code> which controls the length of the resulting vector. For example, the user could specify a node of type <code>"rnorm"</code> to create a normally distributed node with no parents. The argument <code>n</code> will be set internally, but any additional arguments can be specified using the <code>...</code> syntax. In the <code>type="rnorm"</code> example, the user could set the mean and standard deviation using <code>node(name="example", type="rnorm", mean=10, sd=5)</code>.
+</p>
+<p>For convenience, this package additionally includes three custom root-node functions:
+</p>
+
+<ul>
+<li>
+<p>"rbernoulli": Draws randomly from a bernoulli distribution.
+</p>
+</li>
+<li>
+<p>"rcategorical": Draws randomly from any discrete probability density function.
+</p>
+</li>
+<li>
+<p>"rconstant": Used to set a variable to a constant value.
+</p>
+</li>
+</ul>
+<p><strong><em>Implemented Child Node Types</em></strong>:
+</p>
+<p>Currently, the following node types are implemented directly for convenience:
+</p>
+
+<ul>
+<li>
+<p>"gaussian": A node based on linear regression.
+</p>
+</li>
+<li>
+<p>"binomial": A node based on logistic regression.
+</p>
+</li>
+<li>
+<p>"conditional_prob": A node based on conditional probabilities.
+</p>
+</li>
+<li>
+<p>"conditional_distr": A node based on conditional draws from different distributions.
+</p>
+</li>
+<li>
+<p>"multinomial": A node based on multinomial regression.
+</p>
+</li>
+<li>
+<p>"poisson": A node based on poisson regression.
+</p>
+</li>
+<li>
+<p>"negative_binomial": A node based on negative binomial regression.
+</p>
+</li>
+<li>
+<p>"cox": A node based on cox-regression.
+</p>
+</li>
+</ul>
+<p>For custom child node types, see below.
+</p>
+<p><strong><em>Implemented Time-Dependent Node Types</em></strong>:
+</p>
+<p>Currently, the following node types are implemented directly for convenience to use in <code>node_td</code> calls:
+</p>
+
+<ul>
+<li>
+<p>"time_to_event": A node based on repeatedly checking whether an event occurs at each point in time.
+</p>
+</li>
+<li>
+<p>"competing_events": A node based on repeatedly checking whether one of multiple mutually exclusive events occurs at each point in time.
+</p>
+</li>
+</ul>
+<p>However, the user may also use any of the child node types in a <code>node_td</code> call directly. For custom time-dependent node types, see below.
+</p>
+<p><strong><em>Custom Node Types</em></strong>
+</p>
+<p>It is very simple to write a new custom <code>node_function</code> to be used instead, allowing the user to use any <code>type</code> of data-generation mechanism for any type of node (root / child / time-dependent). All that is required of this function is, that it has the named arguments <code>data</code> (the sample as generated so far) and, if it's a child node, <code>parents</code> (a character vector specifying the parents) and outputs either a vector containing <code>n_sim</code> entries, or a <code>data.frame</code> with <code>n_sim</code> rows and an arbitrary amount of columns. More information about this can be found on the <code>node_custom</code> documentation page.
+</p>
+<p><strong><em>Using child nodes as parents for other nodes</em></strong>:
+</p>
+<p>If the data generated by a child node is categorical (such as when using <code>node_multinomial</code>) they can still be used as parents of other nodes for most standard node types without issues. All the user has to do is to use <code>formula</code> argument to supply an enhanced formula, instead of defining the <code>parents</code> and <code>betas</code> argument directly. This works well for all node types that directly support <code>formula</code> input. For other node types, users may need to write custom functions to make this work. See the associated vignette: <code>vignette(topic="v_using_formulas", package="simDAG")</code> for more information on how to correctly use formulas.
+</p>
+<p><strong><em>Cyclic causal structures</em></strong>:
+</p>
+<p>The name DAG (directed <strong>acyclic</strong> graph) implies that cycles are not allowed. This means that if you start from any node and only follow the arrows in the direction they are pointing, there should be no way to get back to your original node. This is necessary both theoretically and for practical reasons if we are dealing with static DAGs created using the <code>node</code> function. If the user attempts to generate data from a static cyclic graph using the <code>sim_from_dag</code> function, an error will be produced.
+</p>
+<p>However, in the realm of discrete-time simulations, cyclic causal structures are perfectly reasonable. A variable <code class="reqn">A</code> at <code class="reqn">t = 1</code> may influence a variable <code class="reqn">B</code> at <code class="reqn">t = 2</code>, which in turn may influence variable <code class="reqn">A</code> at <code class="reqn">t = 3</code> again. Therefore, when using the <code>node_td</code> function to simulate time-dependent data using the <code>sim_discrete_time</code> function, cyclic structures are allowed to be present and no error will be produced.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a <code>DAG.node</code> object which can be added to a <code>DAG</code> object directly.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Contrary to the R standard, this function does <b>NOT</b> support partial matching of argument names. This means that supplying <code>nam="age"</code> will not be recognized as <code>name="age"</code> and instead will be added as additional node argument used in the respective data-generating function call when using <code>sim_from_dag</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Robin Denz
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(simDAG)
+
+# creating a DAG with a single root node
+dag &lt;- empty_dag() +
+  node("age", type="rnorm", mean=30, sd=4)
+
+# creating a DAG with multiple root nodes
+# (passing the functions directly to 'type' works too)
+dag &lt;- empty_dag() +
+  node("sex", type=rbernoulli, p=0.5) +
+  node("income", type=rnorm, mean=2700, sd=500)
+
+# creating a DAG with multiple root nodes + multiple names in one node
+dag &lt;- empty_dag() +
+  node("sex", type="rbernoulli", p=0.5) +
+  node(c("income_1", "income_2"), type="rnorm", mean=2700, sd=500)
+
+# also using child nodes
+dag &lt;- empty_dag() +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("income", type="rnorm", mean=2700, sd=500) +
+  node("sickness", type="binomial", parents=c("sex", "income"),
+       betas=c(1.2, -0.3), intercept=-15) +
+  node("death", type="binomial", parents=c("sex", "income", "sickness"),
+       betas=c(0.1, -0.4, 0.8), intercept=-20)
+
+# creating the same DAG as above, but using the enhanced formula interface
+dag &lt;- empty_dag() +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("income", type="rnorm", mean=2700, sd=500) +
+  node("sickness", type="binomial",
+       formula= ~ -15 + sexTRUE*1.2 + income*-0.3) +
+  node("death", type="binomial",
+       formula= ~ -20 + sexTRUE*0.1 + income*-0.4 + sickness*0.8)
+
+# using time-dependent nodes
+# NOTE: to simulate data from this DAG, the sim_discrete_time() function needs
+#       to be used due to "sickness" being a time-dependent node
+dag &lt;- empty_dag() +
+  node("sex", type="rbernoulli", p=0.5) +
+  node("income", type="rnorm", mean=2700, sd=500) +
+  node_td("sickness", type="binomial", parents=c("sex", "income"),
+          betas=c(0.1, -0.4), intercept=-50)
+
+# we could also use a DAG with only time-varying variables
+dag &lt;- empty_dag() +
+  node_td("vaccine", type="time_to_event", prob_fun=0.001, event_duration=21) +
+  node_td("covid", type="time_to_event", prob_fun=0.01, event_duration=15,
+          immunity_duration=100)
+</code></pre>
+
+
+</div>

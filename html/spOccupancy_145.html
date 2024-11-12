@@ -1,0 +1,507 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>tPGOcc</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Multi-Season Single-Species Occupancy Models Using Polya-Gamma Latent Variables</h2>
+
+<h3>Description</h3>
+
+<p>Function for fitting multi-season single-species occupancy models using Polya-Gamma latent variables. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">tPGOcc(occ.formula, det.formula, data, inits, priors, tuning, 
+       n.batch, batch.length, accept.rate = 0.43, n.omp.threads = 1, 
+       verbose = TRUE, ar1 = FALSE, n.report = 100, 
+       n.burn = round(.10 * n.batch * batch.length), n.thin = 1, n.chains = 1,
+       k.fold, k.fold.threads = 1, k.fold.seed = 100, k.fold.only = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>occ.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the occurrence portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the detection portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>occ.covs</code>, and <code>det.covs</code>. <code>y</code>
+is a three-dimensional array with first dimension equal to the number of 
+sites (<code class="reqn">J</code>), second dimension equal to the maximum number of 
+primary time periods (i.e., years or seasons), and third dimension equal 
+to the maximum number of replicates at a given site. <code>occ.covs</code> is a
+list of variables included in the occurrence portion of the model. Each
+list element is a different occurrence covariate, which can be site level
+or site/primary time period level. Site-level covariates are specified as a vector of 
+length <code class="reqn">J</code> while site/primary time period level covariates are specified as a matrix
+with rows corresponding to sites and columns correspond to primary time periods.
+Similarly, <code>det.covs</code> is a list of variables included in the detection
+portion of the model, with each list element corresponding to an 
+individual variable. In addition to site-level and/or site/primary time period-level, 
+detection covariates can also be observational-level. Observation-level covariates
+are specified as a three-dimensional array with first dimension corresponding to 
+sites, second dimension corresponding to primary time period, and third 
+dimension corresponding to replicate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>z</code>, <code>beta</code>, <code>alpha</code>, <code>sigma.sq.psi</code>, 
+<code>sigma.sq.p</code>, <code>sigma.sq.t</code>, and <code>rho</code>. The value portion of each tag is the 
+parameter's initial value. <code>sigma.sq.psi</code> and <code>sigma.sq.p</code> are 
+only relevant when including random effects in the occurrence and 
+detection portion of the occupancy model, respectively. <code>sigma.sq.t</code> and <code>rho</code>
+are only relevant when <code>ar1 = TRUE</code>. See <code>priors</code> 
+description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.normal</code>, <code>alpha.normal</code>, <code>sigma.sq.psi.ig</code>, 
+<code>sigma.sq.p.ig</code>, <code>sigma.sq.t.ig</code>, and <code>rho.unif</code>. 
+Occupancy (<code>beta</code>) and detection (<code>alpha</code>) 
+regression coefficients are assumed to follow a normal distribution. 
+The hyperparameters of the normal distribution are passed as a list of 
+length two with the first and second elements corresponding to the mean 
+and variance of the normal distribution, which are each specified as vectors of 
+length equal to the number of coefficients to be estimated or of length one
+if priors are the same for all coefficients. If not specified, prior means 
+are set to 0 and prior variances set to 2.72. <code>sigma.sq.psi</code> and 
+<code>sigma.sq.p</code> are the random effect variances for any unstructured occurrence or 
+detection random effects, respectively, and are assumed to follow an inverse
+Gamma distribution. The hyperparameters of the inverse-Gamma distribution
+are passed as a list of length two with first and second elements corresponding
+to the shape and scale parameters, respectively, which are each specified as
+vectors of length equal to the number of random intercepts or of length one 
+if priors are the same for all random effect variances. <code>sigma.sq.t</code> and 
+<code>rho</code> are the AR(1) variance and correlation parameters for the AR(1) zero-mean
+temporal random effects, respectively. <code>sigma.sq.t</code> is assumed to follow an inverse-Gamma
+distribution, where the hyperparameters are specified as a vector with elements
+corresponding to the shape and scale parameters, respectively. <code>rho</code> is 
+assumed to follow a uniform distribution, where the hyperparameters are specified in 
+a vector of length two with elements corresponding to the lower and upper bounds of
+the uniform prior.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter
+name. Valid tags are <code>rho</code>. The value portion of each
+tag defines the initial tuning variance of the Adaptive sampler. See
+Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches in each chain to run for the Adaptive MCMC 
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch in each chain to run for the Adaptive 
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for Adaptive MCMC. Default is 
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating the number of threads
+to use for SMP parallel processing. The package must be compiled for 
+OpenMP support. For most Intel-based machines, we recommend setting 
+<code>n.omp.threads</code> up to the number of hyperthreaded cores. Note, 
+<code>n.omp.threads</code> &gt; 1 might not work on some systems. Currently only 
+relevant for spatial models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ar1</code></td>
+<td>
+<p>logical value indicating whether to include an AR(1) zero-mean 
+temporal random effect in the model. If <code>FALSE</code>, the model is
+fit without an AR(1) temporal autocovariance structure. If <code>TRUE</code>,
+an AR(1) random effect is included in the model to account for temporal 
+autocorrelation across the primary time periods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report MCMC progress. Note this is specified
+in terms of batches, not MCMC samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.samples</code> to 
+discard as burn-in for each chain. By default, the first 10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default 
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold</code></td>
+<td>
+<p>specifies the number of <em>k</em> folds for cross-validation. 
+If not specified as an argument, then cross-validation is not performed
+and <code>k.fold.threads</code> and <code>k.fold.seed</code> are ignored. In <em>k</em>-fold
+cross-validation, the data specified in <code>data</code> is randomly
+partitioned into <em>k</em> equal sized subsamples. Of the <em>k</em> subsamples, 
+<em>k</em> - 1 subsamples are used to fit the model and the remaining <em>k</em>
+samples are used for prediction. The cross-validation process is repeated 
+<em>k</em> times (the folds). As a scoring rule, we use the model deviance 
+as described in Hooten and Hobbs (2015). For cross-validation in multi-season
+models, the data are split along the site dimension, such that each hold-out
+data set consists of <code>J / k.fold</code> sites sampled over all primary time
+periods during which data are available at each given site. Cross-validation is performed
+after the full model is fit using all the data. Cross-validation results
+are reported in the <code>k.fold.deviance</code> object in the return list.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.threads</code></td>
+<td>
+<p>number of threads to use for cross-validation. If 
+<code>k.fold.threads &gt; 1</code> parallel processing is accomplished using the 
+<span class="pkg">foreach</span> and <span class="pkg">doParallel</span> packages. Ignored if <code>k.fold</code>
+is not specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.seed</code></td>
+<td>
+<p>seed used to split data set into <code>k.fold</code> parts
+for k-fold cross-validation. Ignored if <code>k.fold</code> is not specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.only</code></td>
+<td>
+<p>a logical value indicating whether to only perform 
+cross-validation (<code>TRUE</code>) or perform cross-validation after fitting 
+the full model (<code>FALSE</code>). Default value is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>tPGOcc</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occupancy regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples 
+for the latent occupancy values, with dimensions corresponding to 
+posterior sample, site, and primary time period. Note this object
+will contain predicted occupancy values for sites/primary time periods
+that were not sampled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples
+for the latent occupancy probability values, with dimensions 
+corresponding to posterior sample, site, and primary time period. Note
+this object will contain predicted occupancy probabilities for
+sites/primary time periods that were not sampled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.psi.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random intercepts included in the occupancy portion
+of the model. Only included if random intercepts are specified in 
+<code>occ.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.p.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random intercpets included in the detection portion 
+of the model. Only included if random intercepts are specified in 
+<code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occurrence random effects. Only included if random intercepts
+are specified in <code>occ.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection random effects. Only included if random intercepts 
+are specified in <code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for the 
+AR(1) variance (<code>sigma.sq.t</code>) and correlation (<code>rho</code>) 
+parameters. Only included if <code>ar1 = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples for the 
+AR(1) random effects for each primary time period. Only included if 
+<code>ar1 = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>like.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples
+for the likelihood values associated with each site and primary
+time period. Used for calculating WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.deviance</code></td>
+<td>
+<p>scoring rule (deviance) from k-fold cross-validation. 
+Only included if <code>k.fold</code> is specified in function call.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent prediction and/or model fit evaluation. Note that detection
+probability estimated values are not included in the model object, but can be 
+extracted using <code>fitted()</code>. Note that if <code>k.fold.only = TRUE</code>, the 
+return list object will only contain <code>run.time</code> and <code>k.fold.deviance</code>. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>Some of the underlying code used for generating random numbers from the
+Polya-Gamma distribution is taken from the <span class="pkg">pgdraw</span> package written
+by Daniel F. Schmidt and Enes Makalic. Their code implements Algorithm
+6 in PhD thesis of Jesse Bennett Windle (2013) <a href="https://repositories.lib.utexas.edu/handle/2152/21842">https://repositories.lib.utexas.edu/handle/2152/21842</a>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Polson, N.G., J.G. Scott, and J. Windle. (2013) Bayesian Inference for
+Logistic Models Using Polya-Gamma Latent Variables. 
+<em>Journal of the American Statistical Association</em>, 108:1339-1349.
+</p>
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Kery, M., &amp; Royle, J. A. (2021). Applied hierarchical modeling in ecology: 
+Analysis of distribution, abundance and species richness in R and BUGS: 
+Volume 2: Dynamic and advanced models. Academic Press. Section 4.6.
+</p>
+<p>Hooten, M. B., and Hobbs, N. T. (2015). A guide to Bayesian model 
+selection for ecologists. Ecological monographs, 85(1), 3-28.
+</p>
+<p>MacKenzie, D. I., J. D. Nichols, G. B. Lachman, S. Droege, 
+J. Andrew Royle, and C. A. Langtimm. 2002. Estimating Site Occupancy 
+Rates When Detection Probabilities Are Less Than One. Ecology 83: 2248-2255.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(500)
+# Sites
+J.x &lt;- 10
+J.y &lt;- 10
+J &lt;- J.x * J.y
+# Primary time periods
+n.time &lt;- sample(5:10, J, replace = TRUE)
+n.time.max &lt;- max(n.time)
+# Replicates
+n.rep &lt;- matrix(NA, J, max(n.time))
+for (j in 1:J) {
+  n.rep[j, 1:n.time[j]] &lt;- sample(1:4, n.time[j], replace = TRUE)
+}
+# Occurrence --------------------------
+beta &lt;- c(0.4, 0.5, -0.9)
+trend &lt;- TRUE 
+sp.only &lt;- 0
+psi.RE &lt;- list()
+# Detection ---------------------------
+alpha &lt;- c(-1, 0.7, -0.5)
+p.RE &lt;- list()
+# Temporal parameters -----------------
+rho &lt;- 0.7
+sigma.sq.t &lt;- 0.6
+
+# Get all the data
+dat &lt;- simTOcc(J.x = J.x, J.y = J.y, n.time = n.time, n.rep = n.rep, 
+               beta = beta, alpha = alpha, sp.only = sp.only, trend = trend, 
+               psi.RE = psi.RE, p.RE = p.RE, sp = FALSE, ar1 = TRUE, 
+               sigma.sq.t = sigma.sq.t, rho = rho)
+
+# Package all data into a list
+# Occurrence
+occ.covs &lt;- list(int = dat$X[, , 1], 
+                 trend = dat$X[, , 2], 
+                 occ.cov.1 = dat$X[, , 3]) 
+# Detection
+det.covs &lt;- list(det.cov.1 = dat$X.p[, , , 2], 
+                 det.cov.2 = dat$X.p[, , , 3]) 
+# Data list bundle
+data.list &lt;- list(y = dat$y, 
+                  occ.covs = occ.covs,
+                  det.covs = det.covs) 
+# Priors
+prior.list &lt;- list(beta.normal = list(mean = 0, var = 2.72), 
+                   alpha.normal = list(mean = 0, var = 2.72), 
+                   rho.unif = c(-1, 1), 
+                   sigma.sq.t.ig = c(2, 0.5))
+
+# Starting values
+z.init &lt;- apply(dat$y, c(1, 2), function(a) as.numeric(sum(a, na.rm = TRUE) &gt; 0))
+inits.list &lt;- list(beta = 0, alpha = 0, z = z.init)
+
+# Tuning
+tuning.list &lt;- list(rho = 0.5)
+
+n.batch &lt;- 20
+batch.length &lt;- 25
+n.samples &lt;- n.batch * batch.length
+n.burn &lt;- 100
+n.thin &lt;- 1
+
+# Run the model
+out &lt;- tPGOcc(occ.formula = ~ trend + occ.cov.1, 
+              det.formula = ~ det.cov.1 + det.cov.2, 
+              data = data.list,
+              inits = inits.list,
+              priors = prior.list, 
+              tuning = tuning.list,
+              n.batch = n.batch, 
+              batch.length = batch.length,
+              verbose = TRUE, 
+              ar1 = TRUE,
+              n.report = 25,
+              n.burn = n.burn, 
+              n.thin = n.thin,
+              n.chains = 1) 
+
+summary(out)
+</code></pre>
+
+
+</div>

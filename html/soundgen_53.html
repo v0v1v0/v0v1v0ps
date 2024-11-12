@@ -1,0 +1,293 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>detectNLP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Detect NLP</h2>
+
+<h3>Description</h3>
+
+<p>(Experimental) A function for automatically detecting and annotating
+nonlinear vocal phenomena (NLP). Algorithm: analyze the audio using
+<code>analyze</code> and <code>phasegram</code>, then use the extracted
+frame-by-frame descriptives to classify each frame as having no NLP ("none"),
+subharmonics ("sh"), sibebands / amplitude modulation ("sb"), or
+deterministic chaos ("chaos"). The classification is performed by a
+<code>naiveBayes</code> algorithm adapted to autocorrelated time series and
+pretrained on a manually annotated corpus of vocalizations. Whenever
+possible, check and correct pitch tracks prior to running the algorithm. See
+<code>naiveBayes</code> for tips on using adaptive priors and "clumpering"
+to account for the fact that NLP typically occur in continuous segments
+spanning multiple frames.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">detectNLP(
+  x,
+  samplingRate = NULL,
+  predictors = c("nPeaks", "d2", "subDep", "amEnvDep", "entropy", "HNR", "CPP",
+    "roughness"),
+  thresProb = 0.4,
+  unvoicedToNone = FALSE,
+  train = soundgen::detectNLP_training_nonv,
+  scale = NULL,
+  from = NULL,
+  to = NULL,
+  pitchManual = NULL,
+  pars_analyze = list(windowLength = 50, roughness = list(windowLength = 15, step = 3)),
+  pars_phasegram = list(nonlinStats = "d2"),
+  pars_naiveBayes = list(prior = "static", wlClumper = 3),
+  jumpThres = 14,
+  jumpWindow = 100,
+  reportEvery = NULL,
+  cores = 1,
+  plot = FALSE,
+  savePlots = NULL,
+  main = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  ylim = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predictors</code></td>
+<td>
+<p>variables to include in NLP classification. The default is
+to include all 7 variables in the training corpus. NA values are fine (they
+do not cause the entire frame to be dropped as long as at least one
+variable is measured).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thresProb</code></td>
+<td>
+<p>minimum probability of NLP for the frame to be classified as
+non-"none", which is good for reducing false alarms (&lt;1/nClasses means just
+go for the highest probability)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>unvoicedToNone</code></td>
+<td>
+<p>if TRUE, frames treated as unvoiced are set to "none"
+(mostly makes sense with manual pitch tracking)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>train</code></td>
+<td>
+<p>training corpus, namely the result of running
+<code>naiveBayes_train</code> on audio with known NLP episodes. Currently
+implemented: soundgen::detectNLP_training_nonv = manually annotated human
+nonverbal vocalizations, soundgen::detectNLP_training_synth = synthetic,
+soundgen()-generated sounds with various NLP. To train your own, run
+<code>detectNLP</code> on a collection of recordings, provide ground truth
+classification of NLP per frame (normally this would be converted from NLP
+annotations), and run <code>naiveBayes_train</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>maximum possible amplitude of input used for normalization of
+input vector (only needed if <code>x</code> is a numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from, to</code></td>
+<td>
+<p>if NULL (default), analyzes the whole sound, otherwise
+from...to (s)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchManual</code></td>
+<td>
+<p>manually corrected pitch contour. For a single sound,
+provide a numeric vector of any length. For multiple sounds, provide a
+dataframe with columns "file" and "pitch" (or path to a csv file) as
+returned by <code>pitch_app</code>, ideally with the same windowLength and
+step as in current call to analyze. A named list with pitch vectors per
+file is also OK (eg as returned by pitch_app)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars_analyze</code></td>
+<td>
+<p>arguments passed to <code>analyze</code>. NB: drop
+everything unnecessary to speed up the process, e.g. nFormants = 0,
+loudness = NULL, etc. If you have manual pitch contours, pass them as
+<code>pitchManual = ...</code>. Make sure the "silence" threshold is appropriate,
+and ideally normalize the audio (silent frames are automatically assigned
+to "none")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars_phasegram</code></td>
+<td>
+<p>arguments passed to <code>phasegram</code>. NB: only
+<code>d2</code> and <code>nPeaks</code> are used for NLP detection because they proved
+effective in the training corpus; other nonlinear statistics are not
+calculated to save time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars_naiveBayes</code></td>
+<td>
+<p>arguments passed to <code>naiveBayes</code>. It is
+strongly recommended to use some clumpering, with <code>wlClumper</code> given as
+frames (multiple by <code>step</code> to get the corresponding minumum duration
+of an NLP segment in ms), and/or dynamic priors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jumpThres</code></td>
+<td>
+<p>frames in which pitch changes by <code>jumpThres</code> octaves/s
+more than in the surrounding frames are classified as containing "pitch
+jumps". Note that this is the rate of frequency change PER SECOND, not from
+one frame to the next</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jumpWindow</code></td>
+<td>
+<p>the window for calculating the median pitch slope around
+the analyzed frame, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, produces a spectrogram with annotated NLP regimes</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>full path to the folder in which to save the plots (NULL =
+don't save, ” = same folder as audio)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>main, xlab, ylab, ...</code></td>
+<td>
+<p>graphical parameters passed to
+<code>spectrogram</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ylim</code></td>
+<td>
+<p>frequency range to plot, kHz (defaults to 0 to Nyquist
+frequency). NB: still in kHz, even if yScale = bark, mel, or ERB</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>parameters passed to
+<code>png</code> if the plot is saved</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a dataframe with frame-by-frame descriptives, posterior
+probabilities of each NLP type per frame, and the tentative classification
+(the NLP type with the highest posterior probability, possibly corrected by
+clumpering). The time step is equal to the larger of the steps passed to
+analyze() and phasegram().
+</p>
+<p>Returns a list of datasets, one per input file, with acoustic
+descriptives per frame (returned by <code>analyze</code> and <code>phasegram</code>),
+probabilities of each NLP type per frame, and the putative classification
+of NLP per frame.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+target = soundgen(sylLen = 1600, addSilence = 0, temperature = 1e-6,
+  pitch = c(380, 550, 500, 220), subDep = c(0, 0, 40, 0, 0, 0, 0, 0),
+  amDep = c(0, 0, 0, 0, 80, 0, 0, 0), amFreq = 80,
+  noise = c(-10, rep(-40, 5)),
+  jitterDep = c(0, 0, 0, 0, 0, 3))
+
+# classifier trained on manually annotated recordings of human nonverbal
+# vocalizations
+nlp = detectNLP(target, 16000, plot = TRUE, ylim = c(0, 4))
+
+# classifier trained on synthetic, soundgen()-generated sounds
+nlp = detectNLP(target, 16000, train = soundgen::detectNLP_training_synth,
+                plot = TRUE, ylim = c(0, 4))
+head(nlp[, c('time', 'pr')])
+table(nlp$pr)
+plot(nlp$amEnvDep, type = 'l')
+plot(nlp$subDep, type = 'l')
+plot(nlp$entropy, type = 'l')
+plot(nlp$none, type = 'l')
+points(nlp$sb, type = 'l', col = 'blue')
+points(nlp$sh, type = 'l', col = 'green')
+points(nlp$chaos, type = 'l', col = 'red')
+
+# detection of pitch jumps
+s1 = soundgen(sylLen = 1200, temperature = .001, pitch = list(
+  time = c(0, 350, 351, 890, 891, 1200),
+  value = c(140, 230, 460, 330, 220, 200)))
+playme(s1, 16000)
+detectNLP(s1, 16000, plot = TRUE, ylim = c(0, 3))
+
+# process all files in a folder
+nlp = detectNLP('/home/allgoodguys/Downloads/temp260/',
+  pitchManual = soundgen::pitchContour, cores = 4, plot = TRUE,
+  savePlots = '', ylim = c(0, 3))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,137 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>groupBaseline</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Group BASELINe PDFs</h2>
+
+<h3>Description</h3>
+
+<p><code>groupBaseline</code> convolves groups of BASELINe posterior probability density 
+functions (PDFs) to get combined PDFs for each group.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">groupBaseline(baseline, groupBy, nproc = 1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>baseline</code></td>
+<td>
+<p><code>Baseline</code> object containing the <code>db</code> and the 
+BASELINe posterior probability density functions 
+(PDF) for each of the sequences, as returned by
+calcBaseline.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groupBy</code></td>
+<td>
+<p>The columns in the <code>db</code> slot of the <code>Baseline</code>
+object by which to group the sequence PDFs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nproc</code></td>
+<td>
+<p>number of cores to distribute the operation over. If 
+<code>nproc</code> = 0 then the <code>cluster</code> has already been
+set and will not be reset.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>While the selection strengths predicted by BASELINe perform well on average, 
+the estimates for individual sequences can be highly variable, especially when the 
+number of mutations is small. 
+</p>
+<p>To overcome this, PDFs from sequences grouped by biological or experimental relevance,
+are convolved to from a single PDF for the selection strength. For example, sequences
+from each sample may be combined together, allowing you to compare selection  across 
+samples. This is accomplished through a fast numerical convolution technique.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A Baseline object, containing the modified <code>db</code> and the BASELINe 
+posterior probability density functions (PDF) for each of the groups.
+</p>
+
+
+<h3>References</h3>
+
+
+<ol><li>
+<p>  Yaari G, et al. Quantifying selection in high-throughput immunoglobulin 
+sequencing data sets. 
+Nucleic Acids Res. 2012 40(17):e134. 
+(Corrections at http://selection.med.yale.edu/baseline/correction/)
+</p>
+</li></ol>
+<h3>See Also</h3>
+
+<p>To generate the Baseline object see calcBaseline.
+To calculate BASELINe statistics, such as the mean selection strength
+and the 95% confidence interval, see summarizeBaseline.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"> 
+## Not run: 
+# Subset example data from alakazam as a demo
+data(ExampleDb, package="alakazam")
+db &lt;- subset(ExampleDb, c_call %in% c("IGHM", "IGHG"))
+set.seed(112)
+db &lt;- dplyr::slice_sample(db, n=200)
+
+# Collapse clones
+db &lt;- collapseClones(db, cloneColumn="clone_id",
+                     sequenceColumn="sequence_alignment",
+                     germlineColumn="germline_alignment_d_mask",
+                     method="thresholdedFreq", minimumFrequency=0.6,
+                     includeAmbiguous=FALSE, breakTiesStochastic=FALSE)
+
+# Calculate BASELINe
+baseline &lt;- calcBaseline(db, 
+                         sequenceColumn="clonal_sequence",
+                         germlineColumn="clonal_germline", 
+                         testStatistic="focused",
+                         regionDefinition=IMGT_V,
+                         targetingModel=HH_S5F,
+                         nproc=1)
+                         
+# Group PDFs by sample
+grouped1 &lt;- groupBaseline(baseline, groupBy="sample_id")
+sample_colors &lt;- c("-1h"="steelblue", "+7d"="firebrick")
+plotBaselineDensity(grouped1, idColumn="sample_id", colorValues=sample_colors, 
+                    sigmaLimits=c(-1, 1))
+ 
+# Group PDFs by both sample (between variable) and isotype (within variable)
+grouped2 &lt;- groupBaseline(baseline, groupBy=c("sample_id", "c_call"))
+isotype_colors &lt;- c("IGHM"="darkorchid", "IGHD"="firebrick", 
+                    "IGHG"="seagreen", "IGHA"="steelblue")
+plotBaselineDensity(grouped2, idColumn="sample_id", groupColumn="c_call",
+                    colorElement="group", colorValues=isotype_colors,
+                    sigmaLimits=c(-1, 1))
+# Collapse previous isotype (within variable) grouped PDFs into sample PDFs
+grouped3 &lt;- groupBaseline(grouped2, groupBy="sample_id")
+sample_colors &lt;- c("-1h"="steelblue", "+7d"="firebrick")
+plotBaselineDensity(grouped3, idColumn="sample_id", colorValues=sample_colors,
+                    sigmaLimits=c(-1, 1))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

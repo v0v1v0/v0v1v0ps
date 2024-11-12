@@ -1,0 +1,170 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>randomSearch</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Random Search</h2>
+
+<h3>Description</h3>
+
+<p>The function performs a random search in the hyperparameters space, creating
+a population of random models each one with a random combination of the
+provided hyperparameters values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">randomSearch(
+  model,
+  hypers,
+  metric,
+  test = NULL,
+  pop = 20,
+  env = NULL,
+  interactive = TRUE,
+  progress = TRUE,
+  seed = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>SDMmodel or SDMmodelCV object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hypers</code></td>
+<td>
+<p>named list containing the values of the hyperparameters that
+should be tuned, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>character. The metric used to evaluate the models, possible
+values are: "auc", "tss" and "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test</code></td>
+<td>
+<p>SWD object. Test dataset used to evaluate the
+model, not used with aicc and SDMmodelCV objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pop</code></td>
+<td>
+<p>numeric. Size of the population.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>rast containing the environmental variables, used
+only with "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interactive</code></td>
+<td>
+<p>logical. If <code>FALSE</code> the interactive chart is not created.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>logical. If <code>TRUE</code> shows a progress bar.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>numeric. The value used to set the seed to have consistent
+results.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>To know which hyperparameters can be tuned you can use the output
+of the function getTunableArgs. Hyperparameters not included in the
+<code>hypers</code> argument take the value that they have in the passed model.
+</p>
+<p>An interactive chart showing in real-time the steps performed by the
+algorithm is displayed in the Viewer pane.
+</p>
+
+
+<h3>Value</h3>
+
+<p>SDMtune object.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sergio Vignali
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Acquire environmental variables
+files &lt;- list.files(path = file.path(system.file(package = "dismo"), "ex"),
+                    pattern = "grd",
+                    full.names = TRUE)
+
+predictors &lt;- terra::rast(files)
+
+# Prepare presence and background locations
+p_coords &lt;- virtualSp$presence
+bg_coords &lt;- virtualSp$background
+
+# Create SWD object
+data &lt;- prepareSWD(species = "Virtual species",
+                   p = p_coords,
+                   a = bg_coords,
+                   env = predictors,
+                   categorical = "biome")
+
+# Split presence locations in training (80%) and testing (20%) datasets
+datasets &lt;- trainValTest(data,
+                         test = 0.2,
+                         only_presence = TRUE)
+train &lt;- datasets[[1]]
+test &lt;- datasets[[2]]
+
+# Train a model
+model &lt;- train(method = "Maxnet",
+               data = train,
+               fc = "l")
+
+# Define the hyperparameters to test
+h &lt;- list(reg = seq(0.2, 3, 0.2),
+          fc = c("lqp", "lqph", "lh"))
+
+# Run the function using as metric the AUC
+output &lt;- randomSearch(model,
+                       hypers = h,
+                       metric = "auc",
+                       test = test,
+                       pop = 10,
+                       seed = 25)
+output@results
+output@models
+
+# Order results by highest test AUC
+output@results[order(-output@results$test_AUC), ]
+</code></pre>
+
+
+</div>

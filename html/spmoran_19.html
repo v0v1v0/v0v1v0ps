@@ -1,0 +1,455 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>resf_vc</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>spatial and spatio-temporal regression models with varying coefficients</h2>
+
+<h3>Description</h3>
+
+<p>This function estimates spatially varying coefficients (SVC) or spatio-temporally varying coefficients (STVC), group effects, considering residual spatial/spatio-temporal dependence. A non-linear function of x (NVC) can be added on each SVC/STVC mainly to stablize the estimation (see Murakami and Griffith, 2020). Approximate Gaussian processes based on Moran eigenvectors are used for modeling the spatio-temporal processes. Type of coefficients (constant or varying) is selected through a BIC minimization. If nonugauss is specified, non-Gaussian explained variables are Gaussianized using a compositional warping function (see <code>nongauss_y</code>). This augument allows the resf function to be applied to non-Gaussian explained variables, including count data.
+</p>
+<p>Note that, for very large samples, this function can overlook small-scale spatial variations. <code>addlearn_local</code> applies an model aggregation/averaging technique to address this problem.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">resf_vc(y, x, xconst = NULL, xgroup = NULL, weight = NULL, offset = NULL,
+        x_nvc = FALSE, xconst_nvc = FALSE, x_sel = TRUE, x_nvc_sel = TRUE,
+        xconst_nvc_sel = TRUE,
+        nvc_num = 5, meig, method = "reml", penalty = "bic", nongauss = NULL,
+        miniter=NULL, maxiter = 30, tol = 1e-30 )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>Vector of explained variables (N x 1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Matrix of explanatory variables assuming SVC/STVC (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xconst</code></td>
+<td>
+<p>Matrix of explanatory variables assuming constant coefficients (N x K_c). Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xgroup</code></td>
+<td>
+<p>Matrix of group IDs for modeling group-wise random effects. The IDs may be group numbers or group names (N x K_g). Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight</code></td>
+<td>
+<p>Vector of weights for samples (N x 1). If non-NULL, the adjusted R-squared value is evaluated for weighted explained variables. Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>offset</code></td>
+<td>
+<p>Vector of offset variables (N x 1). Available if y is count (y_type = "count" is specified in the <code>nongauss_y</code> function). Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x_nvc</code></td>
+<td>
+<p>If TRUE, a non-linear function of x (NVC) is added on each varying coefficient on x to stablize the estimate. Default is FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xconst_nvc</code></td>
+<td>
+<p>If TRUE, NVCs is added on each constant coefficient on xconst model estimate non-linear influence from xconst</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x_sel</code></td>
+<td>
+<p>If TRUE, type of coefficient on x (STVC, SVC, or constant) is selected through a BIC minimization. If FALSE, S(T)VCs are assumed across x. Alternatively, x_sel can be given by column number(s) of x. For example, if x_sel = 2, the coefficient on the second explanatory variable is S(T)VC and the other coefficients are constants. The Default is TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x_nvc_sel</code></td>
+<td>
+<p>If TRUE, with/without NVC on x is selected. If FALSE, NVCs are assumed across x. Alternatively, x_nvc_sel can be given by column number(s) of x. For example, if x_nvc_sel = 2, the coefficient on the second explanatory variable is NVC and the other coefficients are constants. The Default is TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xconst_nvc_sel</code></td>
+<td>
+<p>If TRUE, with/without NVC on xconst is selected. If FALSE, NVCs are assumed across xconst. Alternatively, xconst_nvc_sel can be given by column number(s) of xconst. For example, if xconst_nvc_sel = 2, the coefficient on xconst[,2] becomes constant + NVC while the other coefficients become constants.The Default is TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nvc_num</code></td>
+<td>
+<p>Number of natural spline basis functions to be used in NVC. Default is 5</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meig</code></td>
+<td>
+<p>Moran eigenvectors and eigenvalues. Output from <code>meigen</code> or <code>meigen_f</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Estimation method. Restricted maximum likelihood method ("reml") and maximum likelihood method ("ml") are available. Default is "reml"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>Penalty for model estimation and selection. "bic" for the Baysian information criterion-type penalty (N x log(K)) and "aic" for the Akaike information criterion  (2K). Default is "bic"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nongauss</code></td>
+<td>
+<p>Parameter setup for modeling non-Gaussian continuous and count data. Output from <code>nongauss_y</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>miniter</code></td>
+<td>
+<p>Minimum number of iterations. Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+<p>Maximum number of iterations. Default is 30</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>The tolerance for matrix inversion. Some errors regarding singular fit can be avoided by reducing the value, but the output can be unstable. Default is 1e-30</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For modeling non-Gaussian data including count data, see <code>nongauss_y</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>b_vc</code></td>
+<td>
+<p>Matrix of estimated spatially/spatio-temporally varying coefficients (S(T)VC + NVC) on x (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bse_vc</code></td>
+<td>
+<p>Matrix of standard errors for the varying coefficients on x (N x k)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t_vc</code></td>
+<td>
+<p>Matrix of t-values for the coefficients on x (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_vc</code></td>
+<td>
+<p>Matrix of p-values for the coefficients on x (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B_vc_s</code></td>
+<td>
+<p>List of the estimated S(T)VCs in b_vc (= S(T)VC + NVC). The elements are the S(T)VCs (N x K), the standard errors (N x K), t-values (N x K), and p-values (N x K), respectively</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B_vc_n</code></td>
+<td>
+<p>List of the estimated NVCs in b_vc (= S(T)VC + NVC). The elements are the NVCs (N x K), the standard errors (N x K), t-values (N x K), and p-values (N x K), respectively</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c</code></td>
+<td>
+<p>Matrix with columns for the estimated coefficients on xconst, their standard errors, t-values, and p-values (K_c x 4). Effective if xconst_nvc = FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_vc</code></td>
+<td>
+<p>Matrix of estimated NVCs on xconst (N x K_c). Effective if xconst_nvc = TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cse_vc</code></td>
+<td>
+<p>Matrix of standard errors for the NVCs on xconst (N x k_c). Effective if xconst_nvc = TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ct_vc</code></td>
+<td>
+<p>Matrix of t-values for the NVCs on xconst (N x K_c). Effective if xconst_nvc = TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cp_vc</code></td>
+<td>
+<p>Matrix of p-values for the NVCs on xconst (N x K_c). Effective if xconst_nvc = TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b_g</code></td>
+<td>
+<p>List of K_g matrices with columns for the estimated group effects, their standard errors, and t-values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s</code></td>
+<td>
+<p>List of the variance parameters for the varying coefficient on x. The first element is a 2 x K matrix summarizing variance parameters for S(T)VC. The (1, k)-th element is the standard deviation of the k-th SVC, while the (2, k)-th element is the Moran's I value that  is scaled to take a value between 0 (no spatial dependence) and 1 (strongest spatial dependence). Based on Griffith (2003), the scaled Moran'I value is interpretable as follows: 0.25-0.50:weak; 0.50-0.70:moderate; 0.70-0.90:strong; 0.90-1.00:marked. The second element of s is the vector of standard deviations of the NVCs</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s_c</code></td>
+<td>
+<p>Vector of standard deviations of the NVCs on xconst</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s_g</code></td>
+<td>
+<p>Vector of standard deviations of the group effects</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vc</code></td>
+<td>
+<p>List indicating whether S(T)VC/NVC are removed or not during the BIC minimization. 1 indicates not removed (replaced with constant) whreas 0 indicates removed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e</code></td>
+<td>
+<p>Error statistics. When y_type="continuous", it includes residual standard error (resid_SE), adjusted conditional R2 (adjR2(cond)), restricted log-likelihood (rlogLik), Akaike information criterion (AIC), and Bayesian information criterion (BIC). rlogLik is replaced with log-likelihood (logLik) if method = "ml". resid_SE is replaced with the residual standard error for the transformed y (resid_SE_trans) if nongauss is specified. When y_type="count", the error statistics includes root mean squared error (RMSE), Gaussian likelihood approximating the model, AIC and BIC based on the likelihood, and the proportion of the null deviance explained by the model (deviance explained (%)). deviance explained, which is also used in the mgcv package, corresponds to the adjusted R2 in case of the linear regression</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred</code></td>
+<td>
+<p>Matrix of predicted values for y (pred) and their standard errors (pred_se) (N x 2). If y is transformed by specifying <code>nongauss_y</code>, the predicted values in the transformed/normalized scale are added as another column named pred_trans</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred_quantile</code></td>
+<td>
+<p>Matrix of the quantiles for the predicted values (N x 15). It is useful to evaluate uncertainty in the predictive value</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tr_par</code></td>
+<td>
+<p>List of the parameter estimates for the tr_num SAL transformations. The k-th element of the list includes the four parameters for the k-th SAL transformation (see <code>nongauss_y</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tr_bpar</code></td>
+<td>
+<p>The estimated parameter in the Box-Cox transformation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tr_y</code></td>
+<td>
+<p>Vector of the transformed explaied variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resid</code></td>
+<td>
+<p>Vector of residuals (N x 1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pdf</code></td>
+<td>
+<p>Matrix whose first column consists of evenly spaced values within the value range of y and the second column consists of the estimated value of the probability density function for y if y_type in <code>nongauss_y</code> is "continuous" and probability mass function if y_type = "count".  If offset is specified (and y_type = "count"), the PMF given median offset value is evaluated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skew_kurt</code></td>
+<td>
+<p>Skewness and kurtosis of the estimated probability density/mass function of y</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>other</code></td>
+<td>
+<p>List of other outputs, which are internally used</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Daisuke Murakami
+</p>
+
+
+<h3>References</h3>
+
+<p>Murakami, D., Yoshida, T., Seya, H., Griffith, D.A., and Yamagata, Y. (2017) A Moran coefficient-based mixed effects approach to investigate spatially varying relationships. Spatial Statistics, 19, 68-89.
+</p>
+<p>Murakami, D., Kajita, M., Kajita, S. and Matsui, T. (2021) Compositionally-warped additive mixed modeling for a wide variety of non-Gaussian data. Spatial Statistics, 43, 100520.
+</p>
+<p>Murakami, D., and Griffith, D.A. (2021) Balancing spatial and non-spatial variations in varying coefficient modeling: a remedy for spurious correlation. Geographical Analysis, DOI: 10.1111/gean.12310.
+</p>
+<p>Murakami, D., Shirota, S., Kajita, S., and Kajita, S. (2024) Fast spatio-temporally varying coefficient modeling with reluctant interaction selection. ArXiv.
+</p>
+<p>Griffith, D. A. (2003) Spatial autocorrelation and spatial filtering: gaining understanding through theory and scientific visualization. Springer Science &amp; Business Media.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>meigen</code>, <code>meigen_f</code>, <code>coef_marginal</code>, <code>besf_vc</code>, <code>addlearn_local</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#####################################################
+################ SVC modeling #######################
+#####################################################
+require(spdep)
+data(boston)
+y	      &lt;- boston.c[, "CMEDV"]
+x       &lt;- boston.c[,c("CRIM", "AGE")]
+xconst  &lt;- boston.c[,c("ZN","DIS","RAD","NOX",  "TAX","RM", "PTRATIO", "B")]
+xgroup  &lt;- boston.c[,"TOWN"]
+coords  &lt;- boston.c[,c("LON", "LAT")]
+meig 	  &lt;- meigen(coords=coords)
+# meig	&lt;- meigen_f(coords=coords)  ## for large samples
+
+#####################################################
+####### Gaussian regression with SVC ################
+
+res	    &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig )
+res
+plot_s(res,0) # Spatially varying intercept
+plot_s(res,1) # 1st SVC (Not shown because the SVC is estimated constant)
+plot_s(res,2) # 2nd SVC
+
+#### For large samples (e.g., n &gt; 5,000), the following
+#### additional learning often improves the modeling accuracy
+# res_adj&lt;- addlearn_local(res)
+# res_adj
+# plot_s(res_adj,0)
+# plot_s(res_adj,1)
+# plot_s(res_adj,2)
+
+#### Group-level SVC (s_id) + random intercepts (xgroup)
+# meig_g &lt;- meigen(coords, s_id=xgroup)
+# res2	  &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig_g,xgroup=xgroup)
+
+
+#####################################################
+####### Gaussian regression with SVC + NVC ##########
+
+# res3	  &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig, x_nvc =TRUE)
+# plot_s(res3,0)            # Spatially varying intercept
+# plot_s(res3,1)            # Spatial plot of the varying coefficient (SVC + NVC) on x[,1]
+# plot_s(res3,1,btype="svc")# Spatial plot of SVC in the coefficient
+# plot_s(res3,1,btype="nvc")# Spatial plot of NVC in the coefficient
+# plot_n(res3,1)            # 1D plot of the NVC
+
+
+#####################################################
+######## Non-Gaussian regression with SVC ###########
+
+#### Model for non-Gaussian continuous data
+# - Probability distribution is estimated from data
+
+# ng4     &lt;- nongauss_y( tr_num = 2 )# 2 SAL transformations to Gaussianize y
+# res4	  &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig, nongauss = ng4 )
+# res4                    # tr_num may be selected by comparing BIC
+
+# coef_marginal_vc(res4)  # marginal effects from x (dy/dx)
+# plot(res4$pdf,type="l") # Estimated probability density function
+# res4$skew_kurt          # Skew and kurtosis of the estimated PDF
+# res4$pred_quantile[1:2,]# predicted value by quantile
+
+
+#### Model for non-Gaussian and non-negative continuous data
+# - Probability distribution is estimated from data
+
+## 2 SAL trans. + 1 Box-Cox trans. to Gaussianize y
+# ng5     &lt;- nongauss_y( tr_num = 2, y_nonneg = TRUE )
+# res5	  &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig, nongauss = ng5 )
+# coef_marginal_vc(res5)
+
+#### Overdispersed Poisson model for count data
+# - y: count data
+
+#ng6    &lt;- nongauss_y( y_type = "count" )
+#res6	  &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig, nongauss = ng6 )
+
+#### General model for count data
+# - y: count data
+# - Probability distribution is estimated from data
+
+#ng7    &lt;- nongauss_y( y_type = "count", tr_num = 2 )
+#res7	  &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig, nongauss = ng7 )
+
+
+#####################################################
+################ STVC modeling ######################
+#####################################################
+# See \url{https://github.com/dmuraka/spmoran}
+
+#require(spData)
+#data(house)
+#dat0    &lt;- st_as_sf(house)
+#dat     &lt;- data.frame(st_coordinates(dat0), dat0)
+#y	     &lt;- log(dat[,"price"])
+#x       &lt;- dat[,c("lotsize","TLA")]
+#xconst  &lt;- dat[,c("rooms","beds")]
+
+#byear   &lt;- house$yrbuilt
+#syear   &lt;- as.numeric(as.character(house$syear))#factor -&gt; numeric
+#coords_z&lt;- cbind(byear,syear)
+#meig 	 &lt;- meigen_f(coords=coords, coords_z=cbind(byear,syear),interact=TRUE)
+#res8	   &lt;- resf_vc(y=y,x=x,xconst=xconst,meig=meig )
+#res8
+
+## Varying intercept for byear &lt;=1950 and syear==1998
+#plot_s(res8,0, coords_z1_lim=c(-Inf, 1950),coords_z2_lim=1998)
+
+## 1st STVCs which are significant at the 5 percent level, for byear &lt;= 1950
+#plot_s(res8,1, coords_z1_lim=c(-Inf, 1950), pmax=0.05)
+
+## 2nd STVC for byear &gt;= 1951
+#plot_s(res8,2, coords_z1_lim=c(1951,Inf))
+</code></pre>
+
+
+</div>

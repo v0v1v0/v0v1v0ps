@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fetchSDA_spatial</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get Spatial Data from Soil Data Access by <code>mukey</code>, <code>nationalmusym</code> or <code>areasymbol</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>This method facilitates queries to Soil Data Access (SDA) mapunit and survey area geometry. Queries are generated based on map unit key (<code>mukey</code>) and national map unit symbol (<code>nationalmusym</code>) for <code>mupolygon</code> (SSURGO) or <code>gsmmupolygon</code> (STATSGO) geometry OR legend key (<code>lkey</code>) and area symbols (<code>areasymbol</code>) for <code>sapolygon</code> (Soil Survey Area; SSA) geometry).
+</p>
+<p>A Soil Data Access query returns geometry and key identifying information about the map unit or area of interest. Additional columns from the map unit or legend table can be included; see <code>add.fields</code> argument.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fetchSDA_spatial(
+  x,
+  by.col = "mukey",
+  method = "feature",
+  geom.src = "mupolygon",
+  db = "SSURGO",
+  add.fields = NULL,
+  chunk.size = 10,
+  verbose = TRUE,
+  as_Spatial = getOption("soilDB.return_Spatial", default = FALSE)
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A vector of map unit keys (<code>mukey</code>) or national map unit symbols (<code>nationalmusym</code>) for <code>mupolygon</code>, <code>muline</code> or <code>mupoint</code>; feature keys (<code>featkey</code>) for <code>featpoint</code> and <code>featline</code>; legend keys (<code>lkey</code>) or soil survey area symbols (<code>areasymbol</code>) for <code>sapolygon</code> geometry. If <code>geom.src="mlrapolygon"</code> then <code>x</code> refers to <code>MLRARSYM</code> (major land resource area symbols).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by.col</code></td>
+<td>
+<p>Column name containing map unit identifier <code>"mukey"</code>, <code>"nationalmusym"</code>, or <code>"ecoclassid"</code> for <code>geom.src</code> <code>mupolygon</code> OR <code>"areasymbol"</code>, <code>"areaname"</code>, <code>"mlraoffice"</code>, <code>"mouagncyresp"</code> for <code>geom.src</code> <code>sapolygon</code>; default is determined by <code>isTRUE(is.numeric(x))</code> for <code>mukey</code>, <code>featkey</code> or <code>lkey</code>, using <code>nationalmusym</code> or <code>areasymbol</code> otherwise.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>geometry result type: <code>"feature"</code> returns polygons, <code>"bbox"</code> returns the bounding box of each polygon (via <code>STEnvelope()</code>), <code>"point"</code> returns a single point (via <code>STPointOnSurface()</code>) within each polygon, <code>"extent"</code> returns an aggregate bounding box (the extent of all polygons, <code>geometry::EnvelopeAggregate()</code>) ), <code>"convexhull"</code> (<code>geometry::ConvexHullAggregate()</code>) returns the aggregate convex hull around all polygons, <code>"union"</code> (<code>geometry::UnionAggregate()</code>) and <code>"collection"</code> (<code>geometry::CollectionAggregate()</code>) return a <code>MULTIPOLYGON</code> or a <code>GEOMETRYCOLLECTION</code>, respectively, for each <code>mukey</code>, <code>nationalmusym</code>, or <code>areasymbol </code>. In the case of the latter four aggregation methods, the groups for aggregation depend on <code>by.col</code> (default by <code>"mukey"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>geom.src</code></td>
+<td>
+<p>Either <code>mupolygon</code> (map unit polygons), <code>muline</code> (map unit lines), <code>mupoint</code> (map unit points), <code>featpoint</code> (feature points), <code>featline</code> (feature lines), <code>sapolygon</code> (soil survey area boundary polygons), or <code>mlrapolygon</code> (major land resource area boundary polygons)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>db</code></td>
+<td>
+<p>Default: <code>"SSURGO"</code>. When <code>geom.src</code> is <code>mupolygon</code>, use STATSGO polygon geometry instead of SSURGO by setting <code>db = "STATSGO"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>add.fields</code></td>
+<td>
+<p>Column names from <code>mapunit</code> or <code>legend</code> table to add to result. Must specify parent table name as the prefix before column name e.g. <code>mapunit.muname</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chunk.size</code></td>
+<td>
+<p>Number of values of <code>x</code> to process per query. Necessary for large results. Default: <code>10</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Print messages?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>as_Spatial</code></td>
+<td>
+<p>Return sp classes? e.g. <code>Spatial*DataFrame</code>. Default: <code>FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function automatically "chunks" the input vector (using <code>makeChunks()</code>) of map unit identifiers to minimize the likelihood of exceeding the SDA data request size. The number of chunks varies with the <code>chunk.size</code> setting and the length of your input vector. If you are working with many map units and/or large extents, you may need to decrease this number in order to have more chunks.
+</p>
+<p>Querying regions with complex mapping may require smaller <code>chunk.size</code>. Numerically adjacent IDs in the input vector may share common qualities (say, all from same soil survey area or region) which could cause specific chunks to perform "poorly" (slow or error) no matter what the chunk size is. Shuffling the order of the inputs using <code>sample()</code> may help to eliminate problems related to this, depending on how you obtained your set of MUKEY/nationalmusym to query. One could feasibly use <code>muacres</code> as a heuristic to adjust for total acreage within chunks.
+</p>
+<p>Note that STATSGO data are fetched where <code>CLIPAREASYMBOL = 'US'</code> to avoid duplicating state and national subsets of the geometry.
+</p>
+<p>A prototype interface, <code>geom.src="mlrapolygon"</code>, is provided for obtaining Major Land Resource Area (MLRA) polygon
+boundaries. When using this geometry source <code>x</code> is a vector of <code>MLRARSYM</code> (MLRA Symbols). The geometry source is
+the MLRA Geographic Database v5.2 (2022) which is not (yet) part of Soil Data Access. Instead of SDA, GDAL utilities
+are used to read a zipped ESRI Shapefile from a remote URL: <a href="https://www.nrcs.usda.gov/sites/default/files/2022-10/MLRA_52_2022.zip">https://www.nrcs.usda.gov/sites/default/files/2022-10/MLRA_52_2022.zip</a>.
+Therefore, most additional <code>fetchSDA_spatial()</code> arguments are <em>not</em> currently supported for the MLRA geometry source.
+In the future a <code>mlrapolygon</code> table may be added to SDA (analogous to  <code>mupolygon</code> and <code>sapolygon</code>),
+and the function will be updated accordingly at that time.
+</p>
+
+
+<h3>Value</h3>
+
+<p>an <code>sf</code> data.frame corresponding to SDA spatial data for all symbols requested. If <code>as_Spatial=TRUE</code> returns a <code>Spatial*DataFrame</code> from the sp package via <code>sf::as_Spatial()</code> for backward compatibility. Default result contains geometry with attribute table containing unique feature ID, symbol and area symbol plus additional fields in result specified with <code>add.fields</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Andrew G. Brown, Dylan E. Beaudette
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+ 
+    # get spatial data for a single mukey
+    single.mukey &lt;- try(fetchSDA_spatial(x = "2924882"))
+
+    # demonstrate fetching full extent (multi-mukey) of national musym
+    full.extent.nmusym &lt;- try(fetchSDA_spatial(x = "2x8l5", by = "nmusym"))
+
+    # compare extent of nmusym to single mukey within it
+    if (!inherits(single.mukey, 'try-error') &amp;&amp; 
+        !inherits(full.extent.nmusym, 'try-error')) {
+        
+        if (requireNamespace("sf")) {
+      
+         plot(sf::st_geometry(full.extent.nmusym), col = "RED", border = 0)
+         plot(sf::st_geometry(single.mukey), add = TRUE, col = "BLUE", border = 0)
+       
+        }
+        
+    }
+
+    # demo adding a field (`muname`) to attribute table of result
+    head(try(fetchSDA_spatial(x = "2x8l5", by="nmusym", add.fields="muname")))
+
+
+</code></pre>
+
+
+</div>

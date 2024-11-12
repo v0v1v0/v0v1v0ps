@@ -1,0 +1,124 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>defineEvent</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Alternative way to define events in SpaDES.core</h2>
+
+<h3>Description</h3>
+
+<p>There are two ways to define what occurs during an event: defining a function
+called <code>doEvent.moduleName</code>, where <code>moduleName</code> is the actual module name.
+This approach is the original approach used in SpaDES.core, and it must have an
+explicit <code>switch</code> statement branching on <code>eventType</code>.
+The newer approach (still experimental) uses <code>defineEvent()</code>.
+Instead of creating, <code>doEvent.moduleName()</code>, it creates one function
+for each event, each with the name <code>doEvent.moduleName.eventName</code>.
+This may be a little bit cleaner, but both with still work.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">defineEvent(
+  sim,
+  eventName = "init",
+  code,
+  moduleName = NULL,
+  envir = parent.frame()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sim</code></td>
+<td>
+<p>A <code>simList</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eventName</code></td>
+<td>
+<p>Character string of the desired event name to define. Default is "init"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>code</code></td>
+<td>
+<p>An expression that defines the code to execute during the event. This will
+be captured, and pasted into a new function (<code>doEvent.moduleName.eventName</code>),
+remaining unevaluated until that new function is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>moduleName</code></td>
+<td>
+<p>Character string of the name of the module. If this function is
+used within a module, then it will try to find the module name.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>envir</code></td>
+<td>
+<p>An optional environment to specify where to put the resulting function.
+The default will place a function called <code>doEvent.moduleName.eventName</code> in the
+module function location, i.e., <code>sim$.mods[[moduleName]]</code>. However, if this
+location does not exist, then it will place it in the <code>parent.frame()</code>, with a message.
+Normally, especially, if used within SpaDES module code, this should be left missing.</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>defineModule()</code>, <code>simInit()</code>, <code>scheduleEvent()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">sim &lt;- simInit()
+
+# these put the functions in the parent.frame() which is .GlobalEnv for an interactive user
+defineEvent(sim, "init", moduleName = "thisTestModule", code = {
+  sim &lt;- Init(sim) # initialize
+  # Now schedule some different event for "current time", i.e., will
+  #   be put in the event queue to run *after* this current event is finished
+  sim &lt;- scheduleEvent(sim, time(sim), "thisTestModule", "grow")
+}, envir = envir(sim))
+
+defineEvent(sim, "grow", moduleName = "thisTestModule", code = {
+  sim &lt;- grow(sim) # grow
+  # Now schedule this same event for "current time plus 1", i.e., a "loop"
+  sim &lt;- scheduleEvent(sim, time(sim) + 1, "thisTestModule", "grow") # for "time plus 1"
+})
+
+Init &lt;- function(sim) {
+  sim$messageToWorld &lt;- "Now the sim has an object in it that can be accessed"
+  sim$size &lt;- 1 # initializes the size object --&gt; this can be anything, Raster, list, whatever
+  message(sim$messageToWorld)
+  return(sim)   # returns all the things you added to sim as they are in the simList
+}
+
+grow &lt;- function(sim) {
+  sim$size &lt;- sim$size + 1 # increments the size
+  message(sim$size)
+  return(sim)
+}
+
+# schedule that first "init" event
+sim &lt;- scheduleEvent(sim, 0, "thisTestModule", "init")
+# Look at event queue
+events(sim) # shows the "init" we just added
+
+  # this is skipped when running in automated tests; it is fine in interactive use
+  out &lt;- spades(sim)
+
+
+</code></pre>
+
+
+</div>

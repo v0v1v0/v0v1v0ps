@@ -1,0 +1,225 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>extrapolate_coverage</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extrapolate coverage and width using sub-sampled bootstrap confidence
+intervals.</h2>
+
+<h3>Description</h3>
+
+<p>Given a set of bootstrap confidence intervals calculated across
+sub-samples with different numbers of replications, extrapolates confidence
+interval coverage and width of bootstrap confidence intervals to a
+specified (larger) number of bootstraps. The function also calculates the
+associated Monte Carlo standard errors. The confidence interval percentage
+is based on how you calculated the lower and upper bounds.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">extrapolate_coverage(
+  data,
+  CI_subsamples,
+  true_param,
+  B_target = Inf,
+  criteria = c("coverage", "width"),
+  winz = Inf,
+  nested = FALSE,
+  format = "wide",
+  width_trim = 0,
+  cover_na_val = NA,
+  width_na_val = NA
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>data frame or tibble containing the simulation results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI_subsamples</code></td>
+<td>
+<p>list or name of column from <code>data</code> containing list
+of confidence intervals calculated based on sub-samples with different
+numbers of replications.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>true_param</code></td>
+<td>
+<p>vector or name of column from <code>data</code> containing
+corresponding true parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B_target</code></td>
+<td>
+<p>number of bootstrap replications to which the criteria should
+be extrapolated, with a default of <code>B = Inf</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>criteria</code></td>
+<td>
+<p>character or character vector indicating the performance
+criteria to be calculated, with possible options <code>"coverage"</code> and
+<code>"width"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>winz</code></td>
+<td>
+<p>numeric value for winsorization constant. If set to a finite
+value, estimates will be winsorized at the constant multiple of the
+inter-quartile range below the 25th percentile or above the 75th percentile
+of the distribution. For instance, setting <code>winz = 3</code> will
+truncate estimates that fall below P25 - 3 * IQR or above P75 + 3 * IQR.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nested</code></td>
+<td>
+<p>logical value controlling the format of the output. If
+<code>FALSE</code> (the default), then the results will be returned as a data
+frame with rows for each distinct number of bootstraps. If <code>TRUE</code>,
+then the results will be returned as a data frame with a single row, with
+each performance criterion containing a nested data frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>format</code></td>
+<td>
+<p>character string controlling the format of the output when
+<code>CI_subsamples</code> has results for more than one type of confidence
+interval. If <code>"wide"</code> (the default), then each performance criterion
+will have a separate column for each CI type. If <code>"long"</code>, then each
+performance criterion will be a single variable, with separate rows for
+each CI type.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width_trim</code></td>
+<td>
+<p>numeric value specifying the trimming percentage to use
+when summarizing CI widths across replications from a single set of
+bootstraps, with a default of 0.0 (i.e., use the regular arithmetic mean).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cover_na_val</code></td>
+<td>
+<p>numeric value to use for calculating coverage if bootstrap CI end-points are missing. Default is <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width_na_val</code></td>
+<td>
+<p>numeric value to use for calculating width if bootstrap CI end-points are missing. Default is <code>NA</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A tibble containing the number of simulation iterations, performance
+criteria estimate(s) and the associated MCSE.
+</p>
+
+
+<h3>References</h3>
+
+<p>Boos DD, Zhang J (2000).
+“Monte Carlo evaluation of resampling-based hypothesis tests.”
+<em>Journal of the American Statistical Association</em>, <b>95</b>(450), 486–492.
+<a href="https://doi.org/10.1080/01621459.2000.10474226">doi:10.1080/01621459.2000.10474226</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+dgp &lt;- function(N, mu, nu) {
+  mu + rt(N, df = nu)
+}
+
+estimator &lt;- function(
+   dat,
+    B_vals = c(49,59,89,99),
+    m = 4,
+    trim = 0.1
+) {
+
+
+  # compute estimate and standard error
+  N &lt;- length(dat)
+  est &lt;- mean(dat, trim = trim)
+  se &lt;- sd(dat) / sqrt(N)
+
+  # compute booties
+  booties &lt;- replicate(max(B_vals), {
+    x &lt;- sample(dat, size = N, replace = TRUE)
+    data.frame(
+      M = mean(x, trim = trim),
+      SE = sd(x) / sqrt(N)
+    )
+  }, simplify = FALSE) |&gt;
+    dplyr::bind_rows()
+
+  # confidence intervals for each B_vals
+  CIs &lt;- bootstrap_CIs(
+    boot_est = booties$M,
+    boot_se = booties$SE,
+    est = est,
+    se = se,
+    CI_type = c("normal","basic","student","percentile"),
+    B_vals = B_vals,
+    reps = m,
+    format = "wide-list"
+  )
+
+  res &lt;- data.frame(
+    est = est,
+    se = se
+  )
+  res$CIs &lt;- CIs
+
+  res
+}
+
+#' build a simulation driver function
+simulate_bootCIs &lt;- bundle_sim(
+  f_generate = dgp,
+  f_analyze = estimator
+)
+
+boot_results &lt;- simulate_bootCIs(
+  reps = 50, N = 20, mu = 2, nu = 3,
+  B_vals = seq(49, 199, 50),
+)
+
+extrapolate_coverage(
+  data = boot_results,
+  CI_subsamples = CIs,
+  true_param = 2
+)
+
+extrapolate_coverage(
+  data = boot_results,
+  CI_subsamples = CIs,
+  true_param = 2,
+  B_target = 999,
+  format = "long"
+)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,380 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>abund</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Univariate Abundance GLMMs</h2>
+
+<h3>Description</h3>
+
+<p>Function for fitting univariate abundance generalized linear (mixed) models 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">abund(formula, data, inits, priors, tuning,
+      n.batch, batch.length, accept.rate = 0.43, family = 'Poisson',
+      n.omp.threads = 1, verbose = TRUE,
+      n.report = 100, n.burn = round(.10 * n.batch * batch.length), n.thin = 1, 
+      n.chains = 1, save.fitted = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+and slopes are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>covs</code>, <code>z</code>, and <code>offset</code>. <code>y</code>
+is a vector, matrix, or data frame of the observed count values. If a vector, 
+the values represent the observed counts at each site. If multiple replicate
+observations are obtained at the sites (e.g., sub-samples, repeated sampling over
+multiple seasons), <code>y</code> can be specified as a matrix or data frame 
+with first dimension equal to the number of 
+sites (<code class="reqn">J</code>) and second dimension equal to the maximum number of 
+replicates at a given site. <code>covs</code> is a list or data frame 
+containing the variables used in the model. Each list element is a different
+covariate, which can be site-level or observation-level. Site-level covariates
+are specified as a vector of length <code class="reqn">J</code> (or column
+in a data frame), while observation-level covariates
+are specified as a matrix or data frame with the number of rows equal to <code class="reqn">J</code>
+and number of columns equal to the maximum number of replicate observations at a 
+given site. For zero-inflated Gaussian models, the tag <code>z</code> is used to specify the 
+binary component of the zero-inflated model and should have the same length as <code>y</code>. 
+<code>offset</code> is an offset to use in the abundance model (e.g., an area offset). 
+This can be either a single value, a vector with an offset for each site (e.g., if survey area differed in size), or a site x replicate matrix if more than one count is available at a given site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>beta</code>, <code>kappa</code>, <code>sigma.sq.mu</code>, and <code>tau.sq</code>. 
+The value portion of each tag is the 
+parameter's initial value. <code>sigma.sq.mu</code> is 
+only relevant when including random effects in the model. <code>kappa</code> is 
+only relevant when <code>family = 'NB'</code>. <code>tau.sq</code> is only 
+relevant when <code>family = 'Gaussian'</code> or <code>family = 'zi-Gaussian'</code>. 
+See <code>priors</code> description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.normal</code>, <code>kappa.unif</code>, <code>sigma.sq.mu.ig</code>, 
+and <code>tau.sq.ig</code>. 
+Abundance (<code>beta</code>) regression coefficients are assumed to follow a normal distribution. 
+The hyperparameters of the normal distribution are passed as a list of 
+length two with the first and second elements corresponding to the mean 
+and variance of the normal distribution, which are each specified as vectors of 
+length equal to the number of coefficients to be estimated or of length one
+if priors are the same for all coefficients. If not specified, prior means 
+are set to 0 and prior variances set to 100. <code>kappa</code> is the negative binomial 
+over-dispersion parameter and is assumed to follow a uniform distribution. The 
+hyperparameters of the uniform distribution are passed as a vector of length
+two with the first and second elements corresponding to the lower and upper
+bounds of the uniform distribution. <code>sigma.sq.mu</code>
+are the random effect variances for any abundance
+random effects, respectively, and are assumed to follow an inverse
+Gamma distribution. The hyperparameters of the inverse-Gamma distribution
+are passed as a list of length two with first and second elements corresponding
+to the shape and scale parameters, respectively, which are each specified as
+vectors of length equal to the number of random effects or of length one 
+if priors are the same for all random effect variances. <code>tau.sq</code> is the 
+residual variance for Gaussian (or zero-inflated Gaussian) models, and it is assigned 
+an inverse-Gamma prior. The hyperparameters of the inverse-Gamma are passed as a vector
+of length two, with the first and second element corresponding to the shape and 
+scale parameters, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name, 
+whose value defines the initial variance of the adaptive sampler.
+Valid tags are <code>beta</code>, <code>beta.star</code> (the abundance
+random effect values), and <code>kappa</code>. See Roberts and Rosenthal (2009) for details.
+Note that no tuning is necessary for Gaussian or zero-inflated Gaussian models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches in each chain to run for the adaptive MCMC 
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch in each chain to run for the Adaptive 
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for Adaptive MCMC. Default is 
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>the distribution to use for the latent abundance process. Currently 
+supports <code>'NB'</code> (negative binomial), <code>'Poisson'</code>, <code>'Gaussian'</code>, 
+and <code>'zi-Gaussian'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating the number of threads
+to use for SMP parallel processing. The package must be compiled for 
+OpenMP support. For most Intel-based machines, we recommend setting 
+<code>n.omp.threads</code> up to the number of hypterthreaded cores. Note, 
+<code>n.omp.threads</code> &gt; 1 might not work on some systems. Currently only 
+relevant for spatially-explicit models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.samples</code> to 
+discard as burn-in for each chain. By default, the first 10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default 
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save.fitted</code></td>
+<td>
+<p>logical value indicating whether or not fitted values and likelihood values
+should be saved in the resulting model object. If <code>save.fitted = FALSE</code>, the components
+<code>y.rep.samples</code>, <code>mu.samples</code>, and <code>like.samples</code> will not be included
+in the model object, and subsequent functions for calculating WAIC, fitted values, and
+posterior predictive checks will not work, although they all can be calculated manually if
+desired. Setting <code>save.fitted = FALSE</code> can be useful when working with very large 
+data sets to minimize the amount of RAM needed when fitting and storing the model object in 
+memory.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>abund</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance overdispersion parameter. Only included when
+<code>family = 'NB'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the Gaussian residual variance parameter. Only included when
+<code>family = 'Gaussian'</code> or <code>family = 'zi-Gaussian'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rep.samples</code></td>
+<td>
+<p>a two or three-dimensional array of posterior samples 
+for the abundance replicate (fitted) values with dimensions 
+corresponding to MCMC samples, site, and an optional third dimension of replicate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu.samples</code></td>
+<td>
+<p>a two or three-dimensional array of posterior samples
+for the expected abundance samples with dimensions corresponding 
+to MCMC samples, site, and an optional third dimension of replicate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.mu.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random effects included in the model. 
+Only included if random effects are specified in <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the random effects. Only included if random effects 
+are specified in <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>like.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the likelihood value associated with each site. Used for calculating
+WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>, <br></p>
+
+
+<h3>References</h3>
+
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(1010)
+J.x &lt;- 15
+J.y &lt;- 15
+J &lt;- J.x * J.y
+n.rep &lt;- sample(3, J, replace = TRUE)
+beta &lt;- c(0, -1.5, 0.3, -0.8)
+p.abund &lt;- length(beta)
+mu.RE &lt;- list(levels = c(30),
+	       sigma.sq.mu = c(1.3))
+kappa &lt;- 0.5
+sp &lt;- FALSE 
+family &lt;- 'NB'
+dat &lt;- simAbund(J.x = J.x, J.y = J.y, n.rep = n.rep, beta = beta, 
+                kappa = kappa, mu.RE = mu.RE, sp = sp, family = 'NB')
+
+y &lt;- dat$y
+X &lt;- dat$X
+X.re &lt;- dat$X.re
+
+covs &lt;- list(int = X[, , 1], 
+             abund.cov.1 = X[, , 2], 
+             abund.cov.2 = X[, , 3], 
+             abund.cov.3 = X[, , 4],
+             abund.factor.1 = X.re[, , 1])
+
+data.list &lt;- list(y = y, covs = covs)
+
+# Priors
+prior.list &lt;- list(beta.normal = list(mean = 0, var = 100),
+                   kappa.unif = c(0.001, 10)) 
+# Starting values
+inits.list &lt;- list(beta = 0, kappa = kappa)
+
+tuning &lt;- list(kappa = 0.2, beta = 0.1, beta.star = 0.2)
+n.batch &lt;- 5
+batch.length &lt;- 25
+n.burn &lt;- 0
+n.thin &lt;- 1
+n.chains &lt;- 1
+
+out &lt;- abund(formula = ~ abund.cov.1 + abund.cov.2 + abund.cov.3 + 
+                         (1 | abund.factor.1),
+                         data = data.list, 
+                         n.batch = n.batch, 
+                         batch.length = batch.length, 
+                         inits = inits.list, 
+                         tuning = tuning,
+                         priors = prior.list, 
+                         accept.rate = 0.43, 
+                         n.omp.threads = 1, 
+                         verbose = TRUE, 
+                         n.report = 1,
+                         n.burn = n.burn,
+                         n.thin = n.thin,
+                         n.chains = n.chains) 
+summary(out)
+</code></pre>
+
+
+</div>

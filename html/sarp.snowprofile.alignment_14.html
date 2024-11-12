@@ -1,0 +1,227 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>distanceSP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute pairwise distances between snow profiles</h2>
+
+<h3>Description</h3>
+
+<p>Calculate the distance between all combinations of snowprofiles in a snowprofileSet by:
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">distanceSP(
+  SPx,
+  SP2 = NULL,
+  output = "dist",
+  n_cores = NULL,
+  symmetric = TRUE,
+  fast_summary = FALSE,
+  fast_summary_weights = clusterSPconfig()$args_fast,
+  progressbar = requireNamespace("progress", quietly = TRUE),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>SPx</code></td>
+<td>
+<p>a sarp.snowprofile::snowprofileSet object (or a single snowprofile if SP2 is provided)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SP2</code></td>
+<td>
+<p>a sarp.snowprofile::snowprofile object if SPx is also a snowprofile and a single pairwise distance is to be computed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>type of output to return, either a class <code>dist</code> (default) or <code>matrix</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_cores</code></td>
+<td>
+<p>number of nodes to create for a cluster using the  parallel package to do distance matrix calculation in parallel (default is serial calculations)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>symmetric</code></td>
+<td>
+<p>only compute one of two alignments dtwSP(A, B) or dtwSP(B, A) rather than taking the min distance (when diminished accuracy is
+favourable to speed up run times for large number of profiles)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fast_summary</code></td>
+<td>
+<p>Option to compute distances from basic summary stats instead of layerwise comparisons</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fast_summary_weights</code></td>
+<td>
+<p>A named numeric vector with relative weights for each snowpack property. Must be in exact
+order, but do not need to be normalized.  Use clusterSPconfig$args_fast for template. See details for summary stats that have been implemented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progressbar</code></td>
+<td>
+<p>Do you want to print a progress bar with recommended package 'progress'? (only works for n_core = NULL)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments passed to dtwSP and further to simSP. <code>simType</code> from simSP is an important choice.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+<ol>
+<li>
+<p> Matching their layers and aligning them (i.e., warp one profile onto the other one)
+</p>
+</li>
+<li>
+<p> Assessing the similarity of the aligned profiles based on avalanche hazard relevant characteristics
+</p>
+</li>
+<li>
+<p> Convert the similarity score into a distance value between <code style="white-space: pre;">⁠[0, 1]⁠</code>
+</p>
+</li>
+</ol>
+<p>This procedure is useful for clustering and aggregating tasks, given a set of multiple profiles.
+</p>
+<p>When computing the distance matrix this routine calls simSP for
+<em>every possible pair</em> of profiles among the group. During that call the profile pair is aligned by dtwSP
+and the aligned pair is evaluated by simSP.
+</p>
+<p>Note that the pairwise distance matrix is modified within the function call to represent a symmetric distance matrix.
+That is, however, not originally the case, since <code>dtwSP(A, B) != dtwSP(B, A)</code>. The matrix is therefore made symmetric by
+setting the similarity between the profiles A and B to <code style="white-space: pre;">⁠min({dtwSP(A, B), dtwSP(B, A)})⁠</code>.
+</p>
+<p>Note that the number of possible profile pairs grows exponentially with the number of profiles in the group (i.e.,
+O(n^2) calls, where n is the number of profiles in the group). Several option for improved performance include:
+</p>
+
+<ul>
+<li>
+<p> Using the <code>n_core</code> argument to activate thee <code>parallel</code> package. A suggestion value is the number of cores on your
+system minus one <code>n_cores = parallel::detectCores() - 1</code>.
+</p>
+</li>
+<li>
+<p> Setting <code>symmetric = FALSE</code> will only calculate <code>dtwSP(A, B)</code> and therefore not make the matrix symmetric, but cut the number of alignments in half
+</p>
+</li>
+<li>
+<p> Setting <code>fast_summary = TRUE</code> will compute similarities from basic summary stats instead of aligning layers with dynamic time warping.
+</p>
+</li>
+</ul>
+<p>When using <code>fast_summary = TRUE</code>, you can provide custom weights to change the relative importance of the following snowpack properties:
+</p>
+
+<ul>
+<li> <p><code>w_hs</code>: total snow height
+</p>
+</li>
+<li> <p><code>w_hn24</code>: height of snow in past 24 h
+</p>
+</li>
+<li> <p><code>w_hn72</code>: height of snow in past 72 h
+</p>
+</li>
+<li> <p><code>w_slab</code>: average hand hardness of snow in past 72 h
+</p>
+</li>
+<li> <p><code>w_gtype</code>: total thickness of layers grouped into new snow (PP, DF), pwls (SH, FC, DH), bulk (RG, FCxr) and melt (MF, MFcr, IF)
+</p>
+</li>
+<li> <p><code>w_gtype_rel</code>: <code>w_gtype</code> scaled by HS
+</p>
+</li>
+<li> <p><code>w_new</code>: total thickness of PP/DF layers
+</p>
+</li>
+<li> <p><code>w_pwl</code>: do critical weak layers exist in the top/middle/bottom thirds of the profile
+</p>
+</li>
+<li> <p><code>w_crust</code>: do melt-freeze crusts exist in the top/middle/bottom thirds of the profile
+</p>
+</li>
+<li> <p><code>w_rta</code>: maximum rta in the top/middle/bottom thirds of the profile
+The number of stats computed depends on the <code>snowprofileLayer</code> properties available in the data.
+</p>
+</li>
+</ul>
+<p>@examples
+</p>
+
+
+<h4>Simple serial calculation</h4>
+
+<p>distmat1 &lt;- distanceSP(SPgroup2[1:4])
+</p>
+
+
+
+<h4>Parallel calculation (uncomment)</h4>
+
+<p>#distmat2 &lt;- distanceSP(SPgroup2[1:4], n_cores = parallel::detectCores() - 1)
+</p>
+
+
+
+<h4>Fast summary method</h4>
+
+<p>distmat3 &lt;- distanceSP(SPgroup2, fast_summary = T)
+</p>
+
+
+
+<h4>View the default weights, then recalculate the distances with adjusted weights</h4>
+
+<p>print(clusterSPconfig()$args_fast)
+weights &lt;- c(w_hs = 3, w_hn24 = 0, w_h3d = 2, w_slab = 0,
+w_gtype = 0, w_gtype_rel = 0, w_new = 0,
+w_pwl = 0, w_crust = 1, w_rta = 1)
+distmat4 &lt;- distanceSP(SPgroup2, fast_summary = T, fast_summary_weights = weights)
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>Either a dist or matrix object with pairwise distances (depending on <code>output</code> argument)
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>shorton fherla
+</p>
+
+
+<h3>See Also</h3>
+
+<p>simSP, medoidSP, clusterSP
+</p>
+
+
+</div>

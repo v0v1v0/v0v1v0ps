@@ -1,0 +1,122 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SDA_query</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Query Soil Data Access</h2>
+
+<h3>Description</h3>
+
+<p>Submit a query to the Soil Data Access (SDA) REST/JSON web-service and return the results as a data.frame. There is a 100,000 record and 32Mb JSON serialization limit per query. Queries should contain a WHERE clause or JOIN condition to limit the number of rows affected / returned. Consider wrapping calls to <code>SDA_query()</code> in a function that can iterate over logical chunks (e.g. areasymbol, mukey, cokey, etc.). The function <code>makeChunks()</code> can help with such iteration. All usages of <code>SDA_query()</code> should handle the possibility of a <code>try-error</code> result in case the web service connection is down or if an invalid query is passed to the endpoint.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SDA_query(q, dsn = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>q</code></td>
+<td>
+<p>character. A valid T-SQL query surrounded by double quotes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dsn</code></td>
+<td>
+<p>character. Default: <code>NULL</code> uses Soil Data Access remote data source via REST API. Alternately, <code>dsn</code> may be a file path to an SQLite database using the SSURGO schema, or a <code>DBIConnection</code> that has already been created.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The SDA website can be found at <a href="https://sdmdataaccess.nrcs.usda.gov">https://sdmdataaccess.nrcs.usda.gov</a> and query examples can be found at <a href="https://sdmdataaccess.nrcs.usda.gov/QueryHelp.aspx">https://sdmdataaccess.nrcs.usda.gov/QueryHelp.aspx</a>. A library of query examples can be found at <a href="https://nasis.sc.egov.usda.gov/NasisReportsWebSite/limsreport.aspx?report_name=SDA-SQL_Library_Home">https://nasis.sc.egov.usda.gov/NasisReportsWebSite/limsreport.aspx?report_name=SDA-SQL_Library_Home</a>.
+</p>
+<p>SSURGO (detailed soil survey) and STATSGO (generalized soil survey) data are stored together within SDA. This means that queries that don't specify an area symbol may result in a mixture of SSURGO and STATSGO records. See the examples below and the <a href="http://ncss-tech.github.io/AQP/soilDB/SDA-tutorial.html">SDA Tutorial</a> for details.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data.frame result for queries that return a single table. A list of data.frame for queries that return multiple tables. <code>NULL</code> if result is empty, and <code>try-error</code> on error.
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function requires the <code>httr</code>, <code>jsonlite</code>, and <code>xml2</code> packages
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>D.E. Beaudette, A.G Brown
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SDA_spatialQuery()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+
+  ## get SSURGO export date for all soil survey areas in California
+  # there is no need to filter STATSGO
+  # because we are filtering on SSURGO area symbols
+  q &lt;- "SELECT areasymbol, saverest FROM sacatalog WHERE areasymbol LIKE 'CA%';"
+  x &lt;- SDA_query(q)
+  head(x)
+
+
+  ## get SSURGO component data associated with the
+  ## Amador series / major component only
+  # this query must explicitly filter out STATSGO data
+  q &lt;- "SELECT cokey, compname, comppct_r FROM legend
+    INNER JOIN mapunit mu ON mu.lkey = legend.lkey
+    INNER JOIN component co ON mu.mukey = co.mukey
+    WHERE legend.areasymbol != 'US' AND compname = 'Amador';"
+
+  res &lt;- SDA_query(q)
+  str(res)
+
+  ## get component-level data for a specific soil survey area (Yolo county, CA)
+  # there is no need to filter STATSGO because the query contains
+  # an implicit selection of SSURGO data by areasymbol
+  q &lt;- "SELECT
+    component.mukey, cokey, comppct_r, compname, taxclname,
+    taxorder, taxsuborder, taxgrtgroup, taxsubgrp
+    FROM legend
+    INNER JOIN mapunit ON mapunit.lkey = legend.lkey
+    LEFT OUTER JOIN component ON component.mukey = mapunit.mukey
+    WHERE legend.areasymbol = 'CA113' ;"
+
+  res &lt;- SDA_query(q)
+  str(res)
+
+  ## get tabular data based on result from spatial query
+  # there is no need to filter STATSGO because
+  # SDA_Get_Mukey_from_intersection_with_WktWgs84() implies SSURGO
+  p &lt;- wk::as_wkt(wk::rct(-120.9, 37.7, -120.8, 37.8))
+  q &lt;- paste0("SELECT mukey, cokey, compname, comppct_r FROM component
+      WHERE mukey IN (SELECT DISTINCT mukey FROM
+      SDA_Get_Mukey_from_intersection_with_WktWgs84('", p,
+       "')) ORDER BY mukey, cokey, comppct_r DESC")
+
+   x &lt;- SDA_query(q)
+   str(x)
+
+</code></pre>
+
+
+</div>

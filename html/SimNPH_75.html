@@ -1,0 +1,110 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>wrap_all_in_trycatch</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Wrappers around Analyse Functions</h2>
+
+<h3>Description</h3>
+
+<p>Wrappers around Analyse Functions
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">wrap_all_in_trycatch(
+  list_of_functions,
+  error = function(e) {
+     warning(e$message)
+     NA
+ }
+)
+
+wrap_all_in_preserve_seed(list_of_functions)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>list_of_functions</code></td>
+<td>
+<p>the list of functions to be wrapped</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>error</code></td>
+<td>
+<p>the error function in the tryCatch call</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SimDesign redraws data if one analysis function fails. This is not
+only highly inefficient for large studies, but failure of a method is
+informative and might be of interest. Moreover redrawing of data might
+introduce bias if the failure of the method is not independent of the
+parameter value, which would be a strong assumption.
+</p>
+<p>To avoid redrawing data, we can catch all errors the analysis methods could
+throw and return <code>NA</code> instead.
+</p>
+<p>This is handled well by the summarise functions generated with
+<code>create_summarise_function</code> other summarise functions might throw errors
+when trying to <code>rbind</code> a data.frame to a scalar <code>NA</code> value. In this case
+add another <code>error</code> argument. For example <code style="white-space: pre;">⁠\(e){NULL}⁠</code> could work in some
+cases, in other cases you'll have to give a function that returns a
+data.frame with the same columns as the analyse functions and only NA
+values.
+</p>
+<p>Analysis functions might use random numbers. If simulations should
+be replicated this can interfere with the RNG state of other analysis
+functions. To avoid this you can wrap all analysis function in a
+<code>withr::with_preserve_seed</code> call, so that the RNG state is reset after each
+analysis function is called. This way adding, removing or changing one
+analysis function has no effect on the other analysis functions, even if
+the analysis functions use random numbers.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list of functions
+</p>
+
+
+<h3>Functions</h3>
+
+
+<ul>
+<li> <p><code>wrap_all_in_trycatch()</code>: Wrap all functions in a list in tryCatch calls
+</p>
+</li>
+<li> <p><code>wrap_all_in_preserve_seed()</code>: wrap all functions in <code>withr::with_preserve_seed</code>
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">funs1 &lt;- list(\(){stop("test")}, \(){1})
+funs2 &lt;- wrap_all_in_trycatch(funs1)
+try(lapply(funs1, \(f){f()}))
+try(lapply(funs2, \(f){f()}))
+
+funs1 &lt;- list(\(){rnorm(1)})
+funs2 &lt;- list(\(){runif(1)}, \(){rnorm(1)})
+funs3 &lt;- funs2 |&gt; wrap_all_in_preserve_seed()
+set.seed(1)
+lapply(funs1, \(f){f()})
+set.seed(1)
+lapply(funs2, \(f){f()})
+set.seed(1)
+lapply(funs3, \(f){f()})
+</code></pre>
+
+
+</div>

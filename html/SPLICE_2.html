@@ -1,0 +1,242 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>claim_history</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Development of Case Estimates</h2>
+
+<h3>Description</h3>
+
+<p>Consolidates payments and incurred revisions and returns a full transactional
+history of all the individual claims (transaction being either a payment or
+a case estimate revision).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">claim_history(
+  claims,
+  majRev_list,
+  minRev_list,
+  k1 = 0.95,
+  k2 = 0.95,
+  base_inflation_vector = NULL,
+  keep_all = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>claims</code></td>
+<td>
+<p>an <code>claims</code> object containing all the simulated quantities
+(other than those related to incurred loss), see
+<code>claims</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>majRev_list</code></td>
+<td>
+<p>nested list of major revision histories, see
+<code>claim_majRev</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minRev_list</code></td>
+<td>
+<p>nested list of minor revision histories, see
+<code>claim_minRev</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k1</code></td>
+<td>
+<p>maximum amount of cumulative claims paid as a proportion of
+total incurred estimate for major revisions; between 0 and 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k2</code></td>
+<td>
+<p>maximum amount of cumulative claims paid as a proportion of
+total incurred estimate for minor revisions; between 0 and 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>base_inflation_vector</code></td>
+<td>
+<p>vector showing <strong>quarterly</strong> base inflation
+rates (quarterly effective) for all the periods under consideration (default
+is nil base inflation), should be consistent with the input inflation vector
+in <code>claim_payment_inflation</code>. If a single number is
+provided, the function will assume constant quarterly inflation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep_all</code></td>
+<td>
+<p><code>TRUE</code> to keep the paid, outstanding payments, total
+incurred estimates just before the revision, <code>FALSE</code> to keep only the
+estimates right after the revision (<code style="white-space: pre;">⁠_right⁠</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function works to generate the full history of claims paid and
+incurred estimates by consolidating all the simulated revision quantities.
+It should be noted that in this consolidation step, we make the following
+adjustments:
+</p>
+
+<ul>
+<li>
+<p> Major and minor revisions should not occur simultaneously. In the event
+that they do (which is only possible at the second last partial payment),
+the major revision takes precedence, and the minor revision be discarded.
+This will be reflected in the <code>majRev</code> and <code>minRev</code> components of the output
+list.
+</p>
+</li>
+<li>
+<p> Estimates of incurred loss are specified to be computed in reverse order,
+and it is necessary that the total incurred estimate is always strictly
+greater than the cumulative claims paid (except at the final paymen where
+equality holds). Hence we introduce <code>k1</code> and <code>k2</code> to make sure that
+the revised incurred estimates satisfy </p>
+<p style="text-align: center;"><code class="reqn">ky(t) \ge c(t)</code>
+</p>
+<p> where <code class="reqn">y(t)</code>
+represents the total incurred estimate at delay <code class="reqn">t</code>, <code class="reqn">k</code> is a
+constant between 0 and 1, and <code class="reqn">c(t)</code> is the cumulative claims paid up to
+time <code class="reqn">t</code>. When the raw simulated revision multipliers violate this
+requirement, the case estimates of the total incurred or the outstanding
+claim payments will be increased to make sure this condition always holds,
+i.e. this adjustment takes precedence over the raw simulated revision
+multipliers.
+</p>
+</li>
+<li> <p><strong>Inflation adjustment</strong>: One can choose to ignore inflation in the
+incurred estimates (default), or to make allowance for
+it.
+</p>
+
+<ul>
+<li>
+<p> If <code>base_inflation_vector == NULL</code> (default), then all case estimates
+will be computed in values corresponding to time <code class="reqn">t = 0</code>, i.e. the
+commencement of the first occurrence period.
+</p>
+</li>
+<li>
+<p> If <code>base_inflation_vector</code> is provided, then the case estimators will
+include full superimposed inflation and base inflation only up to the date
+of the revision, i.e. there is an adjustment for the time elapsed since the
+immediately preceding revision and <strong>no future base inflation</strong> beyond the
+date of valuation.
+</p>
+</li>
+<li>
+<p> If inflation is involved, it should be noted that the case estimator
+reviews the base inflation situation only in the process of making a
+revision. When <em>only</em> a payment is made, the insurer's system automatically
+writes down the outstanding liability on the assumption of no change in
+ultimate incurred amount.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>A nested list structure such that the <em>j</em>th component of the <em>i</em>th
+sub-list provides a full transactional history of the <em>j</em>th claim of
+occurrence period <em>i</em>. The "unit list" (i.e. the smallest, innermost
+sub-list) contains the following components:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>txn_delay</code> </td>
+<td style="text-align: left;"> Delays from notification to the transactions (payment or
+incurred revision). </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>txn_time</code> </td>
+<td style="text-align: left;"> Times of the transactions (from the commencement of the
+first occurrence period). </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>txn_type</code> </td>
+<td style="text-align: left;"> Types of the transactions, "Ma" for major revision, "Mi" for
+minor revision, "P" for payment, "PMa" for major revision coincident with a
+payment, "PMi" for minor revision coincident with a payment. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>cumpaid_right</code> </td>
+<td style="text-align: left;"> Cumulative claim payments immediately after each of the
+transactions (in the "right" continuous sense). </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>OCL_right</code> </td>
+<td style="text-align: left;"> Case estimate of outstanding claim payments immediately
+after each of the transactions (in the "right" continuous sense). </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>incurred_right</code> </td>
+<td style="text-align: left;"> Case estimate of incurred loss immediately after each
+of the transactions (in the "right" continuous sense). </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>minRev</code> </td>
+<td style="text-align: left;"> A list containing full history of minor revisions (frequency,
+time and revision size); <code>claim_minRev</code>. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>majRev</code> </td>
+<td style="text-align: left;"> A list containing full history of major revisions (frequency,
+time and revision size); see <code>claim_majRev</code>.
+</td>
+</tr>
+</table>
+<p>and optionally (by setting <code>keep_all = TRUE</code>),
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>cumpaid_left</code> </td>
+<td style="text-align: left;"> Cumulative claim payments just before each of the
+transactions. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>OCL_left</code> </td>
+<td style="text-align: left;"> Case estimate of outstanding claim payments just before each
+of the transactions. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>incurred_left</code> </td>
+<td style="text-align: left;"> Case estimate of incurred loss just before each of the
+transactions. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+</div>

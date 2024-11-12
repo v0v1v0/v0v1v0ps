@@ -1,0 +1,108 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>admix_last_gen</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate admixture matrix for last generation of a pedigree with admixture of founders</h2>
+
+<h3>Description</h3>
+
+<p>A wrapper around the more general <code>admix_fam()</code>, specialized to save memory when only the last generation is desired (<code>admix_fam()</code> returns admixture for the entire pedigree in a single matrix).
+This function assumes that generations are non-overlapping (met by the output of <code>sim_pedigree()</code>), in which case each generation <code>g</code> can be drawn from generation <code>g-1</code> data only.
+That way, only two consecutive generations need be in memory at any given time.
+The partitioning of individuals into generations is given by the <code>ids</code> parameter (again matches the output of <code>sim_pedigree()</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">admix_last_gen(admix, fam, ids, missing_vals = c("", 0))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>admix</code></td>
+<td>
+<p>The admixture proportions matrix of the founders (individuals along rows and ancestries along columns).
+This matrix must have row names that identify each founder (matching codes in <code>fam$id</code>).
+Individuals may be in a different order than <code>fam$id</code>.
+Extra individuals in <code>admix</code> but absent in <code>fam$id</code> will be silently ignored.
+All values should be non-negative and each row of <code>admix</code> should sum to one; for speed, this code does not check that <code>admix</code> is valid, just averages data as-is.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fam</code></td>
+<td>
+<p>The pedigree data.frame, in plink FAM format.
+Only columns <code>id</code>, <code>pat</code>, and <code>mat</code> are required.
+<code>id</code> must be unique and non-missing.
+Founders must be present, and their <code>pat</code> and <code>mat</code> values must be missing (see below).
+Non-founders must have both their parents be non-missing.
+Parents must appear earlier than their children in the table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ids</code></td>
+<td>
+<p>A list containing vectors of IDs for each generation.
+All these IDs must be present in <code>fam$id</code>.
+If IDs in <code>fam</code> and <code>ids</code> do not fully agree, the code processes the IDs in the intersection, which is helpful when <code>fam</code> is pruned but <code>ids</code> is the original (larger) set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>missing_vals</code></td>
+<td>
+<p>The list of ID values treated as missing.
+<code>NA</code> is always treated as missing.
+By default, the empty string (”) and zero (0) are also treated as missing (remove values from here if this is a problem).</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The admixture proportions matrix of the last generation (the intersection of <code>ids[ length(ids) ]</code> and <code>fam$id</code>).
+The rows of this matrix are last-generation individuals in the order that they appear in <code>fam$id</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Plink FAM format reference:
+<a href="https://www.cog-genomics.org/plink/1.9/formats#fam">https://www.cog-genomics.org/plink/1.9/formats#fam</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># A small pedigree, two parents and two children.
+# A minimal fam table with the three required columns.
+# Note "mother" and "father" have missing parent IDs, while children do not
+library(tibble)
+fam &lt;- tibble(
+  id = c('father', 'mother', 'child', 'sib'),
+  pat = c(NA, NA, 'father', 'father'),
+  mat = c(NA, NA, 'mother', 'mother')
+)
+# need an `ids` list separating the generations
+ids &lt;- list( c('father', 'mother'), c('child', 'sib') )
+
+# admixture proportions of the parents
+admix &lt;- rbind( c(0.3, 0.3, 0.4), c(0.5, 0.25, 0.25) )
+# Name the parents with same codes as in `fam`
+# (order can be different)
+rownames( admix ) &lt;- c('mother', 'father')
+# name ancestries too
+colnames( admix ) &lt;- c('African', 'European', 'Asian')
+
+# calculate the admixture matrix of the children
+admix2 &lt;- admix_last_gen( admix, fam, ids )
+admix2
+
+</code></pre>
+
+
+</div>

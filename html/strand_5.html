@@ -1,0 +1,609 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>PortOpt</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Portfolio optimization class</h2>
+
+<h3>Description</h3>
+
+<p>The <code>PortOpt</code> object is used to set up and solve a
+portfolio optimization problem.
+</p>
+
+
+<h3>Details</h3>
+
+<p>A <code>PortOpt</code> object is configured in the same way as a
+<code>Simulation</code> object, by supplying configuration in a yaml file or list
+to the object constructor. Methods are available for adding constraints and
+retrieving information about the optimization setup and results. See the
+package vignette for information on configuration file setup.
+</p>
+
+
+<h3>Methods</h3>
+
+
+
+<h4>Public methods</h4>
+
+
+<ul>
+<li> <p><a href="#method-new"><code>PortOpt$new()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-setVerbose"><code>PortOpt$setVerbose()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-addConstraints"><code>PortOpt$addConstraints()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-getConstraintMatrix"><code>PortOpt$getConstraintMatrix()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-getConstraintMeta"><code>PortOpt$getConstraintMeta()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-solve"><code>PortOpt$solve()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-getResultData"><code>PortOpt$getResultData()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-getLoosenedConstraints"><code>PortOpt$getLoosenedConstraints()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-getMaxPosition"><code>PortOpt$getMaxPosition()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-getMaxOrder"><code>PortOpt$getMaxOrder()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-summaryDf"><code>PortOpt$summaryDf()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-print"><code>PortOpt$print()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-clone"><code>PortOpt$clone()</code></a>
+</p>
+</li>
+</ul>
+<hr>
+<a id="method-new"></a>
+
+
+
+<h4>Method <code>new()</code>
+</h4>
+
+<p>Create a new <code>PortOpt</code> object.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$new(config, input_data)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>config</code></dt>
+<dd>
+<p>An object of class <code>list</code> or <code>character</code>. If the
+value passed is a character vector, it should be of length 1 and
+specify the path to a yaml configuration file that contains the
+object's configuration info. If the value passed is of class list(),
+the list should contain the object's configuration info in list form
+(e.g, the return value of calling <code>yaml.load_file</code> on the
+configuration file).</p>
+</dd>
+<dt><code>input_data</code></dt>
+<dd>
+<p>A <code>data.frame</code> that contains all necessary input
+for the optimization.
+</p>
+<p>If the top-level configuration item <code>price_var</code> is not set, prices will be expected
+in the <code>ref_price</code> column of <code>input_data</code>.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>A new <code>PortOpt</code> object.
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>library(dplyr)
+data(sample_secref)
+data(sample_inputs)
+data(sample_pricing)
+
+# Construct optimization input for one day from sample data. The columns
+# of the input data must match the input configuration.
+optim_input &lt;-
+  inner_join(sample_inputs, sample_pricing,
+             by = c("id", "date")) %&gt;%
+  left_join(sample_secref, by = "id") %&gt;%
+  filter(date %in% as.Date("2020-06-01")) %&gt;%
+  mutate(ref_price = price_unadj,
+                shares_strategy_1 = 0)
+
+opt &lt;-
+  PortOpt$new(config = example_strategy_config(),
+              input_data = optim_input)
+
+# The problem is not solved until the \code{solve} method is called
+# explicitly.
+opt$solve()
+</pre>
+</div>
+
+
+<hr>
+<a id="method-setVerbose"></a>
+
+
+
+<h4>Method <code>setVerbose()</code>
+</h4>
+
+<p>Set the verbose flag to control the amount of informational
+output.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$setVerbose(verbose)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>verbose</code></dt>
+<dd>
+<p>Logical flag indicating whether to be verbose or not.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>No return value, called for side effects.
+</p>
+
+
+<hr>
+<a id="method-addConstraints"></a>
+
+
+
+<h4>Method <code>addConstraints()</code>
+</h4>
+
+<p>Add optimization constraints.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$addConstraints(constraint_matrix, dir, rhs, name)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>constraint_matrix</code></dt>
+<dd>
+<p>Matrix with one row per constraint and <code class="reqn">(S+1) \times N</code>
+columns, where S is number of strategies and N is the number of stocks.
+</p>
+<p>The variables in the optimization are
+</p>
+<p style="text-align: center;"><code class="reqn">x_{1,1}, x_{2,1}, \ldots, x_{N,1},</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">x_{1,2}, x_{2,2}, \ldots, x_{N,2},</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\vdots</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">x_{1,S}, x_{2,S}, \ldots, x_{N,S},</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">y_1, \ldots, y_N</code>
+</p>
+
+<p>The first <code class="reqn">N \times S</code> variables are the individual strategy
+trades. Variable <code class="reqn">x_{i,s}</code> represents the signed trade for stock i
+in strategy s. The following N auxillary variables <code class="reqn">y_1, \ldots, y_N</code>
+represent the absolute value of the net trade in each stock. So
+for a stock i, we have:
+</p>
+<p style="text-align: center;"><code class="reqn">y_i = \sum_s |x_{i,s}|</code>
+</p>
+</dd>
+<dt><code>dir</code></dt>
+<dd>
+<p>Vector of class character of length
+<code>nrow(constraint_matrix)</code> that specifies the direction of the
+constraints. All elements must be one of "&gt;=", "==", or "&lt;=".</p>
+</dd>
+<dt><code>rhs</code></dt>
+<dd>
+<p>Vector of class numeric of length
+<code>nrow(constraint_matrix)</code> that specifies the bounds of the
+constraints.</p>
+</dd>
+<dt><code>name</code></dt>
+<dd>
+<p>Character vector of length 1 that specifies a name for the
+set of constraints that are being created.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>No return value, called for side effects.
+</p>
+
+
+<hr>
+<a id="method-getConstraintMatrix"></a>
+
+
+
+<h4>Method <code>getConstraintMatrix()</code>
+</h4>
+
+<p>Constraint matrix access.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$getConstraintMatrix()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>The optimization's constraint matrix.
+</p>
+
+
+<hr>
+<a id="method-getConstraintMeta"></a>
+
+
+
+<h4>Method <code>getConstraintMeta()</code>
+</h4>
+
+<p>Provide high-level constraint information.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$getConstraintMeta()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>A data frame that contains constraint metadata, such as current constraint value and
+whether a constraint is currently within bounds, for all single-row
+constraints. Explicitly exclude net trade constraints and constraints
+that involve net trade variables.
+</p>
+
+
+<hr>
+<a id="method-solve"></a>
+
+
+
+<h4>Method <code>solve()</code>
+</h4>
+
+<p>Solve the optimization. After running <code>solve()</code>,
+results can be retrieved using <code>getResultData()</code>.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$solve()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>No return value, called for side effects.
+</p>
+
+
+<hr>
+<a id="method-getResultData"></a>
+
+
+
+<h4>Method <code>getResultData()</code>
+</h4>
+
+<p>Get optimization result.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$getResultData()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>A data frame that contains the number of shares and the net
+market value of the trades at the strategy and joint (net) level
+for each stock in the optimization's input.
+</p>
+
+
+<hr>
+<a id="method-getLoosenedConstraints"></a>
+
+
+
+<h4>Method <code>getLoosenedConstraints()</code>
+</h4>
+
+<p>Provide information about any constraints that were loosened
+in order to solve the optimization.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$getLoosenedConstraints()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>Object of class <code>list</code> where keys are the names of the
+loosened constraints and values are how much they were loosened toward
+current values. Values are expressed as (current constraint value -
+loosened constraint value) / (current constraint value - violated
+constraint value). A value of 0 means a constraint was loosened 100%
+and is not binding.
+</p>
+
+
+<hr>
+<a id="method-getMaxPosition"></a>
+
+
+
+<h4>Method <code>getMaxPosition()</code>
+</h4>
+
+<p>Provide information about the maximum position size allowed
+for long and short positions.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$getMaxPosition()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>An object of class <code>data.frame</code> that contains the limits on
+size for long and short positions for each strategy and security. The
+columns in the data frame are:
+</p>
+
+<dl>
+<dt>id</dt>
+<dd>
+<p>Security identifier.</p>
+</dd>
+<dt>strategy</dt>
+<dd>
+<p>Strategy name.</p>
+</dd>
+<dt>max_pos_lmv</dt>
+<dd>
+<p>Maximum net market value for a long position.</p>
+</dd>
+<dt>max_pos_smv</dt>
+<dd>
+<p>Maximum net market value for a short position.</p>
+</dd>
+</dl>
+<hr>
+<a id="method-getMaxOrder"></a>
+
+
+
+<h4>Method <code>getMaxOrder()</code>
+</h4>
+
+<p>Provide information about the maximum order size allowed
+for each security and strategy.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$getMaxOrder()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>An object of class <code>data.frame</code> that contains the limit on
+order size for each strategy and security. The
+columns in the data frame are:
+</p>
+
+<dl>
+<dt>id</dt>
+<dd>
+<p>Security identifier.</p>
+</dd>
+<dt>strategy</dt>
+<dd>
+<p>Strategy name.</p>
+</dd>
+<dt>max_order_gmv</dt>
+<dd>
+<p>Maximum gross market value allowed for an order.</p>
+</dd>
+</dl>
+<hr>
+<a id="method-summaryDf"></a>
+
+
+
+<h4>Method <code>summaryDf()</code>
+</h4>
+
+<p>Provide aggregate level optimization information if the
+problem has been solved.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$summaryDf()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>A data frame with one row per strategy, including the joint (net)
+level, and columns for starting and ending market values and factor
+expoure values.
+</p>
+
+
+<hr>
+<a id="method-print"></a>
+
+
+
+<h4>Method <code>print()</code>
+</h4>
+
+<p>Print summary information.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$print()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>No return value, called for side effects.
+</p>
+
+
+<hr>
+<a id="method-clone"></a>
+
+
+
+<h4>Method <code>clone()</code>
+</h4>
+
+<p>The objects of this class are cloneable with this method.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>PortOpt$clone(deep = FALSE)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>deep</code></dt>
+<dd>
+<p>Whether to make a deep clone.</p>
+</dd>
+</dl>
+</div>
+
+
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## ------------------------------------------------
+## Method `PortOpt$new`
+## ------------------------------------------------
+
+library(dplyr)
+data(sample_secref)
+data(sample_inputs)
+data(sample_pricing)
+
+# Construct optimization input for one day from sample data. The columns
+# of the input data must match the input configuration.
+optim_input &lt;-
+  inner_join(sample_inputs, sample_pricing,
+             by = c("id", "date")) %&gt;%
+  left_join(sample_secref, by = "id") %&gt;%
+  filter(date %in% as.Date("2020-06-01")) %&gt;%
+  mutate(ref_price = price_unadj,
+                shares_strategy_1 = 0)
+
+opt &lt;-
+  PortOpt$new(config = example_strategy_config(),
+              input_data = optim_input)
+
+# The problem is not solved until the \code{solve} method is called
+# explicitly.
+opt$solve()
+</code></pre>
+
+
+</div>

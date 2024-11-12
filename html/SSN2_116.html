@@ -1,0 +1,191 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ssn_import</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Import <code>SSN</code> object</h2>
+
+<h3>Description</h3>
+
+<p>This function reads spatial data from a .ssn folder
+and creates an <code>SSN</code> object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ssn_import(path, include_obs = TRUE, predpts = NULL, overwrite = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+<p>Filepath to the .ssn directory. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_obs</code></td>
+<td>
+<p>default = <code>TRUE</code>. Logical indicating
+whether observed sites should be included in the SSN object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predpts</code></td>
+<td>
+<p>Vector of prediction site dataset names found within
+the .ssn folder. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overwrite</code></td>
+<td>
+<p>default = <code>FALSE</code>. If <code>TRUE</code>, overwrite
+existing binaryID.db files and netgeom column(s) if it exists in the
+edges, observed sites (if <code>include_obs = TRUE</code>), and
+prediction site datasets (if they exist).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>ssn_import</code> function imports spatial data (shapefile or GeoPackage format)
+from a .ssn folder generated using the
+<code>SSNbler</code> package function <code>SSNbler::lsn_to_ssn</code>. The .ssn folder contains all of the spatial, topological and
+attribute data needed to fit a spatial statistical stream network
+model to streams data.  This includes:
+</p>
+
+<ul>
+<li>
+<p>An edges dataset with LINESTRING geometry representing the stream network.
+</p>
+</li>
+<li>
+<p>A sites dataset with POINT geometry where observed data were collected on
+the stream network.
+</p>
+</li>
+<li>
+<p>Prediction sites dataset(s) representing
+locations where predictions will be made.
+</p>
+</li>
+<li>
+<p>netID.dat file(s) for each distinct network, which stores the topological
+relationships of the line features in edges.</p>
+</li>
+</ul>
+<p>A more detailed description of the .ssn directory and its
+contents is provided in Peterson and Ver Hoef (2014).
+</p>
+<p>The <code>ssn_import</code> imports the edges, observed sites (optional), and
+prediction sites (optional) as <code>sf data.frame</code> objects. A new column named 'netgeom'
+is created to store important data representing
+topological relationships in a spatial stream network
+model. These data are stored in character format, which is less
+likely to be inadvertantly changed by users. See
+<code>create_netgeom</code> for a more detailed description of
+the format and contents of 'netgeom'.
+</p>
+<p>The information contained in the netID text files is imported
+into an SQLite database, binaryID.db, which is stored in the .ssn
+directory. This information is used internally by
+<code>ssn_create_distmat</code>,
+<code>ssn_lm</code> and
+<code>ssn_glm</code> to calculate the data necessary
+to fit a spatial statistical model to stream network data. If
+<code>overwrite = TRUE</code> (<code>overwrite = FALSE</code> is the default) and a binaryID.db
+file already exists within the .ssn directory, it will be
+overwriten when the <code>SSN</code> object is created.
+</p>
+<p>At a minimum, an <code>SSN</code> object must always contain streams,
+which are referred to as edges. The <code>SSN</code> object would also
+typically contain a set of observed sites, where measurements
+have been collected. Only one observed dataset is permitted in an
+<code>SSN</code> object. When <code>include_obs=FALSE</code>, an <code>SSN</code>
+object is created without observations. This option provides
+flexibility for users who would like to simulate data on a set of
+artifical sites on an existing stream network. Note that
+observation sites must be included in the <code>SSN</code> object in
+order to fit models using <code>ssn_lm</code> or
+<code>ssn_glm</code>. The <code>SSN</code> object may contain multiple
+sets of prediction points (or none), which are stored as separate
+datasets in the .ssn directory. If <code>predpts</code> is a named
+vector, the names of the <code>preds</code> list in the <code>SSN</code>
+object correspond to the vector names. Otherwise, they are set to
+the basename of the prediction site dataset file(s) specified in
+<code>predpts</code>. The <code>ssn_import_predpts</code>
+function allows users to import additional sets of prediction
+sites to a an existing <code>SSN</code> object.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>ssn_import</code> returns an object of class SSN, which is a list
+with four elements containing:
+</p>
+
+<ul>
+<li>
+<p><code>edges</code>: An <code>sf data.frame</code> containing the stream network,
+with an additional 'netgeom' column.
+</p>
+</li>
+<li>
+<p><code>obs</code>: An sf data.frame containing observed site locations,
+with an additional 'netgeom' column. NA if <code>include_obs =
+    FALSE</code>.
+</p>
+</li>
+<li>
+<p><code>preds</code>: A list of sf data.frames containing prediction
+site locations. An empty list is returned if <code>predpts</code> is not provided.
+</p>
+</li>
+<li>
+<p>path: The local filepath for the .ssn directory associated with the <code>SSN</code>
+object.
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Peterson, E., and Ver Hoef, J.M. (2014) STARS: An
+ArcGIS toolset used to calculate the spatial information needed
+to fit spatial statistical stream network models to stream
+network data. <em>Journal of Statistical Software</em>
+<b>56(2)</b>, 1–17.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Create local temporary copy of MiddleFork04.ssn found in
+# SSN2/lsndata folder. Only necessary for this example.
+copy_lsn_to_temp()
+
+## Import SSN object with no prediction sites
+mf04 &lt;- ssn_import(paste0(tempdir(), "/MiddleFork04.ssn"),
+  overwrite = TRUE
+)
+
+## Import SSN object with 3 sets of prediction sites
+mf04p &lt;- ssn_import(paste0(tempdir(), "/MiddleFork04.ssn"),
+  predpts = c(
+    "pred1km",
+    "CapeHorn"
+  ),
+  overwrite = TRUE
+)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,131 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smartsva.cpp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fast and robust surrogate variable analysis.</h2>
+
+<h3>Description</h3>
+
+<p>The traditional SVA uses a fixed number of iterations. In highly-confounded scenarios (i.e., biological effects 
+are confounded with batch effects), a large number of iterations are needed to achieve optimal results and better false positive control. SmartSVA thus imposes an explicit
+convergence criterion to improve the robustness of SVA.  Moreover, we use three strategies to accelerate the computation: (1) more efficient initialization by using <code>alpha</code>; 
+(2) QR decomposition to reduce the computational complexity; (3) Further acceleration using RcppEigen. Based on empirical studies, SmartSVA achieves is 10-50 times faster than traditional 
+SVA on large data sets if the same convergence criterion is imposed.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">smartsva.cpp(dat, mod, mod0 = NULL, n.sv, B = 100, alpha = 0.25,
+  epsilon = 0.001, VERBOSE = F)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dat</code></td>
+<td>
+<p>the measurement matrix, where rows are features and columns are samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mod</code></td>
+<td>
+<p>the model matrix being used to fit the data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mod0</code></td>
+<td>
+<p>the null model matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.sv</code></td>
+<td>
+<p>the number of surrogate variables to estimate. The use of random matrix theory is recommended to estimate n.sv. See the example for more details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>the maximum iteration number.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>determines the initial point for optimization which affects the convergence rate. Small values reduce the number of iterations needed to reach convergence;
+however, the solution could be trapped into a local optimum if the value is too small. The default value 0.25 works well across a wide range of tested scenarios. 
+If computation is not a big concern, setting <code>alpha = 1</code> will ensure optimality, producing the same result as traditional SVA if the same convergence criterion is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsilon</code></td>
+<td>
+<p>the convergence threshold. The Spearman's correlation between posterior probabilities of consecutive iterations of the algorithm is compared to epsilon. Empirical evaluation on several data sets revealed epsilon=0.005 gives very reasonable results. However, we suggest epsilon=1e-3 as a conservative threshold.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>VERBOSE</code></td>
+<td>
+<p>a logical variable. If TRUE, prints some details about iterative progress of the algorithm.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a list containing the surrogate variables  and some meta data about the convergence criterion.
+</p>
+
+
+<h3>References</h3>
+
+
+<p>Jun Chen, Ehsan Behnam, Jinyan Huang, Miriam F. Moffatt, Daniel J. Schaid, Liming Liang, Xihong Lin. Fast and robust adjustment of cell mixtures in epigenome-wide association studies with SmartSVA. BMC Genomics, 2017 18:413
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Methylation M values (CpG by Sample)
+Y &lt;- matrix(rnorm(20*1000), 1000, 20)
+df &lt;- data.frame(pred=gl(2, 10))
+
+## Determine the number of SVs
+Y.r &lt;- t(resid(lm(t(Y) ~ pred, data=df)))
+
+## Add one extra dimension to compensate potential loss of 1 degree of freedom
+##  in confounded scenarios (very important)
+n.sv &lt;- EstDimRMT(Y.r, FALSE)$dim + 1
+mod &lt;- model.matrix( ~ pred, df)
+sv.obj &lt;- smartsva.cpp(Y, mod, mod0=NULL, n.sv=n.sv)
+
+## Speed comparison to traditional SVA
+## Not run: 
+## Methylation M values (CpG by Sample, 27K by 1,000)
+require(sva)
+require(SmartSVA)
+Y &lt;- matrix(rnorm(1000*27000), 27000, 1000)
+df &lt;- data.frame(pred=gl(2, 500))
+
+## Determine the number of SVs
+Y.r &lt;- t(resid(lm(t(Y) ~ pred, data=df)))
+n.sv &lt;- 50
+mod &lt;- model.matrix( ~ pred, df)
+system.time(sv.obj1 &lt;- smartsva.cpp(Y, mod, mod0=NULL, B=5, alpha = 1, VERBOSE=TRUE, n.sv=n.sv))
+system.time(sv.obj2 &lt;- sva(Y, mod, mod0=NULL, B=5,  n.sv=n.sv))
+
+## Check if the solutions are the same
+head(sv.obj1$sv)
+head(sv.obj2$sv)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

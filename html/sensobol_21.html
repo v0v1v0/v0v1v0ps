@@ -1,0 +1,114 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sobol_ode</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Wrapper around <code>deSolve</code> <code>ode</code>.</h2>
+
+<h3>Description</h3>
+
+<p>It solves a system of ordinary differential equations and extracts the model output
+at the selected times.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sobol_ode(d, times, timeOutput, state, func, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>Character vector with the name of the model inputs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>times</code></td>
+<td>
+<p>Time sequence as defined by <code>ode</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timeOutput</code></td>
+<td>
+<p>Numeric vector determining the time steps at which
+the output is wanted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>state</code></td>
+<td>
+<p>Initial values of the state variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>func</code></td>
+<td>
+<p>An R function as defined by <code>ode</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments passed to <code>ode</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A matrix with the output values.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Define the model: the Lotka-Volterra system of equations
+lotka_volterra_fun &lt;- function(t, state, parameters) {
+with(as.list(c(state, parameters)), {
+  dX &lt;- r * X * (1 - X / K) - alpha * X * Y
+  dY &lt;- -m * Y + theta * X * Y
+  list(c(dX, dY))
+ })
+ }
+
+# Define the settings of the sensitivity analysis
+N &lt;- 2 ^ 5 # Sample size of sample matrix
+params &lt;- c("r", "alpha", "m", "theta", "K", "X", "Y") # Parameters
+
+# Define the times
+ times &lt;- seq(5, 20, 1)
+
+ # Define the times at which the output is wanted
+ timeOutput &lt;- c(10, 15)
+
+# Construct the sample matrix
+mat &lt;- sobol_matrices(N = N, params = params)
+
+# Transform to appropriate distributions
+mat[, "r"] &lt;- qunif(mat[, "r"], 0.8, 1.8)
+mat[, "alpha"] &lt;- qunif(mat[, "alpha"], 0.2, 1)
+mat[, "m"] &lt;- qunif(mat[, "m"], 0.6, 1)
+mat[, "theta"] &lt;- qunif(mat[, "theta"], 0.05, 0.15)
+mat[, "K"] &lt;- qunif(mat[, "K"], 47, 53)
+mat[, "X"] &lt;- floor(mat[, "X"] * (15 - 8 + 1) + 8)
+mat[, "Y"] &lt;- floor(mat[, "Y"] * (2 - 6 + 1) + 6)
+
+# Run the model
+y &lt;- list()
+for (i in 1:nrow(mat)) {
+  y[[i]] &lt;- sobol_ode(d = mat[i, ],
+                     times = times,
+                     timeOutput = timeOutput,
+                     state = c(X = mat[[i, "X"]], Y = mat[[i, "Y"]]),
+                     func = lotka_volterra_fun)
+}
+</code></pre>
+
+
+</div>

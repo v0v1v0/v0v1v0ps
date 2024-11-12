@@ -1,0 +1,179 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>glscv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Cross validation, n-fold and leave-one-out for generalized least squares ('gls')</h2>
+
+<h3>Description</h3>
+
+<p>This function is a cross validation function for 'gls' method
+in 'nlme' package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">glscv(
+  model = var1 ~ 1,
+  trainxy,
+  y,
+  corr.args = NULL,
+  weights = NULL,
+  validation = "CV",
+  cv.fold = 10,
+  predacc = "VEcv",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>a formula defining the response variable and predictive variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trainxy</code></td>
+<td>
+<p>a dataframe contains longitude (long), latitude (lat),
+predictive variables and the response variable of point samples. That is,
+the location information must be names as 'long' and 'lat'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>a vector of the response variable in the formula, that is, the left
+part of the formula.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corr.args</code></td>
+<td>
+<p>arguments for 'correlation' in 'gls'. See '?corClasses' in 'nlme'
+for details. By default, "NULL" is used. When "NULL" is used,
+then 'gls' is actually performing 'lm'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>describing the within-group heteroscedasticity structure. Defaults
+to "NULL", corresponding to homoscedastic errors. See '?gls' in 'nlme'
+for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>validation</code></td>
+<td>
+<p>validation methods, include 'LOO': leave-one-out, and 'CV':
+cross-validation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cv.fold</code></td>
+<td>
+<p>integer; number of folds in the cross-validation. if &gt; 1,
+then apply n-fold cross validation; the default is 10, i.e., 10-fold cross
+validation that is recommended.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predacc</code></td>
+<td>
+<p>can be either "VEcv" for vecv or "ALL" for all measures
+in function pred.acc.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments passed on to 'gls'.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with the following components:
+me, rme, mae, rmae, mse, rmse, rrmse, vecv and e1; or vecv only
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function is largely based on rfcv in 'randomForest' and
+'gls' in 'library(nlme)'.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jin Li
+</p>
+
+
+<h3>References</h3>
+
+<p>Pinheiro, J. C. and D. M. Bates (2000). Mixed-Effects Models
+in S and S-PLUS. New York, Springer.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(spm)
+library(nlme)
+
+data(petrel)
+gravel &lt;- petrel[, c(1, 2, 6:9, 5)]
+range1 &lt;- 0.8
+nugget1 &lt;- 0.5
+
+model &lt;- log(gravel + 1) ~  long + lat +  bathy + dist + I(long^2) + I(lat^2) +
+I(lat^3) + I(bathy^2) + I(bathy^3) + I(dist^2) + I(dist^3) + I(relief^2) + I(relief^3)
+
+
+glscv1 &lt;- glscv(model = model, gravel, log(gravel[, 7] +1), validation = "CV",
+ corr.args = corSpher(c(range1, nugget1), form = ~ long + lat, nugget = TRUE),
+ predacc = "ALL")
+glscv1
+
+#For gls
+set.seed(1234)
+n &lt;- 20 # number of iterations,60 to 100 is recommended.
+VEcv &lt;- NULL
+for (i in 1:n) {
+glscv1 &lt;- glscv(model = model, gravel, log(gravel[, 7] +1), validation = "CV",
+          corr.args = corSpher(c(range1, nugget1), form = ~ long + lat,
+          nugget = TRUE), predacc = "VEcv")
+VEcv [i] &lt;- glscv1
+}
+plot(VEcv ~ c(1:n), xlab = "Iteration for GLS", ylab = "VEcv (%)")
+points(cumsum(VEcv) / c(1:n) ~ c(1:n), col = 2)
+abline(h = mean(VEcv), col = 'blue', lwd = 2)
+
+# For lm, that is, gls with 'correlation = NULL'
+n &lt;- 20 # number of iterations,60 to 100 is recommended.
+VEcv &lt;- NULL
+set.seed(1234)
+for (i in 1:n) {
+glscv1 &lt;- glscv(model = model, gravel, log(gravel[, 7] +1),
+validation = "CV", predacc = "VEcv")
+VEcv [i] &lt;- glscv1
+}
+plot(VEcv ~ c(1:n), xlab = "Iteration for GLS", ylab = "VEcv (%)")
+points(cumsum(VEcv) / c(1:n) ~ c(1:n), col = 2)
+abline(h = mean(VEcv), col = 'blue', lwd = 2)
+
+
+</code></pre>
+
+
+</div>

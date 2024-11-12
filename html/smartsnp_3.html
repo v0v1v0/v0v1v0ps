@@ -1,0 +1,223 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smart_pca</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Smart Principal Component Analysis</h2>
+
+<h3>Description</h3>
+
+<p>Compute Principal Component Analysis (PCA) for variable x sample genotype data including covariance (<code>centered</code>), correlation (z-score) and SMARTPCA scaling,
+and implements projection of ancient samples onto modern PCA space. SMARTPCA scaling controls for genetic drift when variables are bi-allelic genetic markers
+such as single nucleotide polymorphisms (SNP) following Patterson, Price and Reich (2006).
+Optimized to run fast single value decomposition for big datasets.
+</p>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>snp_data</code></td>
+<td>
+<p>File name read from working directory.
+SNP = rows, samples = columns without row names or column headings.
+SNP values must be count data (no decimals allowed). File extension detected automatically whether text or <code>EIGENSTRAT</code>.
+See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>packed_data</code></td>
+<td>
+<p>Logical value for <code>EIGENSTRAT</code>, irrelevant for text data.
+Default <code>packed_data = FALSE</code> assumes uncompressed <code>EIGENSTRAT</code>.
+<code>packed_data = TRUE</code> for compressed or binary <code>EIGENSTRAT</code> (<code>PACKENDANCESTRYMAP</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample_group</code></td>
+<td>
+<p>Character or numeric vector assigning samples to groups.
+Coerced to factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample_remove</code></td>
+<td>
+<p>Logical <code>FALSE</code> or numeric vector indicating column numbers (samples) to be removed from computations.
+Default <code>sample_remove =  FALSE</code> keeps all samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>snp_remove</code></td>
+<td>
+<p>Logical <code>FALSE</code> or numeric vector indicating row numbers (SNPs) to be removed from computations.
+Default <code>snp_remove =  FALSE</code> keeps all SNPs.
+See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>missing_value</code></td>
+<td>
+<p>Number <code>9</code> or string <code>NA</code> indicating missing value.
+Default <code>missing_value = 9</code> as in <code>EIGENSTRAT</code>.
+If no missing values present, no effect on computation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>missing_impute</code></td>
+<td>
+<p>String handling missing values.
+Default <code>missing_impute = "mean"</code> replaces missing values of each SNP by mean of non-missing values across samples.
+<code>missing_impute = "remove"</code> removes SNPs with at least one missing value.
+If no missing values present, no effect on computation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling</code></td>
+<td>
+<p>String. Default <code>scaling = "drift"</code> scales SNPs to control for expected allele frequency dispersion caused by genetic drift (SMARTPCA).
+<code>scaling = "center"</code> for <code>centering</code> (covariance-based PCA).
+<code>scaling = "sd"</code> for <code>centered</code> SNPs divided by standard deviation (correlation-based PCA).
+<code>scaling = "none"</code> for no scaling.
+See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>program_svd</code></td>
+<td>
+<p>String indicating R package computing single value decomposition (SVD).
+Default <code>program_svd = "Rspectra"</code> for <code>svds</code>.
+<code>program_svd = "bootSVD"</code> for <code>fastSVD</code>.
+See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pc_axes</code></td>
+<td>
+<p>A numeric value.
+If <code>program_svd = "Rspectra"</code> this argument indicates number of PCA axes computed starting with PCA axis 1.
+Default <code>pc_axes = 2</code> computes PCA axes 1 and 2.
+No effect on computation if <code>program_svd = "bootSVD"</code> since all PCA axes are computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample_project</code></td>
+<td>
+<p>Numeric vector indicating column numbers (ancient samples) projected onto (modern) PCA space.
+Default <code>sample_project =  FALSE</code> indicates no samples will be used for projection.
+See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pc_project</code></td>
+<td>
+<p>Numeric vector indicating the ranks of the PCA axes ancient samples are projected onto.
+Default <code>pc_ancient = c(1, 2)</code> for PCA axes 1 and 2. If <code>program_svd = "RSpectra"</code>, <code>length(pc_ancient)</code> must be smaller than or equal to <code>pc_axes</code>.
+No effect on computation, if no ancient samples present.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>PCA is a rigid rotation of a Cartesian coordinate system (samples = points, axes = variables or SNPs) that maximizes the dispersion of points along a new system of axes (Pearson 1901; Hotelling 1933; Jolliffe 2002).
+In rotated space (ordination), axes are <code>principal axes</code> (PCA axes), <code>eigenvalues</code> measure variance explained, and <code>principal coefficients</code> measure importance of SNPs (eigenvectors), <code>principal components</code> are coordinates of samples (i.e., linear combinations of scaled variables weighted by eigenvectors).
+Principal coefficients are direction cosines between original and PCA axes (Legendre &amp; Legendre 2012). PCA can be computed by <code>eigenanalysis</code> or, as implemented here, single value decomposition (SVD). <br></p>
+<p>SNPs can be scaled in four different ways prior to SVD: (1) no scaling; (2) covariance: SNPs <code>centered</code> such that <em>M(i,j)</em> = <em>C(i,j)</em> minus <em>mean(j)</em>) where <em>C(i,j)</em> is the number of variant alleles for SNP <em>j</em> and sample <em>i</em>, and <em>M(i,j)</em> is the <code>centered</code> value of each data point; (3) correlation (z-scores): SNPs <code>centered</code> then divided by standard deviation <em>sd(j)</em>, (4) SMARTPCA: SNPs <code>centered</code> then divided by <em>sqrt(p(j)(1-p(j)))</em>, where <em>p(j)</em> equals <em>mean(j)</em> divided by <em>2</em>, quantifies the underlying allele frequency (autosomal chromosomes) and conceptualizes that SNP frequency changes at rate proportional to <em>sqrt(p(j)(1-p(j)))</em> per generation due to genetic drift (Patterson, Price and Reich 2006).
+SMARTPCA standardization results in all SNPs that comply with Hardy-Weinberg equilibrium having identical variance.
+SMARTPCA (Patterson, Price and Reich 2006) and <code>EIGENSTRAT</code> (Price, Patterson, Plenge, Weinblatt, Shadick and Reich 2006) are the computing suites of software <code>EIGENSOFT</code> (<a href="https://reich.hms.harvard.edu/software">https://reich.hms.harvard.edu/software</a>).<br></p>
+<p><code>svds</code> runs single value decomposition much faster than <code>fastSVD</code>. With <code>svds</code>, <code>pc_axes</code> indicates number of eigenvalues and eigenvectors computed starting from PCA axis 1. <code>fastSVD</code> computes all eigenvalues and eigenvectors. Eigenvalues calculated from singular values divided by number of samples minus 1. If number of samples equals number of SNPS, <code>fastSVD</code> prints message alert that no computing efficiency is achieved for square matrices.<br></p>
+<p>Ancient samples (with many missing values) can be projected onto modern PCA space derived from modern samples.
+Following Nelson Taylor and MacGregor (1996), the projected coordinates of a given ancient sample equal the slope coefficient of linear fit through the origin of (scaled) non-missing SNP values of that sample (response) versus principal coefficients of same SNPs in modern samples.
+Number of projected coordinates per ancient sample given by <code>length(pc_ancient)</code>.
+With <code>svds</code>, <code>pc_axes</code> must be larger or equal to <code>length(pc_ancient)</code>.<br></p>
+<p>Data read from working directory with SNPs as rows and samples as columns.
+Two alternative formats: (1) text file of SNPs by samples (file extension and column separators recognized automatically) read using <code>fread</code>; or (2) duet of <code>EIGENSTRAT</code> files (see <a href="https://reich.hms.harvard.edu/software">https://reich.hms.harvard.edu/software</a>) using <code>vroom_fwf</code>, including a genotype file of SNPs by samples (<code>*.geno</code>), and a sample file (<code>*.ind</code>) containing three vectors assigning individual samples to unique user-predefined groups (populations), sexes (or other user-defined descriptor) and alphanumeric identifiers.
+For <code>EIGENSTRAT</code>, vector <code>sample_group</code> assigns samples to groups retrievable from column of file <code>*.ind</code>. SNPs with zero variance removed prior to SVD to optimize computation time and avoid undefined values if <code>scaling = "sd"</code> or <code>"drift"</code>.<br></p>
+<p>Users can select subsets of samples or SNPs by introducing a vector including column numbers for samples (<code>sample_remove</code>) and/or row numbers for SNPs (<code>snp_remove</code>) to be removed from computations.
+Function stops if the final number of SNPs is 1 or 2.
+<code>EIGENSOFT</code> was conceived for the analysis of human genes and its SMARTPCA suite so accepts 22 (autosomal) chromosomes by default.
+If &gt;22 chromosomes are provided and the internal parameter <code>numchrom</code> is not set to the target number chromosomes of interest, SMARTPCA automatically subsets chromosomes 1 to 22.
+In contrast, <code>smart_pca</code> accepts any number of autosomes with or without the sex chromosomes from an <code>EIGENSTRAT</code> file.<br></p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list containing the following elements:
+</p>
+
+<ul>
+<li> <p><code>pca.snp_loadings</code> Dataframe of principal coefficients of SNPs. One set of coefficients per PCA axis computed.<br></p>
+</li>
+<li> <p><code>pca.eigenvalues</code> Dataframe of eigenvalues, variance and cumulative variance explained. One eigenvalue per PCA axis computed.<br></p>
+</li>
+<li> <p><code>pca_sample_coordinates</code> Dataframe showing PCA sample summary.
+Column <em>Group</em> assigns samples to groups.
+Column <em>Class</em> specifies if samples "Removed" from PCA or "Projected" onto PCA space.
+Sequence of additional columns shows principal components (coordinates) of samples in PCA space (1 column per PCA computed named PC1, PC2, ...).
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Hotelling, H. (1933) Analysis of a complex of statistical variables into principal components. Journal of Educational Psychology, 24, 417-441.<br></p>
+<p>Jolliffe, I.T. (2002) Principal Component Analysis (Springer, New York, USA).<br></p>
+<p>Legendre, P. &amp; L. F. J. Legendre (2012). Numerical ecology.  Developments in environmental modelling (Elsevier, Oxford, UK).<br></p>
+<p>Nelson, P.R.C., P.A. Taylor, and J.F. MacGregor (1996) Missing data methods in PCA and PLS: score calculations with incomplete observations. Chemometrics and Intelligent Laboratory Systems, 35, 45-65.<br></p>
+<p>Patterson, N.J., A. L. Price and D. Reich (2006) Population structure and eigenanalysis. PLoS Genetics, 2, e190.<br></p>
+<p>Pearson, K. (1901) On lines and planes of closest fit to systems of points in space. Philosophical Magazine, 2, 559-572.<br></p>
+<p>Price, A.L., N.J. Patterson, R.M. Plenge, M.E. Weinblatt, N.A. Shadick and David Reich (2006). Principal components analysis corrects for stratification in genome-wide association studies. Nature Genetics, 38, 904-909.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>fastSVD</code> (package <b>bootSVD</b>),
+<code>foreach</code> (package <b>foreach</b>),
+<code>fread</code> (package <b>data.table</b>),
+<code>rowVars</code> (package <b>Rfast</b>),
+<code>svds</code> (package <b>RSpectra</b>),
+<code>vroom_fwf</code> (package <b>vroom</b>)
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Path to example genotype matrix "dataSNP"
+pathToGenoFile = system.file("extdata", "dataSNP", package = "smartsnp")
+
+# Example 1: modern samples
+#assign 50 samples to each of two groups and colors
+my_groups &lt;- c(rep("A", 50), rep("B", 50)); cols = c("red", "blue")
+#run PCA with truncated SVD (PCA 1 x PCA 2)
+pcaR1 &lt;- smart_pca(snp_data = pathToGenoFile, sample_group = my_groups)
+pcaR1$pca.eigenvalues # extract eigenvalues
+pcaR1$pca.snp_loadings # extract principal coefficients (SNP loadings)
+pcaR1$pca.sample_coordinates # extract principal components (sample position in PCA space)
+#plot PCA
+plot(pcaR1$pca.sample_coordinates[,c("PC1","PC2")], cex = 2,
+     pch = 19, col = cols[as.factor(my_groups)], main = "genotype smartpca")
+legend("topleft", legend = levels(as.factor(my_groups)), cex =1,
+     pch = 19, col = cols, text.col = cols)
+
+# Example 2: modern and ancient samples (ancient samples projected onto modern PCA space)
+#assign samples 1st to 10th per group to ancient
+my_ancient &lt;- c(1:10, 51:60)
+#run PCA with truncated SVD (PCA 1 x PCA 2)
+pcaR2 &lt;- smart_pca(snp_data = pathToGenoFile, sample_group = my_groups, sample_project = my_ancient)
+pcaR2$pca.eigenvalues # extract eigenvalues
+pcaR2$pca.snp_loadings # extract principal coefficients (SNP loading)
+pcaR2$pca.sample_coordinates # extract principal components (sample position in PCA space)
+#assign samples to groups (A, ancient, B) and colors
+my_groups[my_ancient] &lt;- "ancient"; cols = c("red", "black", "blue")
+#plot PCA
+plot(pcaR2$pca.sample_coordinates[,c("PC1","PC2")],
+     cex = 2, col = cols[as.factor(my_groups)], pch = 19, main = "genotype smartpca")
+legend("topleft", legend = levels(as.factor(my_groups)),  cex = 1,
+     pch = 19, col = cols, text.col = cols)
+
+</code></pre>
+
+
+</div>

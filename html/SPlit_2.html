@@ -1,0 +1,114 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SPlit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Split a dataset for training and testing</h2>
+
+<h3>Description</h3>
+
+<p><code>SPlit()</code> implements the optimal data splitting procedure described in Joseph and Vakayil (2021). <code>SPlit</code> can be applied to both regression and classification problems, and is model-independent. As a preprocessing step, the nominal categorical columns in the dataset must be declared as factors, and the ordinal categorical columns must be converted to numeric using scoring.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SPlit(
+  data,
+  splitRatio = 0.2,
+  kappa = NULL,
+  maxIterations = 500,
+  tolerance = 1e-10,
+  nThreads
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The dataset including both the predictors and response(s); should not contain missing values, and only numeric and/or factor column(s) are allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>splitRatio</code></td>
+<td>
+<p>The ratio in which the dataset is to be split; should be in (0, 1) e.g. for an 80-20 split, the <code>splitRatio</code> is either 0.8 or 0.2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa</code></td>
+<td>
+<p>If provided, stochastic majorization-minimization is used for computing support points using a random sample from the dataset of size = <code>ceiling(kappa * splitRatio * nrow(data))</code>, in every iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxIterations</code></td>
+<td>
+<p>The maximum number of iterations before the tolerance level is reached during support points optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolerance</code></td>
+<td>
+<p>The tolerance level for support points optimization; measured in terms of the maximum point-wise difference in distance between successive solutions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nThreads</code></td>
+<td>
+<p>Number of threads to be used for parallel computation; if not supplied, <code>nThreads</code> defaults to maximum available threads.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Support points are defined only for continuous variables. The categorical variables are handled as follows. <code>SPlit()</code> will automatically convert a nominal categorical variable with <code class="reqn">m</code> levels to <code class="reqn">m-1</code> continuous variables using Helmert coding. Ordinal categorical variables should be converted to numerical columns using a scoring method before using <code>SPlit()</code>. 
+For example, if the three levels of an ordinal variable are poor, good, and excellent, then the user may choose 1, 2, and 5 to represent the three levels. These values depend on the problem and data collection method, and therefore, <code>SPlit()</code> will not do it automatically. The columns of the resulting numeric dataset are then standardized to have mean zero and variance one. 
+<code>SPlit()</code> then computes the support points and calls the provided <code>subsample()</code> function to perform a nearest neighbor subsampling. The indices of this subsample are returned.
+</p>
+<p><code>SPlit</code> can be time consuming for large datasets. The computational time can be reduced by using the stochastic majorization-minimization technique with a trade-off in the quality of the split. For example, setting <code>kappa = 2</code> will use a random sample, twice the size of the smaller subset in the split, instead of using the whole dataset in every iteration of the support points optimization. Another option for large datasets is to use data twinning (Vakayil and Joseph, 2022) implemented in the <code>R</code> package <a href="https://CRAN.R-project.org/package=twinning"><code>twinning</code></a>. <code>Twinning</code> is extremely fast, but for small datasets, the results may not be as good as <code>SPlit</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Indices of the smaller subset in the split.
+</p>
+
+
+<h3>References</h3>
+
+<p>Joseph, V. R., &amp; Vakayil, A. (2021). SPlit: An Optimal Method for Data Splitting. Technometrics, 1-11. doi:10.1080/00401706.2021.1921037.
+</p>
+<p>Vakayil, A., &amp; Joseph, V. R. (2022). Data Twinning. Statistical Analysis and Data Mining: The ASA Data Science Journal. https://doi.org/10.1002/sam.11574.
+</p>
+<p>Mak, S., &amp; Joseph, V. R. (2018). Support points. The Annals of Statistics, 46(6A), 2562-2592.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## 1. An 80-20 split of a numeric dataset
+X = rnorm(n = 100, mean = 0, sd = 1)
+Y = rnorm(n = 100, mean = X^2, sd = 1)
+data = cbind(X, Y)
+SPlitIndices = SPlit(data, tolerance = 1e-6, nThreads = 2) 
+dataTest = data[SPlitIndices, ]
+dataTrain = data[-SPlitIndices, ]
+plot(data, main = "SPlit testing set")
+points(dataTest, col = 'green', cex = 2)
+
+## 2. An 80-20 split of the iris dataset
+SPlitIndices = SPlit(iris, nThreads = 2)
+irisTest = iris[SPlitIndices, ]
+irisTrain = iris[-SPlitIndices, ]
+
+</code></pre>
+
+
+</div>

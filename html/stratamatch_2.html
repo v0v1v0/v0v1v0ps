@@ -1,0 +1,298 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>auto_stratify</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Auto Stratify</h2>
+
+<h3>Description</h3>
+
+<p>Automatically creates strata for matching based on a prognostic score formula
+or a vector of prognostic scores already estimated by the user. Creates a
+<code>auto_strata</code> object, which can be passed to <code>strata_match</code>
+for stratified matching or unpacked by the user to be matched by some other
+means.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">auto_stratify(
+  data,
+  treat,
+  prognosis,
+  outcome = NULL,
+  size = 2500,
+  pilot_fraction = 0.1,
+  pilot_size = NULL,
+  pilot_sample = NULL,
+  group_by_covariates = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p><code>data.frame</code> with observations as rows, features as columns</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>treat</code></td>
+<td>
+<p>string giving the name of column designating treatment
+assignment</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prognosis</code></td>
+<td>
+<p>information on how to build prognostic scores.  Three
+different input types are allowed: </p>
+ <ol>
+<li>
+<p> vector of prognostic
+scores for all individuals in the data set. Should be in the same order as
+the rows of <code>data</code>. </p>
+</li>
+<li>
+<p> a <code>formula</code> for fitting a prognostic
+model </p>
+</li>
+<li>
+<p> an already-fit prognostic score model</p>
+</li>
+</ol>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>string giving the name of column with outcome information.
+Required if prognostic_scores is specified.  Otherwise it will be inferred
+from prog_formula</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>size</code></td>
+<td>
+<p>numeric, desired size of strata (default = 2500)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pilot_fraction</code></td>
+<td>
+<p>numeric between 0 and 1 giving the proportion of
+controls to be allotted for building the prognostic score (default = 0.1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pilot_size</code></td>
+<td>
+<p>alternative to pilot_fraction. Approximate number of
+observations to be used in pilot set. Note that the actual pilot set size
+returned may not be exactly <code>pilot_size</code> if <code>group_by_covariates</code>
+is specified because balancing by covariates may result in deviations from
+desired size. If <code>pilot_size</code> is specified, <code>pilot_fraction</code> is
+ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pilot_sample</code></td>
+<td>
+<p>a data.frame of held aside samples for building
+prognostic score model. If <code>pilot_sample</code> is specified,
+<code>pilot_size</code> and <code>pilot_fraction</code> are both ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_by_covariates</code></td>
+<td>
+<p>character vector giving the names of covariates to
+be grouped by (optional). If specified, the pilot set will be sampled in a
+stratified manner, so that the composition of the pilot set reflects the
+composition of the whole data set in terms of these covariates.  The
+specified covariates must be categorical.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Stratifying by prognostic score quantiles can be more effective than manually
+stratifying a data set because the prognostic score is continuous, thus the
+strata produced tend to be of equal size with similar prognosis.
+</p>
+<p>Automatic stratification requires information on how the prognostic scores
+should be derived.  This is primarily determined by the specifciation of the
+<code>prognosis</code> argument.  Three main forms of input for <code>prognosis</code>
+are allowed: </p>
+ <ol>
+<li>
+<p> A vector of prognostic scores. This vector
+should be the same length and order of the rows in the data set.  If this
+method is used, the <code>outcome</code> argument must also be specified; this is
+simply a string giving the name of the column which contains outcome
+information. </p>
+</li>
+<li>
+<p> A formula for prognosis (e.g. <code>outcome ~ X1 + X2</code>).
+If this method is used, <code>auto_stratify</code> will automatically split the
+data set into a <code>pilot_set</code> and an <code>analysis_set</code>.  The pilot set
+will be used to fit a logistic regression model for outcome in the absence of
+treatment, and this model will be used to estimate prognostic scores on the
+analysis set.  The analysis set will then be stratified based on the
+estimated prognostic scores.  In this case the <code>outcome</code> argument need
+not be specified since it can be inferred from the input formula. </p>
+</li>
+<li>
+<p> A
+model for prognosis (e.g. a <code>glm</code> object).  If this method is used, the
+<code>outcome</code> argument must also be specified</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p>Returns an <code>auto_strata</code> object.  This contains: </p>
+
+<ul>
+<li> <p><code>outcome</code> - a string giving the name of the column where outcome
+information is stored
+</p>
+</li>
+<li> <p><code>treat</code> - a string giving the name of the column encoding
+treatment assignment
+</p>
+</li>
+<li> <p><code>analysis_set</code> - the data set with strata assignments
+</p>
+</li>
+<li> <p><code>call</code> - the call to <code>auto_stratify</code> used to generate this
+object
+</p>
+</li>
+<li> <p><code>issue_table</code> - a table of each stratum and potential issues of
+size and treat:control balance. In small or imbalanced strata, it may be
+difficult or infeasible to find high-quality matches, while very large
+strata may be computationally intensive to match.
+</p>
+</li>
+<li> <p><code>strata_table</code> - a table of each stratum and the prognostic
+score quantile bin to which it corresponds
+</p>
+</li>
+<li> <p><code>prognostic_scores</code> - a vector of prognostic scores.
+</p>
+</li>
+<li> <p><code>prognostic_model</code> - a model for prognosis fit on a pilot data
+set.  Will be <code>NULL</code> if a vector of prognostic scores was provided as
+the <code>prognosis</code> argument to <code>auto_stratify</code> rather than a model
+or formula.
+</p>
+</li>
+<li> <p><code>pilot_set</code> - the set of controls used to fit the prognostic
+model. These are excluded from subsequent analysis so that the prognostic
+score is not overfit to the data used to estimate the treatment effect.
+Will be <code>NULL</code> if a pre-fit model or a vector of prognostic scores was
+provided as the <code>prognosis</code> argument to <code>auto_stratify</code> rather
+than formula.
+</p>
+</li>
+</ul>
+<h3>Troubleshooting</h3>
+
+<p>This section suggests fixes for common errors that appear while fitting the
+prognostic score or using it to estimate prognostic scores on the analysis
+set.
+</p>
+
+<ul>
+<li> <p><code>Encountered an error while fitting the prognostic model...
+  numeric probabilities 0 or 1 produced</code>. This error means that the
+prognostic model can perfectly separate positive from negative outcomes.
+Estimating a treatment effect in this case is unwise since an individual's
+baseline characteristics perfectly determine their outcome, regardless of
+whether they recieve the treatment.  This error may also appear on rare
+occaisions when your pilot set is very small (number of observations
+approximately &lt;= number of covariates in the prognostic model), so that
+perfect separation happens by chance.
+</p>
+</li>
+<li> <p><code>Encountered an error while estimating prognostic scores ...
+  factor X has new levels ... </code> This may indicate that some value(s) of one
+or more categorical variables appear in the analysis set which were not
+seen in the pilot set. This means that when we try to obtain prognostic
+scores for our analysis set, we run into some new value that our prognostic
+model was not prepared to handle.  There are a few options we have to
+troubleshoot this problem: </p>
+
+<ul>
+<li> <p><strong>Rejection sampling.</strong>  Run <code>auto_stratify</code> again with the
+same arguments until this error does not occur (i.e. until some
+observations with the missing value are randomly selected into the pilot
+set)
+</p>
+</li>
+<li> <p><strong>Eliminate this covariate from the prognostic formula.</strong>
+</p>
+</li>
+<li> <p><strong>Remove observations with the rare covariate value from the
+entire data set.</strong> Consider carefully how this exclusion might affect your
+results.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>Other errors or warnings can occur if the pilot set is too small and the
+prognostic formula is too complicated.  Always make sure that the number of
+observations in the pilot set is large enough that you can confidently fit
+a prognostic model with the number of covariates you want.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>manual_stratify</code>, <code>new_auto_strata</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># make sample data set
+set.seed(111)
+dat &lt;- make_sample_data(n = 75)
+
+# construct a pilot set, build a prognostic score for `outcome` based on X2
+# and stratify the data set based on the scores into sets of about 25
+# observations
+a.strat_formula &lt;- auto_stratify(dat, "treat", outcome ~ X2, size = 25)
+
+# stratify the data set based on a model for prognosis
+pilot_data &lt;- make_sample_data(n = 30)
+prognostic_model &lt;- glm(outcome ~ X2, pilot_data, family = "binomial")
+a.strat_model &lt;- auto_stratify(dat, "treat", prognostic_model,
+  outcome = "outcome", size = 25
+)
+
+# stratify the data set based on a vector of prognostic scores
+prognostic_scores &lt;- predict(prognostic_model,
+  newdata = dat,
+  type = "response"
+)
+a.strat_scores &lt;- auto_stratify(dat, "treat", prognostic_scores,
+  outcome = "outcome", size = 25
+)
+
+# diagnostic plots
+plot(a.strat_formula)
+plot(a.strat_formula, type = "AC", propensity = treat ~ X1, stratum = 1)
+plot(a.strat_formula, type = "hist", propensity = treat ~ X1, stratum = 1)
+plot(a.strat_formula, type = "residual")
+</code></pre>
+
+
+</div>

@@ -1,0 +1,305 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sig_fit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit Signature Exposures with Linear Combination Decomposition</h2>
+
+<h3>Description</h3>
+
+<p>The function performs a signatures decomposition of a given mutational
+catalogue <code>V</code> with known signatures <code>W</code> by solving the minimization problem
+<code style="white-space: pre;">⁠min(||W*H - V||)⁠</code> where W and V are known.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sig_fit(
+  catalogue_matrix,
+  sig,
+  sig_index = NULL,
+  sig_db = c("legacy", "SBS", "DBS", "ID", "TSB", "SBS_Nik_lab", "RS_Nik_lab",
+    "RS_BRCA560", "RS_USARC", "CNS_USARC", "CNS_TCGA", "CNS_TCGA176", "CNS_PCAWG176",
+    "SBS_hg19", "SBS_hg38", "SBS_mm9", "SBS_mm10", "DBS_hg19", "DBS_hg38", "DBS_mm9",
+    "DBS_mm10", "SBS_Nik_lab_Organ", "RS_Nik_lab_Organ", "latest_SBS_GRCh37",
+    "latest_DBS_GRCh37", "latest_ID_GRCh37", "latest_SBS_GRCh38", "latest_DBS_GRCh38",
+    "latest_SBS_mm9", "latest_DBS_mm9", "latest_SBS_mm10", "latest_DBS_mm10",
+    "latest_SBS_rn6", "latest_DBS_rn6", "latest_CN_GRCh37", 
+    
+    "latest_RNA-SBS_GRCh37", "latest_SV_GRCh38"),
+  db_type = c("", "human-exome", "human-genome"),
+  show_index = TRUE,
+  method = c("QP", "NNLS", "SA"),
+  auto_reduce = FALSE,
+  type = c("absolute", "relative"),
+  return_class = c("matrix", "data.table"),
+  return_error = FALSE,
+  rel_threshold = 0,
+  mode = c("SBS", "DBS", "ID", "copynumber"),
+  true_catalog = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>catalogue_matrix</code></td>
+<td>
+<p>a numeric matrix <code>V</code> with row representing components and
+columns representing samples, typically you can get <code>nmf_matrix</code> from <code>sig_tally()</code> and
+transpose it by <code>t()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig</code></td>
+<td>
+<p>a <code>Signature</code> object obtained either from sig_extract or sig_auto_extract,
+or just a raw signature matrix/<code>data.frame</code> with row representing components (motifs) and
+column representing signatures.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig_index</code></td>
+<td>
+<p>a vector for signature index. "ALL" for all signatures.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sig_db</code></td>
+<td>
+<p>default 'legacy', it can be 'legacy' (for <a href="https://cancer.sanger.ac.uk/cosmic/signatures_v2.tt/">COSMIC v2 'SBS'</a>),
+'SBS', 'DBS', 'ID' and 'TSB' (for <a href="https://cancer.sanger.ac.uk/cosmic/signatures/">COSMIV v3.1 signatures</a>)
+for small scale mutations.
+For more specific details, it can also be 'SBS_hg19', 'SBS_hg38',
+'SBS_mm9', 'SBS_mm10', 'DBS_hg19', 'DBS_hg38', 'DBS_mm9', 'DBS_mm10' to use
+COSMIC v3 reference signatures from Alexandrov, Ludmil B., et al. (2020) (reference #1).
+In addition, it can be one of "SBS_Nik_lab_Organ", "RS_Nik_lab_Organ",
+"SBS_Nik_lab", "RS_Nik_lab" to refer reference signatures from
+Degasperi, Andrea, et al. (2020) (reference #2);
+"RS_BRCA560", "RS_USARC" to reference signatures from BRCA560 and USARC cohorts;
+"CNS_USARC" (40 categories), "CNS_TCGA" (48 categories) to reference copy number signatures from USARC cohort and TCGA;
+"CNS_TCGA176" (176 categories) and "CNS_PCAWG176" (176 categories) to reference copy number signatures from PCAWG and TCGA separately.
+<strong>UPDATE</strong>, the latest version of reference version can be automatically
+downloaded and loaded from <a href="https://cancer.sanger.ac.uk/signatures/downloads/">https://cancer.sanger.ac.uk/signatures/downloads/</a>
+when a option with <code>latest_</code> prefix is specified (e.g. "latest_SBS_GRCh37").
+<strong>Note</strong>: the signature profile for different genome builds are basically same.
+And specific database (e.g. 'SBS_mm10') contains less signatures than all COSMIC
+signatures (because some signatures are not detected from Alexandrov, Ludmil B., et al. (2020)).
+For all available options, check the parameter setting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>db_type</code></td>
+<td>
+<p>only used when <code>sig_db</code> is enabled.
+"" for keeping default, "human-exome" for transforming to exome frequency of component,
+and "human-genome" for transforming to whole genome frequency of component.
+Currently only works for 'SBS'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>show_index</code></td>
+<td>
+<p>if <code>TRUE</code>, show valid indices.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>method to solve the minimazation problem.
+'NNLS' for non-negative least square; 'QP' for quadratic programming; 'SA' for simulated annealing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>auto_reduce</code></td>
+<td>
+<p>if <code>TRUE</code>, try reducing the input reference signatures to increase
+the cosine similarity of reconstructed profile to observed profile.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>'absolute' for signature exposure and 'relative' for signature relative exposure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_class</code></td>
+<td>
+<p>string, 'matrix' or 'data.table'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_error</code></td>
+<td>
+<p>if <code>TRUE</code>, also return sample error (Frobenius norm) and cosine
+similarity between observed sample profile (asa. spectrum) and reconstructed profile. NOTE:
+it is better to obtain the error when the type is 'absolute', because the error is
+affected by relative exposure accuracy.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rel_threshold</code></td>
+<td>
+<p>numeric vector, a signature with relative exposure
+lower than (equal is included, i.e. <code>&lt;=</code>) this value will be set to 0
+(both absolute exposure and relative exposure).
+In this case, sum of signature contribution may not equal to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mode</code></td>
+<td>
+<p>signature type for plotting, now supports 'copynumber', 'SBS',
+'DBS', 'ID' and 'RS' (genome rearrangement signature).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>true_catalog</code></td>
+<td>
+<p>used by sig_fit_bootstrap, user never use it.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>control parameters passing to argument <code>control</code> in <code>GenSA</code> function when use method 'SA'.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The method 'NNLS' solves the minimization problem with nonnegative least-squares constraints.
+The method 'QP' and 'SA' are modified from SignatureEstimation package.
+See references for details.
+Of note, when fitting exposures for copy number signatures, only components of
+feature CN is used.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The exposure result either in <code>matrix</code> or <code>data.table</code> format.
+If <code>return_error</code> set <code>TRUE</code>, a <code>list</code> is returned.
+</p>
+
+
+<h3>References</h3>
+
+<p>Daniel Huebschmann, Zuguang Gu and Matthias Schlesner (2019). YAPSA: Yet Another Package for Signature Analysis. R package version 1.12.0.
+</p>
+<p>Huang X, Wojtowicz D, Przytycka TM. Detecting presence of mutational signatures in cancer with confidence. Bioinformatics. 2018;34(2):330–337. doi:10.1093/bioinformatics/btx604
+</p>
+<p>Kim, Jaegil, et al. "Somatic ERCC2 mutations are associated with a distinct genomic signature in urothelial tumors."
+Nature genetics 48.6 (2016): 600.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>sig_extract, sig_auto_extract, sig_fit_bootstrap, sig_fit_bootstrap_batch
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+# For mutational signatures ----------------
+# SBS is used for illustration, similar
+# operations can be applied to DBS, INDEL, CN, RS, etc.
+
+# Load simulated data
+data("simulated_catalogs")
+data = simulated_catalogs$set1
+data[1:5, 1:5]
+
+# Fitting with all COSMIC v2 reference signatures
+sig_fit(data, sig_index = "ALL")
+# Check ?sig_fit for sig_db options
+# e.g., use the COSMIC SBS v3
+sig_fit(data, sig_index = "ALL", sig_db = "SBS")
+
+# Fitting with specified signatures
+# opt 1. use selected reference signatures
+sig_fit(data, sig_index = c(1, 5, 9, 2, 13), sig_db = "SBS")
+# opt 2. use user specified signatures
+ref = get_sig_db()$db
+ref[1:5, 1:5]
+ref = ref[, 1:10]
+# The `sig` used here can be result object from `sig_extract`
+# or any reference matrix with similar structure (96-motif)
+v1 = sig_fit(data, sig = ref)
+v1
+
+# If possible, auto-reduce the reference signatures
+# for better fitting data from a sample
+v2 = sig_fit(data, sig = ref, auto_reduce = TRUE)
+v2
+
+all.equal(v1, v2)
+
+# Some samples reported signatures dropped
+# but its original activity values are 0s,
+# so the data remain same (0 -&gt; 0)
+all.equal(v1[, 2], v2[, 2])
+
+# For COSMIC_10, 6.67638 -&gt; 0
+v1[, 4]; v2[, 4]
+all.equal(v1[, 4], v2[, 4])
+
+# For general purpose -----------------------
+
+W &lt;- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
+colnames(W) &lt;- c("sig1", "sig2")
+W &lt;- apply(W, 2, function(x) x / sum(x))
+
+H &lt;- matrix(c(2, 5, 3, 6, 1, 9, 1, 2), ncol = 4)
+colnames(H) &lt;- paste0("samp", 1:4)
+
+V &lt;- W %*% H
+V
+
+if (requireNamespace("quadprog", quietly = TRUE)) {
+  H_infer &lt;- sig_fit(V, W, method = "QP")
+  H_infer
+  H
+
+  H_dt &lt;- sig_fit(V, W, method = "QP", auto_reduce = TRUE, return_class = "data.table")
+  H_dt
+
+  ## Show results
+  show_sig_fit(H_infer)
+  show_sig_fit(H_dt)
+
+  ## Get clusters/groups
+  H_dt_rel &lt;- sig_fit(V, W, return_class = "data.table", type = "relative")
+  z &lt;- get_groups(H_dt_rel, method = "k-means")
+  show_groups(z)
+}
+
+# if (requireNamespace("GenSA", quietly = TRUE)) {
+#   H_infer &lt;- sig_fit(V, W, method = "SA")
+#   H_infer
+#   H
+#
+#   H_dt &lt;- sig_fit(V, W, method = "SA", return_class = "data.table")
+#   H_dt
+#
+#   ## Modify arguments to method
+#   sig_fit(V, W, method = "SA", maxit = 10, temperature = 100)
+#
+#   ## Show results
+#   show_sig_fit(H_infer)
+#   show_sig_fit(H_dt)
+# }
+
+</code></pre>
+
+
+</div>

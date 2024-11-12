@@ -1,0 +1,191 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>restore_zeros</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Restore trailing zeros</h2>
+
+<h3>Description</h3>
+
+<p><code>restore_zeros()</code> takes a vector with values that might have
+lost trailing zeros, most likely from being registered as numeric. It turns
+each value into a string and adds trailing zeros until the mantissa hits
+some limit.
+</p>
+<p>The default for that limit is the number of digits in the longest mantissa
+of the vector's values. The length of the integer part plays no role.
+</p>
+<p>Don't rely on the default limit without checking: The original width could
+have been larger because the longest extant mantissa might itself have lost
+trailing zeros.
+</p>
+<p><code>restore_zeros_df()</code> is a variant for data frames. It wraps
+<code>restore_zeros()</code> and, by default, applies it to all columns that are
+coercible to numeric.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">restore_zeros(x, width = NULL, sep_in = "\\.", sep_out = sep_in)
+
+restore_zeros_df(
+  data,
+  cols = everything(),
+  check_numeric_like = TRUE,
+  check_decimals = FALSE,
+  width = NULL,
+  sep_in = "\\.",
+  sep_out = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Numeric (or string coercible to numeric). Vector of numbers that
+might have lost trailing zeros.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width</code></td>
+<td>
+<p>Integer. Number of decimal places the mantissas should have,
+including the restored zeros. Default is <code>NULL</code>, in which case the number
+of characters in the longest mantissa will be used instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sep_in</code></td>
+<td>
+<p>Substring that separates the input's mantissa from its integer
+part. Default is <code>"\\."</code>, which renders a decimal point.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sep_out</code></td>
+<td>
+<p>Substring that will be returned in the output to separate the
+mantissa from the integer part. By default, <code>sep_out</code> is the same as
+<code>sep_in</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Data frame or matrix. Only in <code>restore_zeros_df()</code>, and instead
+of <code>x</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cols</code></td>
+<td>
+<p>Only in <code>restore_zeros_df()</code>. Select columns from <code>data</code> using
+<a href="https://tidyselect.r-lib.org/reference/language.html">tidyselect</a>.
+Default is <code>everything()</code>, which selects all columns that pass the test of
+<code>check_numeric_like</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_numeric_like</code></td>
+<td>
+<p>Logical. Only in <code>restore_zeros_df()</code>. If <code>TRUE</code>
+(the default), the function will skip columns that are not numeric or
+coercible to numeric, as determined by <code>is_numeric_like()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_decimals</code></td>
+<td>
+<p>Logical. Only in <code>restore_zeros_df()</code>. If set to
+<code>TRUE</code>, the function will skip columns where no values have any decimal
+places. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Only in <code>restore_zeros_df()</code>. These dots must be empty.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>These functions exploit the fact that groups of summary values such
+as means or percentages are often reported to the same number of decimal
+places. If such a number is known but values were not entered as strings,
+trailing zeros will be lost. In this case, <code>restore_zeros()</code> or
+<code>restore_zeros_df()</code> will be helpful to prepare data for consistency
+testing functions such as <code>grim_map()</code> or <code>grimmer_map()</code>.
+</p>
+
+
+<h3>Value</h3>
+
+
+<ul>
+<li>
+<p> For <code>restore_zeros()</code>, a string vector. At least some of the strings
+will have newly restored zeros, unless (1) all input values had the same
+number of decimal places, and (2) <code>width</code> was not specified as a number
+greater than that single number of decimal places.
+</p>
+</li>
+<li>
+<p> For <code>restore_zeros_df()</code>, a data frame.
+</p>
+</li>
+</ul>
+<h3>Displaying decimal places</h3>
+
+<p>You might not see all decimal places of
+numeric values in a vector, and consequently wonder if <code>restore_zeros()</code>,
+when applied to the vector, adds too many zeros. That is because displayed
+numbers, unlike stored numbers, are often rounded.
+</p>
+<p>For a vector <code>x</code>, you can count the characters of the longest mantissa from
+among its values like this:
+</p>
+<p><code>x %&gt;% decimal_places() %&gt;% max()</code>
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Wrapped functions: <code>sprintf()</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># By default, the target width is that of
+# the longest mantissa:
+vec &lt;- c(212, 75.38, 4.9625)
+vec %&gt;%
+  restore_zeros()
+
+# Alternatively, supply a number via `width`:
+vec %&gt;%
+  restore_zeros(width = 6)
+
+# For better printing:
+iris &lt;- tibble::as_tibble(iris)
+
+# Apply `restore_zeros()` to all numeric
+# columns, but not to the factor column:
+iris %&gt;%
+  restore_zeros_df()
+
+# Select columns as in `dplyr::select()`:
+iris %&gt;%
+  restore_zeros_df(starts_with("Sepal"), width = 3)
+</code></pre>
+
+
+</div>

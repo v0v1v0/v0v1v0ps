@@ -1,0 +1,400 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>segment</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Segment a sound</h2>
+
+<h3>Description</h3>
+
+<p>Finds syllables and bursts separated by background noise in long recordings
+(up to 1-2 hours of audio per file). Syllables are defined as continuous
+segments that seem to be different from noise based on amplitude and/or
+spectral similarity thresholds. Bursts are defined as local maxima in signal
+envelope that are high enough both in absolute terms (relative to the global
+maximum) and with respect to the surrounding region (relative to local
+mimima). See vignette('acoustic_analysis', package = 'soundgen') for details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">segment(
+  x,
+  samplingRate = NULL,
+  from = NULL,
+  to = NULL,
+  shortestSyl = 40,
+  shortestPause = 40,
+  method = c("env", "spec", "mel")[3],
+  propNoise = NULL,
+  SNR = NULL,
+  noiseLevelStabWeight = c(1, 0.25),
+  windowLength = 40,
+  step = NULL,
+  overlap = 80,
+  reverbPars = list(reverbDelay = 70, reverbSpread = 130, reverbLevel = -35,
+    reverbDensity = 50),
+  interburst = NULL,
+  peakToTrough = SNR + 3,
+  troughLocation = c("left", "right", "both", "either")[4],
+  summaryFun = c("median", "sd"),
+  maxDur = 30,
+  reportEvery = NULL,
+  cores = 1,
+  plot = FALSE,
+  savePlots = NULL,
+  saveAudio = NULL,
+  addSilence = 50,
+  main = NULL,
+  xlab = "",
+  ylab = "Signal, dB",
+  showLegend = FALSE,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  maxPoints = c(1e+05, 5e+05),
+  specPlot = list(colorTheme = "bw"),
+  contourPlot = list(lty = 1, lwd = 2, col = "green"),
+  sylPlot = list(lty = 1, lwd = 2, col = "blue"),
+  burstPlot = list(pch = 8, cex = 3, col = "red"),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from, to</code></td>
+<td>
+<p>if NULL (default), analyzes the whole sound, otherwise
+from...to (s)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shortestSyl</code></td>
+<td>
+<p>minimum acceptable length of syllables, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shortestPause</code></td>
+<td>
+<p>minimum acceptable break between syllables, ms
+(syllables separated by shorter pauses are merged)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the signal used to search for syllables: 'env' =
+Hilbert-transformed amplitude envelope, 'spec' = spectrogram, 'mel' =
+mel-transformed spectrogram (see tuneR::melfcc)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>propNoise</code></td>
+<td>
+<p>the proportion of non-zero sound assumed to represent
+background noise, 0 to 1 (note that complete silence is not considered, so
+padding with silence won't affect the algorithm)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SNR</code></td>
+<td>
+<p>expected signal-to-noise ratio (dB above noise), which determines
+the threshold for syllable detection. The meaning of "dB" here is
+approximate since the "signal" may be different from sound intensity</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noiseLevelStabWeight</code></td>
+<td>
+<p>a vector of length 2 specifying the relative
+weights of the overall signal level vs. stability when attempting to
+automatically locate the regions that represent noise. Increasing the
+weight of stability tends to accentuate the beginning and end of each
+syllable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength</code></td>
+<td>
+<p>length of FFT window, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step</code></td>
+<td>
+<p>you can override <code>overlap</code> by specifying FFT step, ms (NB:
+because digital audio is sampled at discrete time intervals of
+1/samplingRate, the actual step and thus the time stamps of STFT frames
+may be slightly different, eg 24.98866 instead of 25.0 ms)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>overlap between successive FFT frames, %</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reverbPars</code></td>
+<td>
+<p>parameters passed on to <code>reverb</code> to attempt to
+cancel the effects of reverberation or echo, which otherwise tend to merge
+short and loud segments like rapid barks</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interburst</code></td>
+<td>
+<p>minimum time between two consecutive bursts (ms). Defaults
+to the average detected <code>(syllable + pause) / 2</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>peakToTrough</code></td>
+<td>
+<p>to qualify as a burst, a local maximum has to be at least
+<code>peakToTrough</code> dB above the left and/or right local trough(s)
+(controlled by <code>troughLocation</code>) over the analysis window (controlled
+by <code>interburst</code>). Defaults to SNR + 3 dB</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>troughLocation</code></td>
+<td>
+<p>should local maxima be compared to the trough on the
+left and/or right of it? Values: 'left', 'right', 'both', 'either'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>summaryFun</code></td>
+<td>
+<p>functions used to summarize each acoustic characteristic;
+see <code>analyze</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxDur</code></td>
+<td>
+<p>long files are split into chunks <code>maxDur</code> s in duration to
+avoid running out of RAM; the outputs for all fragments are glued together,
+but plotting is switched off. Note that noise profile is estimated in each
+chunk separately, so set it low if the background noise is highly variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, produces a segmentation plot</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>full path to the folder in which to save the plots (NULL =
+don't save, ” = same folder as audio)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveAudio</code></td>
+<td>
+<p>full path to the folder in which to save audio files (one
+per detected syllable)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>addSilence</code></td>
+<td>
+<p>if syllables are saved as separate audio files, they can be
+padded with some silence (ms)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlab, ylab, main</code></td>
+<td>
+<p>main plotting parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>showLegend</code></td>
+<td>
+<p>if TRUE, shows a legend for thresholds</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>parameters passed to
+<code>png</code> if the plot is saved</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxPoints</code></td>
+<td>
+<p>the maximum number of "pixels" in the oscillogram (if any)
+and spectrogram; good for quickly plotting long audio files; defaults to
+c(1e5, 5e5)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specPlot</code></td>
+<td>
+<p>a list of graphical parameters for displaying the spectrogram
+(if <code>method = 'spec' or 'mel'</code>); set to NULL to hide the spectrogram</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contourPlot</code></td>
+<td>
+<p>a list of graphical parameters for displaying the signal
+contour used to detect syllables (see details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sylPlot</code></td>
+<td>
+<p>a list of graphical parameters for displaying the syllables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>burstPlot</code></td>
+<td>
+<p>a list of graphical parameters for displaying the bursts</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters passed to graphics::plot</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Algorithm: for each chunk at most <code>maxDur</code> long, first the audio
+recording is partitioned into signal and noise regions: the quietest and most
+stable regions are located, and noise threshold is defined from a
+user-specified proportion of noise in the recording (<code>propNoise</code>) or, if
+<code>propNoise = NULL</code>, from the lowest local maximum in the density
+function of a weighted product of amplitude and stability (that is, we assume
+that quiet and stable regions are likely to represent noise). Once we know
+what the noise looks like - in terms of its typical amplitude and/or spectrum
+- we derive signal contour as its difference from noise at each time point.
+If <code>method = 'env'</code>, this is Hilbert transform minus noise, and if
+<code>method = 'spec' or 'mel'</code>, this is the inverse of cosine similarity
+between the spectrum of each frame and the estimated spectrum of noise
+weighted by amplitude. By default, signal-to-noise ratio (SNR) is estimated
+as half-median of above-noise signal, but it is recommended that this
+parameter is adjusted by hand to suit the purposes of segmentation, as it is
+the key setting that controls the balance between false negatives (missing
+faint signals) and false positives (hallucinating signals that are actually
+noise). Note also that effects of echo or reverberation can be taken into
+account: syllable detection threshold may be raised following powerful
+acoustic bursts with the help of the <code>reverbPars</code> argument. At the final
+stage, continuous "islands" SNR dB above noise level are detected as
+syllables, and "peaks" on the islands are detected as bursts. The algorithm
+is very flexible, but the parameters may be hard to optimize by hand. If you
+have an annotated sample of the sort of audio you are planning to analyze,
+with syllables and/or bursts counted manually, you can use it for automatic
+optimization of control parameters (see <code>optimizePars</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>summaryFun = NULL</code>, returns returns a list containing full
+stats on each syllable and burst (one row per syllable and per burst),
+otherwise returns only a dataframe with one row per file - a summary of the
+number and spacing of syllables and vocal bursts.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>analyze</code>  <code>ssm</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">sound = soundgen(nSyl = 4, sylLen = 100, pauseLen = 70,
+                 attackLen = 20, amplGlobal = c(0, -20),
+                 pitch = c(368, 284), temperature = .001)
+# add noise so SNR decreases from 20 to 0 dB from syl1 to syl4
+sound = sound + runif(length(sound), -10 ^ (-20 / 20), 10 ^ (-20 / 20))
+# osc(sound, samplingRate = 16000, dB = TRUE)
+# spectrogram(sound, samplingRate = 16000, osc = TRUE)
+# playme(sound, samplingRate = 16000)
+
+s = segment(sound, samplingRate = 16000, plot = TRUE)
+s
+
+# customizing the plot
+segment(sound, samplingRate = 16000, plot = TRUE,
+        sylPlot = list(lty = 2, col = 'gray20'),
+        burstPlot = list(pch = 16, col = 'blue'),
+        specPlot = list(col = rev(heat.colors(50))),
+        xlab = 'Some custom label', cex.lab = 1.2,
+        showLegend = TRUE,
+        main = 'My awesome plot')
+## Not run: 
+# set SNR manually to control detection threshold
+s = segment(sound, samplingRate = 16000, SNR = 1, plot = TRUE)
+
+# Download 260 sounds from the supplements to Anikin &amp; Persson (2017) at
+# http://cogsci.se/publications.html
+# unzip them into a folder, say '~/Downloads/temp'
+myfolder = '~/Downloads/temp260'  # 260 .wav files live here
+s = segment(myfolder, propNoise = .05, SNR = 3)
+
+# Check accuracy: import a manual count of syllables (our "key")
+key = segmentManual  # a vector of 260 integers
+trial = as.numeric(s$summary$nBursts)
+cor(key, trial, use = 'pairwise.complete.obs')
+boxplot(trial ~ as.integer(key), xlab='key')
+abline(a=0, b=1, col='red')
+
+# or look at the detected syllables instead of bursts:
+cor(key, s$summary$nSyl, use = 'pairwise.complete.obs')
+
+## End(Not run)
+</code></pre>
+
+
+</div>

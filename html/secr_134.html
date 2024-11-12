@@ -1,0 +1,244 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hcov</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Hybrid Mixture Model </h2>
+
+<h3>Description</h3>
+
+<p>The argument <code>hcov</code> in <code>secr.fit</code> is used to fit a hybrid
+mixture model. ‘Hybrid’ refers to a flexible combination of latent
+classes (as in a finite mixture) and known classes (cf groups or
+sessions). A hybrid mixture model includes a parameter ‘pmix’ for the
+mixing proportion and optionally allows detection parameters to be
+modelled as class-specific ( ~ h2). This is particularly useful for
+modelling sex ratio and sex differences in detection, and matches the
+Bayesian sex-specific model of Gardner et al. (2010).
+</p>
+<p>For observed animals all of unknown class the model is identical to a
+finite mixture (i.e. latent-class) model. For observed animals all of
+known class, the classes are no longer ‘latent’ and the model is
+equivalent to a grouped model with an additional binomial factor for
+class membership.
+</p>
+
+
+<h3>Assumptions</h3>
+
+<p><code>hcov</code> identifies a single individual covariate (the class
+covariate) that should be a factor with two levels, or contain
+character values that will be coerced to a factor (e.g., ‘f’,
+‘m’). Missing values (NA) are used for individuals of unknown
+class. If <code>hcov</code> has more than two levels, all but the first two
+levels are converted to NA (but see exception for h3 models below).
+</p>
+<p>It is assumed that the probability of recording a missing value for
+the class covariate is independent of the true class membership (e.g.,
+sex equally likely to be recorded for males and females).
+</p>
+
+
+<h3>Operational details</h3>
+
+<p>A hybrid mixture model is fitted whenever <code>hcov</code> is not
+NULL. Mixture models include a parameter ‘pmix’, the mixing
+proportion. If the covariate identified by <code>hcov</code> is missing (''
+or NA) for all individuals <em>and</em> a mixture term (h2 or h3)
+appears in the detection model (e.g., g0 ~ h2) then a conventional
+finite mixture model is fitted (cf Pledger 2000, Borchers &amp; Efford
+2008).
+</p>
+<p>As with finite mixture models, any detection parameter (g0, sigma
+etc.) may be modelled as depending on mixture class by model
+specifications such as (g0 ~ h2, sigma ~ h2). See Examples.
+</p>
+<p>In general <code>hcov</code> has been designed for two classes and two
+classes are assumed if neither ‘h2’ nor ‘h3’ appears in the model
+formulae. However, there is a small exception: <code>hcov</code> may have
+three non-missing levels if ‘h3’ appears in a model formula. Note
+that h2 cannot be combined with h3; h3 is for advanced use only and
+has not been fully tested.
+</p>
+<p>The number of fitted parameters is the same as the corresponding
+finite mixture model if mixture terms (‘h2’, ‘h3’) appear in the model
+formulae. Otherwise (no mixture terms) estimating pmix requires a
+single extra parameter. The estimate of pmix then depends solely on
+the observed class proportions in the covariate, and the beta
+variance-covariance matrix will show zero covariance of pmix with
+other detection parameters.
+</p>
+
+
+<h3>Models for pmix</h3>
+
+<p>Variation in the parameter pmix may be modelled across sessions i.e.,
+models such as pmix ~ session or pmix ~ Session are valid, as are
+formulae involving session covariates defined in the sessioncov
+argument of secr.fit.
+</p>
+<p>If no mixture term appears in the formula for pmix then one is added
+automatically (usually ‘h2’). This serves mostly to keep track of
+values in the output.
+</p>
+<p>Attempting to model pmix as a function of individual covariates or
+other within-session terms (t, b etc.) will cause an error.
+</p>
+
+
+<h3>Interpreting output</h3>
+
+<p>When you display a fitted secr model the parameter estimates are in a
+final section headed 'Fitted (real) parameters evaluated at base
+levels of covariates'. The same output may be obtained by calling the
+<code>predict</code> method directly. Calling <code>predict</code> has the advantage
+that you can obtain estimates for levels of the covariates other than
+the base levels, by specifying <code>newdata</code>. An example below shows
+how to specify h2 in <code>newdata</code>. [Note: <code>predict</code>
+is generic, and you must consult ?predict.secr to see the help for the
+specific implementation of this method for fitted secr objects].
+</p>
+<p>The output from <code>predict.secr</code> for a mixture model is a list with
+one component for each (possibly latent) class. Each row corresponds
+to a fitted real parameter: ordinarily these include the detection
+parameters (e.g., g0, sigma) and the mixing proportion (pmix).
+</p>
+<p>In the case of a model fitted by maximizing the full likelihood
+(<code>CL = FALSE</code>), density D will also appear in the output. Note
+that only one parameter for density is estimated, the total density
+across classes. This total density figure appears twice in the
+output, once for each class.
+</p>
+<p>The standard error (SE.estimate) is shown for each parameter. These
+are asymptotic estimates back-transformed from the link scale. The
+confidence limits are also back-transformed from the link scale (95%
+CI by default; vary <code>alpha</code> in <code>predict.secr</code> if you want
+e.g. 90% CI).
+</p>
+<p>The mixing proportion pmix depends on the composition of the sample
+with respect to <code>hcov</code> and the detection model. For a null
+detection model the mixing proportion is exactly the proportion in the
+sample, with appropriate binomial confidence limits. Otherwise, the
+mixing proportion adjusts for class differences in the probability and
+scale of detection (see Examples).
+</p>
+<p>The preceding refers to the default behaviour when pmix ~ h2. It is
+possible also to fix the mixing proportion at any arbitrary value
+(e.g., fixed = list(pmix = 0.5) for 1:1 sex ratio).
+</p>
+<p>On output the classes are tagged with the factor levels of <code>hcov</code>,
+regardless of how few or how many individuals were actually of known
+class. If only a small fraction were of known class, and there is
+cryptic variation unrelated to <code>hcov</code>, then the association
+between the fitted classes and the nominal classes (i.e. levels of
+<code>hcov</code>) may be weak, and should not be trusted.
+</p>
+
+
+<h3>Limitations</h3>
+
+<p>Hybrid mixture models are incompatible with groups as presently
+implemented.
+</p>
+<p>The hcov likelihood conditions on the number of known-class
+individuals. A model fitted with <code>hcov = NULL</code> or with a
+different hcov covariate has in effect a different data set, and
+likelihoods, deviances or AICs cannot be compared. AIC can be used to
+compare models provided they all have the same hcov covariate in the
+call to <code>secr.fit</code>, whether or not h2 appears in the model
+definition.
+</p>
+
+
+<h3>Likelihood</h3>
+
+<p>The likelihood of the hybrid mixture model is detailed in an appendix of
+the vignette <a href="https://www.otago.ac.nz/density/pdfs/secr-finitemixtures.pdf">secr-finitemixtures.pdf</a>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Borchers, D.L. and Efford, M.G. (2008) Spatially explicit maximum
+likelihood methods for capture–recapture studies. <em>Biometrics</em> <b>64</b>,
+377–385.
+</p>
+<p>Gardner, B., Royle, J.A., Wegan, M.T., Rainbolt, R. and Curtis,
+P. (2010) Estimating black bear density using DNA data from hair
+snares. <em>Journal of Wildlife Management</em> <b>74</b>, 318–325.
+</p>
+<p>Pledger, S. (2000) Unified maximum likelihood estimates for
+closed capture–recapture models using mixtures. <em>Biometrics</em> <b>56</b>,
+434–442.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>secr.fit </code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+## house mouse dataset, morning trap clearances
+## 81 female, 78 male, 1 unknown
+morning &lt;- subset(housemouse, occ = c(1,3,5,7,9))
+summary(covariates(morning))
+
+## speedy model fitting with coarse mask
+mmask &lt;- make.mask(traps(morning), buffer = 20, nx = 32)
+
+## assuming equal detection of males and females
+## fitted sex ratio p(female) = 0.509434 = 81 / (81 + 78)
+fit.0 &lt;- secr.fit(morning, hcov = "sex", mask = mmask, trace = FALSE)
+predict(fit.0)
+
+## allowing sex-specific detection parameters
+## this leads to new estimate of sex ratio 
+fit.h2 &lt;- secr.fit(morning, hcov = "sex", mask = mmask, trace = FALSE,
+    model = list(g0 ~ h2, sigma ~ h2))
+predict(fit.h2)
+
+## specifying newdata for h2 - equivalent to predict(fit.h2)
+predict(fit.h2, newdata = data.frame(h2 = factor(c('f','m'))))
+
+## conditional likelihood fit of preceding model
+## estimate of sex ratio does not change 
+fit.CL.h2 &lt;- secr.fit(morning, hcov = "sex", mask = mmask, trace = FALSE,
+    CL = TRUE, model = list(g0 ~ h2, sigma ~ h2))
+predict(fit.CL.h2)
+
+## did sexes differ in detection parameters?
+fit.CL.0 &lt;- secr.fit(morning, hcov = "sex", mask = mmask, trace = FALSE,
+    CL = TRUE, model = list(g0 ~ 1, sigma ~ 1))
+LR.test(fit.CL.h2, fit.CL.0)
+
+## did sex ratio deviate from 1:1?
+fit.CL.h2.50 &lt;- secr.fit(morning, hcov = "sex", mask = mmask, trace = FALSE,
+    CL = TRUE, model = list(g0 ~ h2, sigma ~ h2), fixed = list(pmix = 0.5))
+LR.test(fit.CL.h2, fit.CL.h2.50)
+
+## did sexes show extra-compensatory variation in lambda0?
+## (Efford and Mowat 2014)
+fit.CL.a0 &lt;- secr.fit(morning, hcov = "sex", mask = mmask, trace = FALSE,
+    CL = TRUE, model = list(a0 ~ 1, sigma ~ h2))
+LR.test(fit.CL.h2, fit.CL.a0)
+
+## trend in ovenbird sex ratio, assuming sex-specific detection
+omask &lt;- make.mask(traps(ovenCH), buffer = 300, nx = 32)
+fit.sextrend &lt;- secr.fit(ovenCH, model = list(g0~h2, sigma~h2, pmix~Session),
+    hcov = "Sex", CL = TRUE, mask = omask, trace = FALSE)
+predict(fit.sextrend)[1:5]
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

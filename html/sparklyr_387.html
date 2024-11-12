@@ -1,0 +1,211 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spark_apply</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Apply an R Function in Spark</h2>
+
+<h3>Description</h3>
+
+<p>Applies an R function to a Spark object (typically, a Spark DataFrame).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spark_apply(
+  x,
+  f,
+  columns = NULL,
+  memory = TRUE,
+  group_by = NULL,
+  packages = NULL,
+  context = NULL,
+  name = NULL,
+  barrier = NULL,
+  fetch_result_as_sdf = TRUE,
+  partition_index_param = "",
+  arrow_max_records_per_batch = NULL,
+  auto_deps = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object (usually a <code>spark_tbl</code>) coercable to a Spark DataFrame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+<p>A function that transforms a data frame partition into a data frame.
+The function <code>f</code> has signature <code>f(df, context, group1, group2, ...)</code> where
+<code>df</code> is a data frame with the data to be processed, <code>context</code>
+is an optional object passed as the <code>context</code> parameter and <code>group1</code> to
+<code>groupN</code> contain the values of the <code>group_by</code> values. When
+<code>group_by</code> is not specified, <code>f</code> takes only one argument.
+</p>
+<p>Can also be an <code>rlang</code> anonymous function. For example, as <code>~ .x + 1</code>
+to define an expression that adds one to the given <code>.x</code> data frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>columns</code></td>
+<td>
+<p>A vector of column names or a named vector of column types for
+the transformed object. When not specified, a sample of 10 rows is taken to
+infer out the output columns automatically, to avoid this performance penalty,
+specify the column types. The sample size is configurable using the
+<code>sparklyr.apply.schema.infer</code> configuration option.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>memory</code></td>
+<td>
+<p>Boolean; should the table be cached into memory?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_by</code></td>
+<td>
+<p>Column name used to group by data frame partitions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>packages</code></td>
+<td>
+<p>Boolean to distribute <code>.libPaths()</code> packages to each node,
+a list of packages to distribute, or a package bundle created with
+<code>spark_apply_bundle()</code>.
+</p>
+<p>Defaults to <code>TRUE</code> or the <code>sparklyr.apply.packages</code> value set in
+<code>spark_config()</code>.
+</p>
+<p>For clusters using Yarn cluster mode, <code>packages</code> can point to a package
+bundle created using <code>spark_apply_bundle()</code> and made available as a Spark
+file using <code>config$sparklyr.shell.files</code>. For clusters using Livy, packages
+can be manually installed on the driver node.
+</p>
+<p>For offline clusters where <code>available.packages()</code> is not available,
+manually download the packages database from
+https://cran.r-project.org/web/packages/packages.rds and set
+<code>Sys.setenv(sparklyr.apply.packagesdb = "&lt;pathl-to-rds&gt;")</code>. Otherwise,
+all packages will be used by default.
+</p>
+<p>For clusters where R packages already installed in every worker node,
+the <code>spark.r.libpaths</code> config entry can be set in <code>spark_config()</code>
+to the local packages library. To specify multiple paths collapse them
+(without spaces) with a comma delimiter (e.g., <code>"/lib/path/one,/lib/path/two"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>context</code></td>
+<td>
+<p>Optional object to be serialized and passed back to <code>f()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>Optional table name while registering the resulting data frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>barrier</code></td>
+<td>
+<p>Optional to support Barrier Execution Mode in the scheduler.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fetch_result_as_sdf</code></td>
+<td>
+<p>Whether to return the transformed results in a Spark
+Dataframe (defaults to <code>TRUE</code>). When set to <code>FALSE</code>, results will be
+returned as a list of R objects instead.
+</p>
+<p>NOTE: <code>fetch_result_as_sdf</code> must be set to <code>FALSE</code> when the transformation
+function being applied is returning R objects that cannot be stored in a Spark
+Dataframe (e.g., complex numbers or any other R data type that does not have an
+equivalent representation among Spark SQL data types).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>partition_index_param</code></td>
+<td>
+<p>Optional if non-empty, then <code>f</code> also receives
+the index of the partition being processed as a named argument with this name, in
+addition to all positional argument(s) it will receive
+</p>
+<p>NOTE: when <code>fetch_result_as_sdf</code> is set to <code>FALSE</code>, object returned from the
+transformation function also must be serializable by the <code>base::serialize</code>
+function in R.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>arrow_max_records_per_batch</code></td>
+<td>
+<p>Maximum size of each Arrow record batch,
+ignored if Arrow serialization is not enabled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>auto_deps</code></td>
+<td>
+<p>[Experimental] Whether to infer all required R packages by
+examining the closure <code>f()</code> and only distribute required R and their
+transitive dependencies to Spark worker nodes (default: FALSE).
+NOTE: this option will only take effect if <code>packages</code> is set to
+<code>TRUE</code> or is a character vector of R package names. If <code>packages</code>
+is a character vector of R package names, then both the set of packages
+specified by <code>packages</code> and the set of inferred packages will be
+distributed to Spark workers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Optional arguments; currently unused.</p>
+</td>
+</tr>
+</table>
+<h3>Configuration</h3>
+
+<p><code>spark_config()</code> settings can be specified to change the workers
+environment.
+</p>
+<p>For instance, to set additional environment variables to each
+worker node use the <code>sparklyr.apply.env.*</code> config, to launch workers
+without <code>--vanilla</code> use <code>sparklyr.apply.options.vanilla</code> set to
+<code>FALSE</code>, to run a custom script before launching Rscript use
+<code>sparklyr.apply.options.rscript.before</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+
+library(sparklyr)
+sc &lt;- spark_connect(master = "local[3]")
+
+# creates an Spark data frame with 10 elements then multiply times 10 in R
+sdf_len(sc, 10) %&gt;% spark_apply(function(df) df * 10)
+
+# using barrier mode
+sdf_len(sc, 3, repartition = 3) %&gt;%
+  spark_apply(nrow, barrier = TRUE, columns = c(id = "integer")) %&gt;%
+  collect()
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

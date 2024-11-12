@@ -1,0 +1,504 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>svcAbund</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Univariate Spatialy-Varying Coefficient GLMMs</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>svcAbund</code> fits univariate spatially-varying coefficient GLMMs.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">svcAbund(formula, data, inits, priors, tuning,
+         svc.cols = 1, cov.model = 'exponential', NNGP = TRUE,
+         n.neighbors = 15, search.type = 'cb', n.batch,
+         batch.length, accept.rate = 0.43, family = 'Poisson',
+         n.omp.threads = 1, verbose = TRUE, n.report = 100,
+         n.burn = round(.10 * n.batch * batch.length), n.thin = 1,
+         n.chains = 1, save.fitted = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random intercepts
+and slopes are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>covs</code>, <code>z</code>, <code>coords</code>, and <code>offset</code>. <code>y</code>
+is a vector, matrix, or data frame of the observed count values. If a vector,
+the values represent the observed counts at each site. If multiple replicate
+observations are obtained at the sites (e.g., sub-samples, repeated sampling over
+multiple seasons), <code>y</code> can be specified as a matrix or data frame
+with first dimension equal to the number of
+sites (<code class="reqn">J</code>) and second dimension equal to the maximum number of
+replicates at a given site. <code>covs</code> is either a data frame or list
+containing the variables used in the model. When only fitting a model with site-level
+data, <code>covs</code> can be specified as a data frame, with each row corresponding to
+site and each column corresponding to a variable. When multiple abundance values
+are available at a site, <code>covs</code> is specified as a list, where each list element is a different
+covariate, which can be site-level or observation-level. Site-level covariates
+are specified as a vector of length <code class="reqn">J</code>, while observation-level covariates
+are specified as a matrix or data frame with the number of rows equal to <code class="reqn">J</code>
+and number of columns equal to the maximum number of replicate observations at a
+given site. <code>coords</code> is a <code class="reqn">J \times 2</code> matrix of the observation coordinates.
+Note that <code>spAbundance</code> assumes coordinates are specified
+in a projected coordinate system. For zero-inflated Gaussian models, the tag <code>z</code> is
+used to specify the binary component of the zero-inflated model and should have the same
+length as <code>y</code>. <code>offset</code> is an offset to use in the abundance model (e.g., an area offset).
+This can be either a single value, a vector with an offset for each site (e.g., if survey area differed in size), or a site x replicate matrix if more than one count is available at a given site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>beta</code>, <code>sigma.sq</code>,
+<code>phi</code>, <code>w</code>, <code>nu</code>, <code>tau.sq</code>, <code>sigma.sq.mu</code>, <code>kappa</code>.
+<code>nu</code> is only specified if <code>cov.model = "matern"</code>, <code>sigma.sq.mu</code>
+is only specified if there are random effects in <code>formula</code>, and
+The value portion of each tag is the parameter's initial value. See <code>priors</code>
+description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code>
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>beta.normal</code>, <code>phi.unif</code>,
+<code>sigma.sq.ig</code>, <code>nu.unif</code>, <code>tau.sq.ig</code>,
+<code>sigma.sq.mu.ig</code>, <code>kappa.unif</code>. Abundance (<code>beta</code>) regression coefficients
+are assumed to follow a normal distribution. The hyperparameters of the
+normal distribution are passed as a list of length two with the first
+and second elements corresponding to the mean and variance of the normal
+distribution, which are each specified as vectors of
+length equal to the number of coefficients to be estimated or of length
+one if priors are the same for all coefficients. If not
+specified, prior means are set to 0 and prior variances are set to 100. The
+spatial variance parameter, <code>sigma.sq</code>, and the Gaussian
+residual variance parameter, <code>tau.sq</code>, are assumed to follow an
+inverse-Gamma distribution. The spatial decay <code>phi</code> and spatial
+smoothness <code>nu</code>, parameters are assumed to follow Uniform
+distributions. The hyperparameters of the inverse-Gamma for <code>sigma.sq</code>
+is passed as a list of length two with the first and second elements corresponding
+to the shape and scale parameters of the inverse-Gamma distribution either for
+each spatially-varying coefficient, or a single value if assuming the same values
+for all spatially-varying coefficients. The hyperparameters of the inverse-Gamma for
+<code>tau.sq</code> is passed as a vector of length two, with the first and second
+elements corresponding to the <em>shape</em> and <em>scale</em>, respectively.
+The hyperparameters of the Uniform are also passed as a list of
+length two with the first and second elements corresponding to
+the lower and upper support, respectively, for each SVC or a single value
+if giving the same prior for each SVC. <code>sigma.sq.mu</code>
+are the random effect variances for any random effects, and are assumed to follow an
+inverse-Gamma distribution. The hyperparameters of
+the inverse-Gamma distribution are passed as a list of length two with the
+first and second elements corresponding to the shape and scale parameters,
+respectively, which are each specified as vectors of length equal to the
+number of random effects or of length one if priors are the same for all
+random effect variances. The negative binomial dispersion parameter <code>kappa</code> is 
+assumed to follow a Uniform distribution. The hyperparameters of the Uniform are passed 
+as a vector of length two with the first and second elements corresponding to the
+lower and upper support, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>svc.cols</code></td>
+<td>
+<p>a vector indicating the variables whose effects will be
+estimated as spatially-varying coefficients. <code>svc.cols</code> can be an
+integer vector with values indicating the order of covariates specified
+in the model formula (with 1 being the intercept if specified), or it can
+be specified as a character vector with names corresponding to variable
+names in <code>occ.covs</code> (for the intercept, use '(Intercept)'). <code>svc.cols</code>
+default argument of 1 results in a univariate spatial GLMM analogous to
+<code>spAbund</code> (assuming an intercept is included in the model).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name,
+whose value defines the initial variance of the adaptive sampler.
+Valid tags are <code>phi</code> and <code>nu</code>. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>NNGP</code></td>
+<td>
+<p>if <code>TRUE</code>, model is fit with an NNGP. See Datta et al. (2016) and
+Finley et al. (2019) for more information. Currently only NNGP is supported,
+functionality for a full GP may be addded in future package development.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP. Only used if
+<code>NNGP = TRUE</code>. Datta et al. (2016) showed that 15 neighbors is usually
+sufficient, but that as few as 5 neighbors can be adequate for certain data
+sets, which can lead to even greater decreases in run time. We recommend
+starting with 15 neighbors (the default) and if additional gains in computation
+time are desired, subsequently compare the results with a smaller number
+of neighbors using WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search.type</code></td>
+<td>
+<p>a quoted keyword that specifies the type of nearest
+neighbor search algorithm. Supported method key words are: <code>"cb"</code> and
+<code>"brute"</code>. The <code>"cb"</code> should generally be much
+faster. If locations do not have identical coordinate values on
+the axis used for the nearest neighbor ordering then <code>"cb"</code>
+and <code>"brute"</code> should produce identical neighbor sets.
+However, if there are identical coordinate values on the axis used
+for nearest neighbor ordering, then <code>"cb"</code> and <code>"brute"</code>
+might produce different, but equally valid, neighbor sets,
+e.g., if data are on a grid. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches in each chain to run for the adaptive MCMC
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch in each chain to run for the adaptive
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for adaptive MCMC. Default is
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>the distribution to use for the latent abundance process. Currently
+supports <code>'NB'</code> (negative binomial), <code>'Poisson'</code>, <code>'Gaussian'</code>,
+and <code>'zi-Gaussian'</code>. Default is Poisson.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating
+the number of threads to use for SMP parallel processing. The package must
+be compiled for OpenMP support. For most Intel-based machines, we
+recommend setting <code>n.omp.threads</code> up to the number of
+hyperthreaded cores. Note, <code>n.omp.threads</code> &gt; 1 might not
+work on some systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation,
+model specification, and progress of the sampler are printed to the screen.
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis sampler acceptance and
+MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.batch * batch.length</code>
+samples in each chain to discard as burn-in. By default, the first
+10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of MCMC chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save.fitted</code></td>
+<td>
+<p>logical value indicating whether or not fitted values and likelihood values
+should be saved in the resulting model object. If <code>save.fitted = FALSE</code>, the components
+<code>y.rep.samples</code>, <code>mu.samples</code>, and <code>like.samples</code> will not be included
+in the model object, and subsequent functions for calculating WAIC, fitted values, and
+posterior predictive checks will not work, although they all can be calculated manually if
+desired. Setting <code>save.fitted = FALSE</code> can be useful when working with very large
+data sets to minimize the amount of RAM needed when fitting and storing the model object in
+memory.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>svcAbund</code> that is a list comprised of:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the residual variance parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance dispersion parameter. Only included when
+<code>family = 'NB'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y.rep.samples</code></td>
+<td>
+<p>a two or three-dimensional object of posterior samples
+for the abundance replicate (fitted) values with dimensions
+corresponding to MCMC samples, site, and replicate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu.samples</code></td>
+<td>
+<p>a two or -three-dimensional array of posterior samples
+for the expected abundance samples with dimensions corresponding
+to MCMC samples, site, and replicate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for spatial covariance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples
+for the spatially-varying coefficients with dimensions corresponding
+to MCMC sample, SVC, and site.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.mu.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random effects included in the model.
+Only included if random effects are specified in
+<code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the abundance random effects. Only included if random effects
+are specified in <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>like.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the likelihood value associated with each site. Used for calculating
+WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for
+subsequent prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Datta, A., S. Banerjee, A.O. Finley, and A.E. Gelfand. (2016)
+Hierarchical Nearest-Neighbor Gaussian process models for large
+geostatistical datasets. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1080/01621459.2015.1044091">doi:10.1080/01621459.2015.1044091</a>.
+</p>
+<p>Finley, A.O., A. Datta, B.D. Cook, D.C. Morton, H.E. Andersen, and
+S. Banerjee. (2019) Efficient algorithms for Bayesian Nearest Neighbor
+Gaussian Processes. <em>Journal of Computational and Graphical
+Statistics</em>, <a href="https://doi.org/10.1080/10618600.2018.1537924">doi:10.1080/10618600.2018.1537924</a>.
+</p>
+<p>Roberts, G.O. and Rosenthal J.S. (2009) Examples  of adaptive MCMC.
+<em>Journal of Computational and Graphical Statistics</em>, 18(2):349-367.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(1000)
+# Sites
+J.x &lt;- 10
+J.y &lt;- 10
+J &lt;- J.x * J.y
+# Abundance ---------------------------
+beta &lt;- c(5, 0.5, -0.2, 0.75)
+p &lt;- length(beta)
+mu.RE &lt;- list()
+mu.RE &lt;- list(levels = c(35, 40),
+              sigma.sq.mu = c(0.7, 1.5),
+              beta.indx = list(1, 1))
+# Spatial parameters ------------------
+sp &lt;- TRUE
+svc.cols &lt;- c(1, 2)
+p.svc &lt;- length(svc.cols)
+cov.model &lt;- "exponential"
+sigma.sq &lt;- runif(p.svc, 0.4, 4)
+phi &lt;- runif(p.svc, 3/1, 3/0.6)
+tau.sq &lt;- 2
+z &lt;- rbinom(J, 1, 0.5)
+
+# Get all the data
+dat &lt;- simAbund(J.x = J.x, J.y = J.y, beta = beta, tau.sq = tau.sq,
+                mu.RE = mu.RE, sp = sp, svc.cols = svc.cols,
+                family = 'zi-Gaussian', cov.model = cov.model,
+                sigma.sq = sigma.sq, phi = phi, z = z)
+# Get data in format for spAbundance --------------------------------------
+y &lt;- dat$y
+X &lt;- dat$X
+X.re &lt;- dat$X.re
+coords &lt;- dat$coords
+
+# Package all data into a list
+covs &lt;- cbind(X, X.re)
+colnames(covs) &lt;- c('int', 'cov.1', 'cov.2', 'cov.3', 'factor.1', 'factor.2')
+
+# Data list bundle
+data.list &lt;- list(y = y, covs = covs, coords = coords, z = z)
+# Priors
+prior.list &lt;- list(beta.normal = list(mean = 0, var = 1000),
+                   sigma.sq.ig = list(a = 2, b = 1), tau.sq = c(2, 1),
+                   sigma.sq.mu.ig = list(a = 2, b = 1),
+                   phi.unif = list(a = 3 / 1, b = 3 / 0.1))
+
+# Starting values
+inits.list &lt;- list(beta = 0, alpha = 0,
+                   sigma.sq = 1, phi = 3 / 0.5,
+                   tau.sq = 2, sigma.sq.mu = 0.5)
+# Tuning
+tuning.list &lt;- list(phi = 1)
+
+n.batch &lt;- 10
+batch.length &lt;- 25
+n.burn &lt;- 100
+n.thin &lt;- 1
+
+out &lt;- svcAbund(formula = ~ cov.1 + cov.2 + cov.3 +
+                            (1 | factor.1) + (1 | factor.2),
+                svc.cols = c(1, 2),
+                data = data.list,
+                n.batch = n.batch,
+                batch.length = batch.length,
+                inits = inits.list,
+                priors = prior.list,
+                accept.rate = 0.43,
+                family = 'zi-Gaussian',
+                cov.model = "exponential",
+                tuning = tuning.list,
+                n.omp.threads = 1,
+                verbose = TRUE,
+                NNGP = TRUE,
+                n.neighbors = 5,
+                n.report = 25,
+                n.burn = n.burn,
+                n.thin = n.thin,
+                n.chains = 3)
+</code></pre>
+
+
+</div>

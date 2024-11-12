@@ -1,0 +1,202 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>likelihood.adjustment</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Adjustment and Approximation of Individual Likelihood Functions
+</h2>
+
+<h3>Description</h3>
+
+<p>Approximates individual likelihood functions <code class="reqn">L(\bold{X}_p | \theta)</code>
+by normal distributions (see Mislevy, 1990). Extreme response patterns
+are handled by adding pseudo-observations of items with extreme item
+difficulties (see argument <code>extreme.item</code>. The individual standard
+deviations of the likelihood, used in the normal approximation, can be
+modified by individual adjustment factors which are specified in <code>adjfac</code>.
+In addition, a reliability of the adjusted likelihood can be specified
+in <code>target.EAP.rel</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">likelihood.adjustment(likelihood, theta=NULL, prob.theta=NULL,
+     adjfac=rep(1, nrow(likelihood)), extreme.item=5, target.EAP.rel=NULL,
+     min_tuning=0.2, max_tuning=3, maxiter=100, conv=1e-04,
+     trait.normal=TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>likelihood</code></td>
+<td>
+
+<p>A matrix containing the individual likelihood <code class="reqn">L(\bold{X}_p | \theta)</code> or
+an object of class <code>IRT.likelihood</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+
+<p>Optional vector of (unidimensional) <code class="reqn">\theta</code> values
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prob.theta</code></td>
+<td>
+
+<p>Optional vector of probabilities of <code class="reqn">\theta</code> trait distribution
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjfac</code></td>
+<td>
+
+<p>Vector with individual adjustment factors of the standard deviations of the
+likelihood
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>extreme.item</code></td>
+<td>
+
+<p>Item difficulties of two extreme pseudo items which are added as additional
+observed data to the likelihood. A large number (e.g. <code>extreme.item=15</code>)
+leaves the likelihood almost unaffected. See also Mislevy (1990).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target.EAP.rel</code></td>
+<td>
+
+<p>Target EAP reliability. An additional tuning parameter is estimated
+which adjusts the likelihood to obtain a pre-specified reliability.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_tuning</code></td>
+<td>
+
+<p>Minimum value of tuning parameter (if <code>! is.null(target.EAP.rel) </code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_tuning</code></td>
+<td>
+
+<p>Maximum value of tuning parameter (if <code>! is.null(target.EAP.rel) </code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+
+<p>Maximum number of iterations (if <code>! is.null(target.EAP.rel) </code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conv</code></td>
+<td>
+
+<p>Convergence criterion (if <code>! is.null(target.EAP.rel) </code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trait.normal</code></td>
+<td>
+
+<p>Optional logical indicating whether the trait distribution should be
+normally distributed (if <code>! is.null(target.EAP.rel) </code>).
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Object of class <code>IRT.likelihood</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Mislevy, R. (1990). Scaling procedures. In E. Johnson &amp; R. Zwick (Eds.),
+<em>Focusing the new design: The NAEP 1988 technical report</em> (ETS RR 19-20).
+Princeton, NJ: Educational Testing Service.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>CDM::IRT.likelihood</code>,
+<code>TAM::tam.latreg</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+#############################################################################
+# EXAMPLE 1: Adjustment of the likelihood | data.read
+#############################################################################
+
+library(CDM)
+library(TAM)
+data(data.read)
+dat &lt;- data.read
+
+# define theta grid
+theta.k &lt;- seq(-6,6,len=41)
+
+#*** Model 1: fit Rasch model in TAM
+mod1 &lt;- TAM::tam.mml( dat, control=list( nodes=theta.k) )
+summary(mod1)
+
+#*** Model 2: fit Rasch copula model
+testlets &lt;- substring( colnames(dat), 1, 1 )
+mod2 &lt;- sirt::rasch.copula2( dat, itemcluster=testlets, theta.k=theta.k)
+summary(mod2)
+
+# model comparison
+IRT.compareModels( mod1, mod2 )
+
+# extract EAP reliabilities
+rel1 &lt;- mod1$EAP.rel
+rel2 &lt;- mod2$EAP.Rel
+# variance inflation factor
+vif &lt;- (1-rel2) / (1-rel1)
+  ##  &gt; vif
+  ##  [1] 1.211644
+
+# extract individual likelihood
+like1 &lt;- IRT.likelihood( mod1 )
+# adjust likelihood from Model 1 to obtain a target EAP reliability of .599
+like1b &lt;- sirt::likelihood.adjustment( like1, target.EAP.rel=.599 )
+
+# compare estimated latent regressions
+lmod1a &lt;- TAM::tam.latreg( like1, Y=NULL )
+lmod1b &lt;- TAM::tam.latreg( like1b, Y=NULL )
+summary(lmod1a)
+summary(lmod1b)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

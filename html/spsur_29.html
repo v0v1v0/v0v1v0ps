@@ -1,0 +1,509 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spsurgs3sls</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>General Spatial 3SLS for systems of spatial equations.</h2>
+
+<h3>Description</h3>
+
+<p>The function estimates spatial SUR models using 
+general spatial three stages least squares. This is a 
+system instrumental variable procedure which also include 
+GMM estimation when there is spatial correlations in the errors.
+The procedure allows for additional endogenous regressors in
+addition to spatial lags of the dependent variable. It could 
+be applied to "slm", "sdm", "sem" and "sarar" spatial models. 
+Furthermore, for non-spatial models including endogenous 
+regressors ("iv"), it could be used to estimate using 
+instrumental variables and Feasible Generalized Least Squares.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spsurgs3sls(formula = NULL, data = NULL, na.action,
+                  listw = NULL, zero.policy = NULL, 
+                  type = "slm", Durbin = FALSE,
+                  endog = NULL, instruments = NULL,
+                  lag.instr = FALSE, initial.value = 0.2, 
+                  het = FALSE, trace = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>An object type <code>Formula</code> 
+similar to objects created with the package <span class="pkg">Formula</span> 
+describing the equations to be estimated in the model. 
+This model may contain several responses (explained 
+variables) and a varying number of regressors in each equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An object of class data.frame or a matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+<p>A function (default <code>options("na.action")</code>),
+can also be <code>na.omit</code> or <code>na.exclude</code> with consequences 
+for residuals and fitted values. It may be necessary to set 
+<code>zero.policy</code> to <code>TRUE</code> because this subsetting may 
+create no-neighbour observations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>listw</code></td>
+<td>
+<p>A <code>listw</code> object created for example by 
+<code>nb2listw</code> from <span class="pkg">spatialreg</span> package; if 
+<code>nb2listw</code> not given, set to 
+the same spatial weights as the <code>listw</code> argument. It can
+also be a spatial weighting matrix of order <em>(NxN)</em> instead of
+a <code>listw</code> object. Default = <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zero.policy</code></td>
+<td>
+<p>Similar to the corresponding parameter of 
+<code>lagsarlm</code> function in <span class="pkg">spatialreg</span> package. 
+(NxN) instead of a listw object. Default = NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Type of spatial model specification: "sim", "iv",
+"slm", "sem", "sdm" or "sarar" . Default = "slm".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Durbin</code></td>
+<td>
+<p>If a formula object and model is type "sdm"
+the subset of explanatory variables to lag for each equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endog</code></td>
+<td>
+<p>Additional endogenous variables. Default <em>NULL</em>. 
+If not <em>NULL</em> should be specified as a 
+<code>Formula</code> with no dependent variable. 
+Examples: ~ x1 | x2 (x1 endogeous regressor for the first 
+equation and x2 endogeneous regressor for the second equation) 
+or ~ x1 | . (x1 endogenous regressor for the first equation and 
+none endogenous regressors for the second equation)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>instruments</code></td>
+<td>
+<p>external instruments. Default <em>NULL</em>. If not 
+<em>NULL</em> should be specified as a formula with no 
+dependent variable in the same way than 
+previous <em>endog</em> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lag.instr</code></td>
+<td>
+<p>should the external instruments be spatially lagged?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initial.value</code></td>
+<td>
+<p>he initial value for rho. It can be either numeric
+(default is 0.2) or set to 'SAR', in which case the optimization 
+will start from the estimated coefficient of a regression of 
+the 2SLS residuals over their spatial lag (i.e. a spatial 
+AR model)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>het</code></td>
+<td>
+<p>default FALSE: if TRUE uses the methods 
+developed for heteroskedasticity for each equation. 
+Wrapper using <code>spreg</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p>A logical value to show intermediate results during 
+the estimation process. Default = <code>TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><em>spsurg3sls</em> generalize the <code>spreg</code> function
+to multiequational spatial SUR models. The methodology to estimate
+spatial SUR models by Generalized 3SLS follows the steps outlined in
+Kelejian and Piras (pp. 304-305). The summary of the algorithm is
+the next one:
+</p>
+ 
+<ul>
+<li>
+<p> Estimate each equation by 2SLS and obtain the estimated 
+residuals <code class="reqn">\hat{u}_j</code> for each equation. 
+</p>
+</li>
+<li>
+<p> If the model includes a spatial lag for the errors. 
+(that is, it is a SEM/SARAR model), apply GMM to obtain 
+the spatial parameters <code class="reqn">\hat{\lambda}_j</code> for the residuals
+in each equation. In this case the <code>spreg</code> 
+function is used as a wrapper for the GMM estimation. If the
+model does not include a spatial lag for the errors (that is, 
+it is a "sim", "iv", "slm" or "sdm" model), then <code class="reqn">\hat{\lambda}_j = 0</code>
+</p>
+</li>
+<li>
+<p> Compute 
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{v}_j = \hat{u}_j-\hat{\lambda}_j W \hat{u}_j</code>
+</p>
+ 
+<p>and the covariances 
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{\sigma}_{i,j} = N^{-1}\hat{v}_i\hat{v}_j</code>
+</p>
+<p>. 
+Build <code class="reqn">\hat{Sigma}=\lbrace \hat{\sigma_{i,j}} \rbrace</code>
+</p>
+</li>
+<li>
+<p> Compute 
+</p>
+<p style="text-align: center;"><code class="reqn">y_j^* = y_j - \hat{\lambda}_j W y_j</code>
+</p>
+
+<p>and
+</p>
+<p style="text-align: center;"><code class="reqn">X_j^* = X_j- \hat{\lambda}_j W X_j</code>
+</p>
+
+<p>Compute 
+</p>
+<p style="text-align: center;"><code class="reqn"> \hat{X}_j^* = H_j(H_j^T H_j)^{-1} H_j^T X_j^*</code>
+</p>
+      
+<p>where <code class="reqn">H_j</code> is the matrix including all the instruments and
+the exogenous regressors for each equation. That is,
+<code class="reqn">\hat{X}_j^*</code> 
+is the projection of <code class="reqn">X_j^*</code> using
+the instruments matrix <code class="reqn">H_j</code>. 
+</p>
+</li>
+<li>
+<p> Compute, in a multiequational way, 
+the Feasible Generalized Least Squares estimation using the 
+new variables <code class="reqn">\hat{y}_j^*</code>, <code class="reqn">\hat{X}_j^*</code> and 
+<code class="reqn">\hat{Sigma}</code>. This is the 3sls step.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Object of <code>spsur</code> class with the output of the  three-stages 
+least-squares estimation of the specified spatial model.
+A list with:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+    <code>call</code> </td>
+<td style="text-align: left;"> Matched call. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>type</code> </td>
+<td style="text-align: left;">  Type of model specified. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>Durbin</code> </td>
+<td style="text-align: left;"> Value of <code>Durbin</code> argument. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>coefficients</code> </td>
+<td style="text-align: left;"> Estimated coefficients for the regressors. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>deltas</code> </td>
+<td style="text-align: left;"> Estimated spatial coefficients. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>rest.se</code> </td>
+<td style="text-align: left;"> Estimated standard errors for the estimates of 
+      <em><code class="reqn">\beta</code></em> coefficients. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>deltas.se</code> </td>
+<td style="text-align: left;"> Estimated standard errors for the estimates of 
+      the spatial coefficients. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>resvar</code> </td>
+<td style="text-align: left;"> Estimated covariance matrix for the estimates of 
+      <em>beta's</em> and spatial coefficients.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>R2</code> </td>
+<td style="text-align: left;"> Coefficient of determination for each equation, 
+      obtained as the squared of the correlation coefficient between 
+      the corresponding explained variable and its estimates. 
+      <em>spsur3sls</em> also shows a <em>global</em> coefficient of
+       determination obtained, in the same manner, for the set of 
+       <em>G</em> equations. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>Sigma</code> </td>
+<td style="text-align: left;"> Estimated covariance matrix for the residuals of the 
+      <em>G</em> equations. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>residuals</code> </td>
+<td style="text-align: left;"> Residuals of the model. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>df.residuals</code> </td>
+<td style="text-align: left;"> Degrees of freedom for the residuals. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>fitted.values</code> </td>
+<td style="text-align: left;"> Estimated values for the dependent variables. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>G</code> </td>
+<td style="text-align: left;"> Number of equations. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>N</code> </td>
+<td style="text-align: left;"> Number of cross-sections or spatial units. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>Tm</code> </td>
+<td style="text-align: left;"> Number of time periods. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>p</code> </td>
+<td style="text-align: left;"> Number of regressors by equation (including intercepts). </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>Y</code> </td>
+<td style="text-align: left;"> If <em>data</em> is <em>NULL</em>, vector <em>Y</em> of the explained variables of the SUR model. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>X</code> </td>
+<td style="text-align: left;"> If <em>data</em> is <em>NULL</em>, matrix <em>X</em> of the regressors of the SUR model. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>W</code> </td>
+<td style="text-align: left;"> Spatial weighting matrix. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>zero.policy</code> </td>
+<td style="text-align: left;"> Logical value of <code>zero.policy</code> . </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+    <code>listw_style</code> </td>
+<td style="text-align: left;">	Style of neighborhood matrix <code>W</code>. </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+ </td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+
+<table>
+<tr>
+<td style="text-align: left;">
+  Fernando López  </td>
+<td style="text-align: left;"> <a href="mailto:fernando.lopez@upct.es">fernando.lopez@upct.es</a> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  Román Mínguez  </td>
+<td style="text-align: left;"> <a href="mailto:roman.minguez@uclm.es">roman.minguez@uclm.es</a> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  Jesús Mur  </td>
+<td style="text-align: left;"> <a href="mailto:jmur@unizar.es">jmur@unizar.es</a> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  </td>
+</tr>
+</table>
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p> Kelejian, H. H. and Piras, G. (2017). 
+<em> Spatial Econometrics</em>. Academic Press.
+</p>
+</li>
+<li>
+<p> Kelejian, H.H. and Prucha, I.R. (2010).
+Specification and Estimation of Spatial 
+Autoregressive Models with Autoregressive 
+and Heteroskedastic Disturbances. 
+<em>Journal of Econometrics</em>, 157, 
+pp. 53-67.
+</p>
+</li>
+<li>
+<p> Kelejian, H.H. and Prucha, I.R. (1999). 
+A Generalized Moments Estimator for the 
+Autoregressive Parameter in a Spatial 
+Model. <em>International Economic Review</em>,
+40, pp. 509-533.
+</p>
+</li>
+<li>
+<p> Kelejian, H.H. and Prucha, I.R. (1998).
+A Generalized Spatial Two Stage Least 
+Square Procedure for Estimating a Spatial 
+Autoregressive Model with Autoregressive 
+Disturbances. <em>Journal of Real 
+Estate Finance and Economics</em>, 17, 
+pp. 99–121.
+</p>
+</li>
+<li>
+<p> Minguez, R., Lopez, F.A. and Mur, J.  (2022).
+spsur: An R Package for Dealing with Spatial 
+Seemingly Unrelated Regression Models. 
+<em>Journal of Statistical Software</em>, 
+104(11), 1–43.
+&lt;doi:10.18637/jss.v104.i11&gt;
+</p>
+</li>
+<li>
+<p> Piras, G. (2010). sphet: Spatial
+Models with Heteroskedastic Innovations 
+in R. <em>Journal of Statistical 
+Software</em>, 35(1), pp. 1-21. 
+<a href="https://www.jstatsoft.org/v35/i01/">https://www.jstatsoft.org/v35/i01/</a>. -          
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>spreg</code>,
+<code>spsur3sls</code>,
+<code>stsls</code>,
+<code>spsurml</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#### Example 1: Spatial Phillips-Curve. Anselin (1988, p. 203)
+rm(list = ls()) # Clean memory
+data(spc)
+lwspc &lt;- spdep::mat2listw(Wspc, style = "W")
+## No endogenous regressors  
+Tformula &lt;- WAGE83 | WAGE81 ~ UN83 + NMR83 + SMSA | UN80 + NMR80 + SMSA
+## Endogenous regressors and Instruments
+Tformula2 &lt;- WAGE83 | WAGE81 ~  NMR83 | NMR80 
+## Endogenous regressors: UN83 , UN80
+## Instrumental variable: SMSA
+
+## A IV model with endogenous regressors only in first equation
+spciv &lt;- spsurgs3sls(formula = Tformula2, data = spc,
+                      type = "iv", listw = lwspc,
+                      endog = ~ UN83 | ., 
+                      instruments = ~ SMSA | .)
+summary(spciv)
+print(spciv)
+#########################################################################
+## A SLM model with endogenous regressors 
+spcslm &lt;- spsurgs3sls(formula = Tformula2, data = spc,
+                              endog = ~ UN83 | ., 
+                              instruments = ~ SMSA |.,
+                              type = "slm", 
+                              listw = lwspc)
+summary(spcslm)
+print(spcslm)                           
+impacts_spcslm &lt;- impactspsur(spcslm, listw = lwspc, R = 1000)
+summary(impacts_spcslm[[1]], zstats = TRUE, short = TRUE)
+summary(impacts_spcslm[[2]], zstats = TRUE, short = TRUE)
+#########################################################################
+## A SDM model with endogenous regressors 
+spcsdm &lt;- spsurgs3sls(formula = Tformula2, data = spc,
+                   endog = ~ UN83 | UN80, 
+                   instruments = ~ SMSA | SMSA,
+                   type = "sdm", listw = lwspc,
+                   Durbin =  ~  NMR83 | NMR80)
+summary(spcsdm)
+## Durbin only in one equation
+spcsdm2 &lt;- spsurgs3sls(formula = Tformula2, data = spc,
+                    endog = ~ UN83 | UN80, 
+                    instruments = ~ SMSA | SMSA,
+                    type = "sdm", listw = lwspc,
+                    Durbin =  ~  NMR83 | .)
+summary(spcsdm2)
+#########################################################################
+## A SEM model with endogenous regressors 
+spcsem &lt;- spsurgs3sls(formula = Tformula2, data = spc,
+                      endog = ~ UN83 | UN80, 
+                      instruments = ~ SMSA | SMSA,
+                      type = "sem", listw = lwspc)
+summary(spcsem)
+print(spcsem)                           
+#########################################################################
+## A SARAR model with endogenous regressors 
+spcsarar &lt;- spsurgs3sls(formula = Tformula2, data = spc,
+                        endog = ~ UN83 | UN80, 
+                        instruments = ~ SMSA | SMSA,
+                        type = "sarar", listw = lwspc)
+summary(spcsarar)
+print(spcsarar)                           
+impacts_spcsarar &lt;- impactspsur(spcsarar, listw = lwspc, R = 1000)
+summary(impacts_spcsarar[[1]], zstats = TRUE, short = TRUE)
+summary(impacts_spcsarar[[2]], zstats = TRUE, short = TRUE)
+</code></pre>
+
+
+</div>

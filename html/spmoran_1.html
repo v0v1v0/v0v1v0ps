@@ -1,0 +1,267 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>addlearn_local</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Additional learning of local processes and prediction for large samples</h2>
+
+<h3>Description</h3>
+
+<p>This function performs an additional learning of local variations in spatially varying coefficients (SVC). While the SVC model implemented in <code>resf_vc</code> or <code>besf_vc</code> can be less accurate for large samples (e.g., n &gt; 5,000) due to a degeneracy/over-smoothing problem, this additional learning mitigates this problem by synthesizing/averaging the model with local SVC models. The resulting spatial prediction implemented in this function is expected to be more accurate than the resf_vc function.
+</p>
+<p>Note that this function is not yet supported for spatio-temporal models with <code>!is.null(meig$coords_z)</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">addlearn_local( mod, meig0 = NULL, x0 = NULL, xconst0=NULL, xgroup0=NULL,
+           cl_num=NULL, cl=NULL, parallel=FALSE, ncores=NULL )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mod</code></td>
+<td>
+<p>Outpot from <code>resf_vc</code> or  <code>besf_vc</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meig0</code></td>
+<td>
+<p>Moran eigenvectors at prediction sites. Output from <code>meigen0</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x0</code></td>
+<td>
+<p>Matrix of explanatory variables at prediction sites whose coefficients are allowed to vary across geographical space (N_0 x K). Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xconst0</code></td>
+<td>
+<p>Matrix of explanatory variables at prediction sites whose coefficients are assumed constant (or NVC) across space (N_0 x K_const). Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xgroup0</code></td>
+<td>
+<p>Matrix of group indeces at prediction sites that may be group IDs (integers) or group names (N_0 x K_g). Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl_num</code></td>
+<td>
+<p>Number of local sub-models being aggregated/averaged. If NULL, the number is determined so that the number of samples per sub-model equals approximately 600. Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>Vector of cluster ID for each sample (N x 1). If specified, the local sub-models are given by this ID. If NULL, k-means clustering based on spatial coordinates is performed to obtain spatial clusters each of which contain approximately 600 samples. Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>If TRUE, the model is estimated through parallel computation. The default is FALSE if mod is an <code>resf_vc</code> object while TRUE if mod is an <code>besf_vc</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>Number of cores used for the parallel computation. If ncores = NULL and parallel = TRUE, the number of available cores - 2 is used. Default is NULL</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>b_vc</code></td>
+<td>
+<p>Matrix of estimated spatially varying coefficients (SVCs) on x (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bse_vc</code></td>
+<td>
+<p>Matrix of standard errors for the SVCs on x (N x k)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z_vc</code></td>
+<td>
+<p>Matrix of z-values for the SVCs on x (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_vc</code></td>
+<td>
+<p>Matrix of p-values for the SVCs on x (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c</code></td>
+<td>
+<p>Matrix with columns for the estimated coefficients on xconst, their standard errors, z-values, and p-values (K_c x 4)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b_g</code></td>
+<td>
+<p>List of K_g matrices with columns for the estimated group effects, their standard deviations, and t-values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s</code></td>
+<td>
+<p>List of 2 elements summarizing variance parameters characterizing SVCs of each local sub-model. The first element contains standard deviations of each SVCs while the second elementcontains their Moran's I values that are scaled to take a value between 0 (no spatial dependence) and 1 (strongest positive spatial dependence). Based on Griffith (2003), the scaled Moran'I value is interpretable as follows: 0.25-0.50:weak; 0.50-0.70:moderate; 0.70-0.90:strong; 0.90-1.00:marked</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s_global</code></td>
+<td>
+<p>The same variance parameters for the globa sub-model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s_g</code></td>
+<td>
+<p>Vector of standard deviations of the group effects</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e</code></td>
+<td>
+<p>Error statistics. It includes residual standard error (resid_SE), adjusted conditional R2 (adjR2(cond)), restricted log-likelihood (rlogLik), Akaike information criterion (AIC), and Bayesian information criterion (BIC)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred</code></td>
+<td>
+<p>Matrix of predicted values for y (pred) and their standard errors (pred_se) (N x 2)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resid</code></td>
+<td>
+<p>Vector of residuals (N x 1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>Vector of cluster ID being used (N x 1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred0</code></td>
+<td>
+<p>Matrix of predicted values for y (pred) and their standard errors (pred_se) at prediction sites (N_0 x 2)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b_vc0</code></td>
+<td>
+<p>Matrix of estimated spatially varying coefficients (SVCs) at prediction sites (N_0 x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bse_vc0</code></td>
+<td>
+<p>Matrix of standard errors for the SVCs at prediction sites (N_0 x k)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z_vc0</code></td>
+<td>
+<p>Matrix of z-values for the SVCs at prediction sites (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p_vc0</code></td>
+<td>
+<p>Matrix of p-values for the SVCs at prediction sites (N x K)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>other</code></td>
+<td>
+<p>List of other outputs, which are internally used</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Daisuke Murakami
+</p>
+
+
+<h3>References</h3>
+
+<p>Murakami, D., Sugasawa, S., T., Seya, H., and Griffith, D.A. (2024) Sub-model aggregation-based scalable eigenvector spatial filtering: application to spatially varying coefficient modeling. Geographical Analysis, DOI: 10.1111/gean.12393.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>resf_vc</code>, <code>besf_vc</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(spdep)
+data(house)
+dat0    &lt;- data.frame(house@coords,house@data)
+dat     &lt;- dat0[dat0$yrbuilt&gt;=1980,]
+
+###### purpose 1: improve SVC modeling accuracy ######
+###### (i.e., addressing the over-smoothing problem) #
+y	      &lt;- log(dat[,"price"])
+x       &lt;- dat[,c("age","rooms")]
+xconst  &lt;- dat[,c("lotsize","s1994","s1995","s1996","s1997","s1998")]
+coords  &lt;- dat[ ,c("long","lat")]
+meig    &lt;- meigen_f( coords )
+
+## Not run
+# res0  &lt;- resf_vc(y = y,x = x, xconst = xconst, meig = meig)
+# res   &lt;- addlearn_local(res0) # It adjusts SVCs to model local patterns
+# res
+
+####### parallel version for very large samples (e.g., n &gt;100,000)
+# bes0  &lt;- besf_vc(y = y,x = x, xconst = xconst, coords=coords)
+# bes	  &lt;- addlearn_local( bes0 )
+
+
+####### purpose 2: improve predictive accuracy ########
+
+#samp    &lt;- sample( dim( dat )[ 1 ], 2500)
+#d       &lt;- dat[ samp, ]    ## Data at observed sites
+#y	     &lt;- log(d[,"price"])
+#x       &lt;- d[,c("age","rooms")]
+#xconst  &lt;- d[,c("lotsize","s1994","s1995","s1996","s1997","s1998")]
+#coords  &lt;- d[ ,c("long","lat")]
+
+#d0      &lt;- dat[-samp, ]    ## Data at observed sites
+#y0	     &lt;- log(d0[,"price"])
+#x0      &lt;- d0[,c("age","rooms")]
+#xconst0 &lt;- d0[,c("lotsize","s1994","s1995","s1996","s1997","s1998")]
+#coords0 &lt;- d0[ ,c("long","lat")]
+
+#meig    &lt;- meigen_f( coords )
+#res0    &lt;- resf_vc(y = y,x = x, xconst = xconst, meig = meig)
+#meig0   &lt;- meigen0( meig=meig, coords0=coords0 )
+#res     &lt;- addlearn_local(res0, meig0=meig0, x0=x0, xconst0=xconst0) #
+#pred    &lt;- res$pred0       ## Predictive values
+
+</code></pre>
+
+
+</div>

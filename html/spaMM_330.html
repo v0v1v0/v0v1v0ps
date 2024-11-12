@@ -1,0 +1,115 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>make_scaled_dist</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Scaled distances between unique locations</h2>
+
+<h3>Description</h3>
+
+<p>This function computes scaled distances from whichever relevant argument it can use (see Details). The result can directly by used as input for computation of the Matérn correlation matrix. It is usually called internally by HLCor, so that users may ignore it, except if they wish to control the distance used through <code>control.dist$method</code>, or the parametrization of the scaling through <code>control.dist$rho.mapping</code>. <code>control.dist$method</code> provide access to the distances implemented in the <code>proxy</code> package, as well as to <code>"EarthChord"</code> and <code>"Earth"</code> methods defined in <code>spaMM</code> (see Details).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">make_scaled_dist(uniqueGeo, uniqueGeo2=NULL, distMatrix, rho, 
+                 rho.mapping=seq_len(length(rho)), 
+                 dist.method="Euclidean",
+                 return_matrix=FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>uniqueGeo</code></td>
+<td>
+
+<p>A matrix of geographical coordinates (e.g. 2 columns for latitude and longitude), without replicates of the same location.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uniqueGeo2</code></td>
+<td>
+
+<p>NULL, or a second matrix of geographical coordinates, without replicates of the same location.  
+If NULL, scaled distances among <code>uniqueGeo</code> locations are computed. Otherwise, scaled distances between  locations in the two input matrices are computed. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distMatrix</code></td>
+<td>
+
+<p>A distance matrix.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+
+<p>A scalar or vector of positive values. Scaled distance is computed as <code>&lt;distances in each coordinate&gt; * rho</code>, unless a non-trivial
+<code>rho.mapping</code> is used.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.mapping</code></td>
+<td>
+
+<p>A set of indices controlling which elements of the <code>rho</code> scale vector scales which dimension(s) of the space in which (spatial) 
+correlation matrices of random effects are computed. Scaled distance is generally computed as <code>&lt;distances in each coordinate&gt; * rho[rho.mapping]</code>. As shown in the Example, if one wishes to combine isotropic geographical distance and some environmental distance, the coordinates being latitude, longitude and one environmental variable, the scaled distance may be computed
+as (say) <code>(lat,long,env) *rho[c(1,1,2)]</code> so that the same scaling <code>rho[1]</code> applies for both geographical coordinates. In this case, <code>rho</code> should have length 2 and <code>rho.mapping</code> should be <code>c(1,1,2)</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist.method</code></td>
+<td>
+<p><code>method</code> argument of <code>proxy::dist</code> function (by default, <code>"Euclidean"</code>, but other distances are possible (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_matrix</code></td>
+<td>
+<p>Whether to return a <code>matrix</code> rather than a <code>proxy::dist</code> or <code>proxy::crossdist</code> object.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function uses the <code>distMatrix</code> argument if provided, in which case rho must be a scalar. Vectorial <code>rho</code> (i.e., different scaling of different dimensions) is feasible only by providing <code>uniqueGeo</code>.
+</p>
+<p>The <code>dist.method</code> argument gives access to distances implemented in the <code>proxy</code> package, or to user-defined ones that are made accessible to <code>proxy</code> through its database. Of special interest for spatial analyses are distances computed from longitude and latitude (<code>proxy</code> implements <code>"Geodesic"</code> and <code>"Chord"</code> distances but they do not use such coordinates: instead, they use Euclidean distance for 2D computations, i.e. Euclidean distance between points on a circle rather than on a sphere). spaMM implements two such distances: <code>"Earth"</code> and <code>"EarthChord"</code>, using longitude and latitude inputs <b>in that order</b> (see Examples). The <code>"EarthChord"</code> distance is the 3D Euclidean distance “through Earth”. The <code>"Earth"</code> distance is also known as the orthodromic or great-circle distance, on the Earth surface. Both distances return values in km and are based on approximating the Earth by a sphere of radius 6371.009 km.  
+</p>
+
+
+<h3>Value</h3>
+
+<p>A matrix or <code>dist</code> object. If there are two input matrices, rows of the return value correspond to rows of the first matrix.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("blackcap")
+## a biologically not very meaningful, but syntactically correct example of rho.mapping
+fitme(migStatus ~ 1 + Matern(1|longitude+latitude+means),
+      data=blackcap, fixed=list(nu=0.5,phi=1e-6),
+      init=list(rho=c(1,1)), control.dist=list(rho.mapping=c(1,1,2)))
+
+## Using orthodromic distances: 
+# order of variables in Matern(.|longitude+latitude) matters; 
+# Matern(1|latitude+longitude) should cause a warning
+fitme(migStatus ~ 1 + Matern(1|longitude+latitude),data=blackcap,
+      method="ML", fixed=list(nu=0.5,phi=1e-6),
+      control.dist=list(dist.method="Earth"))
+</code></pre>
+
+
+</div>

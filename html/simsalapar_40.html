@@ -1,0 +1,183 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>varlist</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Variable Specification List - Generation and Class</h2>
+
+<h3>Description</h3>
+
+<p>Generate variable specification lists.  These are objects of the
+formal (aka “S4”) class <code>"varlist"</code>.  This class
+simply extends <code>"namedList"</code> and has a validity
+method (see <code>validObject</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">varlist(...)
+dimnames2varlist(dmn)
+
+
+## S4 method for signature 'varlist'
+show(object)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>of the form
+</p>
+
+<dl>
+<dt>
+<code>nam1</code> = list(....),</dt>
+<dd></dd>
+<dt>
+<code>nam2</code> = list(....),</dt>
+<dd></dd>
+<dt>........</dt>
+<dd></dd>
+<dt>
+<code>namk</code> = list(....)</dt>
+<dd></dd>
+</dl>
+<p>i.e, a “list” of variable specifications using “sub
+lists” <code>list(....) = list(value = &lt;vv&gt;, type = &lt;tp&gt;, expr =
+      &lt;e&gt;)</code>, see the details and the examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dmn</code></td>
+<td>
+<p><b>named</b> <code>dimnames</code>, a <code>list</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>a <code>"varlist"</code> object.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>value</code> is typically an atomic vector (<code>is.atomic</code>)
+or a <code>list</code>, e.g., of <code>function</code>s; in the
+latter case, typically with <code>names</code>.
+</p>
+<p><code>type</code> can be one of <code>"N"</code>, <code>"frozen"</code>, <code>"grid"</code>, or
+<code>"inner"</code>. In short:
+</p>
+
+<dl>
+<dt><code>"N"</code></dt>
+<dd>
+<p>This type is reserved for a (single) variable
+named <code>n.sim</code> which provides the simulation replications;
+if it is not given, <code>n.sim</code> is implicitly treated as 1.</p>
+</dd>
+<dt><code>"frozen"</code></dt>
+<dd>
+<p>Variables of this type remain fixed (they do
+not vary) throughout the whole simultion study.  They affect the
+final result but do not appear as a <em>dimension</em> in the result
+array of the simulation study.  This is the <b>default</b>
+<code>type</code> (apart from <code>n.sim</code> which defaults to <code>"N"</code>).</p>
+</dd>
+<dt><code>"grid"</code></dt>
+<dd>
+<p>Variables of this type are used to build a
+(physical) grid (a <code>data.frame</code>) with number of rows
+equal to the product of the lengths of all variables of this
+type. The simulation will use this grid to iterate <code>n.sim</code>
+times over all of its rows for conducting the required
+computations. Conceptually, this corresponds to
+iterating over a <em>virtual grid</em> seen
+as <code>n.sim</code> copies of the (physical) grid pasted together.
+The computations for one row in this virtual grid form one
+sub-job. One can use one of
+<code>doLapply()</code>, <code>doForeach()</code>,
+<code>doRmpi()</code>, <code>doMclapply()</code>, or
+<code>doClusterApply()</code> to iterate over all sub-jobs.</p>
+</dd>
+<dt><code>"inner"</code></dt>
+<dd>
+<p>Variables of this type are all dealt with within
+a sub-job for reasons of convenience, speed, load balancing etc.</p>
+</dd>
+</dl>
+<p>The <code>dimnames2varlist()</code> functions creates a <code>varlist</code> from
+a <em>named</em> list of <code>character</code> vectors, typically
+resulting from <code>dimnames(tt)</code> of a <code>table</code>
+<code>tt</code>, see the Titanic example below.
+</p>
+<p>For more details, see Hofert and Mächler (2014), and
+also the examples in <code> demo(package="simsalapar") </code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>an object of formal (aka “S4”) class <code>"varlist"</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Martin Maechler.</p>
+
+
+<h3>See Also</h3>
+
+<p><code>namedList</code>; <code>getEl</code> for easy
+extraction of elements from a <code>"varlist"</code>.
+</p>
+<p>The <code>toLatex</code> method for <code>varlist</code>s,
+<code>toLatex.varlist</code>.
+</p>
+<p><code>doLapply()</code>, <code>doForeach()</code>,
+<code>doRmpi()</code>, <code>doMclapply()</code>,
+<code>doClusterApply()</code> for the functions to iterate over the
+virtual grid.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">showClass("varlist")
+
+vList &lt;- varlist(
+    n.sim = list(value = 1000, expr = quote(N[sim])), # type = N
+    n     = list(type="grid", value = c(20, 100, 500)), # sample sizes
+    meth  = list(type="grid", expr = quote(italic(method)),
+                 value = c("classical", "robust")),
+    alpha = list(value = 0.95)) # default type = "frozen"
+
+str(vList)# note the default 'expr' for  n and alpha; and type of alpha
+
+## For more extensive examples, see also
+demo(package="simsalapar")
+
+## coerce to simple list  .. and back :
+lvl &lt;- as(vList, "list")
+stopifnot(identical(
+    do.call(varlist, lvl),
+    vList ))
+
+## From a data.frame to a LaTeX table :
+str(dimnames(Titanic))
+vlTitan &lt;- dimnames2varlist(dimnames(Titanic))
+vlTitan  # default 'type = "grid"' here
+toLatex(vlTitan)
+</code></pre>
+
+
+</div>

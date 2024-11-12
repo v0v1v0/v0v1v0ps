@@ -1,0 +1,368 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smoothCombine</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Combination of forecasts of state space models</h2>
+
+<h3>Description</h3>
+
+<p>Function constructs ETS, SSARIMA, CES, GUM and SMA and combines their
+forecasts using IC weights.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">smoothCombine(y, models = NULL, initial = c("optimal", "backcasting"),
+  ic = c("AICc", "AIC", "BIC", "BICc"), loss = c("MSE", "MAE", "HAM",
+  "MSEh", "TMSE", "GTMSE", "MSCE"), h = 10, holdout = FALSE,
+  cumulative = FALSE, interval = c("none", "parametric", "likelihood",
+  "semiparametric", "nonparametric"), level = 0.95, bins = 200,
+  intervalCombine = c("quantile", "probability"), bounds = c("admissible",
+  "none"), silent = c("all", "graph", "legend", "output", "none"),
+  xreg = NULL, regressors = c("use", "select"), initialX = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>Vector or ts object, containing data needed to be forecasted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>models</code></td>
+<td>
+<p>List of the estimated smooth models to use in the
+combination. If <code>NULL</code>, then all the models are estimated
+in the function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initial</code></td>
+<td>
+<p>Can be <code>"optimal"</code>, meaning that the initial
+states are optimised, or <code>"backcasting"</code>, meaning that the
+initials are produced using backcasting procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ic</code></td>
+<td>
+<p>The information criterion used in the model selection procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loss</code></td>
+<td>
+<p>The type of Loss Function used in optimization. <code>loss</code> can
+be: <code>likelihood</code> (assuming Normal distribution of error term),
+<code>MSE</code> (Mean Squared Error), <code>MAE</code> (Mean Absolute Error),
+<code>HAM</code> (Half Absolute Moment), <code>TMSE</code> - Trace Mean Squared Error,
+<code>GTMSE</code> - Geometric Trace Mean Squared Error, <code>MSEh</code> - optimisation
+using only h-steps ahead error, <code>MSCE</code> - Mean Squared Cumulative Error.
+If <code>loss!="MSE"</code>, then likelihood and model selection is done based
+on equivalent <code>MSE</code>. Model selection in this cases becomes not optimal.
+</p>
+<p>There are also available analytical approximations for multistep functions:
+<code>aMSEh</code>, <code>aTMSE</code> and <code>aGTMSE</code>. These can be useful in cases
+of small samples.
+</p>
+<p>Finally, just for fun the absolute and half analogues of multistep estimators
+are available: <code>MAEh</code>, <code>TMAE</code>, <code>GTMAE</code>, <code>MACE</code>, <code>TMAE</code>,
+<code>HAMh</code>, <code>THAM</code>, <code>GTHAM</code>, <code>CHAM</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>Length of forecasting horizon.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>holdout</code></td>
+<td>
+<p>If <code>TRUE</code>, holdout sample of size <code>h</code> is taken from
+the end of the data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cumulative</code></td>
+<td>
+<p>If <code>TRUE</code>, then the cumulative forecast and prediction
+interval are produced instead of the normal ones. This is useful for
+inventory control systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>Type of interval to construct. This can be:
+</p>
+
+<ul>
+<li> <p><code>"none"</code>, aka <code>"n"</code> - do not produce prediction
+interval.
+</p>
+</li>
+<li> <p><code>"parametric"</code>, <code>"p"</code> - use state-space structure of ETS. In
+case of mixed models this is done using simulations, which may take longer
+time than for the pure additive and pure multiplicative models. This type
+of interval relies on unbiased estimate of in-sample error variance, which
+divides the sume of squared errors by T-k rather than just T.
+</p>
+</li>
+<li> <p><code>"likelihood"</code>, <code>"l"</code> - these are the same as <code>"p"</code>, but
+relies on the biased estimate of variance from the likelihood (division by
+T, not by T-k).
+</p>
+</li>
+<li> <p><code>"semiparametric"</code>, <code>"sp"</code> - interval based on covariance
+matrix of 1 to h steps ahead errors and assumption of normal / log-normal
+distribution (depending on error type).
+</p>
+</li>
+<li> <p><code>"nonparametric"</code>, <code>"np"</code> - interval based on values from a
+quantile regression on error matrix (see Taylor and Bunn, 1999). The model
+used in this process is e[j] = a j^b, where j=1,..,h.
+</p>
+</li>
+</ul>
+<p>The parameter also accepts <code>TRUE</code> and <code>FALSE</code>. The former means that
+parametric interval are constructed, while the latter is equivalent to
+<code>none</code>.
+If the forecasts of the models were combined, then the interval are combined
+quantile-wise (Lichtendahl et al., 2013).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>Confidence level. Defines width of prediction interval.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bins</code></td>
+<td>
+<p>The number of bins for the prediction interval.
+The lower value means faster work of the function, but less
+precise estimates of the quantiles. This needs to be an even
+number.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intervalCombine</code></td>
+<td>
+<p>How to average the prediction interval:
+quantile-wise (<code>"quantile"</code>) or probability-wise
+(<code>"probability"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bounds</code></td>
+<td>
+<p>What type of bounds to use in the model estimation. The first
+letter can be used instead of the whole word.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>If <code>silent="none"</code>, then nothing is silent, everything is
+printed out and drawn. <code>silent="all"</code> means that nothing is produced or
+drawn (except for warnings). In case of <code>silent="graph"</code>, no graph is
+produced. If <code>silent="legend"</code>, then legend of the graph is skipped.
+And finally <code>silent="output"</code> means that nothing is printed out in the
+console, but the graph is produced. <code>silent</code> also accepts <code>TRUE</code>
+and <code>FALSE</code>. In this case <code>silent=TRUE</code> is equivalent to
+<code>silent="all"</code>, while <code>silent=FALSE</code> is equivalent to
+<code>silent="none"</code>. The parameter also accepts first letter of words ("n",
+"a", "g", "l", "o").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xreg</code></td>
+<td>
+<p>The vector (either numeric or time series) or the matrix (or
+data.frame) of exogenous variables that should be included in the model. If
+matrix included than columns should contain variables and rows - observations.
+Note that <code>xreg</code> should have number of observations equal either to
+in-sample or to the whole series. If the number of observations in
+<code>xreg</code> is equal to in-sample, then values for the holdout sample are
+produced using es function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>regressors</code></td>
+<td>
+<p>The variable defines what to do with the provided xreg:
+<code>"use"</code> means that all of the data should be used, while
+<code>"select"</code> means that a selection using <code>ic</code> should be done.
+<code>"combine"</code> will be available at some point in future...</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initialX</code></td>
+<td>
+<p>The vector of initial parameters for exogenous variables.
+Ignored if <code>xreg</code> is NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>This currently determines nothing.
+</p>
+
+<ul>
+<li> <p><code>timeElapsed</code> - time elapsed for the construction of the model.
+</p>
+</li>
+<li> <p><code>initialType</code> - type of the initial values used.
+</p>
+</li>
+<li> <p><code>fitted</code> - fitted values of ETS.
+</p>
+</li>
+<li> <p><code>quantiles</code> - the 3D array of produced quantiles if <code>interval!="none"</code>
+with the dimensions: (number of models) x (bins) x (h).
+</p>
+</li>
+<li> <p><code>forecast</code> - point forecast of ETS.
+</p>
+</li>
+<li> <p><code>lower</code> - lower bound of prediction interval. When <code>interval="none"</code>
+then NA is returned.
+</p>
+</li>
+<li> <p><code>upper</code> - higher bound of prediction interval. When <code>interval="none"</code>
+then NA is returned.
+</p>
+</li>
+<li> <p><code>residuals</code> - residuals of the estimated model.
+</p>
+</li>
+<li> <p><code>s2</code> - variance of the residuals (taking degrees of freedom into account).
+</p>
+</li>
+<li> <p><code>interval</code> - type of interval asked by user.
+</p>
+</li>
+<li> <p><code>level</code> - confidence level for interval.
+</p>
+</li>
+<li> <p><code>cumulative</code> - whether the produced forecast was cumulative or not.
+</p>
+</li>
+<li> <p><code>y</code> - original data.
+</p>
+</li>
+<li> <p><code>holdout</code> - holdout part of the original data.
+</p>
+</li>
+<li> <p><code>xreg</code> - provided vector or matrix of exogenous variables. If <code>regressors="s"</code>,
+then this value will contain only selected exogenous variables.
+</p>
+</li>
+<li> <p><code>ICs</code> - values of information criteria of the model. Includes AIC, AICc, BIC and BICc.
+</p>
+</li>
+<li> <p><code>accuracy</code> - vector of accuracy measures for the holdout sample. In
+case of non-intermittent data includes: MPE, MAPE, SMAPE, MASE, sMAE,
+RelMAE, sMSE and Bias coefficient (based on complex numbers). In case of
+intermittent data the set of errors will be: sMSE, sPIS, sCE (scaled
+cumulative error) and Bias coefficient.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The combination of these models using information criteria weights is
+possible because they are all formulated in Single Source of Error
+framework. Due to the the complexity of some of the models, the
+estimation process may take some time. So be patient.
+</p>
+<p>The prediction interval are combined either probability-wise or
+quantile-wise (Lichtendahl et al., 2013), which may take extra time,
+because we need to produce all the distributions for all the models.
+This can be sped up with the smaller value for bins parameter, but
+the resulting interval may be imprecise.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Ivan Svetunkov, <a href="mailto:ivan@svetunkov.ru">ivan@svetunkov.ru</a>
+</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p> Snyder, R. D., 1985. Recursive Estimation of Dynamic Linear Models.
+Journal of the Royal Statistical Society, Series B (Methodological) 47 (2), 272-276.
+</p>
+</li>
+<li>
+<p> Hyndman, R.J., Koehler, A.B., Ord, J.K., and Snyder, R.D. (2008)
+Forecasting with exponential smoothing: the state space approach,
+Springer-Verlag. <a href="https://doi.org/10.1007/978-3-540-71918-2">doi:10.1007/978-3-540-71918-2</a>.
+</p>
+</li>
+</ul>
+<ul><li>
+<p> Kolassa, S. (2011) Combining exponential smoothing forecasts using Akaike
+weights. International Journal of Forecasting, 27, pp 238 - 251.
+</p>
+</li></ul>
+<ul>
+<li>
+<p> Taylor, J.W. and Bunn, D.W. (1999) A Quantile Regression Approach to
+Generating Prediction Intervals. Management Science, Vol 45, No 2, pp
+225-237.
+</p>
+</li>
+<li>
+<p> Lichtendahl Kenneth C., Jr., Grushka-Cockayne Yael, Winkler
+Robert L., (2013) Is It Better to Average Probabilities or
+Quantiles? Management Science 59(7):1594-1611. DOI:
+<a href="https://doi.org/10.1287/mnsc.1120.1667">doi:10.1287/mnsc.1120.1667</a>
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>es, auto.ssarima,
+auto.ces, auto.gum, sma</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: ourModel &lt;- smoothCombine(BJsales,interval="p")
+plot(ourModel)
+## End(Not run)
+
+# models parameter accepts either previously estimated smoothCombine
+# or a manually formed list of smooth models estimated in sample:
+## Not run: smoothCombine(BJsales,models=ourModel)
+
+## Not run: models &lt;- list(es(BJsales), sma(BJsales))
+smoothCombine(BJsales,models=models)
+## End(Not run)
+
+</code></pre>
+
+
+</div>

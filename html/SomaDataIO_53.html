@@ -1,0 +1,198 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>lift_adat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Lift an ADAT Between Assay Versions</h2>
+
+<h3>Description</h3>
+
+<p>The SomaScan platform continually improves its technical processes
+between assay versions. The primary change of interest is content expansion,
+and other protocol changes may be implemented including: changing reagents,
+liquid handling equipment, and well volumes.
+</p>
+<p>Table of SomaScan assay versions:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<strong>Version</strong>  </td>
+<td style="text-align: center;"> <strong>Commercial Name</strong> </td>
+<td style="text-align: right;"> <strong>Size</strong> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>V4</code>         </td>
+<td style="text-align: center;"> 5k                  </td>
+<td style="text-align: right;"> 5284     </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>v4.1</code>       </td>
+<td style="text-align: center;"> 7k                  </td>
+<td style="text-align: right;"> 7596     </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>v5.0</code>       </td>
+<td style="text-align: center;"> 11k                 </td>
+<td style="text-align: right;"> 11083    </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>However, for a given analyte, these technical upgrades can result
+in minute measurement signal differences,
+requiring a calibration (aka "lifting" or "bridging") to bring RFUs into a
+comparable signal space.
+This is accomplished by applying an analyte-specific scalar,
+a linear transformation, to each analyte RFU measurement (column).
+If you have an annotations file (<code style="white-space: pre;">⁠*.xlsx⁠</code>) and wish to examine the
+bridging scalars themselves, please see <code>read_annotations()</code>.
+</p>
+<p>Lifting between SomaScan versions no longer requires an
+annotations file containing lifting scalars. We now enable users to pass
+a <code>bridge</code> parameter, indicating the direction of the bridge.
+For example, to "lift" between <code style="white-space: pre;">⁠11k⁠</code> -&gt; <code style="white-space: pre;">⁠7k⁠</code>, you <em>must</em> be acting on
+SomaScan data in <code style="white-space: pre;">⁠11k⁠</code> RFU space and would pass <code>bridge = "11k_to_7k"</code>.
+Likewise, <code style="white-space: pre;">⁠7k⁠</code> -&gt; <code style="white-space: pre;">⁠5k⁠</code> requires <code>bridge = "7k_to_5k"</code>.
+Lastly, you may also lift directly from <code style="white-space: pre;">⁠11k⁠</code> -&gt; <code style="white-space: pre;">⁠5k⁠</code>
+(aka "double-bridge") with <code>bridge = "11k_to_5k"</code>.
+See below for all options for the <code>bridge</code> argument.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">lift_adat(
+  adat,
+  bridge = c("11k_to_7k", "11k_to_5k", "7k_to_11k", "7k_to_5k", "5k_to_11k", "5k_to_7k"),
+  anno.tbl = deprecated()
+)
+
+is_lifted(adat)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>adat</code></td>
+<td>
+<p>A <code>soma_adat</code> object (with intact attributes),
+typically created using <code>read_adat()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bridge</code></td>
+<td>
+<p>The direction of the lift (i.e. bridge).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>anno.tbl</code></td>
+<td>
+<p><a href="https://lifecycle.r-lib.org/articles/stages.html#deprecated"><img src="../help/figures/lifecycle-deprecated.svg" alt="[Deprecated]"></a>. Please now
+use the <code>bridge</code> argument.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Matched samples across assay versions are used to calculate bridging
+scalars. For each analyte, this scalar is computed as the ratio of
+population <em>medians</em> across assay versions.
+Please see the lifting vignette
+<code>vignette("lifting-and-bridging", package = "SomaDataIO")</code>
+for more details.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>lift_adat()</code>: A "lifted" <code>soma_adat</code> object corresponding to
+the scaling requested in the <code>bridge</code> parameter. RFU values are
+rounded to 1 decimal place to match standard SomaScan delivery format.
+</p>
+<p><code>is_lifted()</code>: Logical. Whether the RFU values in a <code>soma_adat</code>
+have been lifted from its original signal space to a new signal space.
+</p>
+
+
+<h3>Lin's CCC</h3>
+
+<p>The Lin's Concordance Correlation Coefficient (CCC) is calculated
+by computing the correlation between post-lift RFU values and the
+RFU values generated on the original SomaScan version.
+This CCC estimate is a measure of how well an analyte can be bridged
+across SomaScan versions.
+See <code>vignette("lifting-and-bridging", package = "SomaDataIO")</code>.
+As with the lifting scalars, if you have an annotations file
+you may view the analyte-specific CCC values via <code>read_annotations()</code>.
+Alternatively, <code>getSomaScanLiftCCC()</code> retrieves these values
+from an internal object for both <code>"serum"</code> and <code>"plasma"</code>.
+</p>
+
+
+<h3>Analyte Setdiff</h3>
+
+
+<ul>
+<li>
+<p> Newer versions of SomaScan typically have additional content, i.e.
+new reagents added to the multi-plex assay that bind to additional proteins.
+When lifting <em>to</em> a previous SomaScan version, new reagents that do <em>not</em>
+exist in the "earlier" assay version assay are scaled by 1.0, and thus
+maintained, unmodified in the returned object. Users may need to drop
+these columns in order to combine these data with a previous study
+from an earlier SomaScan version, e.g. with <code>collapseAdats()</code>.
+</p>
+</li>
+<li>
+<p> In the inverse scenario, lifting "forward" <em>from</em> a previous, lower-plex
+version, there will be extra reference values that are unnecessary
+to perform the lift, and a warning is triggered. The resulting data
+consists of RFU data in the "new" signal space, but with fewer analytes
+than would otherwise be expected (e.g. <code style="white-space: pre;">⁠11k⁠</code> space with only 5284
+analytes; see example below).
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Lin, Lawrence I-Kuei. 1989. A Concordance Correlation
+Coefficient to Evaluate Reproducibility. <strong>Biometrics</strong>. 45:255-268.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># `example_data` is SomaScan (V4, 5k)
+adat &lt;- head(example_data, 3L)
+dim(adat)
+
+getSomaScanVersion(adat)
+
+getSignalSpace(adat)
+
+# perform 'lift'
+lift_11k &lt;- lift_adat(adat, "5k_to_11k")  # warning
+
+is_lifted(lift_11k)
+
+dim(lift_11k)
+
+# attributes updated to reflect the 'lift'
+attr(lift_11k, "Header")$HEADER$SignalSpace
+
+attr(lift_11k, "Header")$HEADER$ProcessSteps
+</code></pre>
+
+
+</div>

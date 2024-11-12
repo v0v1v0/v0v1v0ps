@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ms_slgf</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bayesian Model Selection with Latent Group-Based Regression Effects and Heteroscedasticity</h2>
+
+<h3>Description</h3>
+
+<p><code>ms_slgf</code> Implements the model selection method proposed by (Metzger and Franck 2019).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ms_slgf(
+  dataf,
+  response,
+  lgf_beta,
+  min_levels_beta = 1,
+  lgf_Sigma,
+  min_levels_Sigma = 1,
+  same_scheme = TRUE,
+  usermodels,
+  het = rep(0, length(usermodels)),
+  prior = "flat",
+  m0 = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dataf</code></td>
+<td>
+<p>A data frame containing a continuous response, at least one categorical predictor, and any other covariates of interest. This data frame should not contain column names with the character string <code>group</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>response</code></td>
+<td>
+<p>A character string indicating the column of <code>dataf</code> that contains the response.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lgf_beta</code></td>
+<td>
+<p>An optional character string indicating the column of 'dataf' that contains the suspected latent grouping factor (SLGF) for the regression effects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_levels_beta</code></td>
+<td>
+<p>A numeric value indicating the minimum number of levels of 'lgf_beta' that can comprise a group. Defaults to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lgf_Sigma</code></td>
+<td>
+<p>An optional character string indicating the column of 'dataf' that contains the suspected latent grouping factor (SLGF) for the residual variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_levels_Sigma</code></td>
+<td>
+<p>A numeric value indicating the minimum number of levels of 'lgf_Sigma' that can comprise a group. Defaults to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>same_scheme</code></td>
+<td>
+<p>A Boolean operator indicating whether the schemes for 'lgf_beta' and 'lgf_Sigma' must be the same.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>usermodels</code></td>
+<td>
+<p>A list of length <code>M</code> where each element contains a string of *R* class <code>formula</code> or <code>character</code> indicating the models to consider. The term <code>group</code> should be used to replace the name of the SLGF in models with group-based regression effects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>het</code></td>
+<td>
+<p>A vector of 0s and 1s of length <code>M</code>. If the mth element of <code>het</code> is 0, then the mth model of <code>usermodels</code> is considered in a homoscedastic context only; if the mth element of <code>het</code> is 1, the mth model of <code>usermodels</code> is considered in both homoscedastic and heteroscedastic contexts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior</code></td>
+<td>
+<p>A character string <code>"flat"</code> or <code>"zs"</code> indicating whether to implement the flat or Zellner-Siow mixture g-prior on regression effects, respectively. Defaults to <code>"flat"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m0</code></td>
+<td>
+<p>An integer value indicating the minimum training sample size. Defaults to NULL. If no value is provided, the lowest value that leads to convergence for all considered posterior model probabilities will be used. If the value provided is too low for convergence, it will be increased automatically.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p><code>ms_slgf</code> returns a list of five elements if the flat prior is used, and six elements if the Zellner-Siow mixture g-prior is used:<br>
+1) <code>models</code>, an <code>M</code> by 7 matrix where columns contain the model selection results and information for each model, including: <br>
+- <code>Model</code>, the formula associated with each model; <br>
+- <code>Scheme.beta</code>, the grouping scheme associated with the fixed effects; <br>
+- <code>Scheme.Sigma</code>, the grouping scheme associated with the variances; <br>
+- <code>Log-Marginal</code>, the fractional log-marginal likelihood associated with each model; <br>
+- <code>FmodProb</code>, the fractional posterior probability associated with each model; <br>
+- <code>ModPrior</code>, the prior assigned to each model; <br>
+- <code>Cumulative</code>, the cumulative fractional posterior probability associated with a given model and the previous models; <br>
+2) <code>class_probabilities</code>, a vector containing cumulative posterior probabilities associated with each model class; <br>
+3) <code>coefficients</code>, MLEs for each model's regression effects; <br>
+4) <code>variances</code>, MLEs based on concentrated likelihood for each model's variance(s); <br>
+5) <code>gs</code>, MLEs based on concentrated likelihood for each model's <code>g</code>; only included if <code>prior="zs"</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Thomas A. Metzger and Christopher T. Franck
+</p>
+
+
+<h3>References</h3>
+
+<p>Metzger TA, Franck CT (2019).
+“Detection of latent heteroscedasticity and group-based regression effects in linear models via Bayesian model selection.”
+<em>arXiv e-prints</em>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Analyze the smell and textile data sets.
+
+library(numDeriv)
+
+
+data(smell)
+out_smell &lt;- ms_slgf(dataf = smell, response = "olf", het=c(1,1),
+                     lgf_beta = "agecat", lgf_Sigma = "agecat",
+                     same_scheme=TRUE, min_levels_beta=1, min_levels_Sigma=1,
+                     usermodels = list("olf~agecat", "olf~group"), m0=4)
+out_smell$models[1:5,]
+out_smell$coefficients[[46]]
+out_smell$variances[[46]]
+
+# textile data set
+data(textile)
+out_textile &lt;- ms_slgf(dataf = textile, response = "strength",
+                     lgf_beta = "starch", lgf_Sigma = "starch",
+                     same_scheme=FALSE, min_levels_beta=1, min_levels_Sigma=1,
+                     usermodels = list("strength~film+starch", "strength~film*starch",
+                                       "strength~film+group", "strength~film*group"),
+                     het=c(1,1,1,1), prior="flat", m0=8)
+out_textile$models[1:5,c(1,2,3,5)]
+out_textile$class_probabilities
+out_textile$coefficients[31]
+out_textile$variances[31]
+</code></pre>
+
+
+</div>

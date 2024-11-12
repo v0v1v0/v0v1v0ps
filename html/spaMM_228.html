@@ -1,0 +1,104 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>lev2bool</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Conversion of factor to 0/1 variable
+</h2>
+
+<h3>Description</h3>
+
+<p>It may be straightforward to add columns of indicator variables for each level of a factor to the data, by <br><em>&lt;data&gt;</em> <code> &lt;- cbind(</code><em>&lt;data&gt;</em><code>, model.matrix( ~ </code><em>&lt;factor&gt;</em><code> - 1, data = </code><em>&lt;data&gt;</em><code>))</code>.
+Alternatively, indicator variables can be created on the fly for given levels, using the <code>lev2bool</code> function. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">lev2bool(fac, lev)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fac</code></td>
+<td>
+
+<p>An object coercible to <code>factor</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lev</code></td>
+<td>
+
+<p>The level of <code>fac</code> to be converted to 1.  
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A one-column matrix.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Example in <code>GxE</code> for alternative to using <code>lev2bool</code> in specification of 
+random effects with heteroscedasticity, useful when the latter is controlled 
+by a factor with many levels. 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Elementary bivariate-response model
+
+# Data preparation
+#
+fam &lt;- rep(c(1,2),rep(6,2)) # define two biological 'families'
+ID &lt;- gl(6,2) # define 6 'individuals'
+resp &lt;- as.factor(rep(c("x","y"),6)) # distinguishes two responses per individual
+set.seed(123)
+toymv &lt;- data.frame(
+  fam = factor(fam), ID = ID, resp = resp, 
+  y = 1 + (resp=="x") + rnorm(4)[2*(resp=="x")+fam] + rnorm(12)[6*(resp=="x")+as.integer(ID)]
+)
+toymv &lt;- cbind(toymv, model.matrix( ~ resp - 1, data = toymv)) 
+
+# fit response-specific variances of random effect and residuals: 
+#
+(fitme(y ~ resp+ (0+respx|fam)+ (0+respy|fam), 
+        resid.model = ~ 0+resp ,data=toymv))
+
+# Same result by different syntaxes:
+
+#  * by the lev2bool() specifier:
+ (fitme(y ~ resp+ (0+lev2bool(resp,"x")|fam)+ (0+lev2bool(resp,"y")|fam), 
+        resid.model = ~ 0+resp ,data=toymv))
+
+#  * or by random-coefficient model using 'resp' factor:    
+(fitme(y ~ resp+ (0+resp|fam), resid.model = ~ 0+resp ,data=toymv, 
+       fixed=list(ranCoefs=list("1"=c(NA,0,NA)))))
+#       
+# For factors with more levels, the following function may be useful to specify 
+# through partially fixed ranCoefs that covariances are fixed to zero:
+ranCoefs_for_diag &lt;- function(nlevels) { 
+  vec &lt;- rep(0,nlevels*(nlevels+1L)/2L)
+  vec[cumsum(c(1L,rev(seq(nlevels-1L)+1L)))] &lt;- NA
+  vec
+}
+# see application in help("GxE").
+       
+#  * or by the dummy() specifier from lme4:
+# (fitme(y ~ resp+ (0+dummy(resp,"x")|fam)+ (0+dummy(resp,"y")|fam), 
+#        resid.model = ~ 0+resp ,data=toymv))
+</code></pre>
+
+
+</div>

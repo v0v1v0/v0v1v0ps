@@ -1,0 +1,585 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>modulationSpectrum</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Modulation spectrum</h2>
+
+<h3>Description</h3>
+
+<p>Produces a modulation spectrum of waveform(s) or audio file(s). It begins
+with some spectrogram-like time-frequency representation and analyzes the
+modulation of the envelope in each frequency band. if <code>specSource =
+'audSpec'</code>, the sound is passed through a bank of bandpass filters with
+<code>audSpectrogram</code>. If <code>specSource = 'STFT'</code>, we begin with an
+ordinary spectrogram produced with a Short-Time Fourier Transform. If
+<code>msType = '2D'</code>, the modulation spectrum is a 2D Fourier transform of
+the spectrogram-like representation, with temporal modulation along the X
+axis and spectral modulation along the Y axis. A good visual analogy is
+decomposing the spectrogram into a sum of ripples of various frequencies and
+directions. If <code>msType = '1D'</code>, the modulation spectrum is a matrix
+containing 1D Fourier transforms of each frequency band in the spectrogram,
+so the result again has modulation frequencies along the X axis, but the Y
+axis now shows the frequency of each analyzed band. Roughness is calculated
+as the proportion of the modulation spectrum within <code>roughRange</code> of
+temporal modulation frequencies or some weighted version thereof. The
+frequency of amplitude modulation (amMsFreq, Hz) is calculated as the highest
+peak in the smoothed AM function, and its purity (amMsPurity, dB) as the
+ratio of this peak to the median AM over <code>amRange</code>. For relatively short
+and steady sounds, set <code>amRes = NULL</code> and analyze the entire sound. For
+longer sounds and when roughness or AM vary over time, set <code>amRes</code> to
+get multiple measurements over time (see examples). For multiple inputs, such
+as a list of waveforms or path to a folder with audio files, the ensemble of
+modulation spectra can be interpolated to the same spectral and temporal
+resolution and averaged (if <code>averageMS = TRUE</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">modulationSpectrum(
+  x,
+  samplingRate = NULL,
+  scale = NULL,
+  from = NULL,
+  to = NULL,
+  msType = c("1D", "2D")[2],
+  specSource = c("STFT", "audSpec")[1],
+  windowLength = 15,
+  step = 1,
+  wn = "hanning",
+  zp = 0,
+  audSpec_pars = list(filterType = "butterworth", nFilters = 32, bandwidth = 1/24, yScale
+    = "bark", dynamicRange = 120),
+  amRes = 5,
+  maxDur = 5,
+  specMethod = c("spec", "meanspec")[2],
+  logSpec = FALSE,
+  logMPS = FALSE,
+  power = 1,
+  normalize = TRUE,
+  roughRange = c(30, 150),
+  roughMean = NULL,
+  roughSD = NULL,
+  roughMinFreq = 1,
+  amRange = c(10, 200),
+  returnMS = TRUE,
+  returnComplex = FALSE,
+  summaryFun = c("mean", "median", "sd"),
+  averageMS = FALSE,
+  reportEvery = NULL,
+  cores = 1,
+  plot = TRUE,
+  savePlots = NULL,
+  logWarpX = NULL,
+  logWarpY = NULL,
+  quantiles = c(0.5, 0.8, 0.9),
+  kernelSize = 5,
+  kernelSD = 0.5,
+  colorTheme = c("bw", "seewave", "heat.colors", "...")[1],
+  col = NULL,
+  main = NULL,
+  xlab = "Hz",
+  ylab = NULL,
+  xlim = NULL,
+  ylim = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>maximum possible amplitude of input used for normalization of
+input vector (only needed if <code>x</code> is a numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from, to</code></td>
+<td>
+<p>if NULL (default), analyzes the whole sound, otherwise
+from...to (s)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>msType</code></td>
+<td>
+<p>'2D' = two-dimensional Fourier transform of a spectrogram; '1D'
+= separately calculated spectrum of each frequency band</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specSource</code></td>
+<td>
+<p>'STFT' = Short-Time Fourier Transform; 'audSpec' = a bank
+of bandpass filters (see <code>audSpectrogram</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength, step, wn, zp</code></td>
+<td>
+<p>parameters for extracting a spectrogram if
+<code>specType = 'STFT'</code>. Window length and step are specified in ms (see
+<code>spectrogram</code>). If <code>specType = 'audSpec'</code>, these settings
+have no effect</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>audSpec_pars</code></td>
+<td>
+<p>parameters for extracting an auditory spectrogram if
+<code>specType = 'audSpec'</code>. If <code>specType = 'STFT'</code>, these settings
+have no effect</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amRes</code></td>
+<td>
+<p>target resolution of amplitude modulation, Hz. If <code>NULL</code>,
+the entire sound is analyzed at once, resulting in a single roughness value
+(unless it is longer than <code>maxDur</code>, in which case it is analyzed in
+chunks <code>maxDur</code> s long). If <code>amRes</code> is set, roughness is
+calculated for windows <code>~1000/amRes</code> ms long (but at least 3 STFT
+frames). <code>amRes</code> also affects the amount of smoothing when calculating
+<code>amMsFreq</code> and <code>amMsPurity</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxDur</code></td>
+<td>
+<p>sounds longer than <code>maxDur</code> s are split into fragments,
+and the modulation spectra of all fragments are averaged</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specMethod</code></td>
+<td>
+<p>the function to call when calculating the spectrum of each
+frequency band (only used when <code>msType = '1D'</code>); 'meanspec' is faster
+and less noisy, whereas 'spec' produces higher resolution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logSpec</code></td>
+<td>
+<p>if TRUE, the spectrogram is log-transformed prior to taking 2D
+FFT</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logMPS</code></td>
+<td>
+<p>if TRUE, the modulation spectrum is log-transformed prior to
+calculating roughness</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>power</code></td>
+<td>
+<p>raise modulation spectrum to this power (eg power = 2 for ^2, or
+"power spectrum")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normalize</code></td>
+<td>
+<p>if TRUE, the modulation spectrum of each analyzed fragment
+<code>maxDur</code> in duration is separately normalized to have max = 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>roughRange</code></td>
+<td>
+<p>the range of temporal modulation frequencies that
+constitute the "roughness" zone, Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>roughMean, roughSD</code></td>
+<td>
+<p>the mean (Hz) and standard deviation (semitones) of
+a lognormal distribution used to weight roughness estimates. If either is
+null, roughness is calculated simply as the proportion of spectrum within
+<code>roughRange</code>. If both <code>roughMean</code> and <code>roughRange</code> are
+defined, weights outside <code>roughRange</code> are set to 0; a very large SD (a
+flat weighting function) gives the same result as just <code>roughRange</code>
+without any weighting (see examples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>roughMinFreq</code></td>
+<td>
+<p>frequencies below roughMinFreq (Hz) are ignored when
+calculating roughness (ie the estimated roughness increases if we disregard
+very low-frequency modulation, which is often strong)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amRange</code></td>
+<td>
+<p>the range of temporal modulation frequencies that we are
+interested in as "amplitude modulation" (AM), Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnMS</code></td>
+<td>
+<p>if FALSE, only roughness is returned (much faster). Careful
+with exporting the modulation spectra of a lot of sounds at once as this
+requires a lot of RAM</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnComplex</code></td>
+<td>
+<p>if TRUE, returns a complex modulation spectrum (without
+normalization and warping)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>summaryFun</code></td>
+<td>
+<p>functions used to summarize each acoustic characteristic,
+eg "c('mean', 'sd')"; user-defined functions are fine (see examples); NAs
+are omitted automatically for mean/median/sd/min/max/range/sum, otherwise
+take care of NAs yourself</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>averageMS</code></td>
+<td>
+<p>if TRUE, the modulation spectra of all inputs are averaged
+into a single output; if FALSE, a separate MS is returned for each input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, plots the modulation spectrum of each sound (see
+<code>plotMS</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>if a valid path is specified, a plot is saved in this folder
+(defaults to NA)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logWarpX, logWarpY</code></td>
+<td>
+<p>numeric vector of length 2: c(sigma, base) of
+pseudolog-warping the modulation spectrum, as in function
+pseudo_log_trans() from the "scales" package</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quantiles</code></td>
+<td>
+<p>labeled contour values, % (e.g., "50" marks regions that
+contain 50% of the sum total of the entire modulation spectrum)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kernelSize</code></td>
+<td>
+<p>the size of Gaussian kernel used for smoothing (1 = no
+smoothing)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kernelSD</code></td>
+<td>
+<p>the SD of Gaussian kernel used for smoothing, relative to its
+size</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>colorTheme</code></td>
+<td>
+<p>black and white ('bw'), as in seewave package ('seewave'),
+matlab-type palette ('matlab'), or any palette from
+<code>palette</code> such as 'heat.colors', 'cm.colors', etc</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>col</code></td>
+<td>
+<p>actual colors, eg rev(rainbow(100)) - see ?hcl.colors for colors
+in base R (overrides colorTheme)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlab, ylab, main, xlim, ylim</code></td>
+<td>
+<p>graphical parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>parameters passed to
+<code>png</code> if the plot is saved</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters passed on to <code>filled.contour.mod</code>
+and <code>contour</code> (see <code>spectrogram</code>)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a list with the following components:
+</p>
+
+<ul>
+<li> <p><code>$original</code> modulation spectrum prior to blurring and log-warping,
+but after squaring if <code>power = TRUE</code>, a matrix of nonnegative values.
+Colnames are temporal modulation frequencies (Hz). Rownames are spectral
+modulation frequencies (cycles/kHz) if <code>msType = '2D'</code> and frequencies
+of filters or spectrograms bands (kHz) if <code>msType = '1D'</code>.
+</p>
+</li>
+<li> <p><code>$processed</code> modulation spectrum after blurring and log-warping
+</p>
+</li>
+<li> <p><code>$complex</code> untransformed complex modulation spectrum (returned
+only if returnComplex = TRUE)
+</p>
+</li>
+<li> <p><code>$roughness</code> proportion of the modulation spectrum within
+<code>roughRange</code> of temporal modulation frequencies or a weighted average
+thereof if <code>roughMean</code> and <code>roughSD</code> are defined, % - a vector if
+amRes is numeric and the sound is long enough, otherwise a single number
+</p>
+</li>
+<li> <p><code>$roughness_list</code> a list containing frequencies, amplitudes, and
+roughness values for each analyzed frequency band (1D) or frequency
+modulation band (2D)
+</p>
+</li>
+<li> <p><code>$amMsFreq</code> frequency of the highest peak, within <code>amRange</code>, of
+the folded AM function (average AM across all FM bins for both negative and
+positive AM frequencies), where a peak is a local maximum over <code>amRes</code>
+Hz. Like <code>roughness</code>, <code>amMsFreq</code> and <code>amMsPurity</code> can be single
+numbers or vectors, depending on whether the sound is analyzed as a whole or
+in chunks
+</p>
+</li>
+<li> <p><code>$amMsPurity</code> ratio of the peak at amMsFreq to the median AM over
+<code>amRange</code>, dB
+</p>
+</li>
+<li> <p><code>$summary</code> dataframe with summaries of roughness, amMsFreq, and
+amMsPurity
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+
+<ul><li>
+<p> Singh, N. C., &amp; Theunissen, F. E. (2003). Modulation spectra of
+natural sounds and ethological theories of auditory processing. The Journal
+of the Acoustical Society of America, 114(6), 3394-3411.
+</p>
+</li></ul>
+<h3>See Also</h3>
+
+<p><code>plotMS</code> <code>spectrogram</code>
+<code>audSpectrogram</code> <code>analyze</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># White noise
+ms = modulationSpectrum(rnorm(16000), samplingRate = 16000,
+  logSpec = FALSE, power = TRUE,
+  amRes = NULL)  # analyze the entire sound, giving a single roughness value
+str(ms)
+
+# Harmonic sound
+s = soundgen(pitch = 440, amFreq = 100, amDep = 50)
+ms = modulationSpectrum(s, samplingRate = 16000, amRes = NULL)
+ms[c('roughness', 'amMsFreq', 'amMsPurity')]  # a single value for each
+ms1 = modulationSpectrum(s, samplingRate = 16000, amRes = 5)
+ms1[c('roughness', 'amMsFreq', 'amMsPurity')]
+# measured over time (low values of amRes mean more precision, so we analyze
+# longer segments and get fewer values per sound)
+
+# Embellish
+ms = modulationSpectrum(s, samplingRate = 16000, logMPS = TRUE,
+  xlab = 'Temporal modulation, Hz', ylab = 'Spectral modulation, 1/kHz',
+  colorTheme = 'matlab', main = 'Modulation spectrum', lty = 3)
+
+# 1D instead of 2D
+modulationSpectrum(s, 16000, msType = '1D')
+
+## Not run: 
+# A long sound with varying AM and a bit of chaos at the end
+s_long = soundgen(sylLen = 3500, pitch = c(250, 320, 280),
+                  amFreq = c(30, 55), amDep = c(20, 60, 40),
+                  jitterDep = c(0, 0, 2))
+playme(s_long)
+ms = modulationSpectrum(s_long, 16000)
+# plot AM over time
+plot(x = seq(1, 1500, length.out = length(ms$amMsFreq)), y = ms$amMsFreq,
+     cex = 10^(ms$amMsPurity/20) * 10, xlab = 'Time, ms', ylab = 'AM frequency, Hz')
+# plot roughness over time
+spectrogram(s_long, 16000, ylim = c(0, 4),
+  extraContour = list(ms$roughness / max(ms$roughness) * 4000, col = 'blue'))
+
+# As with spectrograms, there is a tradeoff in time-frequency resolution
+s = soundgen(pitch = 500, amFreq = 50, amDep = 100, sylLen = 500,
+             samplingRate = 44100, plot = TRUE)
+# playme(s, samplingRate = 44100)
+ms = modulationSpectrum(s, samplingRate = 44100,
+  windowLength = 50, step = 50, amRes = NULL)  # poor temporal resolution
+ms = modulationSpectrum(s, samplingRate = 44100,
+  windowLength = 5, step = 1, amRes = NULL)  # poor frequency resolution
+ms = modulationSpectrum(s, samplingRate = 44100,
+  windowLength = 15, step = 3, amRes = NULL)  # a reasonable compromise
+
+# Start with an auditory spectrogram instead of STFT
+modulationSpectrum(s, 44100, specSource = 'audSpec', xlim = c(-100, 100))
+modulationSpectrum(s, 44100, specSource = 'audSpec',
+  logWarpX = c(10, 2), xlim = c(-500, 500),
+  audSpec_pars = list(nFilters = 32, filterType = 'gammatone', bandwidth = NULL))
+
+# customize the plot
+ms = modulationSpectrum(s, samplingRate = 44100,
+  windowLength = 15, overlap = 80, amRes = NULL,
+  kernelSize = 17,  # more smoothing
+  xlim = c(-70, 70), ylim = c(0, 4),  # zoom in on the central region
+  quantiles = c(.25, .5, .8),  # customize contour lines
+  col = rev(rainbow(100)),  # alternative palette
+  logWarpX = c(10, 2),  # pseudo-log transform
+  power = 2)                   # ^2
+# Note the peaks at FM = 2/kHz (from "pitch = 500") and AM = 50 Hz (from
+# "amFreq = 50")
+
+# Input can be a wav/mp3 file
+ms = modulationSpectrum('~/Downloads/temp/16002_Faking_It_Large_clear.wav')
+
+# Input can be path to folder with audio files. Each file is processed
+# separately, and the output can contain an MS per file...
+ms1 = modulationSpectrum('~/Downloads/temp', kernelSize = 11,
+                         plot = FALSE, averageMS = FALSE)
+ms1$summary
+names(ms1$original)  # a separate MS per file
+# ...or a single MS can be calculated:
+ms2 = modulationSpectrum('~/Downloads/temp', kernelSize = 11,
+                         plot = FALSE, averageMS = TRUE)
+plotMS(ms2$original)
+ms2$summary
+
+# Input can also be a list of waveforms (numeric vectors)
+ss = vector('list', 10)
+for (i in 1:length(ss)) {
+  ss[[i]] = soundgen(sylLen = runif(1, 100, 1000), temperature = .4,
+    pitch = runif(3, 400, 600))
+}
+# lapply(ss, playme)
+# MS of the first sound
+ms1 = modulationSpectrum(ss[[1]], samplingRate = 16000, scale = 1)
+# average MS of all 10 sounds
+ms2 = modulationSpectrum(ss, samplingRate = 16000, scale = 1, averageMS = TRUE, plot = FALSE)
+plotMS(ms2$original)
+
+# A sound with ~3 syllables per second and only downsweeps in F0 contour
+s = soundgen(nSyl = 8, sylLen = 200, pauseLen = 100, pitch = c(300, 200))
+# playme(s)
+ms = modulationSpectrum(s, samplingRate = 16000, maxDur = .5,
+  xlim = c(-25, 25), colorTheme = 'seewave',
+  power = 2)
+# note the asymmetry b/c of downsweeps
+
+# "power = 2" returns squared modulation spectrum - note that this affects
+# the roughness measure!
+ms$roughness
+# compare:
+modulationSpectrum(s, samplingRate = 16000, maxDur = .5,
+  xlim = c(-25, 25), colorTheme = 'seewave',
+  power = 1)$roughness  # much higher roughness
+
+# Plotting with or without log-warping the modulation spectrum:
+ms = modulationSpectrum(soundgen(), samplingRate = 16000, plot = TRUE)
+ms = modulationSpectrum(soundgen(), samplingRate = 16000,
+  logWarpX = c(2, 2), plot = TRUE)
+
+# logWarp and kernelSize have no effect on roughness
+# because it is calculated before these transforms:
+modulationSpectrum(s, samplingRate = 16000, logWarpX = c(1, 10))$roughness
+modulationSpectrum(s, samplingRate = 16000, logWarpX = NA)$roughness
+modulationSpectrum(s, samplingRate = 16000, kernelSize = 17)$roughness
+
+# Log-transform the spectrogram prior to 2D FFT (affects roughness):
+modulationSpectrum(s, samplingRate = 16000, logSpec = FALSE)$roughness
+modulationSpectrum(s, samplingRate = 16000, logSpec = TRUE)$roughness
+
+# Use a lognormal weighting function to calculate roughness
+# (instead of just % in roughRange)
+modulationSpectrum(s, 16000, roughRange = NULL,
+  roughMean = 75, roughSD = 3)$roughness
+modulationSpectrum(s, 16000, roughRange = NULL,
+  roughMean = 100, roughSD = 12)$roughness
+# truncate weights outside roughRange
+modulationSpectrum(s, 16000, roughRange = c(30, 150),
+  roughMean = 100, roughSD = 1000)$roughness  # very large SD
+modulationSpectrum(s, 16000, roughRange = c(30, 150),
+  roughMean = NULL)$roughness  # same as above b/c SD --&gt; Inf
+
+# Complex modulation spectrum with phase preserved
+ms = modulationSpectrum(soundgen(), samplingRate = 16000,
+                        returnComplex = TRUE)
+plotMS(abs(ms$complex))  # note the symmetry
+# compare:
+plotMS(ms$original)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

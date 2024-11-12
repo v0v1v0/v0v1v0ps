@@ -1,0 +1,123 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>append_dissimilarities</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Append list columns of Gower's distances and sampling weights to a data frame</h2>
+
+<h3>Description</h3>
+
+<p>Runs <code>cluster::daisy()</code> on a data frame, breaks up the columns of the
+resulting dissimilarity into a list, and adds this list to the data frame as
+a list column. In addition or instead, it adds a transformed version of the
+dissimilarity list, which can be used as sampling weights.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">append_dissimilarities(
+  data,
+  cols = dplyr::everything(),
+  dissimilarity_measure_name = "dissimilarities",
+  sampling_weight_name = "sampling_weights",
+  metric = "gower",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data frame that has at least one row and at least one column.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cols</code></td>
+<td>
+<p>&lt;<code>tidy-select</code>&gt; Columns of <code>data</code> on
+which to calculate dissimilarities.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dissimilarity_measure_name, sampling_weight_name</code></td>
+<td>
+<p>The names of the list
+columns that will be added to <code>data</code>. Cannot match the names of the
+existing columns. Make one of them <code>NULL</code> if you don't want it added, but
+they can't both be <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric, ...</code></td>
+<td>
+<p>Passed to <code>cluster::daisy()</code>. Use <code>...</code> at your own risk.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>All columns are fed to <code>cluster::daisy()</code> by default, but the user can select
+which ones using the <code>cols</code> argument.
+</p>
+<p>Once the full dissimilarity matrix is obtained, the columns are separated
+into a list via <code>asplit()</code> and appended to <code>data</code>. Each element of the list
+is therefore a double vector with <code>nrow</code><code>(data)</code> values. For any given
+row, its dissimilarity vector represents the row's dissimilarity to every
+row.
+</p>
+<p>The optional/alternative "sampling weight" column is a transformed version of
+the dissimilarity list: 1. All dissimilarity measures of 0 are replaced with
+the next smallest dissimilarity value in the vector. In effect, this means
+that a row's dissimilarity to itself (and any rows identical to it) is
+replaced with the dissimilarity value of its next most similar row.
+(Exception: if all elements are 0, all of them are replaced with 1). 2. Then
+the reciprocal of each element is taken so that larger values represent
+greater similarity. 3. Each element is divided by the sum of the vector,
+which standardizes the elements to add to 1.
+</p>
+<p>Requires the package <code>cluster</code> to be installed.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data frame, specifically the <code>data</code> argument with one or two more
+columns added to the end.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Running this on all mtcars columns
+mtdissim &lt;- append_dissimilarities(mtcars)
+
+# Therefore, these numbers represent the dissimilarity of each row to the
+# fifth row:
+mtdissim$dissimilarities[[5]]
+
+# And these are the dissimilarities' corresponding sampling weights:
+mtdissim$sampling_weights[[5]]
+
+# Now we run it on mtcars without the wt and qsec colums so that we purposely
+# end up with some duplicate rows (the first and second).
+mtdissim_dup &lt;- append_dissimilarities(mtcars, cols = !c(wt, qsec))
+
+# These represent each row's dissimilarity to its first row.
+# Since we specifically told it not to take wt and qsec into account, the
+# first two rows are identical. Therefore, both values are zero.
+mtdissim_dup$dissimilarities[[1]]
+
+# Here are the corresponding sampling weights. Notice that the first two
+# rows' sampling weights are the same as the sampling weight of row 30, which
+# is the next most similar row.
+mtdissim_dup$sampling_weights[[1]]
+</code></pre>
+
+
+</div>

@@ -1,0 +1,199 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>untie</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Randomly Break Ties in Data
+</h2>
+
+<h3>Description</h3>
+
+<p>This is a generic function intended to randomly break tied data in a
+way similar to what <code>jitter</code> does: tie-breaking is
+performed by shifting <em>all</em> data points by a random amount.
+The <span class="pkg">surveillance</span> package defines methods for matrices,
+<code>"epidataCS"</code>, and a default method for numeric vectors.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">untie(x, amount, ...)
+
+## S3 method for class 'epidataCS'
+untie(x, amount = list(t=NULL, s=NULL),
+      minsep = list(t=0, s=0), direction = "left", keep.sources = FALSE,
+      ..., verbose = FALSE)
+## S3 method for class 'matrix'
+untie(x, amount = NULL, minsep = 0,
+      constraint = NULL, giveup = 1000, ...)
+## Default S3 method:
+untie(x, amount = NULL, minsep = 0,
+      direction = c("symmetric", "left", "right"), sort = NULL,
+      giveup = 1000, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+
+<p>the data to be untied.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amount</code></td>
+<td>
+
+<p>upper bound for the random amount by which data are shifted.
+<code>NULL</code> means to use a data-driven default, which equals
+the minimum separation of the data points for the non-symmetric
+default method and its half for the symmetric default method and the
+<code>matrix</code> method. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minsep</code></td>
+<td>
+<p>minimum separation of jittered points. Can only be
+obeyed if much smaller than <code>amount</code> (also depending on the
+number of points). <code>minsep&gt;0</code> is currently only implemented for
+the spatial (matrix) method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.sources</code></td>
+<td>
+
+<p>logical (<code>FALSE</code>). If <code>TRUE</code>, the original list of
+possible event sources in <code>x$events$.sources</code> will be
+preserved. For instance, events observed at the same time did by
+definition not trigger each other; however, after random
+tie-breaking one event will precede the other and considered as a
+potential source of infection for the latter, although it could just
+as well be the other way round. Enabling <code>keep.sources</code> will
+use the <code>.sources</code> list from the original (tied)
+<code>"epidataCS"</code> object. Note, however, that an update is forced
+within <code>twinstim</code> if a subset of the data is selected
+for model fitting or if a different <code>qmatrix</code> is supplied.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraint</code></td>
+<td>
+
+<p>an object of class <code>"SpatialPolygons"</code>
+representing the domain which the points of the matrix should belong
+to – before and after jittering.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>giveup</code></td>
+<td>
+<p>number of attempts after which the
+algorithm should stop trying to generate new points.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>direction</code></td>
+<td>
+
+<p>one of <code>"symmetric"</code> (default), <code>"left"</code>, or
+<code>"right"</code>, indicating in which direction vector elements should
+be shifted.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sort</code></td>
+<td>
+
+<p>logical indicating if the jittered vector should be sorted. Defaults
+to doing so if the original vector was already sorted.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>For the <code>"epidataCS"</code>-method: arguments passed to the
+<code>matrix</code>- or <code>default</code>-method (<code>giveup</code>).
+Unused in other methods.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical passed to <code>as.epidataCS</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For numeric vectors (default method), the jittered version is the
+same as for <code>jitter(x, amount=amount)</code>, if
+<code>direction="symmetric"</code> (and <code>amount</code> is non-<code>NULL</code>),
+and otherwise uses
+<code>x</code> “+-” <code>runif(length(x), 0, amount)</code>.
+</p>
+<p>For matrices, a vector uniformly drawn from the disc with radius
+<code>amount</code> is added to each point (row).
+</p>
+<p>For <code>"epidataCS"</code>, <code>amount</code> is a list stating the amounts
+for the temporal and/or spatial dimension, respectively. It then
+uses the specific methods with arguments <code>constraint=x$W</code>,
+<code>direction</code>, and <code>sort=TRUE</code>. Note that this implements a
+simplistic approach of tie-breaking where all events are assumed to be
+subject to the same amounts of censoring, and the default amounts may
+not be sensible choices.
+</p>
+
+
+<h3>Value</h3>
+
+<p>the untied (jittered) data.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>jitter</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># vector example
+set.seed(123)
+untie(c(rep(1,3), rep(1.2, 4), rep(3,3)), direction="left", sort=FALSE)
+
+# spatial example
+data(imdepi)
+coords &lt;- coordinates(imdepi$events)
+table(duplicated(coords))
+plot(coords, cex=sqrt(multiplicity(coords)))
+set.seed(1)
+coords_untied &lt;- untie(coords)
+stopifnot(!anyDuplicated(coords_untied))
+points(coords_untied, col=2) # shifted by very small amount in this case
+</code></pre>
+
+
+</div>

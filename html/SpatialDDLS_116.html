@@ -1,0 +1,113 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>topGradientsCellType</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get top genes with largest/smallest gradients per cell type</h2>
+
+<h3>Description</h3>
+
+<p>Retrieve feature names with the largest/smallest gradients per cell
+type. These genes can be used to visualize their spatial expression
+in the ST data (<code>plotGeneSpatial</code> function) or to plot the calculated
+gradients as a heatmap (<code>plotGradHeatmap</code> function).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">topGradientsCellType(object, method = "class", top.n.genes = 15)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p><code>SpatialDDLS</code> object with a
+<code>DeconvDLModel</code> object containing gradients in the
+<code>interpret.gradients</code> slot.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Method gradients were calculated by. It can be either
+<code>'class'</code> (gradients of predicted classes w.r.t. inputs) or
+<code>'loss'</code> (gradients of loss w.r.t. input features).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>top.n.genes</code></td>
+<td>
+<p>Top n genes (positive and negative) taken per cell type.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>List of gene names with the top positive and negative
+gradients per cell type.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>interGradientsDL</code> <code>trainDeconvModel</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(123)
+sce &lt;- SingleCellExperiment::SingleCellExperiment(
+  assays = list(
+    counts = matrix(
+      rpois(30, lambda = 5), nrow = 15, ncol = 10,
+      dimnames = list(paste0("Gene", seq(15)), paste0("RHC", seq(10)))
+    )
+  ),
+  colData = data.frame(
+    Cell_ID = paste0("RHC", seq(10)),
+    Cell_Type = sample(x = paste0("CellType", seq(2)), size = 10,
+                       replace = TRUE)
+  ),
+  rowData = data.frame(
+    Gene_ID = paste0("Gene", seq(15))
+  )
+)
+SDDLS &lt;- createSpatialDDLSobject(
+  sc.data = sce,
+  sc.cell.ID.column = "Cell_ID",
+  sc.gene.ID.column = "Gene_ID",
+  sc.filt.genes.cluster = FALSE
+)
+SDDLS &lt;- genMixedCellProp(
+  object = SDDLS,
+  cell.ID.column = "Cell_ID",
+  cell.type.column = "Cell_Type",
+  num.sim.spots = 50,
+  train.freq.cells = 2/3,
+  train.freq.spots = 2/3,
+  verbose = TRUE
+)
+SDDLS &lt;- simMixedProfiles(SDDLS)
+SDDLS &lt;- trainDeconvModel(
+  object = SDDLS,
+  batch.size = 12,
+  num.epochs = 5
+)
+## calculating gradients
+SDDLS &lt;- interGradientsDL(SDDLS)
+listGradients &lt;- topGradientsCellType(SDDLS)
+lapply(listGradients, head, n = 5)
+
+  
+</code></pre>
+
+
+</div>

@@ -1,0 +1,295 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simSP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Similarity measure between snow profile pairs</h2>
+
+<h3>Description</h3>
+
+<p>This function calculates a similarity measure for two snow profiles
+that have been aligned onto the same height grid (either through DTW or resampling).
+If one profile contains more layers than the other one, the layers with a non-matched height
+represent missing layers and will be treated accordingly.
+The similarity measure is compatible with top-down alignments and is symmetric with respect to its inputs, i.e.
+<code>simSP(P1, P2) == simSP(P2, P1)</code>. <strong>Several different approaches of computing the measure have been implemented by now,
+see Details below.</strong>
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simSP(
+  ref,
+  qw,
+  gtype_distMat_simSP = sim2dist(grainSimilarity_evaluate(triag = FALSE)),
+  simType = "HerlaEtAl2021",
+  nonMatchedSim = 0,
+  nonMatchedThickness = 10,
+  verbose = FALSE,
+  returnDF = FALSE,
+  apply_scalingFactor = FALSE,
+  simWeights = c(gtype = 1/3, hardness = 1/3, stability = 1/3),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ref</code></td>
+<td>
+<p>snowprofile object 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>qw</code></td>
+<td>
+<p>snowprofile object 2 (matched layers need to be on the same height grid of ref)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gtype_distMat_simSP</code></td>
+<td>
+<p>a distance matrix that stores <strong>distance</strong> information of grain types (<em>Be careful</em> to convert
+similarities, as in grainSimilarity_evaluate, into dissimilarities with sim2dist.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simType</code></td>
+<td>
+<p>the similarity measure can be computed in several different ways (of sophistication). See Details section.
+Possible choices
+</p>
+
+<ul>
+<li> <p><code>simple</code>
+</p>
+</li>
+<li> <p><code>HerlaEtAl2021</code> (= <code>simple2</code>)
+</p>
+</li>
+<li> <p><code>tsa_WLdetection</code> &amp; <code>rta_WLdetection</code>
+</p>
+</li>
+<li> <p><code>layerwise</code> &amp; <code>rta_scaling</code>
+</p>
+</li>
+<li> <p><code>remotesensing</code>
+</p>
+</li>
+<li> <p><code>wsum_scaled</code>
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nonMatchedSim</code></td>
+<td>
+<p>sets the similarity value of non-matched layers <code style="white-space: pre;">⁠[0, 1]⁠</code>. "indifference" = 0.5, penalty &lt; 0.5.
+Note that dtwSP sets the same value and overrides the default value in this function!</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nonMatchedThickness</code></td>
+<td>
+<p>If <code>NA</code>, every unique non-matched layer (i.e., contiguous resampled layers with identical properties)
+contributes to the overall similarity by 1 x <code>nonMatchedSim</code>. In that case, 5cm of non-matched new snow has the same effect on
+the overall similarity as 50cm of non-matched new snow. To make the effect of non-matched layers dependent on the layer thickness,
+provide a positive number to <code>nonMatchedThickness</code>. For <code>nonMatchedThickness = 10</code>, every 10cm of a unique non-matched layer
+contribute to the overall similarity by 1 x <code>nonMatchedSim</code>. So, 50cm of non-matched new snow would contribute 5 times stronger
+than 5cm of non-matched new snow.
+Note that dtwSP sets the same value and overrides the default value in this function!</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>print similarities of different grain classes to console? default FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnDF</code></td>
+<td>
+<p>additionally return the similarities of the grain classes as data.frame (analogously to verbose);
+the return object then has the fields <code style="white-space: pre;">⁠$sim⁠</code> and <code style="white-space: pre;">⁠$simDF⁠</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>apply_scalingFactor</code></td>
+<td>
+<p>Only applicable to <code>type</code>s <code>layerwise</code> and <code>wsum_scaled</code>: <code>TRUE</code> or <code>FALSE</code>, see Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simWeights</code></td>
+<td>
+<p>a numeric vector with exact names that specifies the weights for the weighted averaging in <code>wsum_scaled</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>not used, but necessary to absorb unused inputs from dtwSP</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Several approaches of computing the similarity measure (<strong>simple</strong>, <strong>HerlaEtAl2021</strong>, <strong>tsa_WLdetection</strong>, <strong>rta_WLdetection</strong>) represent different flavours of the approach detailed in
+Herla et al (2021). In essence, they are a simple approach to incorporate avalanche hazard relevant characteristics into the score by
+computing the score as arithmetic mean of 4 different grain type classes:
+</p>
+
+<ul>
+<li>
+<p> weak layers (wl): SH and DH
+</p>
+</li>
+<li>
+<p> new snow (pp): PP and DF
+</p>
+</li>
+<li>
+<p> crusts (cr): MFcr and IF
+</p>
+</li>
+<li>
+<p> bulk: the rest (i.e., predominantly RG, FC, FCxr — MF falls also in here, will maybe be adjusted in future.)
+</p>
+</li>
+</ul>
+<p>Additionally, for classes wl and cr, vertical windows are computed to weigh layers more heavily that have no other wl or cr
+grain types in their neighborhood.
+</p>
+<p>Type <strong>simple</strong> deviates from <em>simple2</em> (= <em>HerlaEtAl2021</em>) by computing the aforementioned vertical windows based on heuristic
+depth ranges (i.e., Surface–30cm depth–80cm depth–150cm depth–Ground). It is otherwise identical to the <strong>simple2</strong>
+type, which computes as many numbers of equidistant vertical windows as number of wl or cr are present in the profile.
+</p>
+<p>Type <strong>tsa_WLdetection</strong> employs a similar approach as <em>simple</em>, but it identifies weak layers (wl) based on the Threshold Sum Approach
+(&gt;= 5 TSA, lemons, German 'Nieten'). Therefore, the original profiles need to contain grain size information, which allows you to pre-compute the lemons
+for all layers (additionally to the otherwise
+necessary gain type and hardness information). It is thus more targeted to simulated profiles or detailed manual profiles of very high quality.
+While the former two types neglect hardness information of wl and cr classes, this type does not.
+Type <strong>rta_WLdetection</strong> works analogous, but uses RTA instead of TSA and a threshold of &gt;= 0.8.
+</p>
+<p>Unlike the former types, <strong>layerwise</strong> applies no weighting at all if used as per default. That means that the similarity of each individual layer
+contributes equally to the overall similarity measure. It is, however, very flexible in that any custom scaling factor can be applied to each layer. The resulting similarity score is then computed by
+</p>
+
+<ul>
+<li>
+<p> sim = sim_gtype x sim_hardness (i.e., an array of similarities, one for each layer)
+</p>
+</li>
+<li>
+<p> simSP = sum(sim * scalingFactor) / sum(scalingFactor),
+</p>
+</li>
+</ul>
+<p>where the denominator ensures that the resulting score will be within <code style="white-space: pre;">⁠[0, 1]⁠</code>. If you want to explore your own scaling approach,
+both input snow profiles need to contain a column called <code style="white-space: pre;">⁠$layers$scalingFactor⁠</code> that store the desired factor.
+Type <strong>rta_scaling</strong> is a special case of <code>layerwise</code>, where the scaling is determined by the relative lemons of each layer (RTA, see Monti et al 2013).
+Type <strong>remotesensing</strong> makes use of the layerwise algorithm, but triggers an alternative similarity computation beforehand. Similarity is first computed from density and Optical Grain Size (ogs),
+and then the layerwise similarity is called upon to compute the global sim score.
+</p>
+<p>The newest approach <strong>wsum_scaled</strong> differs from all approaches before on a foundational level. While all other approaches compute the similarity of two layers by <em>multiplying</em> their
+similarities in various layer properties (e.g., gtype, hardness), this approach computes a <em>weighted sum</em> of the similarities of three layer properties:
+gtype, hardness, layer stability. Differently than previous approaches, the layer stability is not only used for scaling purposes but also for the similarity calculation itself.
+By scaling the similarity with stability, unstable layers get more weight in the resulting score. By additionally including the similarity of layer stability in the similarity calculation,
+profiles with similar stability patterns get a higher score.
+By using a weighted sum to combine the three layer properties, the approach is identical to how the underlying alignment of the profiles is computed. The resulting similarity score is computed by
+</p>
+
+<ul>
+<li>
+<p> sim = w1 x sim_gtype + w2 x sim_hardness + w3 x sim_stability  (i.e., an array of similarities, one for each layer)
+</p>
+</li>
+<li>
+<p> simSP = sum(sim * stability) / sum(stability),
+</p>
+</li>
+</ul>
+<p>where layer stability defaults to p_unstable, or to scalingFactor (if apply_scalingFactor is TRUE).
+</p>
+<p><strong>NOTE</strong> that for all types that include stability indices (TSA, RTA, p_unstable, scalingFactor), these measures need to be computed <em>prior to aligning</em> the profiles
+(and therefore need to be present in the profiles provided to this function!)
+</p>
+
+
+<h3>Value</h3>
+
+<p>Either a scalar similarity between <code style="white-space: pre;">⁠[0, 1]⁠</code> with 1 referring to the two profiles being identical, or
+(if <code>returnDF</code> is TRUE) a list with the elements <code style="white-space: pre;">⁠$sim⁠</code> and <code style="white-space: pre;">⁠$simDF⁠</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Herla, F., Horton, S., Mair, P., &amp; Haegeli, P. (2021). Snow profile alignment and similarity assessment for aggregating, clustering,
+and evaluating of snowpack model output for avalanche forecasting. Geoscientific Model Development, 14(1), 239–258. https://doi.org/10.5194/gmd-14-239-2021
+</p>
+<p>Monti, F., &amp; Schweizer, J. (2013). A relative difference approach to detect potential weak layers within a snow profile.
+Proceedings of the 2013 International Snow Science Workshop, Grenoble, France, 339–343. Retrieved from https://arc.lib.montana.edu/snow-science/item.php?id=1861
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## first align two profiles, then assess the similarity of the aligned profiles
+alignment &lt;- dtwSP(SPpairs$A_modeled, SPpairs$A_manual)
+SIM &lt;- simSP(alignment$queryWarped, alignment$reference, verbose = TRUE)
+
+## similarity of identical profiles
+SIM &lt;- simSP(alignment$queryWarped, alignment$queryWarped, verbose = TRUE)
+
+## non-matched layers become apparent here:
+alignment &lt;- plotSPalignment(SPpairs$C_day1, SPpairs$C_day2, keep.alignment = TRUE,
+                             rescale2refHS = FALSE, checkGlobalAlignment = FALSE)
+simSP(alignment$queryWarped, alignment$reference, nonMatchedSim = 0.5)
+## smaller similarity score due to 'penalty' of non-matched layers:
+simSP(alignment$queryWarped, alignment$reference, nonMatchedSim = 0)
+## even smaller similarity score due to higher impact of non-matched layer thickness:
+simSP(alignment$queryWarped, alignment$reference, nonMatchedSim = 0, nonMatchedThickness = 1)
+
+## detect WL based on lemons (instead of grain type alone):
+P1 &lt;- computeTSA(SPpairs$D_generalAlignment1)
+P2 &lt;- computeTSA(SPpairs$D_generalAlignment2)
+alignment &lt;- dtwSP(P1, P2, simType = "tsa_wldetection")
+# sim based on WL-detection with TSA:
+simSP(alignment$queryWarped, alignment$reference, type = "tsa_wldetection", verbose = TRUE)
+# sim solely based on grain type, neglecting TSA information
+simSP(alignment$queryWarped, alignment$reference, type = "simple", verbose = TRUE)
+
+## RTA scaling type
+P1 &lt;- computeRTA(P1)
+P2 &lt;- computeRTA(P2)
+alignment &lt;- dtwSP(P1, P2, simType = "rta_scaling")
+# sim based on scaling with RTA
+simSP(alignment$queryWarped, alignment$reference, type = "rta_scaling")
+# sim based on WL-detection with RTA
+simSP(alignment$queryWarped, alignment$reference, type = "rta_wldetection")
+# sim based on WL-detection with TSA
+simSP(alignment$queryWarped, alignment$reference, type = "tsa_wldetection")
+
+## layerwise similarity (i) unscaled...
+simSP(alignment$queryWarped, alignment$reference, type = "layerwise", verbose = TRUE)
+
+##... or (ii) with custom scaling factor (example only illustrative)
+alignment$queryWarped$layers$scalingFactor &lt;- 0.1
+alignment$queryWarped$layers$scalingFactor[findPWL(alignment$queryWarped)] &lt;- 1
+alignment$reference$layers$scalingFactor &lt;- 0.1
+alignment$reference$layers$scalingFactor[findPWL(alignment$reference)] &lt;- 1
+simSP(alignment$queryWarped, alignment$reference, type = "layerwise",
+      apply_scalingFactor = TRUE, verbose = TRUE)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,154 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_cPredVar</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Estimation of prediction variance with bootstrap correction
+</h2>
+
+<h3>Description</h3>
+
+<p>This function is similar to <code>get_predVar</code> except that is uses a bootstrap procedure to correct for bias in the evaluation of the prediction variance.     
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">get_cPredVar(pred_object, newdata, nsim, seed, type = "residual", 
+             variances=NULL, nb_cores = NULL, fit_env = NULL,
+             sim_object=pred_object)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>pred_object</code></td>
+<td>
+<p>an object of class <code>HLfit</code>, as returned by the fitting functions in <code>spaMM</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p>passed to <code>predict.HLfit</code> (it thus represents a prediction design, not to be confused with the bootstrap samples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>passed to <code>simulate.HLfit</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>passed to <code>simulate.HLfit</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>passed to <code>simulate.HLfit</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variances</code></td>
+<td>
+<p>NULL or list; <code>variances["cov"]</code> will be passed to <code>predict.HLfit</code> to control whether a covariance matrix is computed or not. Other elements are currently ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_cores</code></td>
+<td>
+<p>integer: number of cores to use for parallel computation of bootstrap. The default is <code>spaMM.getOption("nb_cores")</code>, and 1 if the latter is NULL. <code>nb_cores=1</code> prevents the use of parallelisation procedures.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit_env</code></td>
+<td>
+<p>For parallel computations: an environment containing objects to be passed to the cores. They should have the same name in <code>fit_env</code> as in the environment they are passed from.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim_object</code></td>
+<td>
+<p>an object of class <code>HLfit</code>, passed to <code>simulate.HLfit</code> as its <code>object</code> argument. Simulating from this object must produce response values that can be used as replacement to those of the original fitted <code>pred_object</code>. In standard usage, <code>sim_object=pred_object</code> (the default).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The result provided by <code>get_cPredVar</code> is similar to the CMSEP (Conditional Mean Standard Error of Prediction) introduced by Booth and Hobert (1998; “B&amp;H”). This paper is known for pointing the importance of using conditional variances when they differ from unconditional ones. This is hard to miss in spatial models, where the relevant prediction variance typically depends on the variance of random effects conditional on the data. Thus, the alternative function <code>get_predVar</code> already accounts for this and returns a prediction variance that depends on a joint covariance of fixed-effect estimates and of random effects given the data. 
+</p>
+<p>B&amp;H also used a conditional bootstrap procedure to correct for some bias. <code>get_cPredVar</code> implements a similar procedure, in contrast to <code>get_predVar</code>. Their conditional bootstrap procedure is not applicable for autocorrelated random effects, and parametric bootstrapping of the residuals of the fitted model (as implied by the default value of argument <code>type</code>) is used instead here. Apart from this difference, the returned value includes exactly the same terms as those discussed by B&amp;H: their “naive estimate” <code class="reqn">\nu_i</code> and its bootstrap correction <code class="reqn">b_i</code>, their correction <code class="reqn">\beta</code> for uncertainty in fixed-effect coefficients, and their correction <code class="reqn">\sigma^2</code> for uncertainty in dispersion parameters. 
+</p>
+<p>This use of the bootstrap does not account for uncertainty in correlation parameters “outer-optimized” by <code>fitme</code> or <code>corrHLfit</code>, because the correlation parameters are fixed when the model is refitted on the bootstrap replicates.  Even if it the correlation parameters were refitted, the full computation would not be sufficient to account for uncertainty in them. To account for uncertainty in correlation parameters, one should rather perform a parametric bootstrap of the full model (typically using <code>spaMM_boot(., type="residual")</code>), which may take much more time.
+</p>
+<p>The “naive estimate” <code class="reqn">\nu_i</code> is not generally an estimate of anything uniquely defined by the model parameters: for correlated random effects, it depends on the “root” of the correlation matrix of the random effects, which is not unique. Thus <code class="reqn">\nu_i</code> is not unique, and may differ for example for equivalent fits by sparse-precision methods vs. other methods. Nevertheless, <code>attr(cpredvar,"info")$naive</code> does recover published values in the Examples below, as they involve no correlation matrix. 
+</p>
+
+
+<h3>Value</h3>
+
+<p>A vector of prediction variances, with an attribute <code>info</code> which is an <b>environment</b> containing variables:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>SEs</code></td>
+<td>
+<p>the standard errors of the estimates (which are those of the bootstrap replicates)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bias</code></td>
+<td>
+<p>the bias term</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maive</code></td>
+<td>
+<p>B&amp;H's “naive” <code class="reqn">\nu_i</code></p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Booth, J.G., Hobert, J.P. (1998) Standard errors of prediction in generalized linear mixed models. J. Am. Stat. Assoc. 93: 262-272. 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+if(requireNamespace("rsae", quietly = TRUE)) {
+  # LMM example from Booth &amp; Hobert 1998 JASA
+  data("landsat", package = "rsae")
+  fitCorn &lt;- fitme(HACorn ~ PixelsCorn + PixelsSoybeans + (1|CountyName),data=landsat[-33,])
+  newXandZ &lt;- unique(data.frame(PixelsCorn=landsat$MeanPixelsCorn,
+                                PixelsSoybeans=landsat$MeanPixelsSoybeans,
+                                CountyName=landsat$CountyName))
+  (cpredvar &lt;- get_cPredVar(fitCorn, newdata=newXandZ, nsim=200L, seed=123)) # serial computation
+  (cpredvar &lt;- get_cPredVar(fitCorn, newdata=newXandZ, nsim=200L, seed=123, 
+        nb_cores=parallel::detectCores(logical=FALSE)-1L, 
+        fit_env=list2env(list(newXandZ=newXandZ))))
+}
+
+# GLMM example from Booth &amp; Hobert 1998 JASA
+data(clinics)
+fitClinics &lt;- HLfit(cbind(npos,nneg)~treatment+(1|clinic),family=binomial(),data=clinics)
+#
+(get_cPredVar(fitClinics, newdata=clinics[1:8,], nsim=200L, seed=123))  # serial computation
+(get_cPredVar(fitClinics, newdata=clinics[1:8,], nsim=200L, seed=123, 
+      nb_cores=parallel::detectCores(logical=FALSE)-1L, 
+      fit_env=list2env(list(clinics=clinics))))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

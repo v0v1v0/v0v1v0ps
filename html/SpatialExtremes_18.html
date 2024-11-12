@@ -1,0 +1,154 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>DIC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Deviance Information Criterion</h2>
+
+<h3>Description</h3>
+
+<p>This function computes the Deviance Information Criterion (DIC), and
+related quantities, which is
+a hierarchical modeling generalization of the Akaike Information
+Criterion. It is useful for Bayesian model selection.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">DIC(object, ..., fun = "mean")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object of class <code>latent</code> — typically this will
+be the output of <code>latent</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Optional arguments. Not implemented.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>A chararcter string giving the name of the function to be
+used to summarize the Markov chain. The default is to consider the
+posterior mean.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The deviance is
+</p>
+<p style="text-align: center;"><code class="reqn">D(\theta) = -2 \log \pi(y \mid \theta),</code>
+</p>
+
+<p>where <code class="reqn">y</code> are the data, <code class="reqn">\theta</code> are the unknown
+parameters of the models and <code class="reqn">\pi(y \mid \theta)</code> is
+the likelihood function. Thus the expected deviance, a measure of how
+well the model fits the data, is given by
+</p>
+<p style="text-align: center;"><code class="reqn">\overline{D} = {\rm E}_{\theta}[D(\theta)],</code>
+</p>
+
+<p>while the effective number of parameters is
+</p>
+<p style="text-align: center;"><code class="reqn">p_D = \overline{D} - D(\theta^*),</code>
+</p>
+
+<p>where <code class="reqn">\theta^*</code> is point estimate of the posterior
+distribution, e.g., the posterior mean. Finally the DIC is given by
+</p>
+<p style="text-align: center;"><code class="reqn">{\rm DIC} = p_D + \overline{D}.</code>
+</p>
+
+<p>In accordance with the AIC, models with smaller DIC should be
+preferred to models with larger DIC. Roughly speaking, differences of
+more than 10 might rule out the model with the higher DIC, differences
+between 5 and 10 are substantial.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A vector of length 3 that returns the DIC, effective number of
+parameters <code>eNoP</code> and an estimate of the expected deviance
+<code>Dbar</code>.</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Mathieu Ribatet</p>
+
+
+<h3>References</h3>
+
+<p>Spiegelhalter, D. J., Best, N. G., Carlin, B. P. and Van Der Linde,
+A. (2002) Bayesian measures of model complexity and fit. <em>Journal
+of the Royal Statistical Society: Series B</em> <b>64</b>, 583–639.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>AIC</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Generate realizations from the model
+n.site &lt;- 15
+n.obs &lt;- 35
+coord &lt;- cbind(lon = runif(n.site, -10, 10), lat = runif(n.site, -10 , 10))
+
+gp.loc &lt;- rgp(1, coord, "powexp", sill = 4, range = 20, smooth = 1)
+gp.scale &lt;- rgp(1, coord, "powexp", sill = 0.4, range = 5, smooth = 1)
+gp.shape &lt;- rgp(1, coord, "powexp", sill = 0.01, range = 10, smooth = 1)
+
+locs &lt;- 26 + 0.5 * coord[,"lon"] + gp.loc
+scales &lt;- 10 + 0.2 * coord[,"lat"] + gp.scale
+shapes &lt;- 0.15 + gp.shape
+
+data &lt;- matrix(NA, n.obs, n.site)
+for (i in 1:n.site)
+  data[,i] &lt;- rgev(n.obs, locs[i], scales[i], shapes[i])
+
+loc.form &lt;- y ~ lon
+scale.form &lt;- y ~ lat
+shape.form &lt;- y ~ 1
+
+hyper &lt;- list()
+hyper$sills &lt;- list(loc = c(1,8), scale = c(1,1), shape = c(1,0.02))
+hyper$ranges &lt;- list(loc = c(2,20), scale = c(1,5), shape = c(1, 10))
+hyper$smooths &lt;- list(loc = c(1,1/3), scale = c(1,1/3), shape = c(1, 1/3))
+hyper$betaMeans &lt;- list(loc = rep(0, 2), scale = c(9, 0), shape = 0)
+hyper$betaIcov &lt;- list(loc = solve(diag(c(400, 100))),
+                       scale = solve(diag(c(400, 100))),
+                       shape = solve(diag(c(10), 1, 1)))
+
+## We will use an exponential covariance function so the jump sizes for
+## the shape parameter of the covariance function are null.
+prop &lt;- list(gev = c(2.5, 1.5, 0.3), ranges = c(40, 20, 20), smooths = c(0,0,0))
+start &lt;- list(sills = c(4, .36, 0.009), ranges = c(24, 17, 16), smooths
+              = c(1, 1, 1),  beta = list(loc = c(26, 0), scale = c(10, 0),
+                               shape = c(0.15)))
+
+mc &lt;- latent(data, coord, loc.form = loc.form, scale.form = scale.form,
+             shape.form = shape.form, hyper = hyper, prop = prop, start = start,
+             n = 500)
+DIC(mc)
+</code></pre>
+
+
+</div>

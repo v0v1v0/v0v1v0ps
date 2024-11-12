@@ -1,0 +1,158 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>expected.n</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Expected Number of Individuals
+</h2>
+
+<h3>Description</h3>
+
+<p>Computes the expected number of individuals detected across a detector
+layout or at each cluster of detectors. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+expected.n(object, session = NULL, group = NULL, bycluster
+    = FALSE, splitmask = FALSE, ncores = NULL)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+ <p><code>secr</code> object output from <code>secr.fit</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>session</code></td>
+<td>
+<p> character session vector </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p> group – for future use </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bycluster</code></td>
+<td>
+<p> logical to output the expected number for
+clusters of detectors rather than whole array </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>splitmask</code></td>
+<td>
+<p>logical for computation method (see Details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p> integer number of threads to be used for parallel processing</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The expected number of individuals detected is <code class="reqn">E(n) = \int p.(X)
+  D(X) dX</code> where the integration is a
+summation over <code>object$mask</code>. <code class="reqn">p.(X)</code> is the probability an
+individual at <code class="reqn">X</code> will be detected at least once either on the
+whole detector layout (<code>bycluster = FALSE</code>) or on the detectors
+in a single cluster (see pdot for more on <code class="reqn">p.</code>). <code class="reqn">D(X)</code>
+is the expected density at <code class="reqn">X</code>, given the model. <code class="reqn">D(X)</code> is
+constant (i.e. density surface flat) if <code>object$CL == TRUE</code> or
+<code>object$model$D == ~1</code>, and for some other possible models.
+</p>
+<p>If the <code>bycluster</code> option is selected and detectors are not, in
+fact, assigned to clusters then each detector will be treated as a
+cluster, with a warning.
+</p>
+<p>Setting <code>ncores = NULL</code> uses the existing value from the environment variable 
+RCPP_PARALLEL_NUM_THREADS (see <code>setNumThreads</code>).
+</p>
+<p>By default, a full habitat mask is used for each cluster. This is the
+more robust option. Alternatively, the mask may be split into subregions
+defined by the cells closest to each cluster.
+</p>
+<p>The calculation takes account of any fitted continuous model for spatial
+variation in density (note Warning).
+</p>
+
+
+<h3>Value</h3>
+
+<p>The expected count (bycluster = FALSE) or a vector of expected counts,
+one per cluster. For multi-session data, a list of such vectors.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>This function changed slightly between 2.1.0 and 2.1.1, and now
+performs as indicated here when bycluster = TRUE and
+clusters are not specified.
+</p>
+<p>Clusters of detectors are assumed to be independent (always true with detector types
+‘proximity’, ‘count’ etc.). The computed E(n) does not apply when
+there is competition among clusters of detectors.
+</p>
+<p>The prediction of density at present considers only the base level of
+density covariates, such as cell-specific habitat variables.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>region.N</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+expected.n(secrdemo.0)
+expected.n(secrdemo.0, bycluster = TRUE)
+expected.n(ovenbird.model.D)
+
+## Clustered design
+mini &lt;- make.grid(nx = 3, ny = 3, spacing = 50, detector =
+    "proximity")
+tempgrids &lt;- trap.builder (cluster = mini , method = "all",
+    frame = expand.grid(x = seq(1000, 9000, 2000),
+    y = seq(1000, 9000, 2000)), plt = TRUE)
+capt &lt;- sim.capthist(tempgrids, popn = list(D = 2))
+tempmask &lt;- make.mask(tempgrids, buffer = 100,
+    type = "clusterbuffer")
+fit &lt;- secr.fit(capt, mask = tempmask, trace = FALSE)
+En &lt;- expected.n(fit, bycluster = TRUE)
+
+## GoF or overdispersion statistic
+p &lt;- length(fit$fit$par)
+y &lt;- cluster.counts(capt)
+## scaled by n-p
+sum((y - En)^2 / En) / (length(En)-p)
+sum((y - En)^2 / En) / sum(y/En)
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

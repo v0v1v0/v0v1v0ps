@@ -1,0 +1,180 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>setup</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Set up multiple samples</h2>
+
+<h3>Description</h3>
+
+<p>Generic function for setting up multiple samples.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">setup(x, control, ...)
+
+## S4 method for signature 'data.frame,SampleControl'
+setup(x, control)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>the data to sample from.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>a control object inheriting from the virtual class
+<code>"VirtualSampleControl"</code> or a character string specifying such a
+control class (the default being <code>"SampleControl"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>if <code>control</code> is a character string or missing, the slots of
+the control object may be supplied as additional arguments.  See
+<code>"SampleControl"</code> for details on the slots.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A fundamental design principle of the framework in the case of design-based
+simulation studies is that the sampling procedure is separated from the
+simulation procedure.  Two main advantages arise from setting up all samples
+in advance.
+</p>
+<p>First, the repeated sampling reduces overall computation time dramatically in
+certain situations, since computer-intensive tasks like stratification need
+to be performed only once.  This is particularly relevant for large
+population data.  In close-to-reality simulation studies carried out in
+research projects in survey statistics, often up to 10000 samples are drawn
+from a population of millions of individuals with stratified sampling
+designs.  For such large data sets, stratification takes a considerable
+amount of time and is a very memory-intensive task.  If the samples are taken
+on-the-fly, i.e., in every simulation run one sample is drawn, the function
+to take the stratified sample would typically split the population into the
+different strata in each of the 10000 simulation runs.  If all samples are
+drawn in advance, on the other hand, the population data need to be split
+only once and all 10000 samples can be taken from the respective strata
+together.
+</p>
+<p>Second, the samples can be stored permanently, which simplifies the
+reproduction of simulation results and may help to maximize comparability of
+results obtained by different partners in a research project.  In particular,
+this is useful for large population data, when complex sampling techniques
+may be very time-consuming.  In research projects involving different
+partners, usually different groups investigate different kinds of estimators.
+If the two groups use not only the same population data, but also the same
+previously set up samples, their results are highly comparable.
+</p>
+<p>The control class <code>"SampleControl"</code> is highly flexible and allows
+stratified sampling as well as sampling of whole groups rather than
+individuals with a specified sampling method.  Hence it is often sufficient
+to implement the desired sampling method for the simple non-stratified case
+to extend the existing framework.  See <code>"SampleControl"</code>
+for some restrictions on the argument names of such a function, which should
+return a vector containing the indices of the sampled observations.
+</p>
+<p>Nevertheless, for very complex sampling procedures, it is possible to define
+a control class <code>"MySampleControl"</code> extending
+<code>"VirtualSampleControl"</code>, and the corresponding method
+<code>setup(x, control)</code> with signature <code>'data.frame, MySampleControl'</code>.
+In order to optimize computational performance, it is necessary to
+efficiently set up multiple samples.  Thereby the slot <code>k</code> of
+<code>"VirtualSampleControl"</code> needs to be used to control the number of
+samples, and the resulting object must be of class
+<code>"SampleSetup"</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>"SampleSetup"</code>.
+</p>
+
+
+<h3>Methods</h3>
+
+
+<dl>
+<dt><code>x = "data.frame", control = "character"</code></dt>
+<dd>
+<p>set up multiple samples
+using a control class specified by the character string <code>control</code>.
+The slots of the control object may be supplied as additional arguments.</p>
+</dd>
+<dt><code>x = "data.frame", control = "missing"</code></dt>
+<dd>
+<p>set up multiple samples
+using a control object of class <code>"SampleControl"</code>.  Its slots may be
+supplied as additional arguments.</p>
+</dd>
+<dt><code>x = "data.frame", control = "SampleControl"</code></dt>
+<dd>
+<p>set up multiple
+samples as defined by the control object <code>control</code>.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Andreas Alfons</p>
+
+
+<h3>References</h3>
+
+<p>Alfons, A., Templ, M. and Filzmoser, P. (2010) An Object-Oriented Framework for
+Statistical Simulation: The <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> Package <span class="pkg">simFrame</span>. <em>Journal of
+Statistical Software</em>, <b>37</b>(3), 1–36. doi: <a href="https://doi.org/10.18637/jss.v037.i03">10.18637/jss.v037.i03</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>simSample</code>, <code>draw</code>,
+<code>"SampleControl"</code>, <code>"TwoStageControl"</code>,
+<code>"VirtualSampleControl"</code>,
+<code>"SampleSetup"</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(12345)  # for reproducibility
+data(eusilcP)    # load data
+
+## simple random sampling
+srss &lt;- setup(eusilcP, size = 20, k = 4)
+summary(srss)
+draw(eusilcP[, c("id", "eqIncome")], srss, i = 1)
+
+## group sampling
+gss &lt;- setup(eusilcP, grouping = "hid", size = 10, k = 4)
+summary(gss)
+draw(eusilcP[, c("hid", "id", "eqIncome")], gss, i = 2)
+
+## stratified simple random sampling
+ssrss &lt;- setup(eusilcP, design = "region",
+    size = c(2, 5, 5, 3, 4, 5, 3, 5, 2), k = 4)
+summary(ssrss)
+draw(eusilcP[, c("id", "region", "eqIncome")], ssrss, i = 3)
+
+## stratified group sampling
+sgss &lt;- setup(eusilcP, design = "region",
+    grouping = "hid", size = c(2, 5, 5, 3, 4, 5, 3, 5, 2), k = 4)
+summary(sgss)
+draw(eusilcP[, c("hid", "id", "region", "eqIncome")], sgss, i = 4)
+</code></pre>
+
+
+</div>

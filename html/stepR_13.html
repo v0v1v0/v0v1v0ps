@@ -1,0 +1,142 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>contMC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Continuous time Markov chain</h2>
+
+<h3>Description</h3>
+
+<p>Simulate a continuous time Markov chain.
+</p>
+<p><b>Deprecation warning:</b> This function is mainly used for patchlamp recordings and may be transferred to a specialised package.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">contMC(n, values, rates, start = 1, sampling = 1, family = c("gauss", "gaussKern"),
+  param = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>number of data points to simulate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>values</code></td>
+<td>
+<p>a <code>numeric</code> vector specifying signal amplitudes for different states</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rates</code></td>
+<td>
+<p>a square <code>matrix</code> matching the dimension of <code>values</code> each with <code>rates[i,j]</code> specifying the transition rate from state <code>i</code> to state <code>j</code>; the diagonal entries are ignored</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>the state in which the Markov chain is started</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sampling</code></td>
+<td>
+<p>the sampling rate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>whether Gaussian white (<code>"gauss"</code>) or coloured (<code>"gaussKern"</code>), i.e. filtered, noise should be added; cf. family</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param</code></td>
+<td>
+<p>for <code>family="gauss"</code>, a single non-negative <code>numeric</code> specifying the standard deviation of the noise; for <code>family="gaussKern"</code>, <code>param</code> must be a list with entry <code>df</code> giving the <code>dfilter</code> object used for filtering, an <code>integer</code> entry <code>over</code> which specifies the oversampling factor of the filter, i.e. <code>param$df</code> has to be created for a sampling rate of <code>sampling</code> times <code>over</code>, and an additional non-negative <code>numeric</code> entry <code>sd</code> specifying the noise's standard deviation <em>after</em> filtering; cf. family</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>list</code> with components
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>cont</code></td>
+<td>
+<p>an object of class <code>stepblock</code> containing the simulated true values in continuous time, with an additional column <code>state</code> specifying the corresponding state</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>discr</code></td>
+<td>
+<p>an object of class <code>stepblock</code> containing the simulated true values reduced to discrete time, i.e. containing only the observable blocks</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a <code>data.frame</code> with columns <code>x</code> and <code>y</code> containing the times and values of the simulated observations, respectively</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>This follows the description for simulating ion channels given by VanDongen (1996).
+</p>
+
+
+<h3>References</h3>
+
+<p>VanDongen, A. M. J. (1996) A new algorithm for idealizing single ion channel data containing multiple unknown conductance levels. <em>Biophysical Journal</em> <b>70</b>(3), 1303–1315.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>stepblock</code>, <code>jsmurf</code>, <code>stepbound</code>, <code>steppath</code>, <code>family</code>, <code>dfilter</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Simulate filtered ion channel recording with two states
+set.seed(9)
+# sampling rate 10 kHz
+sampling &lt;- 1e4
+# tenfold oversampling
+over &lt;- 10
+# 1 kHz 4-pole Bessel-filter, adjusted for oversampling
+cutoff &lt;- 1e3
+df &lt;- dfilter("bessel", list(pole=4, cutoff=cutoff / sampling / over))
+# two states, leaving state 1 at 1 Hz, state 2 at 10 Hz
+rates &lt;- rbind(c(0, 1e0), c(1e1, 0))
+# simulate 5 s, level 0 corresponds to state 1, level 1 to state 2
+# noise level is 0.1 after filtering
+sim &lt;- contMC(5 * sampling, 0:1, rates, sampling=sampling, family="gaussKern",
+  param = list(df=df, over=over, sd=0.1))
+sim$cont
+plot(sim$data, pch = ".")
+lines(sim$discr, col = "red")
+# noise level after filtering, estimated from first block
+sd(sim$data$y[1:sim$discr$rightIndex[1]])
+# show autocovariance in first block
+acf(ts(sim$data$y[1:sim$discr$rightIndex[1]], freq=sampling), type = "cov")
+# power spectrum in first block
+s &lt;- spec.pgram(ts(sim$data$y[1:sim$discr$rightIndex[1]], freq=sampling), spans=c(200,90))
+# cutoff frequency is where power spectrum is halved
+abline(v=cutoff, h=s$spec[1] / 2, lty = 2)
+</code></pre>
+
+
+</div>

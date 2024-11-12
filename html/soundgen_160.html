@@ -1,0 +1,151 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>matchPars</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Match soundgen pars (experimental)</h2>
+
+<h3>Description</h3>
+
+<p>Attempts to find settings for <code>soundgen</code> that will reproduce an
+existing sound. The principle is to mutate control parameters, trying to
+improve fit to target. The currently implemented optimization algorithm is
+simple hill climbing. Disclaimer: this function is experimental and may or
+may not work for particular tasks. It is intended as a supplement to - not
+replacement of - manual optimization. See vignette('sound_generation',
+package = 'soundgen') for more information.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">matchPars(
+  target,
+  samplingRate = NULL,
+  pars = NULL,
+  init = NULL,
+  probMutation = 0.25,
+  stepVariance = 0.1,
+  maxIter = 50,
+  minExpectedDelta = 0.001,
+  compareSoundsPars = list(),
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>target</code></td>
+<td>
+<p>the sound we want to reproduce using soundgen: path to a .wav
+file or numeric vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>target</code> (only needed if target is
+a numeric vector, rather than a .wav file)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pars</code></td>
+<td>
+<p>arguments to <code>soundgen</code> that we are attempting to
+optimize</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init</code></td>
+<td>
+<p>a list of initial values for the optimized parameters <code>pars</code>
+and the values of other arguments to soundgen that are fixed at non-default
+values (if any)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probMutation</code></td>
+<td>
+<p>the probability of a parameter mutating per iteration</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stepVariance</code></td>
+<td>
+<p>scale factor for calculating the size of mutations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxIter</code></td>
+<td>
+<p>maximum number of mutated sounds produced without improving
+the fit to target</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minExpectedDelta</code></td>
+<td>
+<p>minimum improvement in fit to target required to
+accept the new sound candidate</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compareSoundsPars</code></td>
+<td>
+<p>a list of control parameters passed to
+<code>compareSounds</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if TRUE, plays back the accepted candidate at each iteration
+and reports the outcome</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a list of length 2: <code>$history</code> contains the tried
+parameter values together with their fit to target (<code>$history$sim</code>),
+and <code>$pars</code> contains a list of the final - hopefully the best -
+parameter settings.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+target = soundgen(sylLen = 600, pitch = c(300, 200),
+                  rolloff = -15, play = TRUE, plot = TRUE)
+# we hope to reproduce this sound
+
+# Match pars based on acoustic analysis alone, without any optimization.
+# This *MAY* match temporal structure, pitch, and stationary formants
+m1 = matchPars(target = target,
+               samplingRate = 16000,
+               maxIter = 0,  # no optimization, only acoustic analysis
+               verbose = TRUE)
+cand1 = do.call(soundgen, c(m1$pars, list(
+  temperature = 0.001, play = TRUE, plot = TRUE)))
+
+# Try to improve the match by optimizing rolloff
+# (this may take a few minutes to run, and the results may vary)
+m2 = matchPars(target = target,
+               samplingRate = 16000,
+               pars = 'rolloff',
+               maxIter = 100,
+               verbose = TRUE)
+# rolloff should be moving from default (-9) to target (-15):
+sapply(m2$history, function(x) x$pars$rolloff)
+cand2 = do.call(soundgen, c(m2$pars, list(play = TRUE, plot = TRUE)))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

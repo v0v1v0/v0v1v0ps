@@ -1,0 +1,256 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>R0</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Computes reproduction numbers from fitted models</h2>
+
+<h3>Description</h3>
+
+<p>The S3 generic function <code>R0</code> defined in package <span class="pkg">surveillance</span> is intended to
+compute reproduction numbers from fitted epidemic models.
+The package currently defines a method for the <code>"twinstim"</code> class, which
+computes expected numbers of infections caused by infected individuals depending on the event type
+and marks attached to the individual, which contribute to the infection pressure
+in the epidemic predictor of that class.
+There is also a method for simulated <code>"epidataCS"</code>
+(just a wrapper for the <code>"twinstim"</code>-method).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">R0(object, ...)
+
+## S3 method for class 'twinstim'
+R0(object, newevents, trimmed = TRUE, newcoef = NULL, ...)
+## S3 method for class 'simEpidataCS'
+R0(object, trimmed = TRUE, ...)
+
+simpleR0(object, eta = coef(object)[["e.(Intercept)"]],
+         eps.s = NULL, eps.t = NULL, newcoef = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A fitted epidemic model object for which an <code>R0</code> method exists.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newevents</code></td>
+<td>
+
+<p>an optional <code>data.frame</code> of events for which the reproduction
+numbers should be calculated.  If omitted, it is calculated for the
+original events from the fit.  In this case, if
+<code>trimmed = TRUE</code> (the default), the result is just
+<code>object$R0</code>; however, if <code>trimmed = FALSE</code>, the model
+environment is required, i.e. <code>object</code> must have been fitted
+with <code>model = TRUE</code>.
+</p>
+<p>For the <code>twinstim</code> method, <code>newevents</code> must at least
+contain the following columns:
+the event <code>time</code> (only for <code>trimmed = TRUE</code>)
+and <code>type</code> (only for multi-type epidemics),
+the maximum interaction ranges <code>eps.t</code> and <code>eps.s</code>,
+as well as columns for the marks and <code>stgrid</code> variables
+used in the epidemic component of the fitted <code>"twinstim"</code>
+<code>object</code> as stored in <code>formula(object)$epidemic</code>.
+For <code>trimmed</code> R0 values, <code>newevents</code> must additionally
+contain the components <code>.influenceRegion</code> and, if using the
+<code>Fcircle</code> trick in the <code>siaf</code> specification, also
+<code>.bdist</code> (cf. the hidden columns in the <code>events</code>
+component of class <code>"epidataCS"</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trimmed</code></td>
+<td>
+
+<p>logical indicating if the individual reproduction numbers should be
+calculated by integrating the epidemic intensities over the
+observation period and region only (<code>trimmed = TRUE</code>) or over
+the whole time-space domain R+ x R^2 (<code>trimmed = FALSE</code>). By
+default, if <code>newevents</code> is missing, the trimmed <code>R0</code>
+values stored in <code>object</code> are returned. Trimming means that
+events near the (spatial or temporal) edges of the observation
+domain have lower reproduction numbers (ceteris paribus) because
+events outside the observation domain are not observed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newcoef</code></td>
+<td>
+
+<p>the model parameters to use when calculating reproduction numbers.
+The default (<code>NULL</code>) is to use the MLE <code>coef(object)</code>.
+This argument mainly serves the construction of Monte Carlo
+confidence intervals by evaluating <code>R0</code> for parameter vectors
+sampled from the asymptotic multivariate normal distribution of the MLE,
+see Examples.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments passed to methods.
+Currently unused for the <code>twinstim</code> method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eta</code></td>
+<td>
+<p>a value for the epidemic linear predictor, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps.s,eps.t</code></td>
+<td>
+<p>the spatial/temporal radius of interaction.
+If <code>NULL</code> (the default), the original value from the data is
+used if this is unique and an error is thrown otherwise.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For the <code>"twinstim"</code> class, the individual-specific expected
+number <code class="reqn">\mu_j</code> of infections caused by individual (event) <code class="reqn">j</code>
+inside its theoretical (untrimmed) spatio-temporal range of interaction
+given by its <code>eps.t</code> (<code class="reqn">\epsilon</code>) and <code>eps.s</code>
+(<code class="reqn">\delta</code>) values is defined as follows (cf. Meyer et al, 2012):
+</p>
+<p style="text-align: center;"><code class="reqn">\mu_j = e^{\eta_j} \cdot
+  \int_{b(\bold{0},\delta)} f(\bold{s}) d\bold{s} \cdot
+  \int_0^\epsilon g(t) dt .</code>
+</p>
+
+<p>Here, <code class="reqn">b(\bold{0},\delta)</code> denotes the disc centred at (0,0)' with
+radius <code class="reqn">\delta</code>, <code class="reqn">\eta_j</code> is the epidemic linear predictor,
+<code class="reqn">g(t)</code> is the temporal interaction function, and <code class="reqn">f(\bold{s})</code>
+is the spatial interaction function. For a type-specific
+<code>twinstim</code>, there is an additional factor for the number of event
+types which can be infected by the type of event <code class="reqn">j</code> and the
+interaction functions may be type-specific as well.
+</p>
+<p>Alternatively to the equation above,
+the <code>trimmed</code> (observed) reproduction numbers
+are obtain by integrating over the observed infectious domains of the
+individuals, i.e. integrate <code class="reqn">f</code> over the intersection of the
+influence region with the observation region <code>W</code>
+(i.e. over <code class="reqn">\{ W \cap b(\bold{s}_j,\delta) \} - \bold{s}_j</code>)
+and <code class="reqn">g</code> over the intersection of the observed infectious period with
+the observation period <code class="reqn">(t_0;T]</code> (i.e. over
+<code class="reqn">(0; \min(T-t_j,\epsilon)]</code>).
+</p>
+<p>The function <code>simpleR0</code> computes
+</p>
+<p style="text-align: center;"><code class="reqn">\exp(\eta) \cdot
+  \int_{b(\bold{0},\delta)} f(\bold{s}) d\bold{s} \cdot 
+  \int_0^{\epsilon} g(t) dt ,</code>
+</p>
+
+<p>where <code class="reqn">\eta</code> defaults to <code class="reqn">\gamma_0</code> disregarding any epidemic
+effects of types and marks. It is thus only
+suitable for simple epidemic <code>twinstim</code> models with
+<code>epidemic = ~1</code>, a diagonal (or secondary diagonal) <code>qmatrix</code>,
+and type-invariant interaction functions.
+<code>simpleR0</code> mainly exists for use by <code>epitest</code>.
+</p>
+<p>(Numerical) Integration is performed exactly as during the fitting of
+<code>object</code>, for instance <code>object$control.siaf</code> is queried if
+necessary.
+</p>
+
+
+<h3>Value</h3>
+
+<p>For the <code>R0</code> methods,
+a numeric vector of estimated reproduction numbers from the fitted
+model <code>object</code> corresponding to the rows of <code>newevents</code> (if
+supplied) or the original fitted events including events of the prehistory.
+</p>
+<p>For <code>simpleR0</code>, a single number (see details).
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer</p>
+
+
+<h3>References</h3>
+
+<p>Meyer, S., Elias, J. and Höhle, M. (2012):
+A space-time conditional intensity model for invasive meningococcal
+disease occurrence. <em>Biometrics</em>, <b>68</b>, 607-616.
+<a href="https://doi.org/10.1111/j.1541-0420.2011.01684.x">doi:10.1111/j.1541-0420.2011.01684.x</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## load the 'imdepi' data and a model fit
+data("imdepi", "imdepifit")
+
+## calculate individual and type-specific reproduction numbers
+R0s &lt;- R0(imdepifit)
+tapply(R0s, imdepi$events@data[names(R0s), "type"], summary)
+
+## untrimmed R0 for specific event settings
+refevent &lt;- data.frame(agegrp = "[0,3)", type = "B", eps.s = Inf, eps.t = 30)
+setting2 &lt;- data.frame(agegrp = "[3,19)", type = "C", eps.s = Inf, eps.t = 14)
+newevents &lt;- rbind("ref" = refevent, "event2" = setting2)
+(R0_examples &lt;- R0(imdepifit, newevents = newevents, trimmed = FALSE))
+stopifnot(all.equal(R0_examples[["ref"]],
+                    simpleR0(imdepifit)))
+
+
+### compute a Monte Carlo confidence interval
+
+## use a simpler model with constant 'siaf' for speed
+simplefit &lt;- update(imdepifit, epidemic=~type, siaf=NULL, subset=NULL)
+
+## we'd like to compute the mean R0's by event type
+meanR0ByType &lt;- function (newcoef) {
+    R0events &lt;- R0(simplefit, newcoef=newcoef)
+    tapply(R0events, imdepi$events@data[names(R0events),"type"], mean)
+}
+(meansMLE &lt;- meanR0ByType(newcoef=NULL))
+
+## sample B times from asymptotic multivariate normal of the MLE
+B &lt;- 5  # CAVE: toy example! In practice this has to be much larger
+set.seed(123)
+parsamples &lt;- MASS::mvrnorm(B, mu=coef(simplefit), Sigma=vcov(simplefit))
+
+## for each sample compute the 'meanR0ByType'
+meansMC &lt;- apply(parsamples, 1, meanR0ByType)
+
+## get the quantiles and print the result
+cisMC &lt;- apply(cbind(meansMLE, meansMC), 1, quantile, probs=c(0.025,0.975))
+print(rbind(MLE=meansMLE, cisMC))
+
+
+### R0 for a simple epidemic model
+### without epidemic covariates, i.e., all individuals are equally infectious
+
+mepi1 &lt;- update(simplefit, epidemic = ~1, subset = type == "B",
+                model = TRUE, verbose = FALSE)
+## using the default spatial and temporal ranges of interaction
+(R0B &lt;- simpleR0(mepi1))  # eps.s=200, eps.t=30
+stopifnot(identical(R0B, R0(mepi1, trimmed = FALSE)[[1]]))
+## assuming smaller interaction ranges (but same infection intensity)
+simpleR0(mepi1, eps.s = 50, eps.t = 15)
+</code></pre>
+
+
+</div>

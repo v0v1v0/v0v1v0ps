@@ -1,0 +1,173 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rel.pi</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Relative position index</h2>
+
+<h3>Description</h3>
+
+<p>Compute the relative position index of raster objects.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rel.pi(attTbl, RO, el, type = "s", plot = FALSE, r = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>attTbl</code></td>
+<td>
+<p>data.frame, the attribute table returned by the function
+<code>attTbl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RO</code></td>
+<td>
+<p>column name, the name of the column with the raster object IDs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>el</code></td>
+<td>
+<p>column name, the name of column with the elevation values on
+which the relative position index is computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>character, defines if position index values are <em>standardized</em>
+(<code>"s"</code>) or <em>normalized</em> (<code>"n"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>logic, plot the results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>single or multi-layer raster of the class <code>SpatRaster</code> (see
+<code>help("rast", terra)</code>) used to compute the attribute table. Required
+only if <code>plot = TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Position index values are computed only for cells that belong to a
+raster object.
+</p>
+
+<ul>
+<li> <p><em>Standardized position index values</em> (<code>type="s"</code>) are computed with
+the formula <code>( x - mean(x) ) / sd(x)</code>;
+</p>
+</li>
+<li> <p><em>Normalized position index values</em> (<code>type="n"</code>) are computed with
+the formula <code>( x - min(x) ) / ( max(x) - min(x) )</code>;
+</p>
+</li>
+<li>
+<p> Variable <code>x</code> represents the elevation values
+of individual raster object.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>The function returns a vector with relative position index values.
+The vector has length equal to the number of rows of the attribute table.
+NA values are assigned to cells that do not belong to any raster object.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>attTbl()</code>, <code>ngbList()</code>, <code>pi.add()</code>, <code>pi.sgm()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># DUMMY DATA
+######################################################################################
+# LOAD LIBRARIES
+library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r, rNumb=TRUE, attTbl=at) # rnumb MUST be true to use obj.nbs
+
+################################################################################
+# COMPUTE RASTER OBJECTS
+################################################################################
+at$RO &lt;- anchor.seed(at, nbs, silent=TRUE, class = NULL, rNumb=TRUE,
+                     cond.filter = "dummy_var &gt; 1",
+                     cond.seed   = "dummy_var==max(dummy_var)",
+                     cond.growth = "dummy_var&lt;dummy_var[]",
+                     lag.growth  = 0)
+
+# Convert class vector at$RO to raster and plot
+r_RO  &lt;- cv.2.rast(r = r, classVector = at$RO)
+terra::plot(r_RO, type="classes", main="Raster objects",
+            plg=list(x=1, y=1, cex=0.9))
+
+################################################################################
+# STANDARDIZED RELATIVE POSITION INDEX
+################################################################################
+relPI &lt;- rel.pi(attTbl = at, RO = "RO", el = "dummy_var",
+                type = "s",
+                plot = TRUE, r = r)
+
+# Annotate relPI
+points(terra::xFromCell(r, at$Cell[which(at$RO==1)]),
+       terra::yFromCell(r, at$Cell[which(at$RO==1)]) - 0.04,
+       pch=20, col="yellow")
+points(terra::xFromCell(r, at$Cell[which(at$RO==2)]),
+       terra::yFromCell(r, at$Cell[which(at$RO==2)]) - 0.04,
+       pch=20, col="darkgreen")
+text(xyFromCell(r,at$Cell), as.character(round(relPI,2)))
+legend(1.02, 0.4, legend=c("1", "2"), bty = "n", title="RO:", xpd=TRUE,
+col=c("#E6E600", "#00A600"), pch=20, cex=0.9, pt.cex = 1.5)
+
+################################################################################
+# NORMALIZED RELATIVE POSITION INDEX
+################################################################################
+# Compute normalized relative position index
+relPI &lt;- rel.pi(attTbl = at, RO = "RO", el = "dummy_var",
+                type = "n",
+                plot = TRUE, r = r)
+
+# Annotate relPI
+points(terra::xFromCell(r, at$Cell[which(at$RO==1)]),
+       terra::yFromCell(r, at$Cell[which(at$RO==1)]) - 0.04,
+       pch=20, col="yellow")
+points(terra::xFromCell(r, at$Cell[which(at$RO==2)]),
+       terra::yFromCell(r, at$Cell[which(at$RO==2)]) - 0.04,
+       pch=20, col="darkgreen")
+text(xyFromCell(r,at$Cell), as.character(round(relPI,2)))
+legend(1.02, 0.4, legend=c("1", "2"), bty = "n", title="RO:", xpd=TRUE,
+col=c("#E6E600", "#00A600"), pch=20, cex=0.9, pt.cex = 1.5)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,183 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>thin_gene</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Binomial thinning for altering total gene expression levels</h2>
+
+<h3>Description</h3>
+
+<p>Given a matrix of real RNA-seq counts, this function will apply a
+separate, user-provided thinning factor to each gene. This uniformly
+lowers the counts for all samples in a gene. The thinning factor
+should be provided on the log2-scale. This is a specific application
+of the binomial thinning approach in <code>thin_diff</code>. The method is
+described in detail in Gerard (2020).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">thin_gene(mat, thinlog2, relative = FALSE, type = c("thin", "mult"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mat</code></td>
+<td>
+<p>A numeric matrix of RNA-seq counts. The rows index the genes and
+the columns index the samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thinlog2</code></td>
+<td>
+<p>A vector of numerics. Element i is the amount to thin
+(on the log2 scale) for gene i. For
+example, a value of 0 means that we do not thin, a value of 1 means
+that we thin by a factor of 2, a value of 2 means we thin by a factor
+of 4, etc.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>relative</code></td>
+<td>
+<p>A logical. Should we apply relative thinning (<code>TRUE</code>)
+or absolute thinning (<code>FALSE</code>). Only experts should change
+the default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Should we apply binomial thinning (<code>type = "thin"</code>) or
+just naive multiplication of the counts (<code>type = "mult"</code>).
+You should always have this set to <code>"thin"</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list-like S3 object of class <code>ThinData</code>.
+Components include some or all of the following:
+</p>
+
+<dl>
+<dt><code>mat</code></dt>
+<dd>
+<p>The modified matrix of counts.</p>
+</dd>
+<dt><code>designmat</code></dt>
+<dd>
+<p>The design matrix of variables used to simulate
+signal. This is made by column-binding <code>design_fixed</code> and the
+permuted version of <code>design_perm</code>.</p>
+</dd>
+<dt><code>coefmat</code></dt>
+<dd>
+<p>A matrix of coefficients corresponding to
+<code>designmat</code>.</p>
+</dd>
+<dt><code>design_obs</code></dt>
+<dd>
+<p>Additional variables that should be included in
+your design matrix in downstream fittings. This is made by
+column-binding the vector of 1's with <code>design_obs</code>.</p>
+</dd>
+<dt><code>sv</code></dt>
+<dd>
+<p>A matrix of estimated surrogate variables. In simulation
+studies you would probably leave this out and estimate your own
+surrogate variables.</p>
+</dd>
+<dt><code>cormat</code></dt>
+<dd>
+<p>A matrix of target correlations between the
+surrogate variables and the permuted variables in the design matrix.
+This might be different from the <code>target_cor</code> you input because
+we pass it through <code>fix_cor</code> to ensure
+positive semi-definiteness of the resulting covariance matrix.</p>
+</dd>
+<dt><code>matching_var</code></dt>
+<dd>
+<p>A matrix of simulated variables used to
+permute <code>design_perm</code> if the <code>target_cor</code> is not
+<code>NULL</code>.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>David Gerard
+</p>
+
+
+<h3>References</h3>
+
+
+<ul><li>
+<p>Gerard, D (2020). "Data-based RNA-seq simulations by binomial thinning." <em>BMC Bioinformatics</em>. 21(1), 206. <a href="https://doi.org/10.1186/s12859-020-3450-9">doi:10.1186/s12859-020-3450-9</a>.
+</p>
+</li></ul>
+<h3>See Also</h3>
+
+
+<dl>
+<dt><code>select_counts</code></dt>
+<dd>
+<p>For subsampling the rows and columns
+of your real RNA-seq count matrix prior to applying binomial thinning.</p>
+</dd>
+<dt><code>thin_diff</code></dt>
+<dd>
+<p>For the more general thinning approach.</p>
+</dd>
+<dt><code>thin_lib</code></dt>
+<dd>
+<p>For thinning sample-wise instead of
+gene-wise.</p>
+</dd>
+<dt><code>thin_all</code></dt>
+<dd>
+<p>For thinning all counts uniformly.</p>
+</dd>
+<dt><code>ThinDataToSummarizedExperiment</code></dt>
+<dd>
+<p>For converting a
+ThinData object to a SummarizedExperiment object.</p>
+</dd>
+<dt><code>ThinDataToDESeqDataSet</code></dt>
+<dd>
+<p>For converting a
+ThinData object to a DESeqDataSet object.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Generate count data and thinning factors
+## In practice, you would obtain mat from a real dataset, not simulate it.
+set.seed(1)
+n &lt;- 10
+p &lt;- 1000
+lambda &lt;- 1000
+mat &lt;- matrix(lambda, ncol = n, nrow = p)
+thinlog2 &lt;- rexp(n = p, rate = 1)
+
+## Thin total gene expressions
+thout &lt;- thin_gene(mat = mat, thinlog2 = thinlog2)
+
+## Compare empirical thinning proportions to specified thinning proportions
+empirical_propvec &lt;- rowMeans(thout$mat) / lambda
+specified_propvec &lt;- 2 ^ (-thinlog2)
+plot(empirical_propvec, specified_propvec,
+     xlab = "Empirical Thinning Proportion",
+     ylab = "Specified Thinning Proportion")
+abline(0, 1, col = 2, lwd = 2)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,116 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>suppliedElsewhere</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Assess whether an object has or will be supplied from elsewhere</h2>
+
+<h3>Description</h3>
+
+<p>When loading objects into a <code>simList</code>, especially during the
+<code>simInit</code> call, and inside the <code>.inputObjects</code> functions of modules,
+it is often useful to know if an object in question will or has been
+by the user via the <code>inputs</code> or <code>objects</code> arguments, or by another
+module's <code>.inputObjects</code> while preparing its expected inputs (via
+<code>expectsInputs</code> in metadata), or if it will be supplied by another
+module during its <code>"init"</code> event. In all these cases, it may not
+be necessary for a given module to load any default value for its <code>expectsInputs</code>.
+This function can be used as a check to determine whether the module needs
+to proceed in getting and assigning its default value.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">suppliedElsewhere(
+  object,
+  sim,
+  where = c("sim", "user", "initEvent"),
+  returnWhere = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>Character vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sim</code></td>
+<td>
+<p>A <code>simList</code> in which to evaluated whether the object is supplied elsewhere</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>where</code></td>
+<td>
+<p>Character vector with one to three of <code>"sim"</code>, <code>"user"</code>, or <code>"initEvent"</code>.
+Default is all three. Partial matching is used. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnWhere</code></td>
+<td>
+<p>Logical, default <code>FALSE</code>, whether the vector of length
+3 logical should be returned, or a logical of length one</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>where</code> indicates which of three places to search, either <code>"sim"</code> i.e.,
+the <code>simList</code>, which would be equivalent to <code style="white-space: pre;">⁠is.null(sim\$objName)⁠</code>, or
+<code>"user"</code> which would be supplied by the user in the <code>simInit</code> function
+call via <code>outputs</code> or <code>inputs</code> (equivalent to
+<code style="white-space: pre;">⁠(!('defaultColor' \%in\% sim$.userSuppliedObjNames))⁠</code>),
+or <code>"initEvent"</code>, which would test whether a module that gets loaded <strong>before</strong>
+the present one <strong>will</strong> create it as part of its outputs (i.e., as indicated by
+<code>createsOutputs</code> in that module's metadata). There is a caveat to this test,
+however; if that other event also has the object as an <code>expectsInput</code>, then
+it would fail this test, as it <em>also</em> needs it as an input.
+This final one (<code>"initEvent"</code>) does not explicitly test that the object will be created
+in the "init" event, only that it is in the outputs of that module, and that it is a module
+that is loaded prior to this one.
+</p>
+
+
+<h3>Value</h3>
+
+<p>logical
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">mySim &lt;- simInit()
+suppliedElsewhere("test", mySim) # FALSE
+
+# supplied in the simList
+mySim$test &lt;- 1
+suppliedElsewhere("test", mySim) # TRUE
+test &lt;- 1
+
+# supplied from user at simInit time -- note, this object would eventually get into the simList
+#   but the user supplied values come *after* the module's .inputObjects, so
+#   a basic is.null(sim$test) would return TRUE even though the user supplied test
+mySim &lt;- simInit(objects = list("test" = test))
+suppliedElsewhere("test", mySim) # TRUE
+
+
+# Example with prepInputs
+# Put chunks like this in your .inputObjects
+if (!suppliedElsewhere("test", mySim))
+  sim$test &lt;- Cache(prepInputs, "raster.tif", "downloadedArchive.zip",
+                    destinationPath = dataPath(sim), studyArea = sim$studyArea,
+                    rasterToMatch = sim$otherRasterTemplate, overwrite = TRUE)
+
+</code></pre>
+
+
+</div>

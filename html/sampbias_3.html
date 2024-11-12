@@ -1,0 +1,275 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>calculate_bias</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Evaluating Sampling Bias in Species Distribution Data</h2>
+
+<h3>Description</h3>
+
+<p>The major function of the package, calculating the bias effect of sampling
+bias due to geographic structures, such as the vicinity to cities, airports,
+rivers and roads. Results are projected to space, and can be compared
+numerically.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">calculate_bias(
+  x,
+  gaz = NULL,
+  res = 1,
+  buffer = NULL,
+  restrict_sample = NULL,
+  terrestrial = TRUE,
+  inp_raster = NULL,
+  mcmc_rescale_distances = 1000,
+  mcmc_iterations = 1e+05,
+  mcmc_burnin = 20000,
+  mcmc_outfile = NULL,
+  prior_q = c(1, 0.01),
+  prior_w = c(1, 1),
+  plot_raster = FALSE,
+  verbose = FALSE,
+  run_null_model = FALSE,
+  use_hyperprior = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an object of the class <code>data.frame</code>, with one species
+occurrence record per line, and at least three columns, named
+‘species’, ‘decimalLongitude’, and ‘decimalLatitude’.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gaz</code></td>
+<td>
+<p>a list of geographic gazetteers as <code>SpatVector</code> or <code>sf</code>.
+If NULL, a set of default gazetteers, representing large scale occurrence
+of airports, cities, rivers, and roads is used. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>res</code></td>
+<td>
+<p>numerical.  The raster resolution for the distance calculation to
+the geographic features and the data visualization, in decimal degrees. The
+default is to one degree, but higher resolution will be desirable for most
+analyses. <code>res</code> together with the extent of the input data determine
+computation time and memory requirements.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>buffer</code></td>
+<td>
+<p>numerical.  The size of the geographic buffer around the extent
+of <code>ras</code> for the distance calculations in degrees, to account for
+geographic structures neighbouring the study area (such as a road right
+outside the study area). Should be a multiple of <code>res</code>.  Default is to
+<code>res</code> * 10. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>restrict_sample</code></td>
+<td>
+<p>a <code>SpatVector</code> object. If provided the area for
+the bias test will be restricted to raster cells within these polygons (and
+the extent of the sampled points in x). Make sure to use adequate values
+for <code>res</code>. Default = NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>terrestrial</code></td>
+<td>
+<p>logical.  If TRUE, the empirical distribution (and the
+output maps) are restricted to terrestrial areas.  Uses the
+<code>rnaturalearth:::ne_countries</code> to define what is
+terrestrial.  Default = TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inp_raster</code></td>
+<td>
+<p>an object of class <code>SpatRaster</code>. A template raster for
+the counts and distance calculation. Can be used to provide a special
+resolution, or for different coordinate reference systems. See vignette.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc_rescale_distances</code></td>
+<td>
+<p>numerical. rescaling factor for the
+distance calculation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc_iterations</code></td>
+<td>
+<p>numerical. the number of iterations for the MCMC,
+by default 100,000</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc_burnin</code></td>
+<td>
+<p>numerical. the burn-in for the MCMC, default is to 20,000</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc_outfile</code></td>
+<td>
+<p>character string. the path on where to write
+the results of the MCMC, optional.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_q</code></td>
+<td>
+<p>the gamma prior for the sampling rate $q$,
+which represents the expected number of occurrences per cell
+in the absence of biases. In the format c(shape,rate).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_w</code></td>
+<td>
+<p>the gamma prior for the steepness of the Poisson rate decline,
+such that w approximating 0 results in a
+null model of uniform sampling rate q across cells.
+In the format c(shape,rate).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot_raster</code></td>
+<td>
+<p>logical. If TRUE, a plot of the occurrence raster is shown
+for diagnostic purposes. Default = FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical.  If TRUE, progress is reported.  Default = FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run_null_model</code></td>
+<td>
+<p>logical. Run a null model with bias weights set to
+zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_hyperprior</code></td>
+<td>
+<p>logical. If TRUE a hyperprior on the bias weights is
+used for regularization to avoid over-parametrization.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The default gazetteers delivered with the package are simplified from
+http://www.naturalearthdata.com/downloads/. They include major features, and
+for small scale analyses custom gazetteers should be used.
+</p>
+<p>For computational convenience, the gazetteers are cropped to the extent of
+the point occurrence data sets. To account for the fact, that, relevant
+structures might lay directly outside this extent, but still influencing the
+distribution of samples in the study area, the buffer option, gives the
+area, around the extent that should be included in the distance calculation.
+</p>
+<p>Visit <a href="https://github.com/azizka/sampbias/wiki">https://github.com/azizka/sampbias/wiki</a> for more information on
+distance calculation and the algorithm behind sampbias.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of the S3-class ‘sampbias’, which is a list
+including the following objects: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>summa</code></td>
+<td>
+<p>A list of summary statistics
+for the sampbias analyses, including the total number of occurrence points
+in <code>x</code>, the total number of species in <code>x</code>, the extent of the
+output rasters as well as the settings for <code>res</code>, <code>binsize</code>, and
+<code>convexhull</code> used in the analyses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>occurrences</code></td>
+<td>
+<p>a <code>SpatRaster</code>
+indicating occurrence records per grid cell, with resolution res.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>species</code></td>
+<td>
+<p>a <code>SpatRaster</code> with indicating the number of species per
+grid cell, with resolution res.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>biasmaps</code></td>
+<td>
+<p>a list of <code>SpatRaster</code>,
+with the same length as gaz. Each element is the spatial projection of the
+bias effect for a sources of bias in <code>gaz</code>. The last raster in the list
+is the average over all bias sources.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>biastable</code></td>
+<td>
+<p>a <code>data.frame</code>,
+with the estimated bias effect for each bias source in <code>gaz</code>, at the
+distances specified by <code>biasdist</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>Check <a href="https://github.com/azizka/sampbias/wiki">https://github.com/azizka/sampbias/wiki</a> for a tutorial on
+sampbias.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>summary.sampbias</code> <code>is.sampbias</code>
+<code>plot.sampbias</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+  #simulate data
+  x &lt;- data.frame(species = rep(sample(x = LETTERS, size = 5), times = 20),
+                   decimalLongitude = runif(n = 100, min = 0, max = 20),
+                   decimalLatitude = runif(n = 100, min = -4, max = 4))
+
+  out &lt;- calculate_bias(x, terrestrial = TRUE, buffer = 0)
+  summary(out)
+  plot(out)
+  
+  
+  
+
+</code></pre>
+
+
+</div>

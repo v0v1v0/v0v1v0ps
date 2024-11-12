@@ -1,0 +1,473 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fitSCI</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Standardized Climate Index (SCI)
+</h2>
+
+<h3>Description</h3>
+
+<p><code>fitSCI</code> identifies parameters for the Standardized Climate Index
+(SCI) transformation. <code>transformSCI</code> applies the transformation
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fitSCI(x, ...)
+## Default S3 method:
+fitSCI(x, first.mon, time.scale, distr, p0, 
+       p0.center.mass=FALSE, scaling=c("no","max","sd"),mledist.par =  list(),
+       start.fun = dist.start, start.fun.fix = FALSE, warn = TRUE, ...)
+
+transformSCI(x, ...)
+## Default S3 method:
+transformSCI(x, first.mon, obj, sci.limit = Inf, warn=TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+
+<p><code>numeric</code> vector, representing a monthly univariate time series.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>first.mon</code></td>
+<td>
+
+<p>value in 1:12 indicating the month of the first element of x
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time.scale</code></td>
+<td>
+
+<p>The time scale (<code>integer</code>) of  the SCI calculation. The time
+scale is the window length of an backward looking running mean.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distr</code></td>
+<td>
+
+<p>A character string <code>"name"</code> naming a distribution for which the
+corresponding density function (<code>dname</code>), the corresponding
+distribution function (<code>pname</code>) and the quantile function
+(<code>qname</code>) must be defined (see for example
+<code>GammaDist</code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p0</code></td>
+<td>
+
+<p>if TRUE, model Probability of zero (precipitation) months is
+modeled with a mixed distribution as <code class="reqn">D(x) = p_0 +
+    (1-p_0)G(x)</code>, 
+where  <code class="reqn">G(x) &gt; 0</code> is the reference distribution (e.g. Gamma)
+<code class="reqn">p0</code> is the probability of a zero (precipitation) month. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p0.center.mass</code></td>
+<td>
+
+<p>If TRUE, the Probability of zero (precipitation) is estimated using
+a "center of mass" estimate based on the Weibull plotting position
+function (see details). Only applies if <code>p0=TRUE</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling</code></td>
+<td>
+
+<p>Indicates whether to do some scaling of <code>x</code> prior to parameter
+identification. <code>"no"</code> (the default) indicates no scaling.
+<code>"max"</code> indicates scaling by the maximum of <code>x</code>, such that
+<code>x &lt;- x/max(x,na.rm=TRUE)</code>. <code>"sd"</code> stands for scaling by
+the standard deviation. Scaling can stabilize parameter estimation.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mledist.par</code></td>
+<td>
+
+<p>named <code>list</code> that can be used to pass parameters to
+<code>mledist</code> in package <span class="pkg">fitdistrplus</span>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.fun</code></td>
+<td>
+
+<p>Function with arguments <code>x</code> and <code>distr</code> estimating initial
+parameters of the function <code>distr</code> for each month. The function
+should return a named list corresponding to the parameters of
+<code>distr</code>. (See also <code>dist.start</code>)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.fun.fix</code></td>
+<td>
+
+<p><code>logical</code> argument, indicating if parameter estimates of
+<code>start.fun</code> should be used if maximum likelihood estimation
+breaks down. This stabilizes the implementation but can introduce
+biases in the resulting SCI.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+
+<p>an object of class <code>fitSCI</code>, output from <code>fitSCI</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sci.limit</code></td>
+<td>
+
+<p>Truncate absolute values of SCI that are lage than
+<code>sci.limit</code>. See details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>warn</code></td>
+<td>
+
+<p>Issue warnings if problems in parameter estimation occur.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>further arguments passed to methods
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>fitSCI</code> estimates the parameters for transforming a
+meteorological and environmental time series to a Standardized
+Climate Index (SCI). <code>transformSCI</code> applies the
+standardisation. Typical SCI are the Standardized Precipitation
+Index (SPI), the Standardized Runoff Index (SRI) or the Standardized
+Precipitation Evapotranspiration Index (SPEI). 
+</p>
+<p>To reduce biases in the presence of many zero (precipitation) events,
+the probability of these events (<code class="reqn">p_0</code>) can be estimated using
+a "center of mass" estimate based on the Weibull plotting position
+function (<code>p0.center.mass=TRUE</code>). Following Stagge et al. (2014)
+the probability of zero events is then estimated as <code class="reqn">p_0 =
+  \frac{n_p}{n + 1}</code>, where <code class="reqn">n_p</code> refers to
+the number of zero events and <code class="reqn">n</code> is the sample size. The
+resulting mixed distribution used fro SCI transformation is then   
+
+</p>
+<p style="text-align: center;"><code class="reqn">D(x) = \left\{
+    \begin{array}{l l}
+    p_0 + (1-p_0) G(x) &amp; \quad \mbox{if } x &gt; 0 \\
+    \frac{n_p + 1}{2(n+1)} &amp; \quad \mbox{if } x = 0    
+    \end{array} \right.
+  </code>
+</p>
+
+
+<p>where <code class="reqn">G(x)&gt;0</code> is a model (e.g. gamma) distribution.
+</p>
+<p>Uncertainty in distribution parameters can cause unrealistically large
+(small) SCI values if values in <code>x</code> exceed the values used for
+parameter estimation (see <code>fitSCI</code>). Therefore
+<code>transformSCI</code> allows for a truncation of the SCI series such
+that <code>abs(sci)&lt;=sci.limit</code>. The truncation can be disabled by
+setting <code>sci.limit=Inf</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>fitSCI</code> returns an object of class <code>"fitSCI"</code> with the
+following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>dist.para</code></td>
+<td>
+
+<p>A column <code>matrix</code> containing the parameters of distribution
+<code>distr</code> for each month. Row names correspond to the distribution
+parameters. If <code>p0=TUE</code> an additional row named <code>P0</code> is
+introduced, indicating the probability of zero (precipitation)
+events. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist.para.flag</code></td>
+<td>
+
+<p>an vector indicating possible issues occurring throughout parameter
+estimation. Possible values are: 0. no problems occurred;
+1. starting values could not be estimated; 2. <code>mledist</code>
+crashed with unknown error; 3. <code>mledist</code> did not
+converge; 4. all values in this month are <code>NA</code>; 5. all values
+in this month are constant, distribution not defined.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time.scale</code></td>
+<td>
+
+<p>The time scale (<code>integer</code>) of  the SCI calculation. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distr</code></td>
+<td>
+
+<p>A character string <code>"name"</code> naming a distribution used
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p0</code></td>
+<td>
+
+<p><code>logical</code> indicating whether probability of zero
+(precipitation) events is estimated separately.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p0.center.mass</code></td>
+<td>
+
+<p><code>logical</code> indicating whether probability of zero
+(precipitation) events is estimated using the "centre of mass"
+estimator (see Stagge et al. (2014) for details).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling</code></td>
+<td>
+
+<p><code>numeric</code> value that has been used to scale <code>x</code> (see
+argument <code>scaling</code>). A value of 1 results from
+<code>scaling="no"</code>, other values are the maximum value or the
+standard deviation of <code>x</code>, depending on the choice of the
+parameter <code>scaling</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+
+<p>the function call
+</p>
+</td>
+</tr>
+</table>
+<p><code>transformSCI</code> returns a <code>numeric</code> vector
+containing the SCI, having values of the standard normal
+distribution. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function is intended to be used together with
+<code>transformSCI</code>. 
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Lukas Gudmundsson &amp; James Stagge
+</p>
+
+
+<h3>References</h3>
+
+<p>Stagee, J.H. ; Tallaksen, L.M.; Gudmundsson, L.; van Loon, A.;
+Stahl, K.: Candidate Distributions for Climatological Drought Indices  (SPI and SPEI),
+2015, International Journal of Climatology, 35, 4027-4040, doi:10.1002/joc.4267.
+</p>
+<p>Stagee, J.H. ; Tallaksen, L.M.; Gudmundsson, L.; van Loon, A.;
+Stahl, K.: Response to comment on "Candidate Distributions for Climatological
+Drought Indices (SPI and SPEI)", 2016, International Journal of
+Climatology, 36, 2132-2138, doi:10.1002/joc.4564.
+</p>
+<p>McKee, T.; Doesken, N. &amp; Kleist, J.: The relationship of drought
+frequency and duration to time scales Preprints, 8th Conference on
+Applied Climatology, 1993, 179-184.
+</p>
+<p>Shukla, S. &amp; Wood, A. W.: Use of a standardized runoff index for
+characterizing hydrologic drought Geophysical Research Letters, 2008,
+35, L02405.
+</p>
+<p>Vicente-Serrano, S. M.; Begueria, S. &amp; Lopez-Moreno, J. I.: A Multiscalar
+Drought Index Sensitive to Global Warming: The Standardized
+Precipitation Evapotranspiration Index J. Climate, Journal of Climate,
+American Meteorological Society, 2009, 23, 1696-1718.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>dist.start</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##
+## generate artificial data
+##
+set.seed(101)
+n.years &lt;- 60
+date &lt;- rep(1:n.years,each=12) + 1950 + rep((0:11)/12,times=n.years)
+## Precipitation
+PRECIP &lt;- (0.25*sin( 2 * pi * date) + 0.3)*rgamma(n.years*12, shape = 3, scale = 1)
+PRECIP[PRECIP&lt;0.1] &lt;- 0
+## Potential Evapotranspiration
+PET &lt;- 0.5*sin( 2 * pi * date)+1.2+rnorm(n.years*12,0,0.2)
+## display test data
+matplot(date,cbind(PRECIP,PET),t=c("h","l"),col=c("blue","red"),lty=1)
+legend("topright",legend=c("PRECIPitation","temperature"),fill=c("blue","red"))
+
+##
+## example SPI
+##
+spi.para &lt;- fitSCI(PRECIP,first.mon=1,distr="gamma",time.scale=6,p0=TRUE)
+spi.para
+spi &lt;- transformSCI(PRECIP,first.mon=1,obj=spi.para)
+plot(date,spi,t="l")
+
+##
+## effect of time.scale on SPI
+##
+spi.1.para &lt;- fitSCI(PRECIP,first.mon=1,time.scale=1,distr="gamma",p0=TRUE)
+spi.12.para &lt;- fitSCI(PRECIP,first.mon=1,time.scale=12,distr="gamma",p0=TRUE)
+spi.1 &lt;- transformSCI(PRECIP,first.mon=1,obj=spi.1.para)
+spi.12 &lt;- transformSCI(PRECIP,first.mon=1,obj=spi.12.para)
+matplot(date,cbind(spi.1,spi.12),t="l",lty=1,col=c("red","blue"),lwd=c(1,2))
+legend("topright",legend=c("time.scale=1","time.scale=12"),fill=c("red","blue"))
+
+##
+## example SPEI
+##
+if(require(evd)){
+    spei.para &lt;- fitSCI(PRECIP-PET,first.mon=1,time.scale=6,distr="gev",p0=FALSE)
+    spei &lt;- transformSCI(PRECIP-PET,first.mon=1,obj=spei.para)
+    plot(date,spei,t="l")
+}
+
+##
+## effect of changing different distribution for SPEI computation
+##
+spei.genlog.para &lt;- fitSCI(PRECIP-PET,first.mon=1,time.scale=6,distr="genlog",p0=FALSE)
+spei.genlog &lt;- transformSCI(PRECIP-PET,first.mon=1,obj=spei.genlog.para)
+if(require(evd)){lines(date,spei.genlog, col="red")} else {plot(date,spei.genlog,t="l")}
+## in this case: only limited effect.
+## generally: optimal choice of distribution: user responsibility.
+
+##
+## use a 30 year reference period for SPI parameter estimation
+##
+sel.date &lt;- date&gt;=1970 &amp; date&lt;2000
+spi.ref.para &lt;- fitSCI(PRECIP[sel.date],first.mon=1,distr="gamma",time.scale=6,p0=TRUE)
+## apply the the parameters of the reference period to all data
+## also outside the reference period
+spi.ref &lt;- transformSCI(PRECIP,first.mon=1,obj=spi.ref.para)
+plot(date,spi.ref,t="l",col="blue",ylim=c(-5,5),lwd=2)
+lines(date[sel.date],spi.ref[sel.date],col="red",lwd=3)
+legend("bottom",legend=c("reference period","extrapolation period"),fill=c("red","blue"),
+       horiz=TRUE)
+
+##
+## use "start.fun.fix" in instances where maximum likelyhood estimation fails
+##
+## force failure of maximum likelyhood estimation by adding "strange" value
+## a warning should be issued
+xx &lt;- PRECIP-PET; xx[300] &lt;- 1000
+spei.para &lt;- fitSCI(xx,first.mon=2,time.scale=1,p0=FALSE,distr="gev")
+spei.para$dist.para
+## use start.fun, usually ment for estimating inital values for
+## parameter optimisation if maximum likelihood estimation fails
+spei.para &lt;- fitSCI(xx,first.mon=2,time.scale=1,p0=FALSE,distr="gev",
+                    start.fun.fix=TRUE)
+spei.para$dist.para
+
+##
+## usage of sci.limit to truncate unrealistic SCI values
+## 
+PRECIP.mod &lt;- PRECIP
+PRECIP.mod[300] &lt;- 100 ## introduce spuriously large value
+spi.mod.para &lt;- fitSCI(PRECIP.mod,first.mon=1,time.scale=3,p0=TRUE,distr="gamma")
+plot(transformSCI(PRECIP.mod,first.mon=1,obj=spi.mod.para,sci.limit=Inf),
+     t="l",col="blue",lwd=2)
+lines(transformSCI(PRECIP.mod,first.mon=1,obj=spi.mod.para,sci.limit=4),col="red")
+
+##
+## how to modify settings of function "mledist" used for parameter identification
+## 
+## identify parameters with standard settings
+spi.para &lt;- fitSCI(PRECIP,first.mon=1,distr="gamma",time.scale=6,p0=TRUE)
+## add lower and upper limits for parameter identification
+lower.lim &lt;- apply(spi.para$dist.para,1,min) - 0.5*apply(spi.para$dist.para,1,sd)
+upper.lim &lt;- apply(spi.para$dist.para,1,max) + 0.5*apply(spi.para$dist.para,1,sd)
+spi.para.limit &lt;- fitSCI(PRECIP,first.mon=1,distr="gamma",time.scale=6,p0=TRUE,
+                         mledist.par=list(lower=lower.lim, upper=upper.lim))
+
+##
+## how to write an own start.fun
+## (required if distributions not mentioned in "dist.start" are used)
+##
+## function with same arguments as "dist.start" 
+my.start &lt;- function(x,distr="gamma"){
+### code based on "mmedist" in package "fitdistrplus"
+    ppar &lt;- try({
+        n &lt;- length(x)
+        m &lt;- mean(x)
+        v &lt;- (n - 1)/n * var(x)
+        shape &lt;- m^2/v
+        rate &lt;- m/v
+        list(shape = shape, rate = rate)},TRUE)
+    if (class(ppar) == "try-error") ## function has to be able to return NA parameters
+        ppar &lt;- list(shape = NA, rate = NA)
+    return(ppar)
+}
+my.start(PRECIP)
+spi.para &lt;- fitSCI(PRECIP,first.mon=1,time.scale=6,p0=TRUE,
+                   distr="gamma",start.fun=my.start)
+</code></pre>
+
+
+</div>

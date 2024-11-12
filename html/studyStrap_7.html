@@ -1,0 +1,92 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>studyStrap.predict</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Study Strap Prediction Function: Makes predictions on object of class "ss"</h2>
+
+<h3>Description</h3>
+
+<p>Study Strap Prediction Function: Makes predictions on object of class "ss"
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">studyStrap.predict(ss.obj, X)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ss.obj</code></td>
+<td>
+<p>A model object (of class "ss") fit with studyStrap package (e.g., ss, cmss, sse, merge).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>A dataframe of the study to make predictions on. Must include covariates with the same names as those used to train models.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Matrix of predictions. Each column are predictions with different weighting schemes.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">##########################
+##### Simulate Data ######
+##########################
+
+set.seed(1)
+# create half of training dataset from 1 distribution
+X1 &lt;- matrix(rnorm(2000), ncol = 2) # design matrix - 2 covariates
+B1 &lt;- c(5, 10, 15) # true beta coefficients
+y1 &lt;- cbind(1, X1) %*% B1
+
+# create 2nd half of training dataset from another distribution
+X2 &lt;- matrix(rnorm(2000, 1,2), ncol = 2) # design matrix - 2 covariates
+B2 &lt;- c(10, 5, 0) # true beta coefficients
+y2 &lt;- cbind(1, X2) %*% B2
+
+X &lt;- rbind(X1, X2)
+y &lt;- c(y1, y2)
+
+study &lt;- sample.int(10, 2000, replace = TRUE) # 10 studies
+data &lt;- data.frame( Study = study, Y = y, V1 = X[,1], V2 = X[,2] )
+
+# create target study design matrix for covariate profile similarity weighting and
+# accept/reject algorithm (covaraite-matched study strap)
+target &lt;- matrix(rnorm(1000, 3, 5), ncol = 2) # design matrix
+colnames(target) &lt;- c("V1", "V2")
+
+##########################
+##### Model Fitting #####
+##########################
+
+# Fit model with 1 Single-Study Learner (SSL): PCA Regression
+ssMod1 &lt;- ss(data = data, formula = Y ~.,
+            target.study = target,
+            bag.size = length(unique(data$Study)), straps = 5, stack = "standard",
+            sim.covs = NA, ssl.method = list("pcr"),
+            ssl.tuneGrid = list(data.frame("ncomp" = 2)),
+            sim.mets = TRUE,
+            model = TRUE, customFNs = list() )
+
+#########################
+#####  Predictions ######
+#########################
+
+preds &lt;- studyStrap.predict(ssMod1, target)
+</code></pre>
+
+
+</div>

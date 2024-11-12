@@ -1,0 +1,167 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>scale_by</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Center and scale a continuous variable conditioning on factors.</h2>
+
+<h3>Description</h3>
+
+<p><code>scale_by</code> centers and scales a numeric variable within each level
+of a factor (or the interaction of several factors).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">scale_by(object = NULL, data = NULL, scale = 1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A <code>formula</code> whose left hand side indicates
+a numeric variable to be scaled and whose right hand side indicates
+factors to condition this scaling on; or the result of a previous call
+to <code>scale_by</code> or the <code>pred</code> attribute of a previous call.
+See 'Details'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A data.frame containing the numeric variable to be scaled and
+the factors to condition on.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>Numeric (default 1).  The desired standard deviation for the
+numeric variable within-factor-level.  If the numeric variable is a matrix,
+then <code>scale</code> must have either one element (used for all columns),
+or as many elements as there are columns in the numeric variable. To center
+the numeric variable without scaling, set <code>scale</code> to <code>0</code>.
+See 'Details'.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>First, the behavior when <code>object</code> is a formula and <code>scale = 1</code>
+is described.
+The left hand side of the formula must indicate a numeric variable
+to be scaled.  The full interaction of the variables on the right hand side
+of the formula is taken as the factor to condition scaling on (i.e.
+it doesn't matter whether they are separated with <code>+</code>, <code>:</code>, or
+<code>*</code>).  For the remainder of this section, the numeric variable will
+be referred to as <code>x</code> and the full factor interaction term will be
+referred to as <code>facs</code>.
+</p>
+<p>First, if <code>facs</code> has more than one element, then a new factor is
+created as their full interaction term.  When a factor has <code>NA</code> values,
+<code>NA</code> is treated as a level.  For each level of the factor which has
+at least two unique non-<code>NA</code> <code>x</code> values, the mean of <code>x</code>
+is recorded as the level's center and the standard deviation of <code>x</code>
+is recorded as the level's scale. The mean of these
+centers is recorded as <code>new_center</code> and the mean of these scales
+is recorded as <code>new_scale</code>, and <code>new_center</code> and
+<code>new_scale</code> are used as the center and scale for factor levels with
+fewer than two unique non-<code>NA</code> <code>x</code> values. Then for each level of
+the factor, the level's center is subtracted from its <code>x</code> values, and
+the result is divided by the level's scale.
+The result is that any level with more than two unique non-<code>NA</code> <code>x</code>
+values now has mean <code>0</code> and standard deviation <code>1</code>, and levels
+with fewer than two are placed on a similar scale (though their standard
+deviation is undefined).  Note that the overall standard deviation of the
+resulting variable (or standard deviations if <code>x</code> is a matrix) will not
+be exactly <code>1</code> (but will be close).  The interpretation of the
+variable is how far an observation is from its level's average value for
+<code>x</code> in terms of within-level standard deviations.
+</p>
+<p>If <code>scale = 0</code>, then only centering (but not scaling) is performed.
+If <code>scale</code> is neither <code>0</code> nor <code>1</code>, then <code>x</code> is scaled
+such that the standard deviation within-level is <code>scale</code>.  Note that
+this is different than the <code>scale</code> argument to <code>scale</code>
+which specifies the number the centered variable is divided by (which is
+the inverse of the use here).  If <code>x</code> is a matrix with more than
+one column, then <code>scale</code> must either be a vector with an element for
+each column of <code>x</code> or a single number which will be used for all
+columns.  If any element of <code>scale</code> is <code>0</code>, then all elements are
+treated as <code>0</code>.  No element in <code>scale</code> can be negative.
+</p>
+<p>If <code>object</code> is not a formula, it must be a numeric variable which
+resulted from a previous <code>scale_by</code> call, or the <code>pred</code> attribute
+of such a numeric variable. In this case, <code>scale</code>
+is ignored, and <code>x</code> in <code>data</code> is scaled
+using the <code>formula</code>, <code>centers</code> and <code>scales</code> in <code>object</code>
+(with new levels treated using <code>new_center</code> and <code>new_scale</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A numeric variable which is conditionally scaled within each level
+of the conditioning factor(s), with standard deviation <code>scale</code>.  It has
+an additional class <code>scaledby</code>, as well as an attribute
+<code>pred</code> with class <code>scaledby_pred</code>, which is a list containing
+the formula, the centers and scales for known factor levels, and the
+center and scale to be applied to new factor levels.  The variable returned
+can be used as the <code>object</code> argument in future calls to
+<code>scale_by</code>, as can its <code>pred</code> attribute.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Christopher D. Eager &lt;eager.stats@gmail.com&gt;
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>scale</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">dat &lt;- data.frame(
+  f1 = rep(c("a", "b", "c"), c(5, 10, 20)),
+  x1 = rnorm(35, rep(c(1, 2, 3), c(5, 10, 20)),
+    rep(c(.5, 1.5, 3), c(5, 10, 20))))
+
+dat$x1_scaled &lt;- scale(dat$x1)
+dat$x1_scaled_by_f1 &lt;- scale_by(x1 ~ f1, dat)
+
+mean(dat$x1)
+sd(dat$x1)
+with(dat, tapply(x1, f1, mean))
+with(dat, tapply(x1, f1, sd))
+
+mean(dat$x1_scaled)
+sd(dat$x1_scaled)
+with(dat, tapply(x1_scaled, f1, mean))
+with(dat, tapply(x1_scaled, f1, sd))
+
+mean(dat$x1_scaled_by_f1)
+sd(dat$x1_scaled_by_f1)
+with(dat, tapply(x1_scaled_by_f1, f1, mean))
+with(dat, tapply(x1_scaled_by_f1, f1, sd))
+
+newdata &lt;- data.frame(
+  f1 = c("a", "b", "c", "d"),
+  x1 = rep(1, 4))
+
+newdata$x1_pred_scaledby &lt;- scale_by(dat$x1_scaled_by_f1, newdata)
+
+newdata
+</code></pre>
+
+
+</div>

@@ -1,0 +1,345 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>estimatePopsizeFit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Regression fitting in single source capture-recapture models</h2>
+
+<h3>Description</h3>
+
+<p><code>estimatePopsizeFit</code> does for <code>estimatePopsize</code> what
+<code>glm.fit</code> does for <code>glm</code>. It is internally called in
+<code>estimatePopsize</code>. Since <code>estimatePopsize</code> does much more than
+just regression fitting <code>estimatePopsizeFit</code> is much faster.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">estimatePopsizeFit(
+  y,
+  X,
+  family,
+  control,
+  method,
+  priorWeights,
+  coefStart,
+  etaStart,
+  offset,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>vector of dependent variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>model matrix, the vglm one.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>same as model in <code>estimatePopsize</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>control parameters created in <code>controlModel</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>method of estimation same as in <code>estimatePopsize</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorWeights</code></td>
+<td>
+<p>vector of prior weights its the same argument as weights
+in <code>estimatePopsize</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>etaStart, coefStart</code></td>
+<td>
+<p>initial value of regression parameters or
+linear predictors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>offset</code></td>
+<td>
+<p>offset passed from by default passed from <code>estimatePopsize()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments to pass to other methods.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<script id="MathJax-script" async src="../../mathjaxr/doc/mathjax/es5/tex-chtml-full.js"></script><p>If <code>method</code> argument was set to <code>"optim"</code> the <code>stats::optim</code>
+function will be used to fit regression with analytically computed gradient and
+(minus) log likelihood functions as <code>gr</code> and <code>fn</code> arguments.
+Unfortunately <code>optim</code> does not allow for hessian to be specified.
+More information about how to modify <code>optim</code> fitting is included in
+<code>controlMethod()</code>.
+</p>
+<p>If <code>method</code> argument was set to <code>"IRLS"</code> the iteratively reweighted
+least squares. The algorithm is well know in generalised linear models.
+Thomas W. Yee later extended this algorithm to vector generalised linear models
+and in more general terms it can roughly be described as
+(this is Yee's description after changing some conventions):
+</p>
+
+<ol>
+<li>
+<p> Initialize with:
+</p>
+
+<ul>
+<li> <p><code>converged &lt;- FALSE</code>
+</p>
+</li>
+<li> <p><code>iter &lt;- 1</code>
+</p>
+</li>
+<li> <p>\(\boldsymbol{\beta}\)<code> &lt;- start</code>
+</p>
+</li>
+<li> <p>\(\boldsymbol{W}\)<code> &lt;- prior</code>
+</p>
+</li>
+<li> <p>\(\ell\)<code> &lt;- </code>\(\ell(\boldsymbol{\beta})\)
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> If <code>converged</code> or <code>iter &gt; Maxiter</code> move to step 7.
+</p>
+</li>
+<li>
+<p> Store values from previous algorithm step:
+</p>
+
+<ul>
+<li> <p>\(\boldsymbol{W}_{-}\)<code> &lt;- </code>
+\(\boldsymbol{W}\)
+</p>
+</li>
+<li> <p>\(\ell_{-}\)<code> &lt;- </code>
+\(\ell\)
+</p>
+</li>
+<li> <p>\(\boldsymbol{\beta}_{-}\)<code> &lt;- </code>
+\(\boldsymbol{\beta}\)
+</p>
+</li>
+</ul>
+<p> and assign values at current step:
+</p>
+
+<ul>
+<li> <p>\(\boldsymbol{\eta}\)<code> &lt;- </code>
+\(\boldsymbol{X}_{vlm}\boldsymbol{\beta}\)
+</p>
+</li>
+<li> <p>\(Z_{i}\)<code> &lt;- </code>
+\(
+\eta_{i}+\frac{\partial\ell_{i}}{\partial\eta_{i}}
+\mathbb{E}\left(\frac{\partial^{2}\ell_{i}}{
+\partial\eta_{i}^{T}\partial\eta_{i}}\right)^{-1}\)
+</p>
+</li>
+<li> <p>\(\boldsymbol{W}_{ij}\)<code> &lt;- </code>
+\(\mathbb{E}\left(\frac{\partial^{2}\ell}{
+\partial\boldsymbol{\eta}_{j}^{T}\partial\boldsymbol{\eta}_{i}}\right)\)
+</p>
+</li>
+</ul>
+<p>where \(\ell_{i}\) is the ith component of log likelihood
+function, \(\eta_{i}\) is the vector of linear predictors
+associated with ith row and \(\mathbb{E}\left(\frac{\partial^{2}\ell_{i}}{
+\partial\eta_{i}^{T}\partial\eta_{i}}\right)\)
+corresponds to weights associated with ith row and \(\boldsymbol{W}\)
+is a block matrix, made of diagonal matrixes
+\(\mathbb{E}\left(\frac{\partial^{2}\ell}{
+\partial\boldsymbol{\eta}_{j}^{T}\partial\boldsymbol{\eta}_{i}}\right)\)
+</p>
+</li>
+<li>
+<p> Regress \(\boldsymbol{Z}\) on
+\(\boldsymbol{X}_{vlm}\) to obtain
+\(\boldsymbol{\beta}\) as:
+\[\boldsymbol{\beta}=
+\left(\boldsymbol{X}_{vlm}^{T}\boldsymbol{W}\boldsymbol{X}_{vlm}\right)^{-1}
+\boldsymbol{X}_{vlm}^{T}\boldsymbol{W}\boldsymbol{Z}\]
+</p>
+</li>
+<li>
+<p> Assign:
+</p>
+
+<ul>
+<li>
+<p><code>converged &lt;- </code>\(
+\ell(\boldsymbol{\beta})-\ell_{-} &lt; \varepsilon\cdot\ell_{-}\)
+or
+\(
+||\boldsymbol{\beta}-\boldsymbol{\beta}_{-}||_{\infty} &lt; \varepsilon\)
+</p>
+</li>
+<li>
+<p><code>iter &lt;- iter + 1</code>
+</p>
+</li>
+</ul>
+<p>where \(\varepsilon\) is the relative tolerance level,
+by default <code>1e-8</code>.
+</p>
+</li>
+<li>
+<p> Return to step 2.
+</p>
+</li>
+<li>
+<p> Return \(\boldsymbol{\beta}, \boldsymbol{W}\), <code>iter</code>.
+</p>
+</li>
+</ol>
+<p>In this package we use different conventions for \(\boldsymbol{X}_{vlm}\)
+matrix hence slight differences are present in algorithm description but
+results are identical.
+</p>
+
+
+<h3>Value</h3>
+
+<p>List with regression parameters, working weights
+(if IRLS fitting method) was chosen and number of iterations taken.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Piotr Chlebicki, Maciej Beresewicz
+</p>
+
+
+<h3>References</h3>
+
+<p>Yee, T. W. (2015). Vector Generalized Linear and Additive Models:
+With an Implementation in R. New York, USA: Springer. ISBN 978-1-4939-2817-0.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>stats::glm()</code> <code>estimatePopsize()</code> <code>controlMethod()</code> <code>stats::optim()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+summary(farmsubmission)
+
+# construct vglm model matrix
+X &lt;- matrix(data = 0, nrow = 2 * NROW(farmsubmission), ncol = 7)
+X[1:NROW(farmsubmission), 1:4] &lt;- model.matrix(
+~ 1 + log_size + log_distance + C_TYPE, 
+farmsubmission
+)
+
+
+X[-(1:NROW(farmsubmission)), 5:7] &lt;- X[1:NROW(farmsubmission), c(1, 3, 4)]
+
+# this attribute tells the function which elements of the design matrix 
+# correspond to which linear predictor 
+attr(X, "hwm") &lt;- c(4, 3)
+
+# get starting points
+start &lt;- glm.fit(
+y = farmsubmission$TOTAL_SUB, 
+x = X[1:NROW(farmsubmission), 1:4], 
+family = poisson()
+)$coefficients
+
+res &lt;- estimatePopsizeFit(
+y = farmsubmission$TOTAL_SUB, 
+X = X, 
+method = "IRLS", 
+priorWeights = 1, 
+family = ztoigeom(), 
+control = controlMethod(verbose = 5), 
+coefStart = c(start, 0, 0, 0),
+etaStart = matrix(X %*% c(start, 0, 0, 0), ncol = 2),
+offset = cbind(rep(0, NROW(farmsubmission)), rep(0, NROW(farmsubmission)))
+)
+
+# extract results
+
+# regression coefficient vector
+res$beta
+
+# check likelihood
+ll &lt;- ztoigeom()$makeMinusLogLike(y = farmsubmission$TOTAL_SUB, X = X)
+
+-ll(res$beta)
+
+# number of iterations
+res$iter
+
+# working weights
+head(res$weights)
+
+# Compare with optim call
+
+res2 &lt;- estimatePopsizeFit(
+  y = farmsubmission$TOTAL_SUB, 
+  X = X, 
+  method = "optim", 
+  priorWeights = 1, 
+  family = ztoigeom(), 
+  coefStart = c(start, 0, 0, 0),
+  control = controlMethod(verbose = 1, silent = TRUE),
+  offset = cbind(rep(0, NROW(farmsubmission)), rep(0, NROW(farmsubmission)))
+)
+# extract results
+
+# regression coefficient vector
+res2$beta
+
+
+# check likelihood
+-ll(res2$beta)
+
+# number of calls to log lik function
+# since optim does not return the number of
+# iterations
+res2$iter
+
+# optim does not calculated working weights
+head(res2$weights)
+
+</code></pre>
+
+
+</div>

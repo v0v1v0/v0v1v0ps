@@ -1,0 +1,237 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>MarqueeSelection</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>MarqueeSelection</h2>
+
+<h3>Description</h3>
+
+<p>The MarqueeSelection component provides a service which allows the user to drag a rectangle to be drawn around
+items to select them. This works in conjunction with a selection object, which can be used to generically store selection state, separate from a component that consumes the state.
+</p>
+<p>MarqueeSelection also works in conjunction with the AutoScroll utility to automatically scroll the container when we drag a rectangle within the vicinity of the edges.
+</p>
+<p>When a selection rectangle is dragged, we look for elements with the <strong>data-selection-index</strong> attribute populated. We get these elements' boundingClientRects and compare them with the root's rect to determine selection state. We update the selection state appropriately.
+</p>
+<p>In virtualization cases where items that were once selected are dematerialized, we will keep the item in its
+previous state until we know definitively if it's on/off. (In other words, this works with List.)
+</p>
+<p>For more details and examples visit the <a href="https://developer.microsoft.com/en-us/fluentui#/controls/web/MarqueeSelection">official docs</a>.
+The R package cannot handle each and every case, so for advanced use cases
+you need to work using the original docs to achieve the desired result.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">MarqueeSelection(...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Props to pass to the component.
+The allowed props are listed below in the <b>Details</b> section.</p>
+</td>
+</tr></table>
+<h3>Details</h3>
+
+
+<ul>
+<li> <p><b> className </b> <code>string</code> <br> Additional CSS class(es) to apply to the MarqueeSelection.
+</p>
+</li>
+<li> <p><b> componentRef </b> <code style="white-space: pre;">⁠IRefObject&lt;IMarqueeSelection&gt;⁠</code> <br> Optional callback to access the IMarqueeSelection interface. Use this instead of ref for accessing the public methods and properties of the component.
+</p>
+</li>
+<li> <p><b> isDraggingConstrainedToRoot </b> <code>boolean</code> <br> Optional flag to restrict the drag rect to the root element, instead of allowing the drag rect to start outside of the root element boundaries.
+</p>
+</li>
+<li> <p><b> isEnabled </b> <code>boolean</code> <br> Optional flag to control the enabled state of marquee selection. This allows you to render it and have events all ready to go, but conditionally disable it. That way transitioning between enabled/disabled generate no difference in the DOM.
+</p>
+</li>
+<li> <p><b> onShouldStartSelection </b> <code style="white-space: pre;">⁠(ev: MouseEvent) =&gt; boolean⁠</code> <br> Optional callback that is called, when the mouse down event occurs, in order to determine if we should start a marquee selection. If true is returned, we will cancel the mousedown event to prevent upstream mousedown handlers from executing.
+</p>
+</li>
+<li> <p><b> rootProps </b> <code style="white-space: pre;">⁠React.HTMLAttributes&lt;HTMLDivElement&gt;⁠</code> <br> Optional props to mix into the root DIV element.
+</p>
+</li>
+<li> <p><b> selection </b> <code>ISelection</code> <br> The selection object to interact with when updating selection changes.
+</p>
+</li>
+<li> <p><b> styles </b> <code style="white-space: pre;">⁠IStyleFunction&lt;IMarqueeSelectionStyleProps, IMarqueeSelectionStyles&gt;⁠</code> <br> Call to provide customized styling that will layer on top of the variant rules.
+</p>
+</li>
+<li> <p><b> theme </b> <code>ITheme</code> <br> Theme (provided through customization.)
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Object with <code>shiny.tag</code> class suitable for use in the UI of a Shiny app.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(shiny)
+library(shiny.fluent)
+
+# This is an advanced demo showing how you can use virtually all features of Fluent UI
+# by creating custom components in JS and rendering them with shiny.react.
+# This example is a translation of the example in
+# https://developer.microsoft.com/en-us/fluentui#/controls/web/marqueeselection.
+
+# Script showing how to:
+# 1. Use mergeStyles and themes from Fluent
+# 2. Define custom components
+# 3. Send results back to Shiny.
+
+customComponent &lt;- function(name, js) {
+  dependency &lt;- htmltools::htmlDependency(
+    name = name,
+    version = "0", # Not used.
+    src = c(href = ""), # Not used.
+    head = paste0("
+      &lt;script&gt;
+        (jsmodule.CustomComponents ??= {}).", name, " = (() =&gt; {", js, "})();
+      &lt;/script&gt;
+    ")
+  )
+  function(...) shiny.react::reactElement(
+    module = "CustomComponents",
+    name = name,
+    props = shiny.react::asProps(...),
+    deps = dependency
+  )
+}
+
+MarqueeSelectionExample &lt;- customComponent("MarqueeSelectionExample", "
+  const React = jsmodule['react'];
+  const Fluent = jsmodule['@fluentui/react'];
+
+  const theme = Fluent.getTheme();
+  const styles = Fluent.mergeStyleSets({
+    photoList: {
+      display: 'inline-block',
+      border: '1px solid ' + theme.palette.neutralTertiary,
+      margin: 0,
+      padding: 10,
+      overflow: 'hidden',
+      userSelect: 'none',
+    },
+
+    photoCell: {
+      position: 'relative',
+      display: 'inline-block',
+      margin: 2,
+      boxSizing: 'border-box',
+      background: theme.palette.neutralLighter,
+      lineHeight: 100,
+      verticalAlign: 'middle',
+      textAlign: 'center',
+      selectors: {
+        '&amp;.is-selected': {
+          background: theme.palette.themeLighter,
+          border: '1px solid ' + theme.palette.themePrimary,
+        },
+      },
+    },
+    checkbox: {
+      margin: '10px 0',
+    },
+  });
+
+  const useForceUpdate = () =&gt; {
+    const [, setIt] = React.useState(false);
+    return () =&gt; setIt(it =&gt; !it);
+  };
+
+  return function(params) {
+    const forceUpdate = useForceUpdate();
+    const inputId = params['inputId'];
+    const photos = params['photos'];
+
+    if (window.selection === undefined) {
+      window.selection = new Fluent.Selection({
+        items: photos,
+        onSelectionChanged: function() {
+          Shiny.setInputValue(inputId, window.selection.getSelectedIndices());
+          forceUpdate();
+        }
+      });
+    }
+
+    const items = photos.map((photo, index) =&gt; {
+      return React.createElement(
+        'div',
+        {
+          key: index,
+          'data-is-focusable': true,
+          className: Fluent.css(
+            styles.photoCell,
+            window.selection.isIndexSelected(index) &amp;&amp; 'is-selected'
+          ),
+          'data-selection-index': index,
+          style: { width: photo.width, height: photo.height }
+        },
+        index
+      );
+    });
+
+    return React.createElement(
+      Fluent.MarqueeSelection,
+      { selection: window.selection, isEnabled: true },
+      React.createElement('ul', { className: styles.photoList }, items)
+    );
+  };
+")
+
+ui &lt;- function(id) {
+  ns &lt;- NS(id)
+  tagList(
+    textOutput(ns("marqueeResult")),
+    Label("Drag a rectangle around the items below to select them"),
+    reactOutput(ns("marqueeSelection"))
+  )
+}
+
+server &lt;- function(id) {
+  moduleServer(id, function(input, output, session) {
+    ns &lt;- session$ns
+
+    photos &lt;- lapply(1:50, function(index) {
+      randomWidth &lt;- 50 + sample.int(150, 1)
+      list(
+        key = index,
+        url = paste0('http://placehold.it/', randomWidth, 'x100'),
+        width = randomWidth,
+        height = 100
+      )
+    })
+
+    output$marqueeResult &lt;- renderText({
+      paste("You have selected: ", paste(input$selectedIndices, collapse = ", "))
+    })
+
+    output$marqueeSelection &lt;- renderReact({
+      MarqueeSelectionExample(
+        inputId = ns("selectedIndices"),
+        photos = photos
+      )
+    })
+  }
+)
+}
+if (interactive()) {
+  shinyApp(ui("app"), function(input, output) server("app"))
+}
+</code></pre>
+
+
+</div>

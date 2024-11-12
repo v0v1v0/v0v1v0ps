@@ -1,0 +1,222 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SURF</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SURF</h2>
+
+<h3>Description</h3>
+
+<p>SuRF is a sparse variable selection method with uses a subsampling
+approach an LASSO to rank variables before applying forward selection
+using a permutation test. The function is able to give results at a
+range of significance levels simultaneously.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SURF(
+  Xo,
+  y,
+  X = NULL,
+  fold = 10,
+  Alpha = 1,
+  prop = 0.1,
+  weights = FALSE,
+  B = 1000,
+  C = 200,
+  ncores = 1,
+  display.progress = TRUE,
+  family = stats::binomial(link = "logit"),
+  alpha_u = 0.1,
+  alpha = 0.05
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Xo</code></td>
+<td>
+<p>- other type of predictor variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>- response variable, a vecotr for most families. For family="cox", y will should be a matrix of the response variable in column1 and censoring status in column 2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>- count data, need to be converted to proportion</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fold</code></td>
+<td>
+<p>- number of folds for cross-validation in Lasso</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Alpha</code></td>
+<td>
+<p>- Alpha parameter for elastic net</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop</code></td>
+<td>
+<p>- proportion of observations left out in subsampling</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>- use weighted regression: for unbalanced class sizes (bimomial family only) or weighted sample for other families;In a binomial model, weights: =TRUE: if weighted version is desired; =FALSE, otherwise ; In other models,weights: =vector of weights of the same size as the sample size N: if weighted version is desired;=FALSE, otherwise (other generalized model)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>- number of subsamples to take</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>C</code></td>
+<td>
+<p>- number of permutations used to estimate null distribution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>display.progress</code></td>
+<td>
+<p>- whether SuRF should print a message on completion of each</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_u</code></td>
+<td>
+<p>- the upper bound of significance level for the permutation test: alpha_u has to be in the range of (0,1). The large of this value, the longer the program will run;</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>- the alpha value of interest (alpha &gt;0 and must be &lt;=alpha_u). It can be a single value or a vector.If missing, by default it is 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>whether SuRF should compute in parallel: 1 indicates NOT; anything greater will compute in parallel</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>The distribution family of the response variable</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SuRF consists of two steps. In the first step, LASSO variable selection
+is applied to a large number of subsamples of the data set, to provide a
+list of selected variables for each subsample. This list is used to rank
+the variables, based on the number of subsamples in which each variable
+is selected, so that variables that are selected in more subsamples are
+ranked more highly. In the second step, this list is used as a basis for
+forward selection, with variables higher on the list tried first. If a
+highly-ranked variable is not selected, later variables are tried, and
+after each variable is selected, the variables not yet selected (even
+previously non-selected variables) are tried in order of the ranking from
+Step 1. The decision whether to include a variable is based on a
+permutation test for the deviance statistic.
+</p>
+<p>Full details of the SuRF method are in the paper:
+</p>
+<p>Lihui Liu, Hong Gu, Johan Van Limbergen, Toby Kenney (2020) SuRF: A new
+method for sparse variable selection, with application in microbiome
+data analysis  Statistics in Medicine 40 897-919
+</p>
+<p>doi: https://onlinelibrary.wiley.com/doi/10.1002/sim.8809
+</p>
+
+
+<h3>Value</h3>
+
+<p>Bmod: sub-sampling results
+</p>
+<p>trdata: data frame including both X and y
+</p>
+<p>ranklist: ranking table
+</p>
+<p>modpath: variable selection path (along the alpha range)
+</p>
+<p>selmod: model results at the selected alpha(s)
+</p>
+<p>family: model family used
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(survival)
+library(glmnet)
+library(SuRF.vs)
+N=100;p=200
+nzc=p/3
+X=matrix(rnorm(N*p),N,p)
+beta=rnorm(nzc)
+fx=X[,seq(nzc)]%*%beta/3
+hx=exp(fx)
+ty=rexp(N,hx)
+tcens=rbinom(n=N,prob=.3,size=1)# censoring indicator (1 or 0)
+Xo=NULL
+B=20
+Alpha=1
+fold=5
+ncores=1
+prop=0.1
+C=3
+alpha_u=0.2
+alpha=seq(0.01,0.1,len=20)
+
+#binomial model
+XX=X[,1:2]
+f=1+XX%*%c(2,1.5)
+p=exp(f)/(1+exp(f))
+y=rbinom(100,1,p)
+weights=FALSE
+family=stats::binomial(link="logit")
+
+
+surf_binary=SURF(Xo=X,y=y,fold=5,weights=weights,B=10,C=5,family=family,alpha_u=0.1,alpha=alpha)
+
+
+#linear regression
+y=1+XX%*%c(0.1,0.2)
+family=stats::gaussian(link="identity")
+
+surf_lm=SURF(Xo=X,y=y,fold=5,weights=weights,B=10,C=5,family=family,alpha_u=0.1,alpha=alpha)
+
+
+#cox proportional model
+y=cbind(time=ty,status=1-tcens)
+weights=rep(1,100)
+rseed=floor(runif(20,1,100))
+weights[rseed]=2
+family=list(family="cox")
+
+surf_cox=SURF(Xo=X,y=y,fold=5,weights=weights,B=10,C=5,family=family,alpha_u=alpha_u,alpha=alpha)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,179 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>set.targetE</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Define Non-Parametric Causal Parameters</h2>
+
+<h3>Description</h3>
+
+<p>Set up the causal target parameter as a vector of expectations, ratio of expectations or contrast of expectations (average treatment effect) over the nodes of specified actions.
+These settings are then used to evaluate the true value of the causal target parameter by calling <code>eval.target</code> function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">set.targetE(DAG, outcome, t, param, ..., attr = list())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>DAG</code></td>
+<td>
+<p>Object specifying the directed acyclic graph (DAG) for the observed data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outcome</code></td>
+<td>
+<p>Name of the outcome node</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t</code></td>
+<td>
+<p>Integer vector of time points to use for expectations, has to be omitted or NULL for non-time-varying DAGs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param</code></td>
+<td>
+<p>A character vector <code>"ActionName1"</code>, specifying the action name for the expectation target parameter;
+<code>"ActionName1 / ActionName2"</code>, for the ratio of expectations of <code>outcome</code> nodes for actions <code>"ActionName1"</code>
+and <code>"ActionName2"</code>; <code>"ActionName1 - ActionName2"</code> for the contrast of expectations of <code>outcome</code> for actions <code>"ActionName1"</code> and <code>"ActionName2"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional attributes (to be used in future versions)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>attr</code></td>
+<td>
+<p>Additional attributes (to be used in future versions)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A modified DAG object with the target parameter saved as part of the DAG,
+this DAG can now be passed as an argument to <code>eval.target</code> function for actual Monte-Carlo evaluation of the target parameter. See Examples.
+</p>
+
+
+<h3>References</h3>
+
+<p>Sofrygin O, van der Laan MJ, Neugebauer R (2017).
+"simcausal R Package: Conducting Transparent and Reproducible Simulation Studies of Causal Effect Estimation with Complex Longitudinal Data."
+Journal of Statistical Software, 81(2), 1-47. doi: 10.18637/jss.v081.i02.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#---------------------------------------------------------------------------------------
+# EXAMPLE 1: DAG with single point treatment
+#---------------------------------------------------------------------------------------
+# Define a DAG with single-point treatment ("Anode")
+D &lt;- DAG.empty()
+D &lt;- D + node("W1", distr="rbern", prob=plogis(-0.5))
+D &lt;- D + node("W2", distr="rbern", prob=plogis(-0.5 + 0.5*W1))
+D &lt;- D + node("Anode", distr="rbern", prob=plogis(-0.5 - 0.3*W1 - 0.3*W2))
+D &lt;- D + node("Y", distr="rbern", prob=plogis(-0.1 + 1.2*Anode + 0.3*W1 + 0.3*W2),
+EFU=TRUE)
+D_WAY &lt;- set.DAG(D)
+
+# Defining interventions (actions)
+# define action "A1" that sets the treatment node to constant 1
+D_WAY &lt;- D_WAY + action("A1", nodes=node("Anode",distr="rbern", prob=1))
+# define another action "A0" that sets the treatment node to constant 0
+D_WAY &lt;- D_WAY + action("A0", nodes=node("Anode",distr="rbern", prob=0))
+#---------------------------------------------------------------------------------------
+# Defining and calculating causal parameters:
+#---------------------------------------------------------------------------------------
+# Counterfactual mean of node "Y" under action "A1"
+D_WAY &lt;- set.targetE(D_WAY, outcome="Y", param="A1")
+eval.target(D_WAY, n=10000)
+
+# Contrasts of means of "Y" under action "A1" minus action "A0"
+D_WAY &lt;- set.targetE(D_WAY, outcome="Y", param="A1-A0")
+eval.target(D_WAY, n=10000)
+
+# Ratios of "Y" under action "A1" over action "A0"
+D_WAY &lt;- set.targetE(D_WAY, outcome="Y", param="A1/A0")
+eval.target(D_WAY, n=10000)
+
+# Alternative parameter evaluation by passing already simulated full data to
+# \code{eval.target}
+X_dat1 &lt;- simfull(A(D_WAY), n=10000)
+D_WAY &lt;- set.targetE(D_WAY, outcome="Y", param="A1/A0")
+eval.target(D_WAY, data=X_dat1)
+
+#---------------------------------------------------------------------------------------
+# EXAMPLE 2: DAG with time-varying outcomes (survival outcome)
+#---------------------------------------------------------------------------------------
+# Define longitudinal data structure over 6 time-points t=(0:5)
+t_end &lt;- 5
+D &lt;- DAG.empty()
+D &lt;- D + node("L2", t=0, distr="rbern", prob=0.05)
+D &lt;- D + node("L1", t=0, distr="rbern", prob=ifelse(L2[0]==1,0.5,0.1))
+D &lt;- D + node("A1", t=0, distr="rbern", prob=ifelse(L1[0]==1 &amp; L2[0]==0, 0.5,
+ifelse(L1[0]==0 &amp; L2[0]==0, 0.1,
+ifelse(L1[0]==1 &amp; L2[0]==1, 0.9, 0.5))))
+D &lt;- D + node("A2", t=0, distr="rbern", prob=0, order=4, EFU=TRUE)
+D &lt;- D + node("Y",  t=0, distr="rbern",
+prob=plogis(-6.5 + L1[0] + 4*L2[0] + 0.05*I(L2[0]==0)),
+EFU=TRUE)
+D &lt;- D + node("L2", t=1:t_end, distr="rbern", prob=ifelse(A1[t-1]==1, 0.1,
+ifelse(L2[t-1]==1, 0.9,
+min(1,0.1 + t/16))))
+D &lt;- D + node("A1", t=1:t_end, distr="rbern", prob=ifelse(A1[t-1]==1, 1,
+ifelse(L1[0]==1 &amp; L2[0]==0, 0.3,
+ifelse(L1[0]==0 &amp; L2[0]==0, 0.1,
+ifelse(L1[0]==1 &amp; L2[0]==1, 0.7,
+0.5)))))
+D &lt;- D + node("A2", t=1:t_end, distr="rbern", prob=0, EFU=TRUE)
+D &lt;- D + node("Y",  t=1:t_end, distr="rbern",
+prob=plogis(-6.5 + L1[0] + 4*L2[t] + 0.05*sum(I(L2[0:t]==rep(0,(t+1))))),
+EFU=TRUE)
+D &lt;- set.DAG(D)
+
+# Add two dynamic actions (indexed by values of the parameter theta={0,1})
+# Define intervention nodes
+act_t0_theta &lt;- node("A1",t=0, distr="rbern", prob=ifelse(L2[0] &gt;= theta,1,0))
+act_tp_theta &lt;- node("A1",t=1:t_end, distr="rbern",
+prob=ifelse(A1[t-1]==1,1,ifelse(L2[t] &gt;= theta,1,0)))
+# Add two actions to current DAG object
+D &lt;- D + action("A1_th0", nodes=c(act_t0_theta, act_tp_theta), theta=0)
+D &lt;- D + action("A1_th1", nodes=c(act_t0_theta, act_tp_theta), theta=1)
+#---------------------------------------------------------------------------------------
+# Defining and calculating the target parameter
+#---------------------------------------------------------------------------------------
+# Counterfactual mean of node "Y" at time-point t=4 under action "A1_th0"
+D &lt;- set.targetE(D, outcome="Y", t=4, param="A1_th0")
+eval.target(D, n=5000)
+
+# Vector of counterfactual means of"Y" over all time points under action "A1_th1"
+D &lt;- set.targetE(D, outcome="Y", t=0:5, param="A1_th1")
+eval.target(D, n=5000)
+
+# Vector of counterfactual contrasts of "Y" over all time points
+# for action "A1_th1" minus action "A1_th0"
+D &lt;- set.targetE(D, outcome="Y", t=0:5, param="A1_th1 - A1_th0")
+eval.target(D, n=5000)
+
+# Vector of counterfactual ratios of "Y" over all time points
+# for action "A1_th0" over action "A1_th1"
+D &lt;- set.targetE(D, outcome="Y", t=0:5, param="A1_th0 / A1_th1")
+eval.target(D, n=5000)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,185 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>infoLoss</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate information loss after targeted record swapping</h2>
+
+<h3>Description</h3>
+
+<p>Calculate information loss after targeted record swapping using both the original and the swapped micro data.
+Information loss will be calculated on table counts defined by parameter 'table_vars' using either implemented information loss measures like absolute deviaton, relative absolute deviation and absolute deviation of square roots or custom metric, See details below.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">infoLoss(
+  data,
+  data_swapped,
+  table_vars,
+  metric = c("absD", "relabsD", "abssqrtD"),
+  custom_metric = NULL,
+  hid = NULL,
+  probs = sort(c(seq(0, 1, by = 0.1), 0.95, 0.99)),
+  quantvals = c(0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, Inf),
+  apply_quantvals = c("relabsD", "abssqrtD"),
+  exclude_zeros = FALSE,
+  only_inner_cells = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>original micro data set, must be either a 'data.table' or 'data.frame'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data_swapped</code></td>
+<td>
+<p>micro data set after targeted record swapping was applied. Must be either a 'data.table' or 'data.frame'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>table_vars</code></td>
+<td>
+<p>column names in both 'data' and 'data_swapped'. Defines the variables over which a (multidimensional) frequency table is constructed.
+Information loss is then calculated by applying the metric in 'metric' and 'custom_merics' over the cell-counts and margin counts of the table from 'data' and 'data_swapped'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>character vector containing one or more of the already implemented metrices: "absD","relabsD" and/or "abssqrtD".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>custom_metric</code></td>
+<td>
+<p>function or (named) list of functions. Functions defined here must be of the form 'fun(x,y,...)'
+where 'x' and 'y' expect numeric values of the same length. The output of these functions must be a numeric vector of the same length as 'x' and 'y'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hid</code></td>
+<td>
+<p>'NULL' or character containing household id in 'data' and 'data_swapped'. If not 'NULL' frequencies will reflect number of households, otherwise frequencies will reflect number of persons.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probs</code></td>
+<td>
+<p>numeric vector containing values in the inervall [0,1].</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quantvals</code></td>
+<td>
+<p>optional numeric vector which defines the groups used for the cumulative outputs. Is applied on the results 'm' from each information loss metric as 'cut(m,breaks=quantvals,include.lowest=TRUE)', see also return values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>apply_quantvals</code></td>
+<td>
+<p>character vector defining for the output of which metrices 'quantvals' should be applied to.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exclude_zeros</code></td>
+<td>
+<p>'TRUE' or 'FALSE', if 'TRUE' 0 cells in the frequency table using 'data_swapped' will be ignored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>only_inner_cells</code></td>
+<td>
+<p>'TRUE' or 'FALSE', if 'TRUE' only inner cells of the frequency table defined by 'table_vars' will be compared. Otherwise also all tables margins will bei calculated.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>First frequency tables are build from both 'data' and 'data_swapped' using the variables defined in 'table_vars'. By default also all table margins will be calculated, see parameter 'only_inner_cells = FALSE'.
+After that the information loss metrices defined in either 'metric' or 'custom_metric' are applied on each of the table cells from both frequency tables.
+This is done in the sense of 'metric(x,y)' where 'metric' is the information loss, 'x' a cell from the table created from 'data' and 'y' the same cell from the table created from 'data_swapped'. 
+One or more custom metrices can be applied using the parameter 'custom_metric', see also examples.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list containing:
+</p>
+<p>* 'cellvalues': 'data.table' showing in a long format for each table cell the frequency counts for 'data' ~ 'count_o' and 'data_swapped' ~ 'count_s'. 
+* 'overview': 'data.table' containing the disribution of the 'noise' in number of cells and percentage. The 'noise' ist calculated as the difference between the cell values of the frequency table generated from the original and swapped data
+* 'measures': 'data.table' containing the quantiles and mean (column 'waht') of the distribution of the information loss metrices applied on each table cell. The quantiles are defined by parameter 'probs'.
+* 'cumdistr\*': 'data.table' containing the cumulative distribution of the information loss metrices. Distribution is shown in number of cells ('cnt') and percentage ('pct'). Column 'cat' shows all unique values of the information loss metric or the grouping defined by 'quantvals'.    
+* 'false_zero': number of table cells which are non-zero when using 'data' and zero when using 'data_swapped'.
+* 'false_nonzero': number of table cells which are zero when using 'data' and non-zero when using 'data_swapped'.
+* 'exclude_zeros': value passed to 'exclude_zero' when calling the function.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># generate dummy data 
+seed &lt;- 2021
+set.seed(seed)
+nhid &lt;- 10000
+dat &lt;- createDat( nhid )
+
+# define paramters for swapping
+k_anonymity &lt;- 1
+swaprate &lt;- .05
+similar &lt;- list(c("hsize"))
+hier &lt;- c("nuts1","nuts2")
+carry_along &lt;- c("nuts3","lau2")
+risk_variables &lt;- c("ageGroup","national")
+hid &lt;- "hid"
+
+# # apply record swapping
+# dat_s &lt;- recordSwap(data = dat, hid = hid, hierarchy = hier,
+#                     similar = similar, swaprate = swaprate,
+#                     k_anonymity = k_anonymity,
+#                     risk_variables = risk_variables,
+#                     carry_along = carry_along,
+#                     return_swapped_id = TRUE,
+#                     seed=seed)
+# 
+# 
+# # calculate informationn loss
+# # for the table nuts2 x national
+# iloss &lt;- infoLoss(data=dat, data_swapped = dat_s,
+#                   table_vars = c("nuts2","national"))
+# iloss$measures # distribution of information loss measures
+# iloss$false_zero # no false zeros
+# iloss$false_nonzero # no false non-zeros
+# 
+# # frequency tables of households accross
+# # nuts2 x hincome
+# 
+# iloss &lt;- infoLoss(data=dat, data_swapped = dat_s,
+ #                  table_vars = c("nuts2","hincome"),
+#                   hid = "hid")
+# iloss$measures  
+# 
+# # define custom metric
+# squareD &lt;- function(x,y){
+#   (x-y)^2
+# }
+# 
+# iloss &lt;- infoLoss(data=dat, data_swapped = dat_s,
+#                  table_vars = c("nuts2","national"),
+#                  custom_metric = list(squareD=squareD))
+# iloss$measures # includes custom loss as well
+# 
+</code></pre>
+
+
+</div>

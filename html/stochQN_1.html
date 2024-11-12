@@ -1,0 +1,285 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>adaQN</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>adaQN guided optimizer</h2>
+
+<h3>Description</h3>
+
+<p>Optimizes an empirical (possibly non-convex) loss function over batches of sample data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">adaQN(x0, grad_fun, obj_fun = NULL, pred_fun = NULL,
+  initial_step = 0.01, step_fun = function(iter) 1/sqrt((iter/100) +
+  1), callback_iter = NULL, args_cb = NULL, verbose = TRUE,
+  mem_size = 10, fisher_size = 100, bfgs_upd_freq = 20,
+  max_incr = 1.01, min_curvature = 1e-04, y_reg = NULL,
+  scal_reg = 1e-04, rmsprop_weight = 0.9, use_grad_diff = FALSE,
+  check_nan = TRUE, nthreads = -1, X_val = NULL, y_val = NULL,
+  w_val = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x0</code></td>
+<td>
+<p>Initial values for the variables to optimize.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grad_fun</code></td>
+<td>
+<p>Function taking as unnamed arguments 'x_curr' (variable values), 'X' (covariates),
+'y' (target variable), and 'w' (weights), plus additional arguments ('...'), and producing the expected
+value of the gradient when evalauted on that data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj_fun</code></td>
+<td>
+<p>Function taking as unnamed arguments 'x_curr' (variable values), 'X' (covariates),
+'y' (target variable), and 'w' (weights), plus additional arguments ('...'), and producing the expected
+value of the objective function when evalauted on that data. Only required when using 'max_incr'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred_fun</code></td>
+<td>
+<p>Function taking an unnamed argument as data, another unnamed argument as the variable values,
+and optional extra arguments ('...'). Will be called when using 'predict' on the object returned by this function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initial_step</code></td>
+<td>
+<p>Initial step size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step_fun</code></td>
+<td>
+<p>Function accepting the iteration number as an unnamed parameter, which will output the
+number by which 'initial_step' will be multiplied at each iteration to get the step size for that
+iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>callback_iter</code></td>
+<td>
+<p>Callback function which will be called at the end of each iteration.
+Will pass three unnamed arguments: the current variable values, the current iteration number,
+and 'args_cb'. Pass 'NULL' if there is no need to call a callback function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>args_cb</code></td>
+<td>
+<p>Extra argument to pass to the callback function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Whether to print information about iteration statuses when something goes wrong.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mem_size</code></td>
+<td>
+<p>Number of correction pairs to store for approximation of Hessian-vector products.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fisher_size</code></td>
+<td>
+<p>Number of gradients to store for calculation of the empirical Fisher product with gradients.
+If passing 'NULL', will force 'use_grad_diff' to 'TRUE'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bfgs_upd_freq</code></td>
+<td>
+<p>Number of iterations (batches) after which to generate a BFGS correction pair.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_incr</code></td>
+<td>
+<p>Maximum ratio of function values in the validation set under the average values of 'x' during current epoch
+vs. previous epoch. If the ratio is above this threshold, the BFGS and Fisher memories will be reset, and 'x'
+values reverted to their previous average.
+If not using a validation set, will take a longer batch for function evaluations (same as used for gradients    
+when using 'use_grad_diff' = 'TRUE').
+Pass 'NULL' for no function-increase checking.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_curvature</code></td>
+<td>
+<p>Minimum value of (s * y) / (s * s) in order to accept a correction pair. Pass 'NULL' for
+no minimum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_reg</code></td>
+<td>
+<p>Regularizer for 'y' vector (gets added y_reg * s). Pass 'NULL' for no regularization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scal_reg</code></td>
+<td>
+<p>Regularization parameter to use in the denominator for AdaGrad and RMSProp scaling.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rmsprop_weight</code></td>
+<td>
+<p>If not 'NULL', will use RMSProp formula instead of AdaGrad for approximated inverse-Hessian initialization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_grad_diff</code></td>
+<td>
+<p>Whether to create the correction pairs using differences between gradients instead of empirical Fisher matrix.
+These gradients are calculated on a larger batch than the regular ones (given by batch_size * bfgs_upd_freq).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_nan</code></td>
+<td>
+<p>Whether to check for variables becoming NaN after each iteration, and reverting the step if they do
+(will also reset BFGS memory).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nthreads</code></td>
+<td>
+<p>Number of parallel threads to use. If set to -1, will determine the number of available threads and use
+all of them. Note however that not all the computations can be parallelized, and the BLAS backend might use a different
+number of threads.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_val</code></td>
+<td>
+<p>Covariates to use as validation set (only used when passing 'max_incr'). If not passed, will use
+a larger batch of stored data, in the same way as for Hessian-vector products in SQN.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_val</code></td>
+<td>
+<p>Target variable for the covariates to use as validation set (only used when passing 'max_incr').
+If not passed, will use a larger batch of stored data, in the same way as for Hessian-vector products in SQN.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w_val</code></td>
+<td>
+<p>Sample weights for the covariates to use as validation set (only used when passing 'max_incr').
+If not passed, will use a larger batch of stored data, in the same way as for Hessian-vector products in SQN.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>an 'adaQN' object with the user-supplied functions, which can be fit to batches of data
+through function 'partial_fit', and can produce predictions on new data through function 'predict'.
+</p>
+
+
+<h3>References</h3>
+
+ <ul>
+<li>
+<p> Keskar, N.S. and Berahas, A.S., 2016, September.
+"adaQN: An Adaptive Quasi-Newton Algorithm for Training RNNs."
+In Joint European Conference on Machine Learning and Knowledge Discovery in Databases (pp. 1-16). Springer, Cham.
+</p>
+</li>
+<li>
+<p> Wright, S. and Nocedal, J., 1999. "Numerical optimization." (ch 7) Springer Science, 35(67-68), p.7.</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p>partial_fit , predict.stochQN_guided , adaQN_free
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### Example regression with randomly-generated data
+library(stochQN)
+
+### Will sample data y ~ Ax + epsilon
+true_coefs &lt;- c(1.12, 5.34, -6.123)
+
+generate_data_batch &lt;- function(true_coefs, n = 100) {
+  X &lt;- matrix(
+    rnorm(length(true_coefs) * n),
+    nrow=n, ncol=length(true_coefs))
+  y &lt;- X %*% true_coefs + rnorm(n)
+  return(list(X = X, y = y))
+}
+
+### Regular regression function that minimizes RMSE
+eval_fun &lt;- function(coefs, X, y, weights=NULL, lambda=1e-5) {
+  pred &lt;- as.numeric(X %*% coefs)
+  RMSE &lt;- sqrt(mean((pred - y)^2))
+  reg  &lt;- 2 * lambda * as.numeric(coefs %*% coefs)
+  return(RMSE + reg)
+}
+
+eval_grad &lt;- function(coefs, X, y, weights=NULL, lambda=1e-5) {
+  pred &lt;- X %*% coefs
+  grad &lt;- colMeans(X * as.numeric(pred - y))
+  grad &lt;- grad + 2 * lambda * as.numeric(coefs^2)
+  return(grad)
+}
+
+pred_fun &lt;- function(X, coefs, ...) {
+  return(as.numeric(X %*% coefs))
+}
+
+### Initialize optimizer form arbitrary values
+x0 &lt;- c(1, 1, 1)
+optimizer &lt;- adaQN(x0, grad_fun=eval_grad,
+  pred_fun=pred_fun, obj_fun=eval_fun, initial_step=1e-0)
+val_data &lt;- generate_data_batch(true_coefs, n=100)
+
+### Fit to 50 batches of data, 100 observations each
+for (i in 1:50) {
+  set.seed(i)
+  new_batch &lt;- generate_data_batch(true_coefs, n=100)
+  partial_fit(
+    optimizer,
+    new_batch$X, new_batch$y,
+    lambda=1e-5)
+  x_curr &lt;- get_curr_x(optimizer)
+  i_curr &lt;- get_iteration_number(optimizer)
+  if ((i_curr %% 10)  == 0) {
+    cat(sprintf(
+      "Iteration %d - E[f(x)]: %f - values of x: [%f, %f, %f]\n",
+      i_curr,
+      eval_fun(x_curr, val_data$X, val_data$y, lambda=1e-5),
+      x_curr[1], x_curr[2], x_curr[3]))
+  }
+}
+
+### Predict for new data
+new_batch &lt;- generate_data_batch(true_coefs, n=10)
+yhat &lt;- predict(optimizer, new_batch$X)
+</code></pre>
+
+
+</div>

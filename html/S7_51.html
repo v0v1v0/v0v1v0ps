@@ -1,0 +1,113 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>super</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Force method dispatch to use a superclass</h2>
+
+<h3>Description</h3>
+
+<p><code>super(from, to)</code> causes the dispatch for the next generic to use the method
+for the superclass <code>to</code> instead of the actual class of <code>from</code>. It's needed
+when you want to implement a method in terms of the implementation of its
+superclass.
+</p>
+
+
+<h4>S3 &amp; S4</h4>
+
+<p><code>super()</code> performs a similar role to <code>NextMethod()</code> in S3 or
+<code>methods::callNextMethod()</code> in S4, but is much more explicit:
+</p>
+
+<ul>
+<li>
+<p> The super class that <code>super()</code> will use is known when write <code>super()</code>
+(i.e. statically) as opposed to when the generic is called
+(i.e. dynamically).
+</p>
+</li>
+<li>
+<p> All arguments to the generic are explicit; they are not automatically
+passed along.
+</p>
+</li>
+</ul>
+<p>This makes <code>super()</code> more verbose, but substantially easier to
+understand and reason about.
+</p>
+
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">super(from, to)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>from</code></td>
+<td>
+<p>An S7 object to cast.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>to</code></td>
+<td>
+<p>An S7 class specification, passed to <code>as_class()</code>. Must be a
+superclass of <code>object</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An <code>S7_super</code> object which should always be passed
+immediately to a generic. It has no other special behavior.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">foo1 &lt;- new_class("foo1", properties = list(x = class_numeric, y = class_numeric))
+foo2 &lt;- new_class("foo2", foo1, properties = list(z = class_numeric))
+
+total &lt;- new_generic("total", "x")
+method(total, foo1) &lt;- function(x) x@x + x@y
+
+# This won't work because it'll be stuck in an infinite loop:
+method(total, foo2) &lt;- function(x) total(x) + x@z
+
+# We could write
+method(total, foo2) &lt;- function(x) x@x + x@y + x@z
+# but then we'd need to remember to update it if the implementation
+# for total(&lt;foo1&gt;) ever changed.
+
+# So instead we use `super()` to call the method for the parent class:
+method(total, foo2) &lt;- function(x) total(super(x, to = foo1)) + x@z
+total(foo2(1, 2, 3))
+
+# To see the difference between convert() and super() we need a
+# method that calls another generic
+
+bar1 &lt;- new_generic("bar1", "x")
+method(bar1, foo1) &lt;- function(x) 1
+method(bar1, foo2) &lt;- function(x) 2
+
+bar2 &lt;- new_generic("bar2", "x")
+method(bar2, foo1) &lt;- function(x) c(1, bar1(x))
+method(bar2, foo2) &lt;- function(x) c(2, bar1(x))
+
+obj &lt;- foo2(1, 2, 3)
+bar2(obj)
+# convert() affects every generic:
+bar2(convert(obj, to = foo1))
+# super() only affects the _next_ call to a generic:
+bar2(super(obj, to = foo1))
+</code></pre>
+
+
+</div>

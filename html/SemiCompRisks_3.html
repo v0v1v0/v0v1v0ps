@@ -1,0 +1,316 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>BayesID_AFT</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+The function to implement Bayesian parametric and semi-parametric analyses for semi-competing risks data in the context of accelerated failure time (AFT) models.
+</h2>
+
+<h3>Description</h3>
+
+<p>Independent semi-competing risks data can be analyzed using AFT models that have a hierarchical structure. The proposed models can accomodate left-truncated and/or interval-censored data. An efficient computational algorithm that gives users the flexibility to adopt either a fully parametric (log-Normal) or a semi-parametric (Dirichlet process mixture) model specification is developed.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">BayesID_AFT(Formula, data, model = "LN", hyperParams, startValues,
+mcmcParams, na.action = "na.fail", subset=NULL, path=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Formula</code></td>
+<td>
+
+<p>a <code>Formula</code> object, with the outcomes on the left of a <code class="reqn">\sim</code>, and covariates on the right. It is of the form, left truncation time | interval- (or right-) censored time for non-terminal event | interval-(or right-) censored time for terminal event <code class="reqn">\sim</code> covariates for <code class="reqn">h_1</code> | covariates for <code class="reqn">h_2</code> | covariates for <code class="reqn">h_3</code>: i.e., <code class="reqn">L</code> | <code class="reqn">y_{1L}</code>+<code class="reqn">y_{1U}</code> | <code class="reqn">y_{2L}</code>+<code class="reqn">y_{2U}</code> ~ <code class="reqn">x_1</code> | <code class="reqn">x_2</code> | <code class="reqn">x_3</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>a data.frame in which to interpret the variables named in <code>Formula</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+
+<p>The specification of baseline survival distribution: "LN" or "DPM".
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hyperParams</code></td>
+<td>
+
+<p>a list containing lists or vectors for hyperparameter values in hierarchical models. Components include,
+<code>theta</code> (a numeric vector for hyperparameter in the prior of subject-specific frailty variance component),
+<code>LN</code> (a list containing numeric vectors for log-Normal hyperparameters: <code>LN.ab1</code>, <code>LN.ab2</code>, <code>LN.ab3</code>),
+<code>DPM</code> (a list containing numeric vectors for DPM hyperparameters: <code>DPM.mu1</code>, <code>DPM.mu2</code>, <code>DPM.mu3</code>, <code>DPM.sigSq1</code>, <code>DPM.sigSq2</code>, <code>DPM.sigSq3</code>, <code>DPM.ab1</code>, <code>DPM.ab2</code>, <code>DPM.ab3</code>, <code>Tau.ab1</code>, <code>Tau.ab2</code>, <code>Tau.ab3</code>).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startValues</code></td>
+<td>
+
+<p>a list containing vectors of starting values for model parameters. It can be specified as the object returned by the function <code>initiate.startValues_AFT</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmcParams</code></td>
+<td>
+
+<p>a list containing variables required for MCMC sampling. Components include,
+<code>run</code> (a list containing numeric values for setting for the overall run:
+<code>numReps</code>, total number of scans; <code>thin</code>, extent of thinning; <code>burninPerc</code>, the proportion of burn-in).
+<code>storage</code> (a list containing numeric values for storing posterior samples for subject- and cluster-specific random effects:
+<code>nGam_save</code>, the number of <code class="reqn">\gamma</code> to be stored; <code>nY1_save</code>, the number of <code class="reqn">y1</code> to be stored; <code>nY2_save</code>, the number of <code class="reqn">y2</code> to be stored; <code>nY1.NA_save</code>, the number of <code class="reqn">y1.NA</code> to be stored).
+<code>tuning</code> (a list containing numeric values relevant to tuning parameters for specific updates in Metropolis-Hastings (MH) algorithm:
+<code>betag.prop.var</code>, the variance of proposal density for <code class="reqn">\beta_g</code>; <code>mug.prop.var</code>, the variance of proposal density for <code class="reqn">\mu_{g}</code>; <code>zetag.prop.var</code>, the variance of proposal density for <code class="reqn">1/\sigma_g^2</code>;
+<code>gamma.prop.var</code>, the variance of proposal density for <code class="reqn">\gamma</code>).
+See Details and Examples below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+
+<p>how NAs are treated. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+
+<p>a specification of the rows to be used: defaults to all rows. See <code>model.frame</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+
+<p>the name of directory where the results are saved.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>We view the semi-competing risks data as arising from an underlying illness-death model system in which individuals may undergo one or more of three transitions: 1) from some initial condition to non-terminal event, 2) from some initial condition to terminal event, 3) from non-terminal event to terminal event. Let <code class="reqn">T_{i1}</code>, <code class="reqn">T_{i2}</code> denote time to non-terminal and terminal event from subject <code class="reqn">i=1,...,n</code>.  We propose to directly model the times of the events via the following AFT model specification:
+</p>
+<p style="text-align: center;"><code class="reqn">\log(T_{i1}) = x_{i1}^\top\beta_1 + \gamma_i + \epsilon_{i1},  T_{i1} &gt; 0,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\log(T_{i2}) = x_{i2}^\top\beta_2 + \gamma_i + \epsilon_{i2},  T_{i2} &gt; 0,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">\log(T_{i2} - T_{i1}) = x_{i3}^\top\beta_3 + \gamma_i + \epsilon_{i3},  T_{i2} &gt;  T_{i1},</code>
+</p>
+
+<p>where <code class="reqn">x_{ig}</code> is a vector of transition-specific covariates, <code class="reqn">\beta_g</code> is a corresponding vector of transition-specific regression parameters and <code class="reqn">\epsilon_{ig}</code> is a transition-specific random variable whose distribution determines that of the corresponding transition time, <code class="reqn">g \in \{1,2,3\}</code>. <code class="reqn">\gamma_i</code> is a study participant-specific random effect that induces positive dependence between the two event times, thereby performing a role analogous to that performed by frailties in models for the hazard function.
+Let <code class="reqn">L_{i}</code> denote the time at study entry (i.e. the left-truncation time). Furthermore, suppose that study participant <code class="reqn">i</code> was observed at follow-up times <code class="reqn">\{c_{i1},\ldots, c_{im_i}\}</code> and let <code class="reqn">c_i^*</code> denote the time to the end of study or to administrative right-censoring. Considering interval-censoring for both events, the times to non-terminal and terminal event for the <code class="reqn">i^{th}</code> study participant satisfy <code class="reqn">c_{ij}\leq T_{i1}&lt; c_{ij+1}</code> for some <code class="reqn">j</code> and <code class="reqn">c_{ik}\leq T_{i2}&lt; c_{ik+1}</code> for some <code class="reqn">k</code>, respectively. Then the observed outcomes for the <code class="reqn">i^{th}</code> study participant can be succinctly denoted by <code class="reqn">\{c_{ij}, c_{ij+1}, c_{ik}, c_{ik+1}, L_{i}\}</code>.
+</p>
+<p>For the Bayesian semi-parametric analysis, we proceed by adopting independent DPM of normal distributions for each <code class="reqn">\epsilon_{ig}</code>. More precisely, <code class="reqn">\epsilon_{ig}</code> is taken to be an independent draw from a mixture of <code class="reqn">M_g</code> normal distributions with means and variances (<code class="reqn">\mu_{gr}</code>, <code class="reqn">\sigma_{gr}^2</code>), for <code class="reqn">r \in \{1,\ldots,M_g\}</code>. Since the class-specific <code class="reqn">(\mu_{gr}, \sigma_{gr}^2)</code> are not known, they are taken to be draws from some common distribution, <code class="reqn">G_{g0}</code>, often referred to as the centering distribution. Furthermore, since the ‘true’ class membership for any given study participant is not known, we let <code class="reqn">p_{gr}</code> denote the probability of belonging to the <code class="reqn">r^{th}</code> class for transition <code class="reqn">g</code> and <code class="reqn">p_g</code> = <code class="reqn">(p_{g1}, \ldots, p_{gM_g})</code> the collection of such probabilities. Note, <code class="reqn">p_g</code> is defined at the level of the population (i.e. is not study participant-specific) and its components add up to 1.0. In the absence of prior knowledge regarding the distribution of class memberships for the <code class="reqn">n</code> individuals across the <code class="reqn">M_g</code> classes, <code class="reqn">p_g</code> is assumed to follow a conjugate symmetric Dirichlet<code class="reqn">(\tau_g/M_g,\ldots,\tau_g/M_g)</code> distribution, where <code class="reqn">\tau_g</code> is referred to as the precision parameter. The finite mixture distribution can then be succinctly represented as:
+</p>
+<p style="text-align: center;"><code class="reqn">\epsilon_{ig} | r_{i} \sim Normal(\mu_{r_{i}}, \sigma_{r_{i}}^2),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">(\mu_{gr}, \sigma_{gr}^2) \sim G_{g0}, ~~for~ r=1,\ldots,M_g,</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">r_{i}| p_g \sim Discrete(r_{i} | p_{g1},\ldots,p_{gM_g}),</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">p_g \sim Dirichlet(\tau_g/M_g, \ldots, \tau_g/M_g).</code>
+</p>
+
+<p>Letting <code class="reqn">M_g</code> approach infinity, this specification is referred to as a DPM of normal distributions. In our proposed framework, we specify a Gamma(<code class="reqn">a_{\tau_g}</code>, <code class="reqn">b_{\tau_g}</code>) hyperprior for <code class="reqn">\tau_g</code>. For regression parameters, we adopt non-informative flat priors on the real line. For <code class="reqn">\gamma</code>=<code class="reqn">\{\gamma_1, \ldots, \gamma_n\}</code>, we assume that each <code class="reqn">\gamma_i</code> is an independent random draw from a Normal(0, <code class="reqn">\theta</code>) distribution. In the absence of prior knowledge on the variance component <code class="reqn">\theta</code>, we adopt a conjugate inverse-Gamma hyperprior, IG(<code class="reqn">a_\theta</code>, <code class="reqn">b_\theta</code>). Finally, We take the <code class="reqn">G_{g0}</code> as a normal distribution centered at <code class="reqn">\mu_{g0}</code> with a variance <code class="reqn">\sigma_{g0}^2</code> for <code class="reqn">\mu_{gr}</code> and an IG(<code class="reqn">a_{\sigma_g}</code>, <code class="reqn">b_{\sigma_g}</code>) for <code class="reqn">\sigma_{gr}^2</code>.
+</p>
+<p>For the Bayesian parametric analysis, we build on the log-Normal formulation and take the <code class="reqn">\epsilon_{ig}</code> to follow independent Normal(<code class="reqn">\mu_g</code>, <code class="reqn">\sigma_g^2</code>) distributions, <code class="reqn">g</code>=1,2,3. For location parameters <code class="reqn">\{\mu_1, \mu_2, \mu_3\}</code>, we adopt non-informative flat priors on the real line. For <code class="reqn">\{\sigma_1^2, \sigma_2^2, \sigma_3^2\}</code>, we adopt independent inverse Gamma distributions, denoted IG(<code class="reqn">a_{\sigma g}</code>, <code class="reqn">b_{\sigma g}</code>). For <code class="reqn">\beta_g</code>, <code class="reqn">\gamma</code>, and <code class="reqn">\theta</code>, we adopt the same priors as those adopted for the DPM model.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>BayesID_AFT</code> returns an object of class <code>Bayes_AFT</code>. <br></p>
+
+
+<h3>Note</h3>
+
+<p>The posterior samples of <code class="reqn">\gamma</code> are saved separately in <code>working directory/path</code>.
+For a dataset with large <code class="reqn">n</code>, <code>nGam_save</code> should be carefully specified considering the system memory and the storage capacity.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Kyu Ha Lee and Sebastien Haneuse<br>
+Maintainer: Kyu Ha Lee &lt;klee15239@gmail.com&gt;
+</p>
+
+
+<h3>References</h3>
+
+<p>Lee, K. H., Rondeau, V., and Haneuse, S. (2017),
+Accelerated failure time models for semicompeting risks data in the presence of complex censoring, <em>Biometrics</em>, 73, 4, 1401-1412. <br><br>
+Alvares, D., Haneuse, S., Lee, C., Lee, K. H. (2019),
+SemiCompRisks: An R package for the analysis of independent and cluster-correlated semi-competing risks data, <em>The R Journal</em>, 11, 1, 376-400. <br></p>
+
+
+<h3>See Also</h3>
+
+<p><code>initiate.startValues_AFT</code>, <code>print.Bayes_AFT</code>, <code>summary.Bayes_AFT</code>, <code>predict.Bayes_AFT</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+# loading a data set
+data(scrData)
+scrData$y1L &lt;- scrData$y1U &lt;- scrData[,1]
+scrData$y1U[which(scrData[,2] == 0)] &lt;- Inf
+scrData$y2L &lt;- scrData$y2U &lt;- scrData[,3]
+scrData$y2U[which(scrData[,4] == 0)] &lt;- Inf
+scrData$LT &lt;- rep(0, dim(scrData)[1])
+
+form &lt;- Formula(LT | y1L + y1U | y2L + y2U  ~ x1 + x2 + x3 | x1 + x2 | x1 + x2)
+
+#####################
+## Hyperparameters ##
+#####################
+
+## Subject-specific random effects variance component
+##
+theta.ab &lt;- c(0.5, 0.05)
+
+## log-Normal model
+##
+LN.ab1 &lt;- c(0.3, 0.3)
+LN.ab2 &lt;- c(0.3, 0.3)
+LN.ab3 &lt;- c(0.3, 0.3)
+
+## DPM model
+##
+DPM.mu1 &lt;- log(12)
+DPM.mu2 &lt;- log(12)
+DPM.mu3 &lt;- log(12)
+
+DPM.sigSq1 &lt;- 100
+DPM.sigSq2 &lt;- 100
+DPM.sigSq3 &lt;- 100
+
+DPM.ab1 &lt;-  c(2, 1)
+DPM.ab2 &lt;-  c(2, 1)
+DPM.ab3 &lt;-  c(2, 1)
+
+Tau.ab1 &lt;- c(1.5, 0.0125)
+Tau.ab2 &lt;- c(1.5, 0.0125)
+Tau.ab3 &lt;- c(1.5, 0.0125)
+
+##
+hyperParams &lt;- list(theta=theta.ab,
+LN=list(LN.ab1=LN.ab1, LN.ab2=LN.ab2, LN.ab3=LN.ab3),
+DPM=list(DPM.mu1=DPM.mu1, DPM.mu2=DPM.mu2, DPM.mu3=DPM.mu3, DPM.sigSq1=DPM.sigSq1,
+DPM.sigSq2=DPM.sigSq2, DPM.sigSq3=DPM.sigSq3, DPM.ab1=DPM.ab1, DPM.ab2=DPM.ab2,
+DPM.ab3=DPM.ab3, Tau.ab1=Tau.ab1, Tau.ab2=Tau.ab2, Tau.ab3=Tau.ab3))
+
+###################
+## MCMC SETTINGS ##
+###################
+
+## Setting for the overall run
+##
+numReps    &lt;- 300
+thin       &lt;- 3
+burninPerc &lt;- 0.5
+
+## Setting for storage
+##
+nGam_save &lt;- 10
+nY1_save &lt;- 10
+nY2_save &lt;- 10
+nY1.NA_save &lt;- 10
+
+## Tuning parameters for specific updates
+##
+##  - those common to all models
+betag.prop.var	&lt;- c(0.01,0.01,0.01)
+mug.prop.var	&lt;- c(0.1,0.1,0.1)
+zetag.prop.var	&lt;- c(0.1,0.1,0.1)
+gamma.prop.var	&lt;- 0.01
+
+##
+mcmcParams	&lt;- list(run=list(numReps=numReps, thin=thin, burninPerc=burninPerc),
+storage=list(nGam_save=nGam_save, nY1_save=nY1_save, nY2_save=nY2_save, nY1.NA_save=nY1.NA_save),
+tuning=list(betag.prop.var=betag.prop.var, mug.prop.var=mug.prop.var,
+zetag.prop.var=zetag.prop.var, gamma.prop.var=gamma.prop.var))
+
+#################################################################
+## Analysis of Independent Semi-competing risks data ############
+#################################################################
+
+###############
+## logNormal ##
+###############
+
+##
+myModel &lt;- "LN"
+myPath  &lt;- "Output/01-Results-LN/"
+
+startValues      &lt;- initiate.startValues_AFT(form, scrData, model=myModel, nChain=2)
+
+##
+fit_LN &lt;- BayesID_AFT(form, scrData, model=myModel, hyperParams,
+startValues, mcmcParams, path=myPath)
+
+fit_LN
+summ.fit_LN &lt;- summary(fit_LN); names(summ.fit_LN)
+summ.fit_LN
+pred_LN &lt;- predict(fit_LN, time = seq(0, 35, 1), tseq=seq(from=0, to=30, by=5))
+plot(pred_LN, plot.est="Haz")
+plot(pred_LN, plot.est="Surv")
+
+#########
+## DPM ##
+#########
+
+##
+myModel &lt;- "DPM"
+myPath  &lt;- "Output/02-Results-DPM/"
+
+startValues      &lt;- initiate.startValues_AFT(form, scrData, model=myModel, nChain=2)
+
+##
+fit_DPM &lt;- BayesID_AFT(form, scrData, model=myModel, hyperParams,
+startValues, mcmcParams, path=myPath)
+
+fit_DPM
+summ.fit_DPM &lt;- summary(fit_DPM); names(summ.fit_DPM)
+summ.fit_DPM
+pred_DPM &lt;- predict(fit_DPM, time = seq(0, 35, 1), tseq=seq(from=0, to=30, by=5))
+plot(pred_DPM, plot.est="Haz")
+plot(pred_DPM, plot.est="Surv")
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

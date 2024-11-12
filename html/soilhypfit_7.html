@@ -1,0 +1,580 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>profile_loglikelihood</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Profile Loglikelihoods and Confidence Intervals for
+Parametric Modelling of Soil Hydraulic Properties</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>prfloglik_sample</code> computes for a single soil sample a
+loglikelihood profile as a function of the specified values for subsets
+of model parameters of soil water retention and/or soil hydraulic
+conductivity functions.  The function <code>confint_prfloglik_sample</code>
+computes a confidence interval of one model parameter based on the
+likelihood ratio test for a single soil sample, and the S3 method
+<code>confint</code> computes confidence intervals of <em>nonlinear</em>
+model parameters for multiple soil samples.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">prfloglik_sample(object, values, soil_sample,
+    ncores = min(detectCores() - 1L, NROW(values)), verbose = 0)
+
+confint_prfloglik_sample(object, parm = names(default_fit_param()),
+    soil_sample, level = 0.95, test = c("F", "Chisq"),
+    denominator_df = c("nonlinear", "all"), param_bound = NULL,
+    root_tol = .Machine$double.eps^0.25, froot_tol = sqrt(root_tol),
+    verbose = 0)
+
+## S3 method for class 'fit_wrc_hcc'
+confint(object,
+    parm = names(object[["control"]][["initial_param"]]), level = 0.95,
+    subset = NULL, type = c("loglik", "normal"), test = c("F", "Chisq"),
+    denominator_df = c("nonlinear", "all"),
+    root_tol = .Machine$double.eps^0.25, froot_tol = sqrt(root_tol),
+    ncores = detectCores() - 1L, verbose = 0, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class <code>fit_wrc_hcc</code>, see
+<code>fit_wrc_hcc</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>values</code></td>
+<td>
+<p>a <code>data.frame</code> or a <code>matrix</code> with the values of
+the conditionally linear (<code class="reqn">\boldsymbol{\mu}^\mathrm{} </code>) and nonlinear parameters
+(<code class="reqn">\boldsymbol{\nu}^\mathrm{} </code>) that should be kept fixed to compute the likelihood
+profile (mandatory argument, see <code>soilhypfitIntro</code>,
+<code>wc_model</code> and <code>hc_model</code> for information about
+the parametrization of models for soil water retention curves and/or soil
+hydraulic conductivity functions.).  The names of the columns of
+<code>values</code> must match the names of model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>soil_sample</code></td>
+<td>
+<p>a character scalar with the label of the soil sample
+for which the loglikelihood profile or the confidence interval should be
+computed.  If <code>object</code> contains parameter estimates for a single
+soil sample then <code>soil_sample</code> is ignored, otherwise
+<code>soil_sample</code> is a mandatory argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>an integer defining the number of cores for parallel
+computations.  <code>ncores = 1</code> suppresses parallel computations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>positive integer controlling logging of diagnostic
+messages to the console and plotting of data and model curves
+during fitting, see <code>fit_wrc_hcc</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parm</code></td>
+<td>
+<p>character scalar (<code>confint_prfloglik_sample</code>) or vector
+(<code>confint</code>) with name(s) of parameter(s) for which to compute the
+confidence interval(s).  Note that <code>confint_prfloglik_sample</code> allows
+to compute a confidence interval for <em>all</em> parameters (including the
+linear ones), whereas the <code>confint</code> method computes confidence
+intervals for the <em>nonlinear</em> parameters (<code class="reqn">\boldsymbol{\nu}^\mathrm{} </code>) only,
+see <code>soilhypfitIntro</code> for information about the
+parametrization of models for soil water retention curves and/or soil
+hydraulic conductivity functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>numeric scalar with the confidence level
+required to compute the confidence interval.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test</code></td>
+<td>
+<p>character keyword specifying whether to use the asymptotic
+<code class="reqn">\chi^2</code>-distribution or the finite sample approximate F-distribution
+for the likelihood ratio test statistic when computing the confidence
+interval, see <em>Details</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>denominator_df</code></td>
+<td>
+<p>character keyword specifying whether the
+denominator degrees of freedom for the F-distribution of the test
+statistic is equal to the number of estimated <em>nonlinear</em> parameters
+(<code>"nonlinear"</code>, default) or equal to the total number of estimated
+parameters (<code>"all"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param_bound</code></td>
+<td>
+<p>a numeric vector of length 2 with the allowed range of
+the parameter for which the confidence interval is computed.  The limits
+of the confidence interval are searched within this range, see
+<em>Details</em>.  When equal to <code>NULL</code> (default) <code>param_bound</code>
+is taken from to component <code>initial_objects</code> of the selected
+component <code>fit</code> of <code>object</code>, see <em>Details</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>root_tol</code></td>
+<td>
+<p>a numeric scalar defining the desired accuracy (convergence
+tolerance) for root finding by <code>uniroot</code> when
+computing the confidence interval.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>froot_tol</code></td>
+<td>
+<p>a numeric scalar defining the desired accuracy (function
+value tolerance) for deciding whether a root has been found.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+<p>an integer, character or logical vector to the choose the
+soil samples for which confidence intervals should be computed.  Defaults
+to <code>NULL</code> which computes the intervals for all samples contained in
+<code>object</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>character keyword specifying whether to compute confidence
+intervals based on the likelihood ratio test (<code>"logik"</code>, default) by
+<code>confint_prfloglik_sample</code> or based on the asymptotic normal
+distribution of maximum likelihood estimates (<code>"normal"</code>), see
+<em>Details</em>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments passed to methods, currently not used.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+
+<h4>Computing likelihood profiles</h4>
+
+<p>The function <code>prfloglik_sample</code> computes the loglikelihood profile
+for a subset of the nonlinear (<code class="reqn">\boldsymbol{\nu}^\mathrm{} </code>) (and linear
+<code class="reqn">\boldsymbol{\mu}^\mathrm{} </code>) model parameters.  We denote the profiling
+parameters of interest by <code class="reqn">\boldsymbol{\phi}</code>
+and the nuisance parameters that are estimated when computing the
+profile by <code class="reqn">\boldsymbol{\psi}</code>, so that
+<code class="reqn">
+      (
+        \boldsymbol{\phi}^\mathrm{T},
+        \boldsymbol{\psi}^\mathrm{T}
+      )^\mathrm{T}
+    </code>
+is a rearranged version of the parameter vector
+<code class="reqn">
+      (
+        \boldsymbol{\mu}^\mathrm{T},
+        \boldsymbol{\nu}^\mathrm{T}
+      )^\mathrm{T}
+    </code>, see <code>soilhypfitIntro</code>.
+<code>prfloglik_sample</code> computes the estimates
+<code class="reqn">
+      \widehat{\boldsymbol{\psi}}(\boldsymbol{\phi})
+    </code>
+of <code class="reqn">\boldsymbol{\psi}</code>
+and the profile loglikelihood
+<code class="reqn">
+      Q(\boldsymbol{\phi},
+        \widehat{\boldsymbol{\psi}}(\boldsymbol{\phi});
+        \boldsymbol{\theta}, \boldsymbol{K},
+        \boldsymbol{h}
+      )
+    </code>
+as a function of <code class="reqn">\boldsymbol{\phi}</code>.
+</p>
+<p>To compute the estimates,
+<code class="reqn">\boldsymbol{\psi}</code>
+is partitioned into the nonlinear and conditionally linear parameters, see
+<code>soilhypfitIntro</code> for details.
+<code>prfloglik_sample</code> uses the packages <span class="pkg">parallel</span> and
+<span class="pkg">snowfall</span> for parallelized computation of loglikelihood
+profiles.
+</p>
+
+
+
+<h4>Computing likelihood based confidence intervals</h4>
+
+<p>The function <code>confint_prfloglik_sample</code> computes the
+confidence interval of a single model parameter
+<code class="reqn">
+      \phi \in (
+        \boldsymbol{\mu}^\mathrm{T},
+        \boldsymbol{\nu}^\mathrm{T}
+      )^\mathrm{T}
+    </code>
+based on the likelihood ratio test.
+The interval is computed by assuming either
+</p>
+
+<ul>
+<li>
+<p>  that the test statistic
+<code class="reqn">
+        T(\phi) = \Delta Q(\phi) = 2(
+        Q(\widehat{\phi},
+        \widehat{\boldsymbol{\psi}};
+        \boldsymbol{\theta}, \boldsymbol{K},
+        \boldsymbol{h}
+        ) -
+        Q(\phi,
+        \widehat{\boldsymbol{\psi}}(\phi);
+        \boldsymbol{\theta}, \boldsymbol{K},
+        \boldsymbol{h}
+      ))
+      </code>
+follows a <code class="reqn">\chi^2_1</code>-distribution with 1 degrees of freedom
+(possible choice when both water retention and/or
+hydraulic conductivity data were used to estimate the parameters), or
+</p>
+</li>
+<li>
+<p> that the transformed test statistic
+<code class="reqn">
+        T(\phi) = \left(\exp(\Delta Q(\phi) / n) - 1 \right) (n - p)
+      </code>
+follows an <code class="reqn">F(1,n-p)</code>-distribution where <code class="reqn">n</code> is the number of
+water content or hydraulic conductivity measurements, and <code class="reqn">p</code> is
+the number of estimated parameters (see Uusipaikka,
+2008, p. 115, for details).  <code>denominator_df</code> allows to control
+how <code class="reqn">p</code> is chosen. Note that this test distribution can
+only be chosen (and is then the default) when only water retention or
+only hydraulic conductivty data were used to estimate the parameters.
+</p>
+</li>
+</ul>
+<p><code>confint_prfloglik_sample</code> computes profile loglikelihoods
+<code class="reqn">
+      Q(\phi,
+        \widehat{\boldsymbol{\psi}}(\phi);
+        \boldsymbol{\theta}, \boldsymbol{K},
+        \boldsymbol{h}
+      )
+    </code>
+by<br><code>prfloglik_sample</code>
+and then uses <code>uniroot</code> to search the roots
+of the equation
+</p>
+<p style="text-align: center;"><code class="reqn">
+      f(\phi) = q_T(\gamma)- T(\phi)
+    </code>
+</p>
+
+<p>in the interval defined by <code>param_bound</code>. <code class="reqn">q_T(\gamma)</code> is
+the <code class="reqn">\gamma</code>-quantile of the chosen test distribution for <code class="reqn">T</code>.
+</p>
+
+
+
+<h4>Computing confidence intervals for several soil samples</h4>
+
+<p>The <code>confint</code> method computes 2 types of confidence intervals (in
+dependence of <code>type</code>) of only the nonlinear parameters
+<code class="reqn">\boldsymbol{\nu}^\mathrm{} </code>, possibly for
+multiple soil samples at the same time:
+</p>
+
+<ul>
+<li>
+<p> intervals based on the asymptotic normal distribution
+of maximum likelihood estimates with standard errors computed by the
+<code>vcov</code> method for class <code>fit_wrc_hcc</code> (see
+<code>vcov.fit_wrc_hcc</code>,
+</p>
+</li>
+<li>
+<p> intervals based on the likelihood ratio test by
+<code>confint_prfloglik_sample</code>.  The intervals for several soil
+samples are computed in parallel.
+</p>
+</li>
+</ul>
+<h4>Requirements for computing loglikelihood profiles</h4>
+
+<p>The parameters contained in <code>object</code> must be estimated by maximum
+likelihood (<code>method = "ml"</code>, see <code>soilhypfitIntro</code> and
+<code>control_fit_wrc_hcc</code>.  Use of other estimation methods
+results an error.
+</p>
+<p>Preferably an unconstrained local algorithm (<code>settings =
+    "ulocal"</code>, see <code>soilhypfitIntro</code> and
+<code>control_fit_wrc_hcc</code>)) is used for minimizing the negative
+loglikelihood when generating <code>object</code>.  Use of other algorithms
+generates a warning message.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>The function <code>prfloglik_sample</code> returns a <code>data.frame</code>
+with the columns of <code>values</code> (parameters of interest
+<code class="reqn">\boldsymbol{\phi}</code>),
+a column <code>loglik</code> with the
+maximized profile loglikelihood
+<code class="reqn">Q(\phi,
+        \widehat{\boldsymbol{\psi}}(\phi);
+        \boldsymbol{\theta}, \boldsymbol{K},
+        \boldsymbol{h}
+      )
+  </code>, columns with the estimated parameters
+<code class="reqn">
+      \widehat{\boldsymbol{\psi}}(\boldsymbol{\phi})
+    </code>,
+columns with the gradient of the loglikelihood with respect to the
+estimated nonlinear parameters (missing if all nonlinear parameters were
+fixed) and a column <code>converged</code>, indicating whether convergence has
+occurred (see <code>convergence_message</code>) when estimating the
+nonlinear parameters (equal to <code>NA</code> when all nonlinear parameters
+are fixed).
+</p>
+<p>The function <code>confint_prfloglik_sample</code> returns a numeric
+vector of length 2 with the lower and upper limits of the confidence
+interval.  If no roots were found then <code>NA</code> is returned.  The
+returned result further contains as attribute list <code>prfloglik</code>
+the parameter estimate <code class="reqn">\widehat{\phi}</code>
+(<code>param_estimate</code>), the maximized loglikelihood
+<code class="reqn">
+    Q(\widehat{\phi},
+        \widehat{\boldsymbol{\psi}};
+        \boldsymbol{\theta}, \boldsymbol{K},
+        \boldsymbol{h}
+    )
+  </code> (<code>loglik</code>), the quantile of the test distribution
+<code class="reqn">q_{\mathrm{test}}(\gamma)</code> (<code>qtest</code>),
+the type of test distribution used (<code>test</code>),
+the significance <code>level</code>, the number
+of water content (<code>nobs_wrc</code>) and conductivity measurements
+(<code>nobs_hcc</code>) and the function values of <code class="reqn">f(\phi)</code>
+evaluated at the roots returned by <code>uniroot</code>.
+</p>
+<p>The method <code>confint</code> returns a dataframe with the lower and upper
+limits of the confidence intervals for the estimated nonlinear
+parameters.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Andreas Papritz <a href="mailto:papritz@retired.ethz.ch">papritz@retired.ethz.ch</a>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Uusipaikka, E. (2008) Confidence Intervals in Generalized Regression Models.
+Chapman &amp; Hall/CRC Press, Boca Raton <a href="https://doi.org/10.1201/9781420060386">doi:10.1201/9781420060386</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>soilhypfitIntro</code> for a description of the models and a brief
+summary of the parameter estimation approach;
+</p>
+<p><code>fit_wrc_hcc</code> for (constrained) estimation of parameters of
+models for soil water retention and hydraulic conductivity data;
+</p>
+<p><code>control_fit_wrc_hcc</code> for options to control
+<code>fit_wrc_hcc</code>;
+</p>
+<p><code>soilhypfitmethods</code> for common S3 methods for class
+<code>fit_wrc_hcc</code>;
+</p>
+<p><code>vcov</code> for computing (co-)variances of the estimated
+nonlinear parameters;
+</p>
+
+
+
+<p><code>wc_model</code> and <code>hc_model</code> for currently
+implemented models for soil water retention curves and hydraulic
+conductivity functions;
+</p>
+<p><code>evaporative-length</code> for physically constraining parameter
+estimates of soil hydraulic material functions.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# use of \donttest{} because execution time exceeds 5 seconds
+
+library(lattice)
+
+data(sim_wrc_hcc)
+
+# define number of cores for parallel computations
+if(interactive()) ncpu &lt;- parallel::detectCores() - 1L else ncpu &lt;- 1L
+
+# estimate parameters for 3 samples simultaneously by ...
+
+# ... unconstrained, global optimisation algorithm NLOPT_GN_MLSL (default)
+rfit_uglob &lt;- fit_wrc_hcc(
+  wrc_formula = wc ~ head | id, hcc_formula = hc ~ head | id,
+  data = sim_wrc_hcc,
+  control = control_fit_wrc_hcc(param_bound = param_boundf(
+      alpha = c(0.00001, 50), n = c(1.0001, 7), tau = c(-1, 5)
+    ), pcmp = control_pcmp(ncores = ncpu)))
+
+# ... unconstrained, local optimisation algorithm NLOPT_LN_BOBYQA,
+rfit_uloc &lt;- update(
+  rfit_uglob,
+  param = as.matrix(coef(rfit_uglob, what = "nonlinear")),
+  control = control_fit_wrc_hcc(
+    settings = "ulocal", param_tf = param_transf(
+      alpha = "identity", n = "identity", tau = "identity"
+    ), param_bound = param_boundf(
+      alpha = c(0.00001, 50), n = c(1.0001, 7), tau = c(-1, 5)
+    ), pcmp = control_pcmp(ncores = ncpu)))
+
+# extract estimated parameters for sample id == "1"
+coef_id_1 &lt;- unlist(coef(rfit_uloc, gof = TRUE, se = TRUE, subset = "1"))
+
+# compute loglikelihood profile of parameter alpha for sample id == "1"
+rprfloglik_alpha &lt;- prfloglik_sample(
+  rfit_uloc, values = data.frame(alpha = seq(1.5, 3.0, length = 40L)),
+  soil_sample = "1", ncores = ncpu)
+# plot loglikelihood profile along with 95% confidence intervals
+plot(loglik ~ alpha, rprfloglik_alpha, type = "l")
+abline(v = coef_id_1["alpha"])
+# 95% confidence intervall based on likelihood ratio test
+abline(h = -coef_id_1["obj"] - 0.5 * qchisq(0.95, 1), lty = "dashed")
+# 95% confidence intervall based on asymptotic normal distribution
+segments(
+  x0 = coef_id_1["alpha"] + qnorm(0.025) * coef_id_1["se.alpha"],
+  x1 = coef_id_1["alpha"] + qnorm(0.975) * coef_id_1["se.alpha"],
+  y0 = min(rprfloglik_alpha$loglik)
+)
+
+# compute loglikelihood profile of parameter n for sample id == "1"
+rprfloglik_n &lt;- prfloglik_sample(
+  rfit_uloc, values = data.frame(n = seq(1.7, 2.25, length = 40L)),
+  soil_sample = "1", ncores = ncpu
+)
+# plot loglikelihood profile along with 95% confidence intervals
+plot(loglik ~ n, rprfloglik_n, type = "l")
+abline(v = coef_id_1["n"])
+# 95% confidence intervall based on likelihood ratio test
+abline(h = -coef_id_1["obj"] - 0.5 * qchisq(0.95, 1), lty = "dashed")
+# 95% confidence intervall based on asymptotic normal distribution
+segments(
+  x0 = coef_id_1["n"] + qnorm(0.025) * coef_id_1["se.n"],
+  x1 = coef_id_1["n"] + qnorm(0.975) * coef_id_1["se.n"],
+  y0 = min(rprfloglik_n$loglik)
+)
+
+# compute loglikelihood profile of parameters alpha and n for sample id == "1"
+rprfloglik_alpha_n &lt;- prfloglik_sample(
+  rfit_uloc, values = expand.grid(
+    alpha = seq(1.5, 3.0, length = 40L), n = seq(1.7, 2.25, length = 40L)),
+  soil_sample = "1", ncores = ncpu
+)
+
+# joint confidence region of alpha and n based on likelihood ratio test
+levelplot(loglik ~ alpha + n, rprfloglik_alpha_n,
+  panel = function(x, y, z, subscripts, ...){
+    panel.levelplot(x, y, z, subscripts, ...)
+    panel.levelplot(x, y, z, subscripts, region = FALSE, contour = TRUE,
+      at = -coef_id_1["obj"] - 0.5 * qchisq(0.95, 2),
+      lty = "solid"
+    )
+    panel.levelplot(x, y, z, subscripts, region = FALSE, contour = TRUE,
+      at = -coef_id_1["obj"] - 0.5 * qchisq(0.9, 2),
+      lty = "dashed"
+    )
+    panel.levelplot(x, y, z, subscripts, region = FALSE, contour = TRUE,
+      at = -coef_id_1["obj"] - 0.5 * qchisq(0.8, 2),
+      lty = "dotted"
+    )
+    panel.points(coef_id_1["alpha"], coef_id_1["n"], pch = 16)
+    panel.lines(
+      x = rprfloglik_alpha[, c("alpha", "n")], col = "blue"
+    )
+    panel.lines(
+      x = rprfloglik_n[, c("alpha", "n")], col = "magenta"
+    )
+  }, key = list(
+    corner = c(1, 0.97),
+    lines = list(
+      lty = c(rep("solid", 3), "dashed", "dotted"),
+      col = c("blue", "magenta", rep("black", 3))
+    ),
+    text = list(c(
+        "estimate of n as a function of fixed alpha",
+        "estimate of alpha as a function of fixed n",
+        "95% joint confidence region",
+        "90% joint confidence region",
+        "80% joint confidence region"
+      ))
+  ))
+
+# compute 95%-confidence interval
+(ci.alpha &lt;- confint_prfloglik_sample(
+  rfit_uloc, parm = "alpha", soil_sample = "1"
+))
+# use limits to draw loglikelihood profile for alpha
+rprfloglik_alpha &lt;- prfloglik_sample(
+  rfit_uloc, values = data.frame(
+    alpha = seq(0.9 * ci.alpha[1], 1.1 * ci.alpha[2], length = 40L)),
+  soil_sample = "1", ncores = ncpu)
+plot(loglik ~ alpha, rprfloglik_alpha, type = "l")
+lines(
+  ci.alpha,
+  rep(diff(unlist(attr(ci.alpha, "prfloglik")[c("qtest", "loglik")])) , 2)
+)
+abline(v = attr(ci.alpha, "prfloglik")["estimate"], lty = "dashed")
+
+# 95%-confidence intervals of all nonlinear parameters based for all
+# soil samples asymptotic normal distribution of maximum likelihood estimates
+confint(rfit_uloc, type = "normal")
+
+# 95%-confidence intervals of all nonlinear parameters based for all
+# soil samples based on likelihood ratio test
+confint(rfit_uloc, ncores = ncpu)
+
+</code></pre>
+
+
+</div>

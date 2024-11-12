@@ -1,0 +1,244 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getSubjRoute</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extract the set of animals of the specified route of administration - or just
+add actual route of administration for each animal.</h2>
+
+<h3>Description</h3>
+
+<p>Returns a data table with the set of animals included in the
+<code>animalList</code> matching the route of administration specified in the
+<code>routeFilter</code>.<br>
+If the <code>routeFilter</code> is empty (null, na or empty string) - all rows from
+<code>animalList</code> are returned with an additional populated ROUTE column.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getSubjRoute(
+  dbToken,
+  animalList,
+  routeFilter = NULL,
+  exclusively = FALSE,
+  matchAll = FALSE,
+  inclUncertain = FALSE,
+  noFilterReportUncertain = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dbToken</code></td>
+<td>
+<p>Mandatory<br>
+Token for the open database connection (see <code>initEnvironment</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>animalList</code></td>
+<td>
+<p>Mandatory, data.table.<br>
+A table with the list of animals to process.<br>
+The table must include at least columns named 'STUDYID' and 'USUBJID'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>routeFilter</code></td>
+<td>
+<p>Optional, character.<br>
+The route of administration value(s) to use as criterion for filtering of the
+input data table.<br>
+It can be a single string, a vector or a list of multiple strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exclusively</code></td>
+<td>
+<p>Mandatory if <code>routeFilter</code> is non empty, boolean.
+</p>
+
+<ul>
+<li>
+<p> TRUE: Include animals only for studies with no other routes then
+included in <code>routeFilter</code>.
+</p>
+</li>
+<li>
+<p> FALSE: Include animals for all studies with route
+matching <code>routeFilter</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>matchAll</code></td>
+<td>
+<p>Mandatory if <code>routeFilter</code> is non empty, boolean.
+</p>
+
+<ul>
+<li>
+<p> TRUE: Include animals only for studies with route(s) matching all
+values in <code>routeFilter</code>.
+</p>
+</li>
+<li>
+<p> FALSE: Include animals for all studies with route matching at least
+one value in <code>routeFilter</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inclUncertain</code></td>
+<td>
+<p>Mandatory if <code>routeFilter</code> is non empty, boolean,.<br>
+Indicates whether animals for which the route cannot be confidently
+identified shall be included or not in the output data table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noFilterReportUncertain</code></td>
+<td>
+<p>Mandatory if <code>routeFilter</code> is empty, boolean<br>
+Only relevant if the <code>routeFilter</code> is empty.<br>
+Indicates if the reason should be included if the route cannot be
+confidently decided for an animal.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The route of administration per animal are identified by a hierarchical
+lookup in these domains
+</p>
+
+<ul>
+<li>
+<p> EX - If a distinct not empty EXROUTE value is found for animal, this
+is included in the output.<br></p>
+</li>
+<li>
+<p> TS - if a distinct TS parameter 'ROUTE' value exists for the study,
+this is included in the output.<br></p>
+</li>
+</ul>
+<p>The comparison of route values is done case insensitive and trimmed for
+leading/trailing blanks.
+</p>
+<p>If input parameter <code>inclUncertain=TRUE</code>, uncertain animals are included
+in the output set. These uncertain situations are identified and reported (in
+column UNCERTAIN_MSG):
+</p>
+
+<ul>
+<li>
+<p> TS parameter ROUTE is missing for study and no EX rows contain a
+EXROUTE value for the animal
+</p>
+</li>
+<li>
+<p> The selected EXROUTE or TS parameter ROUTE value is invalid (not CT
+value - CDISC SEND code list ROUTE)
+</p>
+</li>
+<li>
+<p> Multiple EXROUTE values have been found for the animal
+</p>
+</li>
+<li>
+<p> Multiple TS parameter ROUTE values are registered for study but no EX
+rows contain a EXROUTE value for the animal
+</p>
+</li>
+<li>
+<p> The found EXROUTE value for animal is not included in the TS
+parameter ROUTE value(s) registered for study
+</p>
+</li>
+</ul>
+<p>The same checks are performed and reported in column NOT_VALID_MSG if
+<code>routeFilter</code> is empty and <code>noFilterReportUncertain=TRUE</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function returns a data.table with columns:
+</p>
+
+<ul>
+<li>
+<p> STUDYID       (character)
+</p>
+</li>
+<li>
+<p> Additional columns contained in the <code>animalList</code> table
+</p>
+</li>
+<li>
+<p> ROUTE         (character)<br>
+The value is always returned in uppercase and trimmed for leading/trailing
+blanks.
+</p>
+</li>
+<li>
+<p> UNCERTAIN_MSG (character)<br>
+Included when parameter <code>inclUncertain=TRUE</code>.<br>
+In case the ROUTE cannot be confidently matched during the filtering of data,
+the column contains an indication of the reason.<br>
+Is NA for rows where ROUTE can be confidently matched.<br>
+A non-empty UNCERTAIN_MSG value generated by this function is merged with
+non-empty UNCERTAIN_MSG values which may exist in the input set of animals
+specified in <code>animalList</code> - separated by '|'.
+</p>
+</li>
+<li>
+<p> NOT_VALID_MSG (character)<br>
+Included when parameter <code>noFilterReportUncertain=TRUE</code>.<br>
+In case the ROUTE cannot be confidently decided, the column contains an
+indication of the reason.<br>
+Is NA for rows where the ROUTE can be confidently decided.<br>
+A non-empty NOT_VALID_MSG value generated by this function is merged with
+non-empty NOT_VALID_MSG values which may exist in the input set of animals
+<code>animalList</code> - separated by '|'.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Extract animals administered oral or oral gavage plus uncertain animals
+getSubjRoute(dbToken, controlAnimals,
+             routeFilter = c('ORAL', 'ORAL GAVAGE'),
+             inclUncertain = TRUE)
+# Extract animals administered oral or oral gavage.
+# Do only include studies which include both route values
+getSubjRoute(dbToken, controlAnimals,
+             routeFilter = c('ORAL', 'ORAL GAVAGE'),
+             matchAll = TRUE)
+# Extract animals administered subcutaneous.
+# Include only animals from studies which do not contain other route values
+getSubjRoute(dbToken, controlAnimals,
+             routeFilter = 'subcutaneous',
+             exclusively = TRUE)
+# No filtering, just add ROUTE - do not include messages when
+# these values cannot be confidently found
+getSubjRoute(dbToken, controlAnimals,
+             noFilterReportUncertain = FALSE)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

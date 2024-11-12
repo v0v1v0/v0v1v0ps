@@ -1,0 +1,87 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>stream_lag</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Apply lag function to columns of a Spark Streaming DataFrame</h2>
+
+<h3>Description</h3>
+
+<p>Given a streaming Spark dataframe as input, this function will return another
+streaming dataframe that contains all columns in the input and column(s) that
+are shifted behind by the offset(s) specified in '...' (see example)
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">stream_lag(x, cols, thresholds = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object coercable to a Spark Streaming DataFrame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cols</code></td>
+<td>
+<p>A list of expressions for a single or multiple variables to create
+that will contain the value of a previous entry.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thresholds</code></td>
+<td>
+<p>Optional named list of timestamp column(s) and
+corresponding time duration(s) for deterimining whether a previous record
+is sufficiently recent relative to the current record.
+If the any of the time difference(s) between the current and a previous
+record is greater than the maximal duration allowed, then the previous
+record is discarded and will not be part of the query result.
+The durations can be specified with numeric types (which will be
+interpreted as max difference allowed in number of milliseconds between 2
+UNIX timestamps) or time duration strings such as "5s", "5sec", "5min",
+"5hour", etc.
+Any timestamp column in 'x' that is not of timestamp of date Spark SQL
+types will be interepreted as number of milliseconds since the UNIX epoch.</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+
+library(sparklyr)
+
+sc &lt;- spark_connect(master = "local", version = "2.2.0")
+
+streaming_path &lt;- tempfile("days_df_")
+days_df &lt;- dplyr::tibble(
+  today = weekdays(as.Date(seq(7), origin = "1970-01-01"))
+)
+num_iters &lt;- 7
+stream_generate_test(
+  df = days_df,
+  path = streaming_path,
+  distribution = rep(nrow(days_df), num_iters),
+  iterations = num_iters
+)
+
+stream_read_csv(sc, streaming_path) %&gt;%
+  stream_lag(cols = c(yesterday = today ~ 1, two_days_ago = today ~ 2)) %&gt;%
+  collect() %&gt;%
+  print(n = 10L)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,182 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>plot_sensitivity</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Plotting Sensitivities of a Stressed Model</h2>
+
+<h3>Description</h3>
+
+<p>Plots the sensitivity measures for components (random variables)
+of a stochastic model under the scenario weights.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">plot_sensitivity(
+  object,
+  xCol = "all",
+  wCol = "all",
+  type = c("Gamma", "Kolmogorov", "Wasserstein", "reverse", "all"),
+  f = NULL,
+  k = NULL,
+  s = NULL,
+  displ = TRUE,
+  p = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A <code>SWIM</code> or <code>SWIMw</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xCol</code></td>
+<td>
+<p>Numeric or character vector, (names of) the columns
+of the underlying data of the <code>object</code>
+(<code>default = "all"</code>). If <code>xCol = NULL</code>, only
+the transformed data <code>f(x)</code> is considered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wCol</code></td>
+<td>
+<p>Vector, the columns of the scenario weights 
+of the <code>object</code> corresponding to different 
+stresses (<code>default = "all"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Character, one of <code>"Gamma", "Kolmogorov",
+"Wasserstein", "reverse", "all"</code> (<code>default = "all"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+<p>A function, or list of functions, that, applied to
+<code>x</code>, constitute the transformation of the data
+for which the sensitivity is calculated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>A vector or list of vectors, same length as <code>f</code>,
+indicating which columns of <code>x</code> each function
+in <code>f</code> operates on.<br>
+When <code>f</code> is a list, <code>k[[i]]</code> corresponds
+to the input variables of <code>f[[i]]</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>s</code></td>
+<td>
+<p>A function that, applied to <code>x</code>, defines the reverse
+sensitivity measure. If <code>type = "reverse"</code> and 
+<code>s = NULL</code>, defaults to <code>type = "Gamma"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>displ</code></td>
+<td>
+<p>Logical, if <code>TRUE</code> the plot is displayed,
+otherwise the data.frame for customised plotting with
+<code>ggplot</code> is returned (<code>default = TRUE</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>Numeric vector, the p-th moment of Wasserstein distance (<code>default = 1</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For the definition of the sensitivity
+measures (<code>type</code>), see <code>sensitivity</code>.
+</p>
+<p>Note that the Kolmogorov distance is the same for all inputs under
+the same stress for a SWIM object. Thus, it should only be used to 
+compare different stresses, not individual components.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>displ = TRUE</code>, a plot displaying the sensitivity
+measures of the stochastic model under the scenario weights.
+If <code>displ = FALSE</code>, a data.frame for customised plotting with
+<code>ggplot</code>. The data.frame
+contains the columns: <code>stress</code> (the stresses), <code>type</code>
+(the types of sensitivity), <code>X_all</code> (the random variables),
+<code>value</code> (the values of the sensitivities). <br>
+Denote by <code>result</code> the return of the function call, then
+<code>ggplot</code> can be called via:
+</p>
+<p style="text-align: center;"><code class="reqn">ggplot(result, aes(x = X_{all}, y = value))</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn"> + geom_{point}(aes(color = factor(stress), shape = type)).</code>
+</p>
+
+
+
+<h3>Author(s)</h3>
+
+<p>Silvana M. Pesenti
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See <code>sensitivity</code> for the values of the
+sensitivity measures of a stressed model and
+<code>importance_rank</code> for ranking of random
+variables according to their sensitivities.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Consider the portfolio Y = X1 + X2 + X3 + X4 + X5,
+## where (X1, X2, X3, X4, X5) are correlated normally
+## distributed with equal mean and different standard deviations,
+## see the README for further details.
+
+
+set.seed(0)
+SD &lt;- c(70, 45, 50, 60, 75)
+Corr &lt;- matrix(rep(0.5, 5 ^ 2), nrow = 5) + diag(rep(1 - 0.5, 5))
+if (!requireNamespace("mvtnorm", quietly = TRUE))
+   stop("Package \"mvtnorm\" needed for this function
+   to work. Please install it.")
+x &lt;- mvtnorm::rmvnorm(10 ^ 5,
+   mean =  rep(100, 5),
+   sigma = (SD %*% t(SD)) * Corr)
+data &lt;- data.frame(rowSums(x), x)
+names(data) &lt;- c("Y", "X1", "X2", "X3", "X4", "X5")
+rev.stress &lt;- stress(type = "VaR", x = data,
+   alpha = c(0.75, 0.9), q_ratio = 1.1, k = 1)
+
+sensitivity(rev.stress, type = "all")
+plot_sensitivity(rev.stress, xCol = 2:6, type = "Gamma")
+plot_sensitivity(rev.stress, xCol = 6, wCol = 1, type = "all")
+
+
+</code></pre>
+
+
+</div>

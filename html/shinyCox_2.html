@@ -1,0 +1,111 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cox_times_table</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create table of Cox-model predicted probabilities</h2>
+
+<h3>Description</h3>
+
+<p>Generates tables of predicted probabilities at specified time or vector of
+times. The <code>KM.hat</code> object contains time and predicted survival
+probability information as a list of <code>survfit</code> objects.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cox_times_table(KM.hat, fixTimes = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>KM.hat</code></td>
+<td>
+<p>List of <code>survfit</code> objects</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixTimes</code></td>
+<td>
+<p>character or vector of characters representing times for
+which predicted survival probability is given</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The main purpose of this function is to be used within the shiny app for the
+purpose of creating predicted probability tables for user-inputted times. For
+this reason it is not expressly recommended to use this function outside the
+context of the shiny app, but it is still possible to do so if desired. The
+time or vector of times are inputted as characters due to the use of this
+function in the shiny app, where times are inputted as numbers separated by
+a comma
+</p>
+
+
+<h3>Value</h3>
+
+<p>Table of predicted probabilities, one column for each time, and
+one row for each curve
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(survival)
+library(shinyCox)
+# First colon is split into three treatment arms to compare predicted
+# survival across arms
+split_colon &lt;- split(colon, colon$rx)
+
+colon_arm1 &lt;- split_colon$Obs
+colon_arm2 &lt;- split_colon$Lev
+colon_arm3 &lt;- split_colon$`Lev+5FU`
+
+# One coxph model is fit for each treatment
+
+colon1ph &lt;- coxph(Surv(time, status) ~sex +  age + obstruct + nodes,
+                  colon_arm1, x = TRUE, model = TRUE)
+
+colon2ph &lt;- coxph(Surv(time, status) ~ sex + age + obstruct + nodes,
+                  colon_arm2, x = TRUE, model = TRUE)
+
+colon3ph &lt;- coxph(Surv(time, status) ~ sex + age + obstruct + nodes,
+                  colon_arm3, x = TRUE, model = TRUE)
+
+# Creating list of models
+cox.fit.list &lt;- vector("list", 3)
+cox.fit.list[[1]] &lt;- prep_coxfit(colon1ph)
+cox.fit.list[[2]] &lt;- prep_coxfit(colon2ph)
+cox.fit.list[[3]] &lt;- prep_coxfit(colon3ph)
+
+# Creating new data row for predictions
+new.data &lt;- colon[1, ]
+# Creating KM.hat object
+n.models=length(cox.fit.list)
+KM.hat=vector('list',n.models)
+lp=rep(NA,n.models)
+names(KM.hat)=names(cox.fit.list)
+for (i in 1:n.models)
+{
+ km.hat=predict_one_coxfit(cox.fit.list[[i]],new.data)
+ lp[i]=attr(km.hat,'lp')
+ sfit=list(time=km.hat$time,surv=km.hat$surv)
+ class(sfit)='survfit'
+ KM.hat[[i]]=sfit
+}
+
+# Function takes KM.hat object and a time or vector of times
+cox_times_table(KM.hat, fixTimes = "100")
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,223 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sar_habitat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit habitat SAR models</h2>
+
+<h3>Description</h3>
+
+<p>Fit three SAR regression models that include habitat diversity:
+the choros model, the Kallimanis model, and the jigsaw model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sar_habitat(data, modType = "power_log", con = NULL,
+  logT = log, startPar = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A dataset in the form of a dataframe with at least three columns:
+the first with island/site areas (A), the second with island / site habitat
+diversity (H), and the third with the species richness of each island/site
+(S).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modType</code></td>
+<td>
+<p>What underlying SAR model form should be used. Should be one
+of "power" (non-linear power), "logarithmic" (logarithmic SAR), or
+"power_log" (log-log power; default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>con</code></td>
+<td>
+<p>The constant to add to the species richness values in cases where
+at least one of the islands has zero species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logT</code></td>
+<td>
+<p>The log-transformation to apply to the area and richness values.
+Can be any of <code>log</code>(default), <code>log2</code> or <code>log10</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startPar</code></td>
+<td>
+<p>Optional starting parameter values (default =
+NULL) for the jigsaw and Kallimanis models. Needs to be a
+matrix of dimension [2,3], where the first row corresponds
+to the jigsaw model, and the second to the Kallimanis model.
+The columns correspond to the c, z, and d parameters,
+respectively. Only used if
+<code>modType = "power"</code> or <code>modType =
+"logarithmic"</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>These functions are described in more detail in the accompanying paper
+(Furness et al., 2023). The code to fit the models was also taken from this
+paper.
+</p>
+<p>Three habitat SAR models are available:
+</p>
+ 
+<ul>
+<li> <p><strong>choros model</strong>:  
+Proposes that species richness is better
+predicted by the product of habitat heterogeneity and area (S = c.(A.H)^z) 
+</p>
+</li>
+<li> <p><strong>Kallimanis model</strong>:  
+Proposes that increasing habitat heterogeneity increases species richness
+by increasing the slope (on a log-log plot) of the Arrhenius power model
+(S = c1.A^(z + d.H)) 
+</p>
+</li>
+<li> <p><strong>jigsaw model</strong>: 
+Models species richness in an area as the sum of the species richness
+values of several smaller component subareas, which can be visualised as
+pieces of a jigsaw puzzle, i.e., it partitions the species–area and
+species–heterogeneity scaling relationships (S = (c1.H^d).((A / H)^z)) </p>
+</li>
+</ul>
+<p>In addition to these three models, a simple 'non-habitat' SAR model is also
+fit, which varies depending on <code>modType</code>: the non-linear power, the
+logarithmic or the log-log power model.
+</p>
+<p>The untransformed (<code>modType = "power"</code>) and logarithmic (<code>modType
+  = "logarithmic"</code>) models are fitted using non-linear regression and the
+<code>nlsLM</code> function. For the jigsaw and Kallimanis
+models in untransformed space, a grid search process is used
+to test multiple starting parameter values for the
+<code>nlsLM</code> function - see details in the
+documentation for <code>sar_average</code> - if multiple
+model fits are returned, the fit with the lowest <code>AIC</code>
+is returned. Providing starting parameter estimates for
+multiple datasets is tricky, and thus you may find the
+jigsaw and Kallimanis models cannot be fitted in
+untransformed space or with the logarithmic models. If this
+is the case, the <code>startPar</code> argument can be used to
+manually provide starting parameter values. The log-log
+models (<code>modType = "power_log"</code>) are all fitted using
+linear regression ( <code>lm</code> function).
+</p>
+<p><code>sar_habitat()</code> uses the <code>nlsLM</code> from the
+<code>minpack.lm</code> package rather than <code>nls</code> as
+elsewhere in the package as we found that this resulted in
+better searches of the parameter space for the habitat
+models (and less convergence errors), particularly for the
+logarithmic models. <code>nlsLM</code> is a
+modified version of <code>nls</code> that uses the
+Levenberg-Marquardt fitting algorithm, but returns a
+standard <code>nls</code> object and thus all the normal
+subsequent <code>nls</code> functions can be used. Note
+also that occasionally a warning is returned of NaNs being
+present, normally relating to the jigsaw model (logarithmic
+version). We believe this mostly relates to models fitted
+during the optimisation process rather than the final
+returned model. Nonetheless, users are still recommended to
+check the convergence information of the returned model
+fits.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of class "habitat" and "sars" with up to four elements, each
+holding one of the individual model fit objects (either <code>nls</code>
+or <code>lm</code> class objects). <code>summary.sars</code> provides a
+more user-friendly ouput (including a model summary table ranked by AICc
+and presenting the model coefficients, and R2 and information criteria
+values etc.) and <code>plot.habitat</code> provides a simple bar of
+information criteria weights. For the models fitted using non-linear
+regression, the R2 and adjusted R2 are 'pseudo R2' values and are
+calculated using the same approach as in the rest of the package (e.g.,
+<code>sar_power</code>).
+</p>
+<p>Note that if any of the models cannot be fitted - this is particularly the
+case when fitting the untransformed or logarithmic models which use
+non-linear regression (see above) - they are removed from the returned
+object.
+</p>
+
+
+<h3>Note</h3>
+
+<p>The jigsaw model is equivalent to the trivariate power-law model of 
+Tjørve (2009), see Furness et al. (2023).
+</p>
+<p>The jigsaw model (power-law form) cannot have a poorer fit than the choros or
+power model based on RSS and thus R2. Comparing models using information
+criteria is thus advised.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Euan N. Furness and Thomas J. Matthews
+</p>
+
+
+<h3>References</h3>
+
+<p>Furness, E.N., Saupe, E.E., Garwood, R.J., Mannion, P.D. &amp;
+Sutton, M.D. (2023) The jigsaw model: a biogeographic model that partitions
+habitat heterogeneity from area. Frontiers of Biogeography, 15, e58477.
+</p>
+<p>Kallimanis, A.S., Mazaris, A.D., Tzanopoulos, J., Halley, J.M., Pantis,
+J.D., &amp; Sgardelis, S.P. (2008) How does habitat diversity affect the
+species–area relationship? Global Ecology and Biogeography, 17, 532-538
+</p>
+<p>Tjørve, E. (2009) Shapes and functions of species– area curves (II): a
+review of new models and parameterizations. Journal of Biogeography, 36,
+1435-1445.
+</p>
+<p>Triantis, K.A., Mylonas, M., Lika, K. &amp; Vardinoyannis, K. (2003) A model
+for the species-area-habitat relationship. Journal of Biogeography, 30,
+19–27.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(habitat)
+#Fit the models in log-log space
+s &lt;- sar_habitat(data = habitat, modType = "power_log", 
+con = NULL, logT = log)
+#Look at the model comparison summary
+s2 &lt;- summary(s)
+s2
+#Make a simple plot of AICc weights
+plot(s, IC = "AICc", col = "darkred")
+
+#Fit the logarithmic version of the models
+s3 &lt;- sar_habitat(data = habitat, modType = "logarithmic",
+con = NULL, logT = log)
+summary(s3)
+plot(s, IC = "BIC", col = "darkblue")
+
+#Provide starting parameter values for the jigsaw and
+#Kallimanis models
+SP2 &lt;- t(matrix(rep(c(5, 1, 0.5),2), ncol = 2))
+s &lt;- sar_habitat(data = habitat, modType = "power",
+                con = NULL, logT = log, startPar = SP2)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,808 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>adam</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>ADAM is Augmented Dynamic Adaptive Model</h2>
+
+<h3>Description</h3>
+
+<p>Function constructs an advanced Single Source of Error model, based on ETS
+taxonomy and ARIMA elements
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">adam(data, model = "ZXZ", lags = c(frequency(data)), orders = list(ar =
+  c(0), i = c(0), ma = c(0), select = FALSE), constant = FALSE,
+  formula = NULL, regressors = c("use", "select", "adapt"),
+  occurrence = c("none", "auto", "fixed", "general", "odds-ratio",
+  "inverse-odds-ratio", "direct"), distribution = c("default", "dnorm",
+  "dlaplace", "ds", "dgnorm", "dlnorm", "dinvgauss", "dgamma"),
+  loss = c("likelihood", "MSE", "MAE", "HAM", "LASSO", "RIDGE", "MSEh",
+  "TMSE", "GTMSE", "MSCE"), outliers = c("ignore", "use", "select"),
+  level = 0.99, h = 0, holdout = FALSE, persistence = NULL,
+  phi = NULL, initial = c("optimal", "backcasting", "complete"),
+  arma = NULL, ic = c("AICc", "AIC", "BIC", "BICc"), bounds = c("usual",
+  "admissible", "none"), silent = TRUE, ...)
+
+## S3 method for class 'adam'
+simulate(object, nsim = 1, seed = NULL,
+  obs = nobs(object), ...)
+
+auto.adam(data, model = "ZXZ", lags = c(frequency(data)),
+  orders = list(ar = c(3, 3), i = c(2, 1), ma = c(3, 3), select = TRUE),
+  formula = NULL, regressors = c("use", "select", "adapt"),
+  occurrence = c("none", "auto", "fixed", "general", "odds-ratio",
+  "inverse-odds-ratio", "direct"), distribution = c("dnorm", "dlaplace",
+  "ds", "dgnorm", "dlnorm", "dinvgauss", "dgamma"), outliers = c("ignore",
+  "use", "select"), level = 0.99, h = 0, holdout = FALSE,
+  persistence = NULL, phi = NULL, initial = c("optimal", "backcasting",
+  "complete"), arma = NULL, ic = c("AICc", "AIC", "BIC", "BICc"),
+  bounds = c("usual", "admissible", "none"), silent = TRUE,
+  parallel = FALSE, ...)
+
+## S3 method for class 'adam'
+sm(object, model = "YYY", lags = NULL, orders = list(ar =
+  c(0), i = c(0), ma = c(0), select = FALSE), constant = FALSE,
+  formula = NULL, regressors = c("use", "select", "adapt"), data = NULL,
+  persistence = NULL, phi = NULL, initial = c("optimal", "backcasting"),
+  arma = NULL, ic = c("AICc", "AIC", "BIC", "BICc"), bounds = c("usual",
+  "admissible", "none"), silent = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Vector, containing data needed to be forecasted. If a matrix (or
+data.frame / data.table) is provided, then the first column is used as a
+response variable, while the rest of the matrix is used as a set of explanatory
+variables. <code>formula</code> can be used in the latter case in order to define what
+relation to have.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The type of ETS model. The first letter stands for the type of
+the error term ("A" or "M"), the second (and sometimes the third as well) is for
+the trend ("N", "A", "Ad", "M" or "Md"), and the last one is for the type of
+seasonality ("N", "A" or "M"). In case of several lags, the seasonal components
+are assumed to be the same. The model is then printed out as
+ETS(M,Ad,M)[m1,m2,...], where m1, m2, ... are the lags specified by the
+<code>lags</code> parameter.
+There are several options for the <code>model</code> besides the conventional ones,
+which rely on information criteria:
+</p>
+
+<ol>
+<li> <p><code>model="ZZZ"</code> means that the model will be selected based on the
+chosen information criteria type. The Branch and Bound is used in the process.
+</p>
+</li>
+<li> <p><code>model="XXX"</code> means that only additive components are tested, using
+Branch and Bound.
+</p>
+</li>
+<li> <p><code>model="YYY"</code> implies selecting between multiplicative components.
+</p>
+</li>
+<li> <p><code>model="CCC"</code> triggers the combination of forecasts of models using
+information criteria weights (Kolassa, 2011).
+</p>
+</li>
+<li>
+<p> combinations between these four and the classical components are also
+accepted. For example, <code>model="CAY"</code> will combine models with additive
+trend and either none or multiplicative seasonality.
+</p>
+</li>
+<li> <p><code>model="PPP"</code> will produce the selection between pure additive and
+pure multiplicative models. "P" stands for "Pure". This cannot be mixed with
+other types of components.
+</p>
+</li>
+<li> <p><code>model="FFF"</code> will select between all the 30 types of models. "F"
+stands for "Full". This cannot be mixed with other types of components.
+</p>
+</li>
+<li>
+<p> The parameter <code>model</code> can also be a vector of names of models for a
+finer tuning (pool of models). For example, <code>model=c("ANN","AAA")</code> will
+estimate only two models and select the best of them.
+</p>
+</li>
+</ol>
+<p>Also, <code>model</code> can accept a previously estimated adam and use all
+its parameters.
+</p>
+<p>Keep in mind that model selection with "Z" components uses Branch and Bound
+algorithm and may skip some models that could have slightly smaller
+information criteria. If you want to do a exhaustive search, you would need
+to list all the models to check as a vector.
+</p>
+<p>The default value is set to <code>"ZXZ"</code>, because the multiplicative trend is explosive
+and dangerous. It should be used only for each separate time series, not for the
+automated predictions for big  datasets.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lags</code></td>
+<td>
+<p>Defines lags for the corresponding components. All components
+count, starting from level, so ETS(M,M,M) model for monthly data will have
+<code>lags=c(1,1,12)</code>. However, the function will also accept <code>lags=c(12)</code>,
+assuming that the lags 1 were dropped. In case of ARIMA, lags specify what should be
+the seasonal component lag. e.g. <code>lags=c(1,12)</code> will lead to the
+seasonal ARIMA with m=12. This can accept several lags, supporting multiple seasonal ETS
+and ARIMA models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>orders</code></td>
+<td>
+<p>The order of ARIMA to be included in the model. This should be passed
+either as a vector (in which case the non-seasonal ARIMA is assumed) or as a list of
+a type <code>orders=list(ar=c(p,P),i=c(d,D),ma=c(q,Q))</code>, in which case the <code>lags</code>
+variable is used in order to determine the seasonality m. See msarima
+for details.
+In addition, <code>orders</code> accepts one more parameter: <code>orders=list(select=FALSE)</code>.
+If <code>TRUE</code>, then the function will select the most appropriate order using a
+mechanism similar to <code>auto.msarima()</code>, but implemented in <code>auto.adam()</code>.
+The values <code>list(ar=...,i=...,ma=...)</code> specify the maximum orders to check in
+this case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constant</code></td>
+<td>
+<p>Logical, determining, whether the constant is needed in the model or not.
+This is mainly needed for ARIMA part of the model, but can be used for ETS as well. In
+case of pure regression, this is completely ignored (use <code>formula</code> instead).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Formula to use in case of explanatory variables. If <code>NULL</code>,
+then all the variables are used as is. Can also include <code>trend</code>, which would add
+the global trend. Only needed if <code>data</code> is a matrix or if <code>trend</code> is provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>regressors</code></td>
+<td>
+<p>The variable defines what to do with the provided explanatory
+variables:
+<code>"use"</code> means that all of the data should be used, while
+<code>"select"</code> means that a selection using <code>ic</code> should be done,
+<code>"adapt"</code> will trigger the mechanism of time varying parameters for the
+explanatory variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>occurrence</code></td>
+<td>
+<p>The type of model used in probability estimation. Can be
+<code>"none"</code> - none,
+<code>"fixed"</code> - constant probability,
+<code>"general"</code> - the general Beta model with two parameters,
+<code>"odds-ratio"</code> - the Odds-ratio model with b=1 in Beta distribution,
+<code>"inverse-odds-ratio"</code> - the model with a=1 in Beta distribution,
+<code>"direct"</code> - the TSB-like (Teunter et al., 2011) probability update
+mechanism a+b=1,
+<code>"auto"</code> - the automatically selected type of occurrence model.
+</p>
+<p>The type of model used in the occurrence is equal to the one provided in the
+<code>model</code> parameter.
+</p>
+<p>Also, a model produced using oes or alm function
+can be used here.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distribution</code></td>
+<td>
+<p>what density function to assume for the error term. The full
+name of the distribution should be provided, starting with the letter "d" -
+"density". The names align with the names of distribution functions in R.
+For example, see dnorm. For detailed explanation of available
+distributions, see vignette in greybox package: <code>vignette("greybox","alm")</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loss</code></td>
+<td>
+<p>The type of Loss Function used in optimization. <code>loss</code> can
+be:
+</p>
+
+<ul>
+<li> <p><code>likelihood</code> - the model is estimated via the maximisation of the
+likelihood of the function specified in <code>distribution</code>;
+</p>
+</li>
+<li> <p><code>MSE</code> (Mean Squared Error),
+</p>
+</li>
+<li> <p><code>MAE</code> (Mean Absolute Error),
+</p>
+</li>
+<li> <p><code>HAM</code> (Half Absolute Moment),
+</p>
+</li>
+<li> <p><code>LASSO</code> - use LASSO to shrink the parameters of the model;
+</p>
+</li>
+<li> <p><code>RIDGE</code> - use RIDGE to shrink the parameters of the model;
+</p>
+</li>
+<li> <p><code>TMSE</code> - Trace Mean Squared Error,
+</p>
+</li>
+<li> <p><code>GTMSE</code> - Geometric Trace Mean Squared Error,
+</p>
+</li>
+<li> <p><code>MSEh</code> - optimisation using only h-steps ahead error,
+</p>
+</li>
+<li> <p><code>MSCE</code> - Mean Squared Cumulative Error.
+</p>
+</li>
+</ul>
+<p>In case of LASSO / RIDGE, the variables are not normalised prior to the estimation,
+but the parameters are divided by the mean values of explanatory variables.
+</p>
+<p>Note that model selection and combination works properly only for the default
+<code>loss="likelihood"</code>.
+</p>
+<p>Furthermore, just for fun the absolute and half analogues of multistep estimators
+are available: <code>MAEh</code>, <code>TMAE</code>, <code>GTMAE</code>, <code>MACE</code>,
+<code>HAMh</code>, <code>THAM</code>, <code>GTHAM</code>, <code>CHAM</code>.
+</p>
+<p>Last but not least, user can provide their own function here as well, making sure
+that it accepts parameters <code>actual</code>, <code>fitted</code> and <code>B</code>. Here is an
+example:
+</p>
+<p><code>lossFunction &lt;- function(actual, fitted, B) return(mean(abs(actual-fitted)))</code>
+</p>
+<p><code>loss=lossFunction</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outliers</code></td>
+<td>
+<p>Defines what to do with outliers: <code>"ignore"</code>, so just returning the model,
+<code>"use"</code> - detect outliers based on specified <code>level</code> and include dummies for them in the model,
+or detect and <code>"select"</code> those of them that reduce <code>ic</code> value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>level</code></td>
+<td>
+<p>What confidence level to use for detection of outliers. The default is 99%. The specific
+bounds of confidence interval depend on the distribution used in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>The forecast horizon. Mainly needed for the multistep loss functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>holdout</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then the holdout of the size <code>h</code>
+is taken from the data (can be used for the model testing purposes).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>persistence</code></td>
+<td>
+<p>Persistence vector <code class="reqn">g</code>, containing smoothing
+parameters. If <code>NULL</code>, then estimated. Can be also passed as a names list of
+the type: <code>persistence=list(level=0.1, trend=0.05, seasonal=c(0.1,0.2),
+xreg=c(0.1,0.2))</code>. Dropping some elements from the named list will make the function
+estimate them. e.g. if you don't specify seasonal in the persistence for the ETS(M,N,M)
+model, it will be estimated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phi</code></td>
+<td>
+<p>Value of damping parameter. If <code>NULL</code> then it is estimated.
+Only applicable for damped-trend models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initial</code></td>
+<td>
+<p>Can be either character or a list, or a vector of initial states.
+If it is character, then it can be <code>"optimal"</code>, meaning that all initial
+states are optimised, or <code>"backcasting"</code>, meaning that the initials of
+dynamic part of the model are produced using backcasting procedure (advised
+for data with high frequency). In the latter case, the parameters of the
+explanatory variables are optimised. This is recommended for ETSX and ARIMAX
+models. Alternatively, you can set <code>initial="complete"</code> backcasting,
+which means that all states (including explanatory variables) are initialised
+via backcasting.
+</p>
+<p>If a use provides a list of values, it is recommended to use the named one and
+to provide the initial components that are available. For example:
+<code>initial=list(level=1000,trend=10,seasonal=list(c(1,2),c(1,2,3,4)),
+arima=1,xreg=100)</code>. If some of the components are needed by the model, but are
+not provided in the list, they will be estimated. If the vector is provided,
+then it is expected that the components will be provided inthe same order as above,
+one after another without any gaps.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>arma</code></td>
+<td>
+<p>Either the named list or a vector with AR / MA parameters ordered lag-wise.
+The number of elements should correspond to the specified orders e.g.
+<code>orders=list(ar=c(1,1),ma=c(1,1)), lags=c(1,4), arma=list(ar=c(0.9,0.8),ma=c(-0.3,0.3))</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ic</code></td>
+<td>
+<p>The information criterion to use in the model selection / combination
+procedure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bounds</code></td>
+<td>
+<p>The type of bounds for the persistence to use in the model
+estimation. Can be either <code>admissible</code> - guaranteeing the stability of the
+model, <code>usual</code> - restricting the values with (0, 1) or <code>none</code> - no
+restrictions (potentially dangerous).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Specifies, whether to provide the progress of the function or not.
+If <code>TRUE</code>, then the function will print what it does and how much it has
+already done.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other non-documented parameters. For example, <code>FI=TRUE</code> will
+make the function also produce Fisher Information matrix, which then can be
+used to calculated variances of smoothing parameters and initial states of
+the model. This is calculated based on the hessian of log-likelihood function and
+accepts <code>stepSize</code> parameter, determining how it is calculated. The default value
+is <code>stepSize=.Machine$double.eps^(1/4)</code>. This is used in the vcov method.
+Number of iterations inside the backcasting loop to do is regulated with <code>nIterations</code>
+parameter. By default it is set to 2. Furthermore, starting values of parameters can be
+passed via <code>B</code>, while the upper and lower bounds should be passed in <code>ub</code>
+and <code>lb</code> respectively. In this case they will be used for optimisation. These
+values should have the length equal to the number of parameters to estimate in
+the following order:
+</p>
+
+<ol>
+<li>
+<p> All smoothing parameters (for the states and then for the explanatory variables);
+</p>
+</li>
+<li>
+<p> Damping parameter (if needed);
+</p>
+</li>
+<li>
+<p> ARMA parameters;
+</p>
+</li>
+<li>
+<p> All the initial values (for the states and then for the explanatory variables).
+</p>
+</li>
+</ol>
+<p>You can also pass parameters to the optimiser in order to fine tune its work:
+</p>
+
+<ul>
+<li> <p><code>maxeval</code> - maximum number of evaluations to carry out. The default is 40 per
+estimated parameter for ETS and / or ARIMA and at least 1000 if explanatory variables
+are introduced in the model (100 per parameter for explanatory variables, but not less
+than 1000);
+</p>
+</li>
+<li> <p><code>maxtime</code> - stop, when the optimisation time (in seconds) exceeds this;
+</p>
+</li>
+<li> <p><code>xtol_rel</code> - the relative precision of the optimiser (the default is 1E-6);
+</p>
+</li>
+<li> <p><code>xtol_abs</code> - the absolute precision of the optimiser (the default is 1E-8);
+</p>
+</li>
+<li> <p><code>ftol_rel</code> - the stopping criterion in case of the relative change in the loss
+function (the default is 1E-8);
+</p>
+</li>
+<li> <p><code>ftol_abs</code> - the stopping criterion in case of the absolute change in the loss
+function (the default is 0 - not used);
+</p>
+</li>
+<li> <p><code>algorithm</code> - the algorithm to use in optimisation
+(by default, <code>"NLOPT_LN_NELDERMEAD"</code> is used);
+</p>
+</li>
+<li> <p><code>print_level</code> - the level of output for the optimiser (0 by default).
+If equal to 41, then the detailed results of the optimisation are returned.
+</p>
+</li>
+</ul>
+<p>You can read more about these parameters by running the function
+nloptr.print.options.
+Finally, the parameter <code>lambda</code> for LASSO / RIDGE, <code>alpha</code> for the Asymmetric
+Laplace, <code>shape</code> for the Generalised Normal and <code>nu</code> for Student's distributions
+can be provided here as well.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>The model previously estimated using <code>adam()</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>Number of series to generate from the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Random seed used in simulation of data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs</code></td>
+<td>
+<p>Number of observations to produce in the simulated data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>If TRUE, the estimation of ADAM models is done in parallel (used in <code>auto.adam</code> only).
+If the number is provided (e.g. <code>parallel=41</code>), then the specified number of cores is set up.
+WARNING! Packages <code>foreach</code> and either <code>doMC</code> (Linux and Mac only)
+or <code>doParallel</code> are needed in order to run the function in parallel.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Function estimates ADAM in a form of the Single Source of Error state space
+model of the following type:
+</p>
+<p style="text-align: center;"><code class="reqn">y_{t} = o_t (w(v_{t-l}) + h(x_t, a_{t-1}) + r(v_{t-l}) \epsilon_{t})</code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">v_{t} = f(v_{t-l}, a_{t-1}) + g(v_{t-l}, a_{t-1}, x_{t}) \epsilon_{t}</code>
+</p>
+
+<p>Where <code class="reqn">o_{t}</code> is the Bernoulli distributed random variable (in case of
+normal data it equals to 1 for all observations), <code class="reqn">v_{t}</code> is the state
+vector and <code class="reqn">l</code> is the vector of lags, <code class="reqn">x_t</code> is the vector of
+exogenous variables. w(.) is the measurement function, r(.) is the error
+function, f(.) is the transition function, g(.) is the persistence
+function and <code class="reqn">a_t</code> is the vector of parameters for exogenous variables.
+Finally, <code class="reqn">\epsilon_{t}</code> is the error term.
+</p>
+<p>The implemented model allows introducing several seasonal states and supports
+intermittent data via the <code>occurrence</code> variable.
+</p>
+<p>The error term <code class="reqn">\epsilon_t</code> can follow different distributions, which
+are regulated via the <code>distribution</code> parameter. This includes:
+</p>
+
+<ol>
+<li> <p><code>default</code> - Normal distribution is used for the Additive error models,
+Gamma is used for the Multiplicative error models.
+</p>
+</li>
+<li>
+<p> dnorm - Normal distribution,
+</p>
+</li>
+<li> <p>dlaplace - Laplace distribution,
+</p>
+</li>
+<li> <p>ds - S distribution,
+</p>
+</li>
+<li> <p>dgnorm - Generalised Normal distribution,
+</p>
+</li>
+<li> <p>dlnorm - Log-Normal distribution,
+</p>
+</li>
+<li> <p>dgamma - Gamma distribution,
+</p>
+</li>
+<li> <p>dinvgauss - Inverse Gaussian distribution,
+</p>
+</li>
+</ol>
+<p>For some more information about the model and its implementation, see the
+vignette: <code>vignette("adam","smooth")</code>. The more detailed explanation
+of ADAM is provided by Svetunkov (2021).
+</p>
+<p>The function <code>auto.adam()</code> tries out models with the specified
+distributions and returns the one with the most suitable one based on selected
+information criterion.
+</p>
+<p>sm.adam method estimates the scale model for the already
+estimated adam. In order for ADAM to take the SM model into account, the
+latter needs to be recorded in the former, amending the likelihood and the number
+of degrees of freedom. This can be done using implant method.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object of class "adam" is returned. It contains the list of the
+following values:
+</p>
+
+<ul>
+<li> <p><code>model</code> - the name of the constructed model,
+</p>
+</li>
+<li> <p><code>timeElapsed</code> - the time elapsed for the estimation of the model,
+</p>
+</li>
+<li> <p><code>data</code> - the in-sample part of the data used for the training of the model. Includes
+the actual values in the first column,
+</p>
+</li>
+<li> <p><code>holdout</code> - the holdout part of the data, excluded for purposes of model evaluation,
+</p>
+</li>
+<li> <p><code>fitted</code> - the vector of fitted values,
+</p>
+</li>
+<li> <p><code>residuals</code> - the vector of residuals,
+</p>
+</li>
+<li> <p><code>forecast</code> - the point forecast for h steps ahead (by default NA is returned). NOTE
+that these do not always correspond to the conditional expectations for ETS models. See ADAM
+textbook, Section 6.4. for details (<a href="https://openforecast.org/adam/ETSTaxonomyMaths.html">https://openforecast.org/adam/ETSTaxonomyMaths.html</a>),
+</p>
+</li>
+<li> <p><code>states</code> - the matrix of states with observations in rows and states in columns,
+</p>
+</li>
+<li> <p><code>persisten</code> - the vector of smoothing parameters,
+</p>
+</li>
+<li> <p><code>phi</code> - the value of damping parameter,
+</p>
+</li>
+<li> <p><code>transition</code> - the transition matrix,
+</p>
+</li>
+<li> <p><code>measurement</code> - the measurement matrix with observations in rows and state elements
+in columns,
+</p>
+</li>
+<li> <p><code>initial</code> - the named list of initial values, including level, trend, seasonal, ARIMA
+and xreg components,
+</p>
+</li>
+<li> <p><code>initialEstimated</code> - the named vector, defining which of the initials were estimated in
+the model,
+</p>
+</li>
+<li> <p><code>initialType</code> - the type of initialisation used ("optimal" / "complete" / "provided"),
+</p>
+</li>
+<li> <p><code>orders</code> - the orders of ARIMA used in the estimation,
+</p>
+</li>
+<li> <p><code>constant</code> - the value of the constant (if it was included),
+</p>
+</li>
+<li> <p><code>arma</code> - the list of AR / MA parameters used in the model,
+</p>
+</li>
+<li> <p><code>nParam</code> - the matrix of the estimated / provided parameters,
+</p>
+</li>
+<li> <p><code>occurrence</code> - the oes model used for the occurrence part of the model,
+</p>
+</li>
+<li> <p><code>formula</code> - the formula used for the explanatory variables expansion,
+</p>
+</li>
+<li> <p><code>loss</code> - the type of loss function used in the estimation,
+</p>
+</li>
+<li> <p><code>lossValue</code> - the value of that loss function,
+</p>
+</li>
+<li> <p><code>logLik</code> - the value of the log-likelihood,
+</p>
+</li>
+<li> <p><code>distribution</code> - the distribution function used in the calculation of the likelihood,
+</p>
+</li>
+<li> <p><code>scale</code> - the value of the scale parameter,
+</p>
+</li>
+<li> <p><code>lambda</code> - the value of the parameter used in LASSO / dalaplace / dt,
+</p>
+</li>
+<li> <p><code>B</code> - the vector of all estimated parameters,
+</p>
+</li>
+<li> <p><code>lags</code> - the vector of lags used in the model construction,
+</p>
+</li>
+<li> <p><code>lagsAll</code> - the vector of the internal lags used in the model,
+</p>
+</li>
+<li> <p><code>profile</code> - the matrix with the profile used in the construction of the model,
+</p>
+</li>
+<li> <p><code>profileInitial</code> - the matrix with the initial profile (for the before the sample values),
+</p>
+</li>
+<li> <p><code>call</code> - the call used in the evaluation,
+</p>
+</li>
+<li> <p><code>bounds</code> - the type of bounds used in the process,
+</p>
+</li>
+<li> <p><code>res</code> - result of the model estimation, the output of the <code>nloptr()</code> function, explaining
+how optimisation went,
+</p>
+</li>
+<li> <p><code>other</code> - the list with other parameters, such as shape for distributions or ARIMA
+polynomials.
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Ivan Svetunkov, <a href="mailto:ivan@svetunkov.ru">ivan@svetunkov.ru</a>
+</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p> Svetunkov I. (2023) Smooth forecasting with the smooth package in R. arXiv:2301.01790.
+<a href="https://doi.org/10.48550/arXiv.2301.01790">doi:10.48550/arXiv.2301.01790</a>.
+</p>
+</li>
+<li>
+<p> Svetunkov I. (2015 - Inf) "smooth" package for R - series of posts about the underlying
+models and how to use them: <a href="https://openforecast.org/category/r-en/smooth/">https://openforecast.org/category/r-en/smooth/</a>.
+</p>
+</li>
+</ul>
+<ul><li>
+<p> Svetunkov, I. (2023). Forecasting and Analytics with the Augmented
+Dynamic Adaptive Model (ADAM) (1st ed.). Chapman and Hall/CRC.
+<a href="https://doi.org/10.1201/9781003452652">doi:10.1201/9781003452652</a>, online version: <a href="https://openforecast.org/adam/">https://openforecast.org/adam/</a>.
+</p>
+</li></ul>
+<ul>
+<li>
+<p> Snyder, R. D., 1985. Recursive Estimation of Dynamic Linear Models.
+Journal of the Royal Statistical Society, Series B (Methodological) 47 (2), 272-276.
+</p>
+</li>
+<li>
+<p> Hyndman, R.J., Koehler, A.B., Ord, J.K., and Snyder, R.D. (2008)
+Forecasting with exponential smoothing: the state space approach,
+Springer-Verlag. <a href="https://doi.org/10.1007/978-3-540-71918-2">doi:10.1007/978-3-540-71918-2</a>.
+</p>
+</li>
+</ul>
+<ul>
+<li>
+<p> Svetunkov Ivan and Boylan John E. (2017). Multiplicative
+State-Space Models for Intermittent Time Series. Working Paper of
+Department of Management Science, Lancaster University, 2017:4 , 1-43.
+</p>
+</li>
+<li>
+<p> Teunter R., Syntetos A., Babai Z. (2011). Intermittent demand:
+Linking forecasting to inventory obsolescence. European Journal of
+Operational Research, 214, 606-615.
+</p>
+</li>
+<li>
+<p> Croston, J. (1972) Forecasting and stock control for intermittent
+demands. Operational Research Quarterly, 23(3), 289-303.
+</p>
+</li>
+<li>
+<p> Syntetos, A., Boylan J. (2005) The accuracy of intermittent demand
+estimates. International Journal of Forecasting, 21(2), 303-314.
+</p>
+</li>
+</ul>
+<ul><li>
+<p> Kolassa, S. (2011) Combining exponential smoothing forecasts using Akaike
+weights. International Journal of Forecasting, 27, pp 238 - 251.
+</p>
+</li></ul>
+<ul>
+<li>
+<p> Taylor, J.W. and Bunn, D.W. (1999) A Quantile Regression Approach to
+Generating Prediction Intervals. Management Science, Vol 45, No 2, pp
+225-237.
+</p>
+</li>
+<li>
+<p> Lichtendahl Kenneth C., Jr., Grushka-Cockayne Yael, Winkler
+Robert L., (2013) Is It Better to Average Probabilities or
+Quantiles? Management Science 59(7):1594-1611. DOI:
+<a href="https://doi.org/10.1287/mnsc.1120.1667">doi:10.1287/mnsc.1120.1667</a>
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>es, msarima</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+### The main examples are provided in the adam vignette, check it out via:
+## Not run: vignette("adam","smooth")
+
+# Model selection using a specified pool of models
+ourModel &lt;- adam(rnorm(100,100,10), model=c("ANN","ANA","AAA"), lags=c(5,10))
+adamSummary &lt;- summary(ourModel)
+xtable(adamSummary)
+
+forecast(ourModel)
+par(mfcol=c(3,4))
+plot(ourModel, c(1:11))
+
+# Model combination using a specified pool
+ourModel &lt;- adam(rnorm(100,100,10), model=c("ANN","AAN","MNN","CCC"),
+                          lags=c(5,10))
+
+# ADAM ARIMA
+ourModel &lt;- adam(rnorm(100,100,10), model="NNN",
+                          lags=c(1,4), orders=list(ar=c(1,0),i=c(1,0),ma=c(1,1)))
+
+# Fit ADAM to the data
+ourModel &lt;- adam(rnorm(100,100,10), model="AAdN")
+# Simulate the data
+x &lt;- simulate(ourModel)
+
+# Automatic selection of appropriate distribution and orders of ADAM ETS+ARIMA
+ourModel &lt;- auto.adam(rnorm(100,100,10), model="ZZN", lags=c(1,4),
+                      orders=list(ar=c(2,2),ma=c(2,2),select=TRUE))
+
+</code></pre>
+
+
+</div>

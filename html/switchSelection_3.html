@@ -1,0 +1,239 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bootstrap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bootstrap for msel function</h2>
+
+<h3>Description</h3>
+
+<p>Function <code>bootstrap_msel</code> 
+provides bootstrap estimates of the parameters of the model estimated via
+the <code>msel</code> function.
+Function <code>bootstrap_combine_msel</code> allows to
+combine several objects of class <code>'bootstrap_msel'</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bootstrap_msel(
+  object,
+  iter = 100,
+  opt_type = "optim",
+  opt_args = NULL,
+  is_ind = FALSE,
+  n_sim = 1000,
+  n_cores = 1
+)
+
+bootstrap_combine_msel(...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class 'msel'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter</code></td>
+<td>
+<p>the number of bootstrap iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt_type</code></td>
+<td>
+<p>the same as <code>opt_type</code> argument of the
+<code>msel</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt_args</code></td>
+<td>
+<p>the same as <code>opt_args</code> argument of the
+<code>msel</code> functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>is_ind</code></td>
+<td>
+<p>logical; if <code>TRUE</code> then the function also returns a
+numeric matrix of indexes of observations used in the bootstrap samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_sim</code></td>
+<td>
+<p>the same as <code>n_sim</code> argument of the
+<code>msel</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_cores</code></td>
+<td>
+<p>the same as <code>n_cores</code> argument of the 
+<code>msel</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>objects returned by function 
+<code>bootstrap_msel</code> to be combined into a
+single object.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function generates <code>iter</code> bootstrap samples and 
+estimates the parameters <code class="reqn">\theta</code> of the model by using each of
+these samples. Estimate <code class="reqn">\hat{\theta}^{(b)}</code> from the <code class="reqn">b</code>-th of 
+these samples is stored as the <code>b</code>-th row of the numeric matrix
+<code>par</code> which is an element of the returned object.
+</p>
+<p>Use <code>update_msel</code> function to
+transfer the bootstrap estimates to the object of class <code>'msel'</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Function <code>bootstrap_msel</code>
+returns an object of class <code>"bootstrap_msel"</code>.
+This object is a list which may contain the following elements:
+</p>
+
+<ul>
+<li> <p><code>par</code> - a numeric matrix such that <code>par[b, ]</code> is a vector 
+of the estimates of the parameters of the model estimated via
+<code>msel</code> function on the <code>b</code>-th bootstrap
+sample.
+</p>
+</li>
+<li> <p><code>iter</code> - the number of the bootstrap iterations.
+</p>
+</li>
+<li> <p><code>cov</code> - bootstrap estimate of the covariance matrix which 
+equals to <code>cov(par)</code>.
+</p>
+</li>
+<li> <p><code>ind</code> - a numeric matrix such that <code>ind[, b]</code> stores the 
+indexes of the observations from <code>object$data</code> included into the 
+<code>b</code>-th bootstrap sample.
+</p>
+</li>
+</ul>
+<p>Function <code>bootstrap_combine_msel</code> returns the 
+object which combines several objects returned by the
+<code>bootstrap_msel</code> function into a single
+object.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># -------------------------------
+# Bootstrap for the probit model
+# -------------------------------
+
+# ---
+# Step 1
+# Simulation of data
+# ---
+
+# Load required package
+library("mnorm")
+
+# Set seed for reproducibility
+set.seed(123)
+
+# The number of observations
+n &lt;- 100
+
+# Regressors (covariates)
+w1 &lt;- runif(n = n, min = -1, max = 1)
+w2 &lt;- runif(n = n, min = -1, max = 1)
+
+# Random errors
+u &lt;- rnorm(n = n, mean = 0, sd = 1)
+
+# Coefficients
+gamma &lt;- c(-1, 2)
+
+# Linear index
+li &lt;- gamma[1] * w1 + gamma[2] * w2
+
+# Latent variable
+z_star &lt;- li + u
+
+# Cuts
+cuts &lt;- c(-1, 0.5, 2)
+
+# Observable ordered outcome
+z                                           &lt;- rep(0, n)
+z[(z_star &gt; cuts[1]) &amp; (z_star &lt;= cuts[2])] &lt;- 1
+z[(z_star &gt; cuts[2]) &amp; (z_star &lt;= cuts[3])] &lt;- 2
+z[z_star &gt; cuts[3]]                         &lt;- 3
+table(z)
+
+# Data
+data &lt;- data.frame(w1 = w1, w2 = w2, z = z)
+
+# ---
+# Step 2
+# Estimation of the parameters
+# ---
+
+# Estimation
+model &lt;- msel(formula = z ~ w1 + w2, data = data)
+summary(model)
+ 
+# ---
+# Step 3
+# Bootstrap
+# ---
+
+# Perform bootstrap
+bootstrap &lt;- bootstrap_msel(model)
+
+# Test the hypothesis that H0: gamma[2] = -2gamma[1]
+# by using the t-test and with bootstrap p-values
+fn_test &lt;- function(object)
+{
+  gamma &lt;- coef(object, eq = 1)
+  return(gamma[2] + 2 * gamma[1])
+}
+b &lt;- test_msel(object    = model, 
+               fn        = fn_test,
+               test      = "t", 
+               method    = "bootstrap",
+               ci        = "percentile",
+               se_type   = "bootstrap",
+               bootstrap = bootstrap)
+summary(b)
+
+# Replicate the analysis with the additional 20 bootstrap iterations
+bootstrap2    &lt;- bootstrap_msel(model, iter = 20)
+bootstrap_new &lt;- bootstrap_combine_msel(bootstrap, bootstrap2)
+b2 &lt;- test_msel(object    = model, 
+                fn        = fn_test,
+                test      = "t", 
+                method    = "bootstrap",
+                ci        = "percentile",
+                se_type   = "bootstrap",
+                bootstrap = bootstrap)
+summary(b2)
+
+ 
+</code></pre>
+
+
+</div>

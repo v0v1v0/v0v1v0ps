@@ -1,0 +1,101 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sdf_select</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Select nested items</h2>
+
+<h3>Description</h3>
+
+<p>The <code>select</code> function works well for keeping/dropping top level fields. It does not
+however support access to nested data. This function will accept complex field names
+such as <code>x.y.z</code> where <code>z</code> is a field nested within <code>y</code> which is in turn
+nested within <code>x</code>. Since R uses "$" to access nested elements and java/scala use ".",
+<code>sdf_select(data, x.y.z)</code> and <code>sdf_select(data, x$y$z)</code> are equivalent.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sdf_select(x, ..., .aliases, .drop_parents = TRUE, .full_name = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object (usually a <code>spark_tbl</code>) coercible to a Spark DataFrame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Fields to select</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.aliases</code></td>
+<td>
+<p>Character. Optional. If provided these names will be matched positionally with
+selected fields provided in <code>...</code>. This is more useful when calling from a function and
+less natural to use when calling the function directly. It is likely to get you into trouble
+if you are using <code>dplyr</code> select helpers. The alternative with direct calls
+is to put the alias on the left side of the expression (e.g. <code>sdf_select(df, fld_alias=parent.child.fld)</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.drop_parents</code></td>
+<td>
+<p>Logical. If <code>TRUE</code> then any field from which nested elements are extracted
+will be dropped, even if they were included in the selected <code>...</code>. This better supports using 
+<code>dplyr</code> field matching helpers like <code>everything()</code> and <code>starts_with</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.full_name</code></td>
+<td>
+<p>Logical. If <code>TRUE</code> then nested field names that are not named (either using
+a LHS <code>name=field_name</code> construct or the <code>.aliases</code> argument) will be disambiguated using
+the parent field name. For example <code>sdf_select(df, x.y)</code> will return a field named <code>x_y</code>.
+If <code>FALSE</code> then the parent field name is dropped unless it is needed to avoid duplicate names.</p>
+</td>
+</tr>
+</table>
+<h3>Selection Helpers</h3>
+
+<p><code>dplyr</code> allows the use of selection helpers (e.g., see <code>everything</code>).
+These helpers only work for top level fields however. For now all nested fields that should
+be promoted need to be explicitly identified.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# produces a dataframe with an array of characteristics nested under
+# each unique species identifier
+iris_tbl &lt;- copy_to(sc, iris, name="iris")
+iris_nst &lt;- iris_tbl %&gt;%
+  sdf_nest(Sepal_Length, Sepal_Width, .key="Sepal") 
+
+# using java-like dot-notation
+iris_nst %&gt;%
+  sdf_select(Species, Petal_Width, Sepal.Sepal_Width)
+
+# using R-like dollar-sign-notation
+iris_nst %&gt;%
+  sdf_select(Species, Petal_Width, Sepal$Sepal_Width)
+  
+# using dplyr selection helpers
+iris_nst %&gt;%
+  sdf_select(Species, matches("Petal"), Sepal$Sepal_Width)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

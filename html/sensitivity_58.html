@@ -1,0 +1,411 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>morris</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Morris's Elementary Effects Screening Method</h2>
+
+<h3>Description</h3>
+
+<p><code>morris</code> implements the Morris's elementary effects screening
+method (Morris, 1991). This method, based on design of experiments,
+allows to identify the few important factors at a cost of <code class="reqn">r
+  \times (p+1)</code> simulations (where <code class="reqn">p</code> is the number
+of factors). This implementation includes some improvements of the
+original method: space-filling optimization of the design (Campolongo
+et al. 2007) and simplex-based design (Pujol 2009).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">morris(model = NULL, factors, r, design, binf = 0, bsup = 1,
+       scale = TRUE, ...)
+## S3 method for class 'morris'
+tell(x, y = NULL, ...)
+## S3 method for class 'morris'
+print(x, ...)
+## S3 method for class 'morris'
+plot(x, identify = FALSE, atpen = FALSE, y_col = NULL, 
+  y_dim3 = NULL, ...)
+## S3 method for class 'morris'
+plot3d(x, alpha = c(0.2, 0), sphere.size = 1, y_col = NULL, 
+  y_dim3 = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>a function, or a model with a <code>predict</code> method,
+defining the model to analyze.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>factors</code></td>
+<td>
+<p>an integer giving the number of factors, or a vector of
+character strings giving their names.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>either an integer giving the number of repetitions of the design,
+i.e. the number of elementary effect computed per factor, or a
+vector of two integers <code>c(r1, r2)</code> for the space-filling
+improvement (Campolongo et al. 2007). In this case, <code>r1</code> is the
+wanted design size, and <code>r2</code> (<code class="reqn">&gt; \code{r1}</code>)
+is the size of the (bigger) population in which is extracted the
+design (this can throw a warning, see below).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>a list specifying the design type and its
+parameters:
+</p>
+
+<ul>
+<li> <p><code>type = "oat"</code> for Morris's OAT design (Morris 1991),
+with the parameters:
+</p>
+
+<ul>
+<li> <p><code>levels</code> : either an integer specifying the number of
+levels of the design, or a vector of integers for different
+values for each factor.
+</p>
+</li>
+<li> <p><code>grid.jump</code> : either an integer specifying the number of
+levels that are increased/decreased for computing the
+elementary effects, or a vector of integers for different values
+for each factor. If not given, it is set to <code>grid.jump =
+	  1</code>. Notice that this default value of one does not follow
+Morris's recommendation of 
+<code class="reqn">\texttt{levels} / 2</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>type = "simplex"</code> for simplex-based design (Pujol
+2009), with the parameter:
+</p>
+
+<ul><li> <p><code>scale.factor</code> : a numeric value, the homothety factor of
+the (isometric) simplexes. Edges equal one with a scale factor
+of one.
+</p>
+</li></ul>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>binf</code></td>
+<td>
+<p>either an integer, specifying the minimum value for the
+factors, or a vector for different values for each factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bsup</code></td>
+<td>
+<p>either an integer, specifying the maximum value for the
+factors, or a vector for different values for each factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>logical. If <code>TRUE</code>, the input design of experiments is
+scaled after building the design and before computing the elementary 
+effects so that all factors vary within the range [0,1]. For each factor, 
+the scaling is done relatively to its corresponding bsup and binf.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a list of class <code>"morris"</code> storing the state of the
+screening study (parameters, data, estimates).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>a vector of model responses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>identify</code></td>
+<td>
+<p>logical. If <code>TRUE</code>, the user selects with the
+mouse the factors to label on the <code class="reqn">(\mu^*,\sigma)</code>
+graph (see <code>identify</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>atpen</code></td>
+<td>
+<p>logical. If <code>TRUE</code> (and <code>identify = TRUE</code>), the 
+user-identified labels (more precisely: their lower-left corners) of the 
+factors are plotted at the place where the user had clicked (if near enough 
+to one of the factor points). If <code>FALSE</code> (and <code>identify = TRUE</code>), 
+the labels are automatically adjusted to the lower, left, upper or right 
+side of the factor point. For further information, see 
+<code>identify</code>. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_col</code></td>
+<td>
+<p>an integer defining the index of the column of <code>x$y</code> to be
+used for plotting the corresponding Morris statistics <code class="reqn">\mu^*</code>
+and <code class="reqn">\sigma</code> (only applies if <code>x$y</code> is a matrix or an 
+array).
+If set to <code>NULL</code> (as per default) and <code>x$y</code> is a matrix or an 
+array, the first column (respectively the first element in
+the second dimension) of <code>x$y</code> is used (i.e. <code>y_col = 1</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_dim3</code></td>
+<td>
+<p>an integer defining the index in the third dimension of 
+<code>x$y</code> to be used for plotting the corresponding Morris statistics 
+<code class="reqn">\mu^*</code> and <code class="reqn">\sigma</code> (only applies if <code>x$y</code> is an 
+array).
+If set to <code>NULL</code> (as per default) and <code>x$y</code> is a 
+three-dimensional array, the first element in the third dimension of
+<code>x$y</code> is used (i.e. <code>y_dim3 = 1</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>a vector of three values between 0.0 (fully transparent) and 1.0
+(opaque) (see <code>rgl.material</code>). The first value is for the
+cone, the second for the planes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sphere.size</code></td>
+<td>
+<p>a numeric value, the scale factor for displaying the
+spheres.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>for <code>morris</code>: any other arguments for <code>model</code> which 
+are passed unchanged each time it is called. For <code>plot.morris</code>: 
+arguments to be passed to <code>plot.default</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>plot.morris</code> draws the <code class="reqn">(\mu^*,\sigma)</code> graph.
+</p>
+<p><code>plot3d.morris</code> draws the <code class="reqn">(\mu, \mu^*,\sigma)</code> graph (requires the <span class="pkg">rgl</span> package). On this graph, the
+points are in a domain bounded by a cone and two planes (application
+of the Cauchy-Schwarz inequality).
+</p>
+<p>When using the space-filling improvement (Campolongo et al. 2007) of the 
+Morris design, we recommend to install before the "pracma" R package: 
+its "distmat"" function makes running the function with a large number of 
+initial estimates (r2) significantly faster (by accelerating the 
+inter-point distances calculations).
+</p>
+<p>This version of <code>morris</code> also supports matrices and three-dimensional
+arrays as output of <code>model</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>morris</code> returns a list of class <code>"morris"</code>, containing all
+the input argument detailed before, plus the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>the matched call.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>a <code>data.frame</code> containing the design of experiments.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>either a vector, a matrix or a three-dimensional array of model 
+responses (depends on the output of <code>model</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ee</code></td>
+<td>
+
+
+<ul>
+<li>
+<p>if <code>y</code> is a vector: a <code class="reqn">(r \times p)</code> - matrix of 
+elementary effects for all the factors.
+</p>
+</li>
+<li>
+<p>if <code>y</code> is a matrix: a 
+<code class="reqn">(r \times p \times ncol(y))</code> - array of 
+elementary effects for all the factors and all columns of <code>y</code>.
+</p>
+</li>
+<li>
+<p>if <code>y</code> is a three-dimensional array: a 
+<code class="reqn">(r \times p \times dim(y)[2] \times dim(y)[3])</code> - array of elementary effects for all 
+the factors and all elements of the second and third dimension of 
+<code>y</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<p>Notice that the statistics of interest (<code class="reqn">\mu</code>, <code class="reqn">\mu^*</code>
+and <code class="reqn">\sigma</code>) are not stored. They can be printed by the
+<code>print</code> method, but to extract numerical values, one has to
+compute them with the following instructions:
+</p>
+<p>If <code>x$y</code> is a vector:
+</p>
+<pre>
+mu &lt;- apply(x$ee, 2, mean)
+mu.star &lt;- apply(x$ee, 2, function(x) mean(abs(x)))
+sigma &lt;- apply(x$ee, 2, sd)
+</pre>
+<p>If <code>x$y</code> is a matrix:
+</p>
+<pre>
+mu &lt;- apply(x$ee, 3, function(M){
+  apply(M, 2, mean)
+})
+mu.star &lt;- apply(abs(x$ee), 3, function(M){
+  apply(M, 2, mean)
+})
+sigma &lt;- apply(x$ee, 3, function(M){
+  apply(M, 2, sd)
+})
+</pre>
+<p>If <code>x$y</code> is a three-dimensional array:
+</p>
+<pre>
+mu &lt;- sapply(1:dim(x$ee)[4], function(i){
+  apply(x$ee[, , , i, drop = FALSE], 3, function(M){
+    apply(M, 2, mean)
+  })
+}, simplify = "array")
+mu.star &lt;- sapply(1:dim(x$ee)[4], function(i){
+  apply(abs(x$ee)[, , , i, drop = FALSE], 3, function(M){
+    apply(M, 2, mean)
+  })
+}, simplify = "array")
+sigma &lt;- sapply(1:dim(x$ee)[4], function(i){
+  apply(x$ee[, , , i, drop = FALSE], 3, function(M){
+    apply(M, 2, sd)
+  })
+}, simplify = "array")
+  </pre>
+<p>It is highly recommended to use the function with the argument 
+<code>scale = TRUE</code> to avoid an uncorrect interpretation of factors that
+would have different orders of magnitude.
+</p>
+
+
+<h3>Warning messages</h3>
+
+
+<dl>
+<dt>"keeping r' repetitions out of r"</dt>
+<dd>
+<p>when generating the design of
+experiments, identical repetitions are removed, leading to a lower
+number than requested.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Gilles Pujol, with contributions from Frank Weber (2016)
+</p>
+
+
+<h3>References</h3>
+
+<p>M. D. Morris, 1991, <em>Factorial sampling plans for preliminary
+computational experiments</em>, Technometrics, 33, 161–174.
+</p>
+<p>F. Campolongo, J. Cariboni and A. Saltelli, 2007, <em>An effective
+screening design for sensitivity</em>, Environmental Modelling and
+Software, 22, 1509–1518.
+</p>
+<p>G. Pujol, 2009, <em>Simplex-based screening designs for estimating
+metamodels</em>, Reliability Engineering and System Safety 94, 1156–1160.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>morrisMultOut</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Test case : the non-monotonic function of Morris
+x &lt;- morris(model = morris.fun, factors = 20, r = 4,
+            design = list(type = "oat", levels = 5, grid.jump = 3))
+print(x)
+plot(x)
+
+library(rgl)
+plot3d.morris(x)  # (requires the package 'rgl')
+
+
+# Only for demonstration purposes: a model function returning a matrix
+morris.fun_matrix &lt;- function(X){
+  res_vector &lt;- morris.fun(X)
+  cbind(res_vector, 2 * res_vector)
+}
+x &lt;- morris(model = morris.fun_matrix, factors = 20, r = 4,
+            design = list(type = "oat", levels = 5, grid.jump = 3))
+plot(x, y_col = 2)
+title(main = "y_col = 2")
+
+# Also only for demonstration purposes: a model function returning a
+# three-dimensional array
+morris.fun_array &lt;- function(X){
+  res_vector &lt;- morris.fun(X)
+  res_matrix &lt;- cbind(res_vector, 2 * res_vector)
+  array(data = c(res_matrix, 5 * res_matrix), 
+        dim = c(length(res_vector), 2, 2))
+}
+x &lt;- morris(model = morris.fun_array, factors = 20, r = 4,
+            design = list(type = "simplex", scale.factor = 1))
+plot(x, y_col = 2, y_dim3 = 2)
+title(main = "y_col = 2, y_dim3 = 2")
+
+</code></pre>
+
+
+</div>

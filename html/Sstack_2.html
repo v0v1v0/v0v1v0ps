@@ -1,0 +1,145 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>BSstack</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bootstrap Stacking model builder.</h2>
+
+<h3>Description</h3>
+
+<p>Creates a bootstrapped linear stacked set of Random Forest (RF) models given a set of heterogeneous datasets.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">BSstack(T = 50, mtry = NULL, nodesize = 5, iter = 25, CV = NA,
+  Xn = NULL, ECHO = TRUE, Y, X1, X2, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>T</code></td>
+<td>
+<p>Number of trees for the individual RF models. (int)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mtry</code></td>
+<td>
+<p>Number of variables available for splitting at each tree node. If a scalar is given then all models use the given values. If a 1D array is given then each individual model uses the given value. If NA then for each model it will be set to Nfeats/3</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nodesize</code></td>
+<td>
+<p>Minimum size of terminal nodes. If a scalar is given then all models use the given values. If a 1D array is given then each individual model uses the given value. By default all models use 5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter</code></td>
+<td>
+<p>The number of time to bootstrap sample the data. (int)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CV</code></td>
+<td>
+<p>Cross validation (CV) to measure mean-absolute error and correlation coefficient, if NA (default) no CV is performed. Otherwise the value gives the number of folds for CV. If CV&lt;2 then leave-one-out CV is performed. CV is performed utilizing the samples that have full record.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Xn</code></td>
+<td>
+<p>List containing each dataset to be stacked. If not supplied will be generated from X1, X2, ...</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ECHO</code></td>
+<td>
+<p>Bool, enable to provide output to the user in terms of overlapping samples and runtime for CV.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>Nsample x 1 data table of responses for ALL samples. Must have matching rownames with each individual dataset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X1</code></td>
+<td>
+<p>Data table of first dataset to be stacked. Rownames should be contained within Y.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X2</code></td>
+<td>
+<p>Data table of second dataset to be stacked. Rownames should be contained within Y.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further data tables, X3, X4, ..., Xl.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Required Packages:
+dplyr, randomForest, foreach
+</p>
+
+
+<h3>Value</h3>
+
+<p>If CV != null : A list composed of:
+[1] List containing [1] individual RF models, [2] Nstack +1 weights and [3] feature names for full record samples. This argument is what is used for BSstack_predict
+[2] Mean-absolute error calculated using cross validation (scalar).
+[3] Pearson correlation coefficient between actual and predicted values through cross validation (scalar -1&lt;=r&lt;=1).
+[4] Individual weights calculate for each fold (CV x Nstack+1 matrix).
+[5] Out of fold predictions for the overlaping samples.
+[6] Actual values for the overlaping samples.
+If CV &gt; 1 : Also
+[7] The fold assignments for the overlapping samples.
+If CV = null : Only [1] is returned.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(Sstack)
+library(doParallel)
+data(StackData)
+
+AUC=StackData[[1]]
+GE=StackData[[2]]
+RPPA=StackData[[3]]
+
+X1 &lt;- GE[1:400,1:75]
+X2 &lt;- GE[200:400,76:150]
+Xt &lt;- GE[401:487,]
+
+set.seed(1)
+
+cl &lt;- makeCluster(2)
+registerDoParallel(cl)
+
+Hbs &lt;- BSstack(T = 25, iter = 20, Y = AUC, X1 = X1, X2 = X2)
+
+stopCluster(cl)
+
+Yp &lt;- BSstack_predict(Hbs[[1]],Xt)
+
+maeH1 &lt;- mean(abs(AUC[401:487,]-Yp[,1]))
+maeH2 &lt;- mean(abs(AUC[401:487,]-Yp[,2]))
+maeHs &lt;- mean(abs(AUC[401:487,]-Yp[,3]))
+</code></pre>
+
+
+</div>

@@ -1,0 +1,285 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getFindingsPhase</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extract a set of findings for a specified study phase - or just add phase
+for each animal.</h2>
+
+<h3>Description</h3>
+
+<p>Returns a data table with the set of findings rows included in the
+<code>findings</code> of the phase(s) specified in the <code>phaseFilter</code>.<br>
+If the <code>phaseFilter</code> is empty (null, na or empty string), all rows from
+<code>findings</code> are returned with the an additional PHASE column.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getFindingsPhase(
+  dbToken,
+  findings,
+  phaseFilter = NULL,
+  inclUncertain = FALSE,
+  noFilterReportUncertain = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dbToken</code></td>
+<td>
+<p>Mandatory<br>
+Token for the open database connection (see <code>initEnvironment</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>findings</code></td>
+<td>
+<p>Mandatory, data.table.<br>
+A data.table with the set of finding rows to process.<br>
+The table must include at least columns named
+</p>
+
+<ul>
+<li>
+<p> STUDYID
+</p>
+</li>
+<li>
+<p> USUBJID
+</p>
+</li>
+<li>
+<p> DOMAIN
+</p>
+</li>
+<li>
+<p> domainSEQ
+</p>
+</li>
+<li>
+<p> domainDTC
+</p>
+</li>
+</ul>
+<p>where domain is the name of the actual findings domain - e.g. LBSEQ and
+LBDTC</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phaseFilter</code></td>
+<td>
+<p>Optional, character.<br>
+The phase value criterion to be used for filtering of the list of animals.<br>
+It can be a single string, a vector or a list of multiple strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inclUncertain</code></td>
+<td>
+<p>Mandatory, boolean.<br>
+Only relevant if the <code>phaseFilter</code> is not empty.<br>
+Indicates whether finding rows for which the phase cannot be confidently
+identified shall be included or not in the output data table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noFilterReportUncertain</code></td>
+<td>
+<p>Mandatory, boolean.<br>
+Only relevant if the <code>phaseFilter</code> is empty.<br>
+Indicates if the reason should be included if the phase cannot be
+confidently decided for an animal.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The logic for the extraction is based on the subject elements and the trial
+design domains - for each finding row:
+</p>
+
+<ul>
+<li>
+<p> The related subject element is found in SE as the row where the
+value of domainDTC is within the interval from SESTDTC to SEENDTC
+</p>
+</li>
+<li>
+<p> The actual EPOCH is found in TA in the row matching the found
+element (via the ETCD value)
+</p>
+</li>
+<li>
+<p> The actual study phase is derived from the EPOCH value matching at
+set of text patterns
+</p>
+</li>
+</ul>
+<p>For pooled findings rows - i.e. POOLID is populated instead of USUBJID - the
+phase is identified per animal included in the each pool and finding, and if all
+identified phases are equal per pool and finding, the identified phase are
+returned per pool and finding.
+</p>
+<p>The populated value of a phase is one of:
+</p>
+
+<ul>
+<li>
+<p> 'Screening'<br>
+If TA.EPOCH fulfills one:
+</p>
+
+<ul>
+<li>
+<p> contains 'pre' followed by one of
+['treat','trt','dos',test','study','exposure']
+</p>
+</li>
+<li>
+<p> contains one of
+['acclimat','screen','baseline','allocat','random']
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> 'Recovery'<br>
+If TA.EPOCH doesn't fulfill the pattern for 'Screening' and fulfills one
+of:
+</p>
+
+<ul>
+<li>
+<p> contains 'recovery'
+</p>
+</li>
+<li>
+<p> contains 'post' followed by one of
+['treat','trt','dos','test','study','exposure']
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> 'Treatment'<br>
+If TA.EPOCH doesn't fulfill the patterns for 'Screening' or 'Recovery'
+and fulfills both:
+</p>
+
+<ul>
+<li>
+<p> contains one of
+['treat','trt','dos','test','exposure']
+</p>
+</li>
+<li>
+<p> does not contain any of
+['off','non'|','free'|','holiday']
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p> 'Uncertain'<br>
+If the TA.EPOCH is empty or does not fulfills any of the requirements
+described for the three phases above.
+</p>
+</li>
+</ul>
+<p>If input parameter <code>inclUncertain=TRUE</code>, findings rows where the phase
+cannot be confidently identified are included in the output set. These
+uncertain situations are identified and reported (in column UNCERTAIN_MSG):
+</p>
+
+<ul>
+<li>
+<p> One of the date/time values SESTDTC, SEENDTC or domainDTC is empty
+or contains an invalid ISO 8601 value
+</p>
+</li>
+<li>
+<p> The value of domainDTC is included in more then one SESTDTC/SEENDTC
+interval
+</p>
+</li>
+<li>
+<p> The EPOCH value does not match any of the patterns identifying the
+set of possible study phases.
+</p>
+</li>
+<li>
+<p> Different phases have been identified for individual subjects in a
+pool for a given finding
+</p>
+</li>
+</ul>
+<p>The same checks are performed and reported in column NOT_VALID_MSG if
+<code>phaseFilter</code> is empty and <code>noFilterReportUncertain=TRUE</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function returns a data.table with columns in this order:
+</p>
+
+<ul>
+<li>
+<p> All columns contained in the <code>findings</code> input table (original
+order except optional UNCERTAIN_MSG and NOT_VALID_MSG)
+</p>
+</li>
+<li>
+<p> PHASE          (character)
+</p>
+</li>
+<li>
+<p> UNCERTAIN_MSG  (character)<br>
+Included when parameter <code>inclUncertain=TRUE</code>.<br>
+In case the phase cannot be confidently matched during the
+filtering of data, the column contains an indication of the reason.<br>
+If any uncertainties have been identified for individual subjects included in
+pools for pooled finding rows, all messages for subjects per pool/findings
+are merged together and reported as one message per pool/finding.<br>
+Is NA for rows where phase can be confidently matched.<br>
+A non-empty UNCERTAIN_MSG value generated by this function is merged with
+non-empty UNCERTAIN_MSG values which may exist in the input set of findings
+specified in <code>findings</code> - separated by '|'.
+</p>
+</li>
+<li>
+<p> NOT_VALID_MSG (character)<br>
+Included when parameter <code>noFilterReportUncertain=TRUE</code>.<br>
+In case the phase cannot be confidently decided, the column
+contains an indication of the reason.<br>
+Is NA for rows where phase can be confidently decided.<br>
+A non-empty NOT_VALID_MSG value generated by this function is merged with
+non-empty NOT_VALID_MSG values which may exist in the input set of findings
+<code>findings</code> - separated by '|'.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Extract LB rows for the Treatment phase - include uncertain rows
+getFindingsPhase(dbToken, lb,
+                 phaseFilter = 'Treatment',
+                 inclUncertain = TRUE)
+# No filtering, just add PHASE to FW rows - do not include messages when
+# the phase cannot be confidently identified
+getFindingsPhase(dbToken, fw,
+                 noFilterReportUncertain = FALSE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

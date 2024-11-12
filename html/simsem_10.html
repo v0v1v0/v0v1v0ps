@@ -1,0 +1,200 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>createData</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Create data from a set of drawn parameters.
+</h2>
+
+<h3>Description</h3>
+
+<p>This function can be used to create data from a set of parameters created from <code>draw</code>, called a codeparamSet. This function is used internally to create data, and is available publicly for accessibility and debugging.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">createData(paramSet, n, indDist=NULL, sequential=FALSE, facDist=NULL, 
+errorDist=NULL, saveLatentVar = FALSE, indLab=NULL, facLab = NULL, 
+modelBoot=FALSE, realData=NULL, covData=NULL, empirical = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>paramSet</code></td>
+<td>
+
+<p>Set of drawn parameters from <code>draw</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+
+<p>Integer of desired sample size.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>indDist</code></td>
+<td>
+
+<p>A <code>SimDataDist</code> object or list of objects for a distribution of indicators. If one object is passed, each indicator will have the same distribution. Use when <code>sequential</code> is <code>FALSE</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sequential</code></td>
+<td>
+
+<p>If <code>TRUE</code>, use a sequential method to create data such that the data from factor are generated first and apply to a set of equations to obtain the data of indicators. If <code>FALSE</code>, create data directly from model-implied mean and covariance of indicators.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>facDist</code></td>
+<td>
+
+<p>A <code>SimDataDist</code> object or list of objects for the distribution of factors. If one object is passed, all factors will have the same distribution. Use when <code>sequential</code> is <code>TRUE</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>errorDist</code></td>
+<td>
+
+<p>An object or list of objects of type <code>SimDataDist</code> indicating the distribution of errors. If a single <code>SimDataDist</code> is specified, each error will be genrated with that distribution.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveLatentVar</code></td>
+<td>
+ 
+<p>If <code>TRUE</code>, the total latent variable scores, residual latent variable scores, and measurement error scores are also provided as the <code>"latentVar"</code> attribute of the generated data by the following line: <code>attr(generatedData, "latentVar")</code>. The <code>sequential</code> argument must be <code>TRUE</code> in order to use this option.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>indLab</code></td>
+<td>
+
+<p>A vector of indicator labels. When not specified, the variable names are <code>x1, x2, ... xN</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>facLab</code></td>
+<td>
+
+<p>A vector of factor labels. When not specified, the variable names are <code>f1, f2, ... fN</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modelBoot</code></td>
+<td>
+
+<p>When specified, a model-based bootstrap is used for data generation. See details for further information. This argument requires real data to be passed to <code>readData</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>realData</code></td>
+<td>
+
+<p>A data.frame containing real data. The data generated will follow the distribution of this data set.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covData</code></td>
+<td>
+ 
+<p>A data.frame containing covariate data, which can have any distributions. This argument is required when users specify <code>GA</code> or <code>KA</code> matrices in the model template (<code>SimSem</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>empirical</code></td>
+<td>
+ 
+<p>Logical. If <code>TRUE</code>, the specified parameters are treated as sample statistics and data are created to get the specified sample statistics. This argument is applicable when multivariate normal distribution is specified only.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function will use the modified <code>mvrnorm</code> function (from the MASS package) by Paul E. Johnson  to create data from model implied covariance matrix if the data distribution object (<code>SimDataDist</code>) is not specified. The modified function is just a small modification from the original <code>mvrnorm</code> function such that the data generated with the sample sizes of n and n + k (where k &gt; 0) will be replicable in the first n rows.
+</p>
+<p>It the data distribution object is specified, either the copula model or the Vale and Maurelli's method is used. For the copula approach, if the <code>copula</code> argument is not specified in the data distribution object, the naive Gaussian copula is used. The correlation matrix is direct applied to the multivariate Gaussian copula. The correlation matrix will be equivalent to the Spearman's correlation (rank correlation) of the resulting data. If the <code>copula</code> argument is specified, such as <code>ellipCopula</code>, <code>normalCopula</code>, or <code>archmCopula</code>, the data-transformation method from Mair, Satorra, and Bentler (2012) is used. In brief, the data (<code class="reqn">X</code>) are created from the multivariate copula. The covariance from the generated data is used as the starting point (<code class="reqn">S</code>). Then, the target data (<code class="reqn">Y</code>) with the target covariance as model-implied covariance matrix (<code class="reqn">\Sigma_0</code>) can be created:
+</p>
+<p style="text-align: center;"><code class="reqn"> Y = XS^{-1/2}\Sigma^{1/2}_0. </code>
+</p>
+
+<p>See <code>bindDist</code> for further details. For the Vale and Maurelli's (1983) method, the code is brought from the <code>lavaan</code> package.
+</p>
+<p>For the model-based bootstrap, the transformation proposed by Yung &amp; Bentler (1996) is used. This procedure is the expansion from the Bollen and Stine (1992) bootstrap including a mean structure. The model-implied mean vector and covariance matrix with trivial misspecification will be used in the model-based bootstrap if <code>misspec</code> is specified. See page 133 of Bollen and Stine (1992) for a reference. 
+</p>
+<p>Internally, parameters are first drawn, and data is then created from these parameters. Both of these steps are available via the <code>draw</code> and <code>createData</code> functions respectively.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A data.frame containing simulated data from the data generation template. A variable "group" is appended indicating group membership.
+</p>
+
+
+<h3>Author(s)</h3>
+
+	
+<p>Sunthud Pornprasertmanit (<a href="mailto:psunthud@gmail.com">psunthud@gmail.com</a>), Patrick Miller (University of Notre Dame; <a href="mailto:pmille13@nd.edu">pmille13@nd.edu</a>). The original code of <code>mvrnorm</code> function is based on the <code>MASS</code> package slightly modified by Paul E. Johnson. The code for data-transformation in multivariate copula is based on Mair et al. (2012) article. The code for Vale and Maurelli (1983) is slightly modified from the function provided in the <code>lavaan</code> package.
+</p>
+
+
+<h3>References</h3>
+
+<p>Bollen, K. A., &amp; Stine, R. A. (1992). Bootstrapping goodness-of-fit measures in structural equation models. <em>Sociological Methods and Research, 21,</em> 205-229.
+</p>
+<p>Mair, P., Satorra, A., &amp; Bentler, P. M. (2012). Generating nonnormal multivariate data using copulas: Applications to SEM. <em>Multivariate Behavioral Research, 47</em>, 547-565.
+</p>
+<p>Vale, C. D. &amp; Maurelli, V. A. (1983) Simulating multivariate nonormal distributions. <em>Psychometrika, 48</em>, 465-471.
+</p>
+<p>Yung, Y.-F., &amp; Bentler, P. M. (1996). Bootstrapping techniques in analysis of mean and covariance structures. In G. A. Marcoulides &amp; R. E. Schumacker (Eds.), <em>Advanced structural equation modeling: Issues and techniques</em> (pp. 195-226). Mahwah, NJ: Erlbaum.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">loading &lt;- matrix(0, 6, 2)
+loading[1:3, 1] &lt;- NA
+loading[4:6, 2] &lt;- NA
+LY &lt;- bind(loading, 0.7)
+
+latent.cor &lt;- matrix(NA, 2, 2)
+diag(latent.cor) &lt;- 1
+RPS &lt;- binds(latent.cor, 0.5)
+
+RTE &lt;- binds(diag(6))
+
+VY &lt;- bind(rep(NA,6),2)
+
+CFA.Model &lt;- model(LY = LY, RPS = RPS, RTE = RTE, modelType = "CFA")
+
+# Draw a parameter set for data generation.
+param &lt;- draw(CFA.Model)
+
+# Generate data from the first group in the paramList.
+dat &lt;- createData(param[[1]], n = 200) 
+</code></pre>
+
+
+</div>

@@ -1,0 +1,272 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spaMM_boot</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Parametric bootstrap
+</h2>
+
+<h3>Description</h3>
+
+<p><code>spaMM_boot</code> simulates samples from a fit object inheriting from class <code>"HLfit"</code>, as produced by spaMM's fitting functions, and applies a given function to each simulated sample. Parallelization is supported (see Details). 
+</p>
+<p><code>spaMM2boot</code> is similar except that it assumes that the original model is refitted on the simulated data, and the given function is applied to the refitted model, and the value is in a format directly usable as input for <code>boot::boot.ci</code>. 
+</p>
+<p>Both of these functions can be used to apply standard parametric bootstrap procedures. <code>spaMM_boot</code> is suitable for more diverse applications, e.g. to fit by one model some samples simulated under another model (see Example).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spaMM_boot(object, simuland, nsim, nb_cores=NULL, seed=NULL,
+           resp_testfn=NULL, control.foreach=list(),
+           debug. = FALSE, type, fit_env=NULL, cluster_args=NULL,
+           showpbar= eval(spaMM.getOption("barstyle")),
+           boot_samples=NULL,
+           ...)
+spaMM2boot(object, statFUN, nsim, nb_cores=NULL, seed=NULL,
+           resp_testfn=NULL, control.foreach=list(),
+           debug. = FALSE, type="marginal", fit_env=NULL, 
+           cluster_args=NULL, showpbar= eval(spaMM.getOption("barstyle")),
+           boot_samples=NULL,
+           ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+
+<p>The fit object to simulate from.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simuland</code></td>
+<td>
+
+<p>The function to apply to each simulated sample. See Details for requirements of this function.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>statFUN</code></td>
+<td>
+
+<p>The function to apply to each fit object for each simulated sample. See Details for requirements of this function.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+
+<p>Number of samples to simulate and analyze.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_cores</code></td>
+<td>
+
+<p>Number of cores to use for parallel computation. The default is <code>spaMM.getOption("nb_cores")</code>, and 1 if the latter is NULL. <code>nb_cores=1</code> prevents the use of parallelisation procedures.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Passed to <code>simulate.HLfit</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resp_testfn</code></td>
+<td>
+<p>Passed to <code>simulate.HLfit</code>; NULL, or a function that tests a condition which simulated samples should satisfy. This function takes a response vector as argument and return a boolean (TRUE indicating that the sample satisfies the condition).     
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control.foreach</code></td>
+<td>
+<p>list of control arguments for <code>foreach</code>. These include in particular <code>.combine</code> (with default value <code>"rbind"</code>), and <code>.errorhandling</code> (with default value <code>"remove"</code>, but <code>"pass"</code> is quite useful for debugging).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>debug.</code></td>
+<td>
+
+<p>Boolean (or integer, interpreted as boolean). For debugging purposes, given that <code>spaMM_boot</code> does not stop when the fit of a bootstrap replicate fails. Subject to changes with no or little notice. In serial computation, <code>debug.=2</code> will stop on an error. In parallel computation, this would be ignored. The effect of <code>debug.=TRUE</code> depends on what <code>simuland</code> does of it. The default <code>simuland</code> for likelihood ratio testing functions, <code>eval_replicate</code>, shows how <code>debug.</code> can be used to control a call to <code>dump.frames</code> (however, debugging user-defined functions by such a call does not require control by <code>debug.</code>).  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+
+<p>Character: passed to <code>simulate.HLfit</code>. Defaults, with a warning, to <code>type="marginal"</code> in order to replicate the behaviour of previous versions of <code>spaMM_boot</code>. This is an appropriate default for various parametric bootstrpa analyses, but not necessarily the appropriate <code>type</code> for all possible uses. See Details of <code>simulate.HLfit</code> for other implemented options.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit_env</code></td>
+<td>
+
+<p>An environment or list containing variables necessary to evaluate <code>simuland</code> on each sample, and not included in the fit <code>object</code>. E.g., use <code>fit_env=list(phi_fix=phi_fix)</code> if the fit assumed <code>fixed=list(phi=phi_fix)</code>: the name in <code>list(phi_fix=&lt;.&gt;)</code> must be the name of the object that will be sought by the called process when interpreting <code>fixed=list(phi=phi_fix)</code> (if still unsure about the proper syntax, see the <code>clusterExport</code> documentation, as <code>fit_env</code> is used in the following context: <code>parallel::clusterExport(cl=&lt;cluster&gt;, varlist=ls(fit_env), envir=fit_env))</code>.   
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster_args</code></td>
+<td>
+
+<p><code>NULL</code> or a <code>list</code> of arguments, passed to <code>makeCluster</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>showpbar</code></td>
+<td>
+
+<p>Controls display of progress bar. See <code>barstyle</code> option for details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot_samples</code></td>
+<td>
+
+<p>NULL, or precomputed bootstrap samples from the fitted model, provided as a matrix with one column per bootstrap replicate (the format of the result of <code>simulate.HLfit</code>), or as a list including a <code>bootreps</code> element with the same matrix format.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Further arguments passed to the <code>simuland</code> function.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>simuland</code> function must take as first argument a vector of response values, and may have other arguments including ‘...’. When required, these additional arguments must be passed through the ‘...’ arguments of <code>spaMM_boot</code>. Variables needed to evaluate them must be available from within the <code>simuland</code> function or otherwise provided as elements of <code>fit_env</code>.
+</p>
+<p>The <code>statFUN</code> function must take as first argument (named <code>refit</code>) a fit object, and may have other arguments including ‘...’ handled as for <code>simuland</code>.
+</p>
+<p><code>spaMM_boot</code> handles parallel backends with different features. <code>pbapply::pbapply</code> has a very simple interface (essentially equivalent to <code>apply</code>) and provides progress bars, but (in version 1.4.0, at least) does not have efficient load-balancing. <code>doSNOW</code> also provides a progress bar and allows more efficient load-balancing, but its requires <code>foreach</code>. <code>foreach</code> handles errors differently from <code>pbapply</code> (which will simply stop if fitting a model to a bootstrap replicate fails): see the <code>foreach</code> documentation.
+</p>
+<p><code>spaMM_boot</code> calls <code>simulate.HLfit</code> on the fit <code>object</code> and applies <code>simuland</code> on each column of the matrix returned by this call. 
+<code>simulate.HLfit</code> uses the <code>type</code> argument, which must be explicitly provided.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>spaMM_boot</code> returns a list, with the following element(s) (unless <code>debug.</code> is <code>TRUE</code>): 
+</p>
+
+<dl>
+<dt>bootreps</dt>
+<dd>
+<p><code>nsim</code> return values in the format returned either by <code>apply</code> or <code>parallel::parApply</code> or by <code>foreach::`%dopar%`</code> as controlled by <code>control.foreach$.combine</code> (which is here <code>"rbind"</code> by default).</p>
+</dd>
+<dt>RNGstate</dt>
+<dd>
+<p>(absent in the case the <code>boot_samples</code> argument was used to provide the new response values but not the <code>RNGstate</code>) the state of <code>.Random.seed</code> at the beginning of the sample simulation</p>
+</dd>
+</dl>
+<p>.  
+
+</p>
+<p><code>spaMM2boot</code> returns a list suitable for use by <code>boot.ci</code>, with elements:  
+</p>
+
+<dl>
+<dt>t</dt>
+<dd>
+<p><code>nsim</code> return values of the simulated statistic (in matrix format).</p>
+</dd>
+<dt>t0</dt>
+<dd>
+<p><code>nsim</code> return the value of <code>statFUN</code> from the original fit.</p>
+</dd>
+<dt>sim</dt>
+<dd>
+<p>The simulation type (<code>"parametric"</code>).</p>
+</dd>
+<dt>R</dt>
+<dd>
+<p><code>nsim</code></p>
+</dd>
+<dt>.Random.seed</dt>
+<dd>
+<p>the state of <code>.Random.seed</code> at the beginning of the sample simulation</p>
+</dd>
+</dl>
+<p>.  
+
+(other elements of an object of class <code>boot</code> are currently not included.)
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (spaMM.getOption("example_maxtime")&gt;7) {
+ data("blackcap")
+ 
+ # Generate fits of null and full models:
+ lrt &lt;- fixedLRT(null.formula=migStatus ~ 1 + Matern(1|longitude+latitude),
+                 formula=migStatus ~ means + Matern(1|longitude+latitude), 
+                 method='ML',data=blackcap)
+
+ # The 'simuland' argument: 
+ myfun &lt;- function(y, what=NULL, lrt, ...) { 
+    data &lt;- lrt$fullfit$data
+    data$migStatus &lt;- y ## replaces original response (! more complicated for binomial fits)
+    full_call &lt;- getCall(lrt$fullfit) ## call for full fit
+    full_call$data &lt;- data
+    res &lt;- eval(full_call) ## fits the full model on the simulated response
+    if (!is.null(what)) res &lt;- eval(what)(res=res) ## post-process the fit
+    return(res) ## the fit, or anything produced by evaluating 'what'
+  }
+  # where the 'what' argument (not required) of myfun() allows one to control 
+  # what the function returns without redefining the function.
+  
+  # Call myfun() with no 'what' argument: returns a list of fits 
+  spaMM_boot(lrt$nullfit, simuland = myfun, nsim=1, lrt=lrt, 
+             type ="marginal")[["bootreps"]] 
+  
+  # Return only a model coefficient for each fit: 
+  spaMM_boot(lrt$nullfit, simuland = myfun, nsim=7,
+             what=quote(function(res) fixef(res)[2L]), 
+             lrt=lrt, type ="marginal")[["bootreps"]]       
+  
+  ## Not run: 
+    # Parametric bootstrap by spaMM2boot() and spaMM_boot():
+    boot.ci_info &lt;- spaMM2boot(lrt$nullfit, statFUN = function(refit) fixef(refit)[1], 
+                               nsim=99, type ="marginal")
+    boot::boot.ci(boot.ci_info, , type=c("basic","perc","norm"))
+    
+    nullfit &lt;- lrt$nullfit
+    boot_t &lt;- spaMM_boot(lrt$nullfit, simuland = function(y, nullfit) {
+      refit &lt;- update_resp(nullfit, y)
+      fixef(refit)[1]
+    }, nsim=99, type ="marginal", nullfit=nullfit)$bootreps
+    boot::boot.ci(list(R = length(boot_t), sim="parametric"), t0=fixef(nullfit)[1], 
+                  t= t(boot_t), type=c("basic","perc","norm"))
+
+
+  
+## End(Not run)           
+}
+</code></pre>
+
+
+</div>

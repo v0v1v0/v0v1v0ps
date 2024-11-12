@@ -1,0 +1,134 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Resample</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Resampling observations</h2>
+
+<h3>Description</h3>
+
+<p>Generates a vector of resampled observation IDs.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Resample(data, family = NULL, tau = 0.5, resampling = "subsampling", ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>vector or matrix of data. In regression, this should be the
+outcome data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>type of regression model. This argument is defined as in
+<code>glmnet</code>. Possible values include <code>"gaussian"</code>
+(linear regression), <code>"binomial"</code> (logistic regression),
+<code>"multinomial"</code> (multinomial regression), and <code>"cox"</code> (survival
+analysis).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>subsample size. Only used if <code>resampling="subsampling"</code> and
+<code>cpss=FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resampling</code></td>
+<td>
+<p>resampling approach. Possible values are:
+<code>"subsampling"</code> for sampling without replacement of a proportion
+<code>tau</code> of the observations, or <code>"bootstrap"</code> for sampling with
+replacement generating a resampled dataset with as many observations as in
+the full sample. Alternatively, this argument can be a function to use for
+resampling. This function must use arguments named <code>data</code> and
+<code>tau</code> and return the IDs of observations to be included in the
+resampled dataset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed to the function provided in
+<code>resampling</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>With categorical outcomes (i.e. "family" argument is set to
+"binomial", "multinomial" or "cox"), the resampling is done such that the
+proportion of observations from each of the categories is representative of
+that of the full sample.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A vector of resampled IDs.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Linear regression framework
+# Data simulation
+simul &lt;- SimulateRegression()
+
+# Subsampling
+ids &lt;- Resample(data = simul$ydata, family = "gaussian")
+sum(duplicated(ids))
+
+# Bootstrapping
+ids &lt;- Resample(data = simul$ydata, family = "gaussian", resampling = "bootstrap")
+sum(duplicated(ids))
+
+## Logistic regression framework
+# Data simulation
+simul &lt;- SimulateRegression(family = "binomial")
+
+# Subsampling
+ids &lt;- Resample(data = simul$ydata, family = "binomial")
+sum(duplicated(ids))
+prop.table(table(simul$ydata))
+prop.table(table(simul$ydata[ids]))
+
+# Data simulation for a binary confounder
+conf &lt;- ifelse(runif(n = 100) &gt; 0.5, yes = 1, no = 0)
+
+# User-defined resampling function
+BalancedResampling &lt;- function(data, tau, Z, ...) {
+  s &lt;- NULL
+  for (z in unique(Z)) {
+    s &lt;- c(s, sample(which((data == "0") &amp; (Z == z)), size = tau * sum((data == "0") &amp; (Z == z))))
+    s &lt;- c(s, sample(which((data == "1") &amp; (Z == z)), size = tau * sum((data == "1") &amp; (Z == z))))
+  }
+  return(s)
+}
+
+# Resampling keeping proportions by Y and Z
+ids &lt;- Resample(data = simul$ydata, family = "binomial", resampling = BalancedResampling, Z = conf)
+prop.table(table(simul$ydata, conf))
+prop.table(table(simul$ydata[ids], conf[ids]))
+
+# User-defined resampling for stability selection
+stab &lt;- VariableSelection(
+  xdata = simul$xdata, ydata = simul$ydata, family = "binomial",
+  resampling = BalancedResampling, Z = conf
+)
+</code></pre>
+
+
+</div>

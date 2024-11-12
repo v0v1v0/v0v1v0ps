@@ -1,0 +1,115 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>coef.cv.SplitGLM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Coefficients for cv.SplitGLM Object</h2>
+
+<h3>Description</h3>
+
+<p><code>coef.cv.SplitGLM</code> returns the coefficients for a cv.SplitGLM object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'cv.SplitGLM'
+coef(object, group_index = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object of class cv.SplitGLM.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_index</code></td>
+<td>
+<p>The group for which to return the coefficients. Default is the ensemble coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments for compatibility.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The coefficients for the cv.SplitGLM object.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Anthony-Alexander Christidis, <a href="mailto:anthony.christidis@stat.ubc.ca">anthony.christidis@stat.ubc.ca</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>cv.SplitGLM</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Data simulation
+set.seed(1)
+n &lt;- 50
+N &lt;- 2000
+p &lt;- 1000
+beta.active &lt;- c(abs(runif(p, 0, 1/2))*(-1)^rbinom(p, 1, 0.3))
+# Parameters
+p.active &lt;- 100
+beta &lt;- c(beta.active[1:p.active], rep(0, p-p.active))
+Sigma &lt;- matrix(0, p, p)
+Sigma[1:p.active, 1:p.active] &lt;- 0.5
+diag(Sigma) &lt;- 1
+
+# Train data
+x.train &lt;- mvnfast::rmvn(n, mu = rep(0, p), sigma = Sigma) 
+prob.train &lt;- exp(x.train %*% beta)/
+              (1+exp(x.train %*% beta))
+y.train &lt;- rbinom(n, 1, prob.train)
+mean(y.train)
+# Test data
+x.test &lt;- mvnfast::rmvn(N, mu = rep(0, p), sigma = Sigma)
+prob.test &lt;- exp(x.test %*% beta)/
+             (1+exp(x.test %*% beta))
+y.test &lt;- rbinom(N, 1, prob.test)
+mean(y.test)
+
+# SplitGLM - CV (Multiple Groups)
+split.out &lt;- cv.SplitGLM(x.train, y.train,
+                         glm_type="Logistic",
+                         G=10, include_intercept=TRUE,
+                         alpha_s=3/4, alpha_d=1,
+                         n_lambda_sparsity=50, n_lambda_diversity=50,
+                         tolerance=1e-3, max_iter=1e3,
+                         n_folds=5,
+                         active_set=FALSE,
+                         n_threads=1)
+split.coef &lt;- coef(split.out)
+# Predictions
+split.prob &lt;- predict(split.out, newx=x.test, type="prob", group_index=NULL)
+split.class &lt;- predict(split.out, newx=x.test, type="class", group_index=NULL)
+plot(prob.test, split.prob, pch=20)
+abline(h=0.5,v=0.5)
+mean((prob.test-split.prob)^2)
+mean(abs(y.test-split.class))
+
+
+
+</code></pre>
+
+
+</div>

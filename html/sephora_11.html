@@ -1,0 +1,407 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>phenopar</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Phenological parameters estimation</h2>
+
+<h3>Description</h3>
+
+<p>Estimation of 6 phenological parameters from a numeric vector. The estimated parameters are: <b>green up</b>,
+<b>start of season</b>, <b>maturity</b>, <b>senescence</b>, <b>end of season</b> and <b>dormancy</b>. These parameters
+are critical points of some derivatives of an idealized curve which, in turn, is obtained 
+through a functional principal component analysis (FPCA)-based regression model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">phenopar(
+  x,
+  startYear,
+  endYear,
+  frequency = 23,
+  method = c("OLS", "WLS"),
+  sigma = NULL,
+  numFreq,
+  delta = 0,
+  distance,
+  samples,
+  basis,
+  corr = NULL,
+  k,
+  trace = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a numeric vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startYear</code></td>
+<td>
+<p>integer, time series initial year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endYear</code></td>
+<td>
+<p>integer, time series final year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>frequency</code></td>
+<td>
+<p>integer giving number of observations per season. Default, 23.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>character. Should <code>OLS</code> or <code>WLS</code> be used for smoothing <code>x</code>
+through a harmonic regression model. See <b>Details</b>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>numeric vector of length equal to <code>frequency</code>. Each entry gives the 
+standard deviation of observations acquired at same day of the year.
+Pertinent when <code>method=WLS</code> only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numFreq</code></td>
+<td>
+<p>integer specifying number of frequencies used in harmonic regression
+model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>numeric. Default, 0. When harmonic regression problem is ill-posed, this 
+parameter allows a simple regularization. See <b>Details</b>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance</code></td>
+<td>
+<p>character indicating what distance to use in hierarchical clustering.
+All distances in <code>tsclust</code> are allowed. See 
+<b>Details</b>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samples</code></td>
+<td>
+<p>integer with number of samples to draw from smoothed version of <code>x</code>. Used
+exclusively in Functional Principal Components Analysis (FPCA)-based
+regression. See <b>Details</b>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>basis</code></td>
+<td>
+<p>list giving numeric basis used in FPCA-based regression. See <b>Details</b>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>corr</code></td>
+<td>
+<p>Default <code>NULL</code>. Object defining correlation structure, can be 
+numeric vector, matrix or function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>integer, number of principal components used in FPCA-based regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p>logical. If <code>TRUE</code>, progress on the hierarchical clustering
+is printed on console. Default, <code>FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In order to estimate the phenological parameters, first <code>x</code> is assembled 
+as a matrix. This matrix has as many rows as years (<code>length(startYear:endYear)</code>) in the studied period and as many columns
+as observations (<code>frequency</code>) per year. Then, each vector row is smoothed through 
+the harmonic regression model <code>haRmonics</code>. This function allows 
+for homogeneous (<code>OLS</code>) and heterogeneous (<code>WLS</code>) errors in the model. When
+<code>method=WLS</code>, <code>sigma</code> must be provided, <code>hetervar</code> is recommended for such a purpose.
+Additional parameters for <code>haRmonics</code> are <code>numFreq</code> and
+<code>delta</code>.
+</p>
+<p>Next, equally spaced <code>samples</code> are drawn from each harmonic regression fit, 
+the resulting observations are stored in the matrix <code>m_aug_smooth</code>. 
+<code>tsclust</code> 
+is applied to <code>m_aug_smooth</code> in order to obtain clusters of years sharing 
+similar characteristics; 2 clusters are produced. The next step is applied
+to the dominating cluster (the one with the majority of years, &gt;=10), or to the 
+whole of columns of <code>m_aug_smooth</code> when no dominating cluster can be determined.
+</p>
+<p>Based on the observations produced in the hierarchical clustering step, a regression 
+model with the following representation is applied:
+</p>
+<p><code class="reqn">f_i(t) = \tau(t) + \sum_{j=1}^{k} \varepsilon_j(t) \nu_{ij} + \epsilon_i</code>,
+</p>
+<p>where <code class="reqn">f_i(t)</code> is substituted by the vector of sample observations of the <code class="reqn">i</code>-th 
+year; <code class="reqn">\varepsilon_j(t)</code> is the <code class="reqn">j</code>-th functional principal component (FPC); 
+<code class="reqn">\nu_{ij}</code> is the score associated with the <code class="reqn">j</code>-th FPC and the <code class="reqn">i</code>-th vector
+of sampled observations; and <code class="reqn">\epsilon_i</code> is a normally distributed random variable
+with variance <code class="reqn">\sigma^2</code>, see <cite>Krivobokova et al. (2022)</cite> for further details. 
+From this step, an estimate of <code class="reqn">\tau</code> is produced -<code>fpca</code>- 
+this is an idealized version of the original observations contained in <code>x</code>.
+</p>
+<p>Parameter <code>basis</code> can be supplied through a call to <code>drbasis</code>
+with parameters <code>nn=samples</code> and <code>qq=2</code>. Parameter <code>corr</code> indicates
+whether correlation between annual curves must be considered; the current implementation
+does not incorporate correlation. The number of principal components is controlled
+by <code>k</code>. 
+</p>
+<p>Next, a harmonic regression is fitted to <code>fpca</code> (a numeric vector of length 
+equal to <code>samples</code>) with the parameters provided above (<code>method</code>, <code>sigma</code>, 
+<code>numFreq</code>, <code>delta</code>). Based on the estimated parameters of this fit 
+(<code>fpca_harmfit_params</code>) a R function is calculated along with its first, 
+second, third and fourth derivatives. These derivatives are used in establishing 
+the phenological parameters (<code>phenoparams</code>) utilizing basic calculus
+criteria similar to what <cite>Baumann et al. (2017)</cite> have proposed.
+</p>
+<p>Finally, when 6 <code>phenoparams</code> are found <code>status=Success</code>, otherwise 
+<code>status=Partial</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>sephora-class</code> object containing 14 elements
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>numeric vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startYear</code></td>
+<td>
+<p>integer, time series initial year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endYear</code></td>
+<td>
+<p>integer, time series final year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>freq</code></td>
+<td>
+<p>numeric giving number of observations per season. Default is 23.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>when <code>method="OLS"</code>, numeric of length one (standard deviation); 
+when <code>method="WLS"</code>, numeric vector of length equal to <code>freq</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m_aug_smooth</code></td>
+<td>
+<p>matrix with <code>nrow=samples</code> and <code>ncol=(length(x)/freq)</code> 
+containing sampled observations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clustering</code></td>
+<td>
+<p>Formal class <code>HierarchicalTSClusters</code> with 20 slots. Output from a call 
+to <code>tsclust</code> with parameters <code>series=m_aug_smooth</code>,
+<code>type='h'</code>, <code>distance=distance</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca</code></td>
+<td>
+<p>numeric vector of length equal to <code>samples</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca_harmfit_params</code></td>
+<td>
+<p>list of 4: <code>a.coef</code>, <code>b.coef</code>, <code>amplitude</code> 
+and <code>phase</code> as in <code>haRmonics</code> output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca_fun_0der</code></td>
+<td>
+<p>function, harmonic fit for <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca_fun_1der</code></td>
+<td>
+<p>function, first derivative of harmonic fit for <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca_fun_2der</code></td>
+<td>
+<p>function, second derivative of harmonic fit for <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca_fun_3der</code></td>
+<td>
+<p>function, third derivative of harmonic fit for <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fpca_fun_4der</code></td>
+<td>
+<p>function, fourth derivative of harmonic fit for <code>x</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phenoparams</code></td>
+<td>
+<p>named numeric vector of length 6</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>status</code></td>
+<td>
+<p>character, specifying whether FPCA model was inverted successfully 
+(<code>Success</code>) or partially ("Partial"). In other words, <code>Success</code> and 
+<code>Partial</code> mean that 6 or less than 6 parameters were estimated, respectively.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Krivobokova, T. and Serra, P. and Rosales, F. and Klockmann, K. (2022).
+<em>Joint non-parametric estimation of mean and auto-covariances for Gaussian processes</em>. 
+Computational Statistics &amp; Data Analysis, <b>173</b>, 107519.
+</p>
+<p>Baumann, M. and Ozdogan, M. and Richardson, A. and Radeloff, V. (2017).
+<em>Phenology from Landsat when data is scarce: Using MODIS and Dynamic Time-Warping to combine 
+multi-year Landsat imagery to derive annual phenology curves</em>. International Journal of Applied Earth Observation and Geoinformation,
+<b>54</b>, 72–83
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>haRmonics</code>, <code>hetervar</code>, 
+<code>tsclust</code>, <code>drbasis</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># --- Load dataset for testing
+data("deciduous_polygon")
+
+# --- Extracting first pixel of deciduous_polygon
+pixel_deciduous &lt;- vecFromData(data=deciduous_polygon, numRow=3)
+
+# --- Following objects are used in this example
+# --- for CRAN testing purposes only. In real life examples
+# --- there is no need to shorten time series length
+
+EndYear &lt;- 2010
+number_observations &lt;- 23*11
+
+# --- needed parameter
+BASIS &lt;- drbasis(n=50, q=2) 
+
+# --- testing phenopar
+sephora_deciduous &lt;- phenopar(x=pixel_deciduous$vec[1:number_observations],
+                              startYear=2000, endYear=EndYear,
+                              numFreq=3, distance="dtw2",
+                              samples=50, basis=BASIS, k=3)
+                              
+# --- testing ndvi_derivatives
+f &lt;- ndvi_derivatives(amp = sephora_deciduous$fpca_harmfit_params$amplitude,
+                      pha = sephora_deciduous$fpca_harmfit_params$phase,
+                      degree = 0, L = 365)
+fprime &lt;- ndvi_derivatives(amp = sephora_deciduous$fpca_harmfit_params$amplitude,
+                           pha = sephora_deciduous$fpca_harmfit_params$phase,
+                           degree = 1, L = 365)
+fbiprime &lt;- ndvi_derivatives(amp = sephora_deciduous$fpca_harmfit_params$amplitude,
+                             pha = sephora_deciduous$fpca_harmfit_params$phase,
+                             degree = 2, L = 365)
+f3prime &lt;- ndvi_derivatives(amp = sephora_deciduous$fpca_harmfit_params$amplitude,
+                            pha = sephora_deciduous$fpca_harmfit_params$phase,
+                            degree = 3, L = 365)
+f4prime &lt;- ndvi_derivatives(amp = sephora_deciduous$fpca_harmfit_params$amplitude,
+                            pha = sephora_deciduous$fpca_harmfit_params$phase,
+                            degree = 4, L = 365)
+                            
+# --- testing global_min_max and local_min_max
+intervalo &lt;- seq(1,365, length=365)
+GU_Mat &lt;- global_min_max(f=fbiprime, f1der=f3prime, f2der=f4prime, D=intervalo)
+Sen &lt;- local_min_max(f=fbiprime, f1der=f3prime, f2der=f4prime, 
+                     what="min", x0=GU_Mat$min, D=intervalo)
+SoS_EoS &lt;- global_min_max(f=fprime, f1der=fbiprime, f2der=f3prime, D=intervalo)
+Dor &lt;- local_min_max(f=fbiprime, f1der=f3prime, f2der=f4prime, 
+                     what="max", x0=GU_Mat$max, D=intervalo)
+                      
+# --- phenological dates (rough estimates)
+c(GU=GU_Mat$max, SoS=SoS_EoS$max, Mat=GU_Mat$min,
+  Sen=Sen$x_opt, EoS=SoS_EoS$min, Dor=Dor$x_opt)
+# --- phenological dates provided by sephora
+sephora_deciduous$phenoparams
+
+# --- testing plotting methods
+plot(x=sephora_deciduous, yLab="NDVI (no rescaled)")
+plot(x=sephora_deciduous, type="profiles", 
+     xLab="DoY", yLab="NDVI (no rescaled)")
+     
+# --- 2015 forms Cluster 2
+plot(x=sephora_deciduous, type="ms")      
+
+# --- graphical definition of phenological dates
+plot(x=sephora_deciduous, type="derivatives")
+
+# --- Overlapping FPCA fit to original time series
+gg &lt;- plot(x=sephora_deciduous, type="profiles", 
+           xLab="DoY", yLab="NDVI (no rescaled)")
+x_axis &lt;- get_metadata_years(x=pixel_deciduous$vec, 
+                             startYear=2000, endYear=EndYear, frequency=23)  
+DoY &lt;- seq(1,365, by=16)
+fpca_DoY &lt;- sephora_deciduous$fpca_fun_0der(t=DoY)
+COLORS &lt;- unique( ggplot_build(gg)$data[1][[1]]$colour )
+df &lt;- data.frame(values=c(sephora_deciduous$x, fpca_DoY),
+                 years=as.factor(rep(c(x_axis$xLabels,"FPCA"), each=23)),
+                 DoY=factor(DoY, levels=DoY), class=c(rep(1,number_observations), rep(2,23))) 
+gg_fpca &lt;- ggplot(data=df, 
+                  aes(x=DoY, y=values, group=years, colour=years)) +
+ggplot2::geom_line(linewidth = c(rep(1,number_observations), rep(4,23))) + 
+ggplot2::labs(y="NDVI", x="DoY", color="years+FPCA") + 
+ggplot2::scale_color_manual(values = c(COLORS, "#FF4500")) +
+ggplot2::theme(legend.position = "right")
+gg_fpca
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,124 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>nealAlgorithm3</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Conjugate Gibbs Sampler for a Partition</h2>
+
+<h3>Description</h3>
+
+<p>Algorithm 3 from Neal (2000) to update the state of a partition based on the
+"Chinese Restaurant Process" (CRP) prior and a user-supplied log posterior
+predictive density function, with additional functionality for the two
+parameter CRP prior.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">nealAlgorithm3(
+  partition,
+  logPosteriorPredictiveDensity = function(i, subset) 0,
+  mass = 1,
+  discount = 0,
+  nUpdates = 1L
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>partition</code></td>
+<td>
+<p>A numeric vector of cluster labels representing the current
+partition.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logPosteriorPredictiveDensity</code></td>
+<td>
+<p>A function taking an index <code class="reqn">i</code> (as a
+numeric vector of length one) and a subset of integers <code class="reqn">subset</code>, and
+returning the natural logarithm of <code class="reqn">p( y_i | y_subset )</code>, i.e., that
+item's contribution to the log integrated likelihood given a subset of the
+other items. The default value "turns off" the likelihood, resulting in
+prior simulation (rather than posterior simulation).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mass</code></td>
+<td>
+<p>A specification of the mass (concentration) parameter in the CRP
+prior. Must be greater than the <code>-discount</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>discount</code></td>
+<td>
+<p>A numeric value on the interval [0,1) corresponding to the
+discount parameter in the two parameter CRP prior.  Set to zero for the
+usual, one parameter CRP prior.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nUpdates</code></td>
+<td>
+<p>An integer giving the number of Gibbs scans before returning.
+This has the effect of thinning the Markov chain.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A numeric vector giving the updated partition encoded using cluster
+labels.
+</p>
+
+
+<h3>References</h3>
+
+<p>Neal, R. M. (2000). Markov chain sampling methods for Dirichlet
+process mixture models. <em>Journal of computational and graphical
+statistics</em>, 9(2), 249-265.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+nealData &lt;- c(-1.48, -1.40, -1.16, -1.08, -1.02, 0.14, 0.51, 0.53, 0.78)
+mkLogPosteriorPredictiveDensity &lt;- function(data = nealData,
+                                            sigma2 = 0.1^2,
+                                            mu0 = 0,
+                                            sigma02 = 1) {
+  function(i, subset) {
+    posteriorVariance &lt;- 1 / ( 1/sigma02 + length(subset)/sigma2 )
+    posteriorMean &lt;- posteriorVariance * ( mu0/sigma02 + sum(data[subset])/sigma2 )
+    posteriorPredictiveSD &lt;- sqrt(posteriorVariance + sigma2)
+    dnorm(data[i], posteriorMean, posteriorPredictiveSD, log=TRUE)
+  }
+}
+
+logPostPredict &lt;- mkLogPosteriorPredictiveDensity()
+
+nSamples &lt;- 1000L
+partitions &lt;- matrix(0, nrow = nSamples, ncol = length(nealData))
+for (i in 2:nSamples) {
+  partitions[i,] &lt;- nealAlgorithm3(partitions[i-1,], logPostPredict, mass = 1.0, nUpdates = 1)
+}
+
+# convergence and mixing diagnostics
+nSubsets &lt;- apply(partitions, 1, function(x) length(unique(x)))
+mean(nSubsets)
+sum(acf(nSubsets)$acf) - 1   # Autocorrelation time
+
+entropy &lt;- apply(partitions, 1, partitionEntropy)
+plot.ts(entropy)
+
+</code></pre>
+
+
+</div>

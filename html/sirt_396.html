@@ -1,0 +1,258 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>truescore.irt</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Conversion of Trait Scores <code class="reqn">\theta</code> into
+True Scores <code class="reqn">\tau ( \theta )</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>This function computes the true score
+<code class="reqn">\tau=\tau(\theta)=\sum_{i=1}^I P_i(\theta)</code>
+in a unidimensional item response model with <code class="reqn">I</code> items. In addition, it also
+transforms conditional standard errors if they are provided.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">truescore.irt(A, B, c=NULL, d=NULL, theta=seq(-3, 3, len=21),
+    error=NULL, pid=NULL, h=0.001)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>A</code></td>
+<td>
+
+<p>Matrix or vector of item slopes. See Examples for polytomous responses.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+
+<p>Matrix or vector of item intercepts. Note that the entries in
+<code>B</code> refer to item intercepts and not to item difficulties.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c</code></td>
+<td>
+
+<p>Optional vector of guessing parameters
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+
+<p>Optional vector of slipping parameters
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+
+<p>Vector of trait values
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>error</code></td>
+<td>
+
+<p>Optional vector of standard errors of trait
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pid</code></td>
+<td>
+
+<p>Optional vector of person identifiers
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+
+<p>Numerical differentiation parameter
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In addition, the function <code class="reqn">\pi(\theta)=\frac{1}{I} \cdot \tau( \theta)</code>
+of the expected percent score is approximated by a logistic function
+</p>
+<p style="text-align: center;"><code class="reqn"> \pi ( \theta ) \approx l + ( u - l ) \cdot invlogit ( a \theta + b )
+</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>A data frame with following columns:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>truescore</code></td>
+<td>
+<p>True scores <code class="reqn">\tau=\tau ( \theta )</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>truescore.error</code></td>
+<td>
+<p>Standard errors of true scores</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>percscore</code></td>
+<td>
+<p>Expected correct scores which is <code class="reqn">\tau</code>
+divided by the maximum true score</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>percscore.error</code></td>
+<td>
+<p>Standard errors of expected correct scores</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+<p>The <code class="reqn">l</code> parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>The <code class="reqn">u</code> parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a</code></td>
+<td>
+<p>The <code class="reqn">a</code> parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>The <code class="reqn">b</code> parameter</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">#############################################################################
+# EXAMPLE 1: Dataset with mixed dichotomous and polytomous responses
+#############################################################################
+
+data(data.mixed1)
+dat &lt;- data.mixed1
+
+#****
+# Model 1: Partial credit model
+# estimate model with TAM package
+library(TAM)
+mod1 &lt;- TAM::tam.mml( dat )
+# estimate person parameter estimates
+wmod1 &lt;- TAM::tam.wle( mod1 )
+wmod1 &lt;- wmod1[ order(wmod1$theta), ]
+# extract item parameters
+A &lt;- mod1$B[,-1,1]
+B &lt;- mod1$AXsi[,-1]
+# person parameters and standard errors
+theta &lt;- wmod1$theta
+error &lt;- wmod1$error
+
+# estimate true score transformation
+dfr &lt;- sirt::truescore.irt( A=A, B=B, theta=theta, error=error )
+
+# plot different person parameter estimates and standard errors
+par(mfrow=c(2,2))
+plot( theta, dfr$truescore, pch=16, cex=.6, xlab=expression(theta), type="l",
+    ylab=expression(paste( tau, "(",theta, ")" )), main="True Score Transformation" )
+plot( theta, dfr$percscore, pch=16, cex=.6, xlab=expression(theta), type="l",
+    ylab=expression(paste( pi, "(",theta, ")" )), main="Percent Score Transformation" )
+points( theta, dfr$lower + (dfr$upper-dfr$lower)*
+                stats::plogis(dfr$a*theta+dfr$b), col=2, lty=2)
+plot( theta, error, pch=16, cex=.6, xlab=expression(theta), type="l",
+    ylab=expression(paste("SE(",theta, ")" )), main="Standard Error Theta" )
+plot( dfr$truescore, dfr$truescore.error, pch=16, cex=.6, xlab=expression(tau),
+    ylab=expression(paste("SE(",tau, ")" ) ), main="Standard Error True Score Tau",
+    type="l")
+par(mfrow=c(1,1))
+
+## Not run: 
+#****
+# Model 2: Generalized partial credit model
+mod2 &lt;- TAM::tam.mml.2pl( dat, irtmodel="GPCM")
+# estimate person parameter estimates
+wmod2 &lt;- TAM::tam.wle( mod2 )
+# extract item parameters
+A &lt;- mod2$B[,-1,1]
+B &lt;- mod2$AXsi[,-1]
+# person parameters and standard errors
+theta &lt;- wmod2$theta
+error &lt;- wmod2$error
+# estimate true score transformation
+dfr &lt;- sirt::truescore.irt( A=A, B=B, theta=theta, error=error )
+
+#############################################################################
+# EXAMPLE 2: Dataset Reading data.read
+#############################################################################
+data(data.read)
+
+#****
+# Model 1: estimate difficulty + guessing model
+mod1 &lt;- sirt::rasch.mml2( data.read, fixed.c=rep(.25,12) )
+mod1$person &lt;- mod1$person[ order( mod1$person$EAP), ]
+# person parameters and standard errors
+theta &lt;- mod1$person$EAP
+error &lt;- mod1$person$SE.EAP
+A &lt;- rep(1,12)
+B &lt;- - mod1$item$b
+c &lt;- rep(.25,12)
+# estimate true score transformation
+dfr &lt;- sirt::truescore.irt( A=A, B=B, theta=theta, error=error,c=c)
+
+plot( theta, dfr$percscore, pch=16, cex=.6, xlab=expression(theta), type="l",
+    ylab=expression(paste( pi, "(",theta, ")" )), main="Percent Score Transformation" )
+points( theta, dfr$lower + (dfr$upper-dfr$lower)*
+             stats::plogis(dfr$a*theta+dfr$b), col=2, lty=2)
+
+#****
+# Model 2: Rasch model
+mod2 &lt;- sirt::rasch.mml2( data.read  )
+# person parameters and standard errors
+theta &lt;- mod2$person$EAP
+error &lt;- mod2$person$SE.EAP
+A &lt;- rep(1,12)
+B &lt;- - mod2$item$b
+# estimate true score transformation
+dfr &lt;- sirt::truescore.irt( A=A, B=B, theta=theta, error=error )
+
+## End(Not run)
+</code></pre>
+
+
+</div>

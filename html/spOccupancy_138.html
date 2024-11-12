@@ -1,0 +1,647 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>svcMsPGOcc</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Multi-Species Spatially-Varying Coefficient Occupancy Models</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>svcMsPGOcc</code> fits multi-species spatially-varying coefficient occupancy models with species correlations (i.e., a spatially-explicit joint species distribution model with imperfect detection). We use Polya-Gamma latent variables and a spatial factor modeling approach. Models are implemented using a Nearest Neighbor Gaussian Process. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">svcMsPGOcc(occ.formula, det.formula, data, inits, priors, tuning, 
+           svc.cols = 1, cov.model = 'exponential', NNGP = TRUE, 
+           n.neighbors = 15, search.type = 'cb', std.by.sp = FALSE, 
+           n.factors, n.batch, batch.length, 
+           accept.rate = 0.43, n.omp.threads = 1, 
+           verbose = TRUE, n.report = 100, 
+           n.burn = round(.10 * n.batch * batch.length), n.thin = 1, 
+           n.chains = 1, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>occ.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the occurrence portion of the model using R's model syntax. Random
+intercepts are allowed using lme4 syntax (Bates et al. 2015). Only
+right-hand side of formula is specified. See example below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the detection portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random 
+intercepts are allowed using lme4 syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>occ.covs</code>, <code>det.covs</code>, 
+<code>coords</code>, and <code>range.ind</code>. 
+<code>y</code> is a three-dimensional array with first dimension equal to the 
+number of species, second dimension equal to the number of sites, and 
+third dimension equal to the maximum number of replicates at a given site. 
+<code>occ.covs</code> is a matrix or data frame containing the variables 
+used in the occurrence portion of the model, with <code class="reqn">J</code> rows for 
+each column (variable). <code>det.covs</code> is a list of variables included 
+in the detection portion of the model. Each list element is a different 
+detection covariate, which can be site-level or observational-level. 
+Site-level covariates are specified as a vector of length <code class="reqn">J</code> while 
+observation-level covariates are specified as a matrix or data frame 
+with the number of rows equal to <code class="reqn">J</code> and number of columns equal 
+to the maximum number of replicates at a given site. <code>coords</code> is a 
+<code class="reqn">J \times 2</code> matrix of the observation coordinates. Note that 
+<code>spOccupancy</code> assumes coordinates are specified in a projected coordinate system.
+<code>range.ind</code> is a matrix with rows corresponding to species and columns
+corresponding to sites, with each element taking value 1 if that site is 
+within the range of the corresponding species and 0 if it is outside of the 
+range. This matrix is not required, but it can be helpful to restrict the 
+modeled area for each individual species to be within the realistic range
+of locations for that species when estimating the model parameters. This is
+applicable when auxiliary data sources are available on the realistic range
+of the species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>alpha.comm</code>, <code>beta.comm</code>, <code>beta</code>, 
+<code>alpha</code>, <code>tau.sq.beta</code>, <code>tau.sq.alpha</code>, 
+<code>sigma.sq.psi</code>, <code>sigma.sq.p</code>, <code>z</code>, 
+<code>phi</code>, <code>lambda</code>, and <code>nu</code>. <code>nu</code> is only specified if 
+<code>cov.model = "matern"</code>, and <code>sigma.sq.psi</code> and <code>sigma.sq.p</code> are
+only specified if random effects are included in <code>occ.formula</code> or 
+<code>det.formula</code>, respectively. The value portion of each tag is 
+the parameter's initial value. See <code>priors</code> description for definition
+of each parameter name. Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.comm.normal</code>, <code>alpha.comm.normal</code>, 
+<code>tau.sq.beta.ig</code>, <code>tau.sq.alpha.ig</code>, <code>sigma.sq.psi</code>, 
+<code>sigma.sq.p</code>, <code>phi.unif</code>, 
+and <code>nu.unif</code>. Community-level occurrence (<code>beta.comm</code>) and detection 
+(<code>alpha.comm</code>) regression coefficients are assumed to follow a 
+normal distribution. The hyperparameters of the normal distribution
+are passed as a list of length two with the first and second elements 
+corresponding to the mean and variance of the normal distribution, 
+which are each specified as vectors of length equal to the number of 
+coefficients to be estimated or of length one if priors are the same for 
+all coefficients. If not specified, prior means are set 
+to 0 and prior variances set to 2.72. By default, community-level variance parameters 
+for occupancy (<code>tau.sq.beta</code>) and detection (<code>tau.sq.alpha</code>) are 
+assumed to follow an inverse Gamma distribution. The hyperparameters of 
+the inverse gamma distribution are passed as a list of length two with 
+the first and second elements corresponding to the shape and scale parameters,
+which are each specified as vectors of length equal to the number of 
+coefficients to be estimated or a single value if priors are the same for all 
+parameters. If not specified, prior shape and scale 
+parameters are set to 0.1. 
+The spatial factor model fits <code>n.factors</code> independent
+spatial processes for each spatially-varying coefficient specified in <code>svc.cols</code>. 
+The spatial decay <code>phi</code> and smoothness <code>nu</code> parameters 
+for each latent factor are assumed to follow Uniform distributions. 
+The hyperparameters of the Uniform are passed as a list with two elements, 
+with both elements being vectors of length <code>n.factors * length(svc.cols)</code> 
+corresponding to the lower and 
+upper support, respectively, or as a single value if the same value is assigned
+for all factor/SVC combinations. The priors for the factor loadings 
+matrix <code>lambda</code> for each SVC are fixed
+following the standard spatial factor model to ensure parameter 
+identifiability (Christensen and Amemlya 2002). The
+upper triangular elements of the <code>N x n.factors</code> matrix are fixed at 0 and the 
+diagonal elements are fixed at 1 for each SVC. The lower triangular elements are assigned a 
+standard normal prior (i.e., mean 0 and variance 1).
+<code>sigma.sq.psi</code> and <code>sigma.sq.p</code> are the random 
+effect variances for any occurrence or
+detection random effects, respectively, and are assumed to follow an inverse
+Gamma distribution. The hyperparameters of the inverse-Gamma distribution
+are passed as a list of length two with first and second elements corresponding
+to the shape and scale parameters, respectively, which are each specified as
+vectors of length equal to the number of random intercepts or of length one 
+if priors are the same for all random effect variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tuning</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter
+name. Valid tags are <code>phi</code> and <code>nu</code>. The value portion of each
+tag defines the initial variance of the adaptive sampler. We assume the 
+initial variance of the adaptive sampler is the same for each species, 
+although the adaptive sampler will adjust the tuning variances separately
+for each species. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>svc.cols</code></td>
+<td>
+<p>a vector indicating the variables whose effects will be 
+estimated as spatially-varying coefficients. <code>svc.cols</code> can be an 
+integer vector with values indicating the order of covariates specified 
+in the model formula (with 1 being the intercept if specified), or it can 
+be specified as a character vector with names corresponding to variable 
+names in <code>occ.covs</code> (for the intercept, use <code>'(Intercept)'</code>). <code>svc.cols</code>
+default argument of 1 results in a spatial occupancy model analogous to 
+<code>sfMsPGOcc</code> (assuming an intercept is included in the model).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov.model</code></td>
+<td>
+<p>a quoted keyword that specifies the covariance
+function used to model the spatial dependence structure among the
+observations.  Supported covariance model key words are:
+<code>"exponential"</code>, <code>"matern"</code>, <code>"spherical"</code>, and
+<code>"gaussian"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>NNGP</code></td>
+<td>
+<p>if <code>TRUE</code>, model is fit with an NNGP. If <code>FALSE</code>, 
+a full Gaussian process is used. See Datta et al. (2016) and 
+Finley et al. (2019) for more information. Only 
+<code>NNGP = TRUE</code> is currently supported.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.neighbors</code></td>
+<td>
+<p>number of neighbors used in the NNGP. Only used if 
+<code>NNGP = TRUE</code>. Datta et al. (2016) showed that 15 neighbors is usually 
+sufficient, but that as few as 5 neighbors can be adequate for certain data
+sets, which can lead to even greater decreases in run time. We recommend
+starting with 15 neighbors (the default) and if additional gains in computation
+time are desired, subsequently compare the results with a smaller number
+of neighbors using WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search.type</code></td>
+<td>
+<p>a quoted keyword that specifies the type of nearest
+neighbor search algorithm. Supported method key words are: <code>"cb"</code> and
+<code>"brute"</code>. The <code>"cb"</code> should generally be much
+faster. If locations do not have identical coordinate values on
+the axis used for the nearest neighbor ordering then <code>"cb"</code> 
+and <code>"brute"</code> should produce identical neighbor sets. 
+However, if there are identical coordinate values on the axis used 
+for nearest neighbor ordering, then <code>"cb"</code> and <code>"brute"</code> 
+might produce different, but equally valid, neighbor sets, 
+e.g., if data are on a grid. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>std.by.sp</code></td>
+<td>
+<p>a logical value indicating whether the covariates are standardized
+separately for each species within the corresponding range for each species (<code>TRUE</code>) 
+or not (<code>FALSE</code>). Note that if <code>range.ind</code> is specified in <code>data.list</code>, 
+this will result in the covariates being standardized differently for each species
+based on the sites where <code>range.ind == 1</code> for that given species. If <code>range.ind</code> is not specified 
+and <code>std.by.sp = TRUE</code>, this will simply be equivalent to standardizing 
+the covariates across all locations prior to fitting the model. Note that the covariates
+in <code>occ.formula</code> should still be standardized across all locations. This can be done
+either outside the function, or can be done by specifying <code>scale()</code> in the model formula 
+around the continuous covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.factors</code></td>
+<td>
+<p>the number of factors to use in the spatial factor model approach. 
+Note this corresponds to the number of factors used for each spatially-varying
+coefficient that is estimated in the model.
+Typically, the number of factors is set to be small (e.g., 4-5) relative to the 
+total number of species in the community, which will lead to substantial 
+decreases in computation time. However, the value can be anywhere 
+between 1 and N (the number of species in the community).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.batch</code></td>
+<td>
+<p>the number of MCMC batches  in each chain to run for the Adaptive MCMC 
+sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.length</code></td>
+<td>
+<p>the length of each MCMC batch to run for the Adaptive 
+MCMC sampler. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>accept.rate</code></td>
+<td>
+<p>target acceptance rate for Adaptive MCMC. Defaul is 
+0.43. See Roberts and Rosenthal (2009) for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating
+the number of threads to use for SMP parallel processing. The package must
+be compiled for OpenMP support. For most Intel-based machines, we
+recommend setting <code>n.omp.threads</code> up to the number of
+hyperthreaded cores. Note, <code>n.omp.threads</code> &gt; 1 might not
+work on some systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report Metropolis sampler acceptance and
+MCMC progress. Note this is specified in terms of batches and not overall
+samples for spatial models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.samples</code> to 
+discard as burn-in for each chain. By default, the first 10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default 
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>svcMsPGOcc</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level occurrence regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occurrence community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level occurrence regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level detection regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level correlation parameters for each spatially-varying coefficient.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the latent spatial factor loadings for each spatially-varying coefficient.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent occurrence values for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent occupancy probability values for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.samples</code></td>
+<td>
+<p>a four-dimensional array of posterior samples for 
+the latent spatial random effects for each spatial factor within each 
+spatially-varying coefficient. Dimensions correspond to MCMC sample, 
+factor, site, and spatially-varying coefficient.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.psi.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random intercepts included in the occurrence portion
+of the model. Only included if random intercepts are specified in 
+<code>occ.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.p.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random intercpets included in the detection portion 
+of the model. Only included if random intercepts are specified in 
+<code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occurrence random effects. Only included if random intercepts
+are specified in <code>occ.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection random effects. Only included if random intercepts 
+are specified in <code>det.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>like.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples
+for the likelihood value associated with each site and species. 
+Used for calculating WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>MCMC sampler execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent prediction and/or model fit evaluation. Note that detection 
+probability estimated values are not included in the model object, but can
+be extracted using <code>fitted()</code>.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Some of the underlying code used for generating random numbers from the
+Polya-Gamma distribution is taken from the <span class="pkg">pgdraw</span> package written
+by Daniel F. Schmidt and Enes Makalic. Their code implements Algorithm
+6 in PhD thesis of Jesse Bennett Windle (2013) <a href="https://repositories.lib.utexas.edu/handle/2152/21842">https://repositories.lib.utexas.edu/handle/2152/21842</a>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Datta, A., S. Banerjee, A.O. Finley, and A.E. Gelfand. (2016)
+Hierarchical Nearest-Neighbor Gaussian process models for large
+geostatistical datasets. <em>Journal of the American Statistical
+Association</em>, <a href="https://doi.org/10.1080/01621459.2015.1044091">doi:10.1080/01621459.2015.1044091</a>.
+</p>
+<p>Finley, A.O., A. Datta, B.D. Cook, D.C. Morton, H.E. Andersen, and
+S. Banerjee. (2019) Efficient algorithms for Bayesian Nearest Neighbor
+Gaussian Processes. <em>Journal of Computational and Graphical
+Statistics</em>, <a href="https://doi.org/10.1080/10618600.2018.1537924">doi:10.1080/10618600.2018.1537924</a>.
+</p>
+<p>Finley, A. O., Datta, A., and Banerjee, S. (2020). spNNGP R package 
+for nearest neighbor Gaussian process models. <em>arXiv</em> preprint arXiv:2001.09111.
+</p>
+<p>Polson, N.G., J.G. Scott, and J. Windle. (2013) Bayesian Inference for
+Logistic Models Using Polya-Gamma Latent Variables.
+<em>Journal of the American Statistical Association</em>, 108:1339-1349.
+</p>
+<p>Roberts, G.O. and Rosenthal J.S. (2009) Examples  of adaptive MCMC.
+<em>Journal of Computational and Graphical Statistics</em>, 18(2):349-367.
+</p>
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Hooten, M. B., and Hobbs, N. T. (2015). A guide to Bayesian model 
+selection for ecologists. <em>Ecological Monographs</em>, 85(1), 3-28.
+</p>
+<p>Christensen, W. F., and Amemiya, Y. (2002). Latent variable analysis 
+of multivariate spatial data. <em>Journal of the American Statistical Association</em>, 
+97(457), 302-317.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(400)
+
+# Simulate Data -----------------------------------------------------------
+J.x &lt;- 10
+J.y &lt;- 10 
+J &lt;- J.x * J.y
+n.rep &lt;- sample(5, size = J, replace = TRUE)
+N &lt;- 6
+# Community-level covariate effects
+# Occurrence
+beta.mean &lt;- c(0.2, -0.2, 0.3, -0.1, 0.4)
+p.occ &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.6, 1.5, 0.4, 0.5, 0.3)
+# Detection
+alpha.mean &lt;- c(0, 1.2, -0.5)
+tau.sq.alpha &lt;- c(1, 0.5, 1.3)
+p.det &lt;- length(alpha.mean)
+# Random effects
+psi.RE &lt;- list(levels = 15, 
+               sigma.sq.psi = 0.7)
+p.RE &lt;- list(levels = 20, 
+             sigma.sq.p = 0.5)
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = N, ncol = p.occ)
+alpha &lt;- matrix(NA, nrow = N, ncol = p.det)
+for (i in 1:p.occ) {
+  beta[, i] &lt;- rnorm(N, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(N, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+# Number of spatial factors for each SVC
+n.factors &lt;- 2
+# The intercept and first two covariates have spatially-varying effects
+svc.cols &lt;- c(1, 2, 3)
+p.svc &lt;- length(svc.cols)
+q.p.svc &lt;- n.factors * p.svc
+# Spatial decay parameters
+phi &lt;- runif(q.p.svc, 3 / 0.9, 3 / 0.1)
+# A length N vector indicating the proportion of simulated locations
+# that are within the range for a given species.
+range.probs &lt;- runif(N, 0.4, 1)
+factor.model &lt;- TRUE
+cov.model &lt;- 'spherical'
+sp &lt;- TRUE
+
+dat &lt;- simMsOcc(J.x = J.x, J.y = J.y, n.rep = n.rep, N = N, beta = beta, alpha = alpha,
+                psi.RE = psi.RE, p.RE = p.RE, phi = phi, sp = sp, svc.cols = svc.cols,
+                cov.model = cov.model, n.factors = n.factors, 
+                factor.model = factor.model, range.probs = range.probs)
+
+y &lt;- dat$y
+X &lt;- dat$X
+X.re &lt;- dat$X.re
+X.p &lt;- dat$X.p
+X.p.re &lt;- dat$X.p.re
+coords &lt;- dat$coords
+range.ind &lt;- dat$range.ind
+
+# Prep data for spOccupancy -----------------------------------------------
+# Occurrence covariates
+occ.covs &lt;- cbind(X, X.re)
+colnames(occ.covs) &lt;- c('int', 'occ.cov.1', 'occ.cov.2', 'occ.cov.3', 
+                        'occ.cov.4', 'occ.factor.1')
+# Detection covariates
+det.covs &lt;- list(det.cov.1 = X.p[, , 2], 
+                 det.cov.2 = X.p[, , 3], 
+                 det.factor.1 = X.p.re[, , 1]) 
+# Data list
+data.list &lt;- list(y = y, coords = coords, occ.covs = occ.covs, 
+                  det.covs = det.covs, range.ind = range.ind)
+# Priors
+prior.list &lt;- list(beta.comm.normal = list(mean = 0, var = 2.72),
+                   alpha.comm.normal = list(mean = 0, var = 2.72), 
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1), 
+                   tau.sq.alpha.ig = list(a = 0.1, b = 0.1), 
+                   phi.unif = list(a = 3 / 1, b = 3 / .1)) 
+inits.list &lt;- list(alpha.comm = 0, 
+                   beta.comm = 0, 
+                   beta = 0, 
+                   alpha = 0,
+                   tau.sq.beta = 1, 
+                   tau.sq.alpha = 1, 
+                   z = apply(y, c(1, 2), max, na.rm = TRUE)) 
+# Tuning
+tuning.list &lt;- list(phi = 1)
+
+# Number of batches
+n.batch &lt;- 2
+# Batch length
+batch.length &lt;- 25
+n.burn &lt;- 0
+n.thin &lt;- 1
+n.samples &lt;- n.batch * batch.length
+
+out &lt;- svcMsPGOcc(occ.formula = ~ occ.cov.1 + occ.cov.2 + occ.cov.3 + 
+                                  occ.cov.4 + (1 | occ.factor.1),
+                  det.formula = ~ det.cov.1 + det.cov.2 + (1 | det.factor.1),
+                  data = data.list,
+                  inits = inits.list,
+                  n.batch = n.batch,
+                  n.factors = n.factors,
+                  batch.length = batch.length,
+                  std.by.sp = TRUE,
+                  accept.rate = 0.43,
+                  priors = prior.list,
+                  svc.cols = svc.cols,
+                  cov.model = "spherical",
+                  tuning = tuning.list,
+                  n.omp.threads = 1,
+                  verbose = TRUE,
+                  NNGP = TRUE,
+                  n.neighbors = 5,
+                  search.type = 'cb',
+                  n.report = 10,
+                  n.burn = n.burn,
+                  n.thin = n.thin,
+                  n.chains = 1) 
+
+summary(out)
+</code></pre>
+
+
+</div>

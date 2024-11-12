@@ -1,0 +1,490 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spectrogram</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spectrogram</h2>
+
+<h3>Description</h3>
+
+<p>Produces the spectrogram of a sound using short-time Fourier transform.
+Inspired by <code>spectro</code>, this function offers added
+routines for reassignment, noise reduction, smoothing in time and frequency
+domains, manual control of contrast and brightness, plotting the oscillogram
+on a dB scale, grid, etc.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spectrogram(
+  x,
+  samplingRate = NULL,
+  scale = NULL,
+  from = NULL,
+  to = NULL,
+  dynamicRange = 80,
+  windowLength = 50,
+  step = windowLength/2,
+  overlap = NULL,
+  specType = c("spectrum", "reassigned", "spectralDerivative")[1],
+  rasterize = FALSE,
+  wn = "gaussian",
+  zp = 0,
+  normalize = TRUE,
+  smoothFreq = 0,
+  smoothTime = 0,
+  qTime = 0,
+  percentNoise = 10,
+  noiseReduction = 0,
+  output = c("original", "processed", "complex", "all")[1],
+  reportEvery = NULL,
+  cores = 1,
+  plot = TRUE,
+  savePlots = NULL,
+  osc = c("none", "linear", "dB")[2],
+  heights = c(3, 1),
+  ylim = NULL,
+  yScale = c("linear", "log", "bark", "mel", "ERB")[1],
+  contrast = 0.2,
+  brightness = 0,
+  blur = 0,
+  maxPoints = c(1e+05, 5e+05),
+  padWithSilence = TRUE,
+  colorTheme = c("bw", "seewave", "heat.colors", "...")[1],
+  col = NULL,
+  extraContour = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  xaxp = NULL,
+  mar = c(5.1, 4.1, 4.1, 2),
+  main = NULL,
+  grid = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>maximum possible amplitude of input used for normalization of
+input vector (only needed if <code>x</code> is a numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from, to</code></td>
+<td>
+<p>if NULL (default), analyzes the whole sound, otherwise
+from...to (s)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>dynamic range, dB. All values more than one dynamicRange
+under maximum are treated as zero</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength</code></td>
+<td>
+<p>length of FFT window, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step</code></td>
+<td>
+<p>you can override <code>overlap</code> by specifying FFT step, ms (NB:
+because digital audio is sampled at discrete time intervals of
+1/samplingRate, the actual step and thus the time stamps of STFT frames
+may be slightly different, eg 24.98866 instead of 25.0 ms)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>overlap between successive FFT frames, %</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specType</code></td>
+<td>
+<p>plot the original FFT ('spectrum'), reassigned spectrogram
+('reassigned'), or spectral derivative ('spectralDerivative')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rasterize</code></td>
+<td>
+<p>(only applies if specType = 'reassigned') if TRUE, the
+reassigned spectrogram is plotted after rasterizing it: that is, showing
+density per time-frequency bins with the same resolution as an ordinary
+spectrogram</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wn</code></td>
+<td>
+<p>window type accepted by <code>ftwindow</code>, currently
+gaussian, hanning, hamming, bartlett, blackman, flattop, rectangle</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zp</code></td>
+<td>
+<p>window length after zero padding, points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normalize</code></td>
+<td>
+<p>if TRUE, scales input prior to FFT</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothFreq, smoothTime</code></td>
+<td>
+<p>length of the window for median smoothing in
+frequency and time domains, respectively, points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>qTime</code></td>
+<td>
+<p>the quantile to be subtracted for each frequency bin. For ex.,
+if qTime = 0.5, the median of each frequency bin (over the entire sound
+duration) will be calculated and subtracted from each frame (see examples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>percentNoise</code></td>
+<td>
+<p>percentage of frames (0 to 100%) used for calculating
+noise spectrum</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noiseReduction</code></td>
+<td>
+<p>how much noise to remove (non-negative number,
+recommended 0 to 2). 0 = no noise reduction, 2 = strong noise reduction:
+<code class="reqn">spectrum - (noiseReduction * noiseSpectrum)</code>, where noiseSpectrum is
+the average spectrum of frames with entropy exceeding the quantile set by
+<code>percentNoise</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>specifies what to return: nothing ('none'), unmodified
+spectrogram ('original'), denoised and/or smoothed spectrogram
+('processed'), or unmodified spectrogram with the imaginary part giving
+phase ('complex')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>should a spectrogram be plotted? TRUE / FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>full path to the folder in which to save the plots (NULL =
+don't save, ” = same folder as audio)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>osc</code></td>
+<td>
+<p>"none" = no oscillogram; "linear" = on the original scale; "dB" =
+in decibels</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>heights</code></td>
+<td>
+<p>a vector of length two specifying the relative height of the
+spectrogram and the oscillogram (including time axes labels)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ylim</code></td>
+<td>
+<p>frequency range to plot, kHz (defaults to 0 to Nyquist
+frequency). NB: still in kHz, even if yScale = bark, mel, or ERB</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>yScale</code></td>
+<td>
+<p>scale of the frequency axis: 'linear' = linear, 'log' =
+logarithmic (musical), 'bark' = bark with <code>hz2bark</code>,
+'mel' = mel with <code>hz2mel</code>, 'ERB' = Equivalent
+Rectangular Bandwidths with <code>HzToERB</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrast</code></td>
+<td>
+<p>spectrum is exponentiated by contrast (any real number,
+recommended -1 to +1). Contrast &gt;0 increases sharpness, &lt;0 decreases
+sharpness</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>brightness</code></td>
+<td>
+<p>how much to "lighten" the image (&gt;0 = lighter, &lt;0 = darker)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>blur</code></td>
+<td>
+<p>apply a Gaussian filter to blur or sharpen the image, two
+numbers: frequency (Hz), time (ms). A single number is interpreted as
+frequency, and a square filter is applied. NA / NULL / 0 means no blurring
+in that dimension. Negative numbers mean un-blurring (sharpening) the image
+by dividing instead of multiplying by the filter during convolution</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxPoints</code></td>
+<td>
+<p>the maximum number of "pixels" in the oscillogram (if any)
+and spectrogram; good for quickly plotting long audio files; defaults to
+c(1e5, 5e5)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>padWithSilence</code></td>
+<td>
+<p>if TRUE, pads the sound with just enough silence to
+resolve the edges properly (only the original region is plotted, so the
+apparent duration doesn't change)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>colorTheme</code></td>
+<td>
+<p>black and white ('bw'), as in seewave package ('seewave'),
+matlab-type palette ('matlab'), or any palette from
+<code>palette</code> such as 'heat.colors', 'cm.colors', etc</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>col</code></td>
+<td>
+<p>actual colors, eg rev(rainbow(100)) - see ?hcl.colors for colors
+in base R (overrides colorTheme)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>extraContour</code></td>
+<td>
+<p>a vector of arbitrary length scaled in Hz (regardless of
+yScale!) that will be plotted over the spectrogram (eg pitch contour); can
+also be a list with extra graphical parameters such as lwd, col, etc. (see
+examples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlab, ylab, main, mar, xaxp</code></td>
+<td>
+<p>graphical parameters for plotting</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p>if numeric, adds n = <code>grid</code> dotted lines per kHz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>graphical parameters for saving plots passed to
+<code>png</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Many soundgen functions call <code>spectrogram</code>, and you can pass along most
+of its graphical parameters from functions like <code>soundgen</code>,
+<code>analyze</code>, etc. However, in some cases this will not work (eg for
+"units") or may produce unexpected results. If in doubt, omit extra graphical
+parameters.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns nothing (if output = 'none'), absolute - not power! -
+spectrum (if output = 'original'), denoised and/or smoothed spectrum (if
+output = 'processed'), or spectral derivatives (if specType =
+'spectralDerivative') as a matrix of real numbers.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>osc</code> <code>modulationSpectrum</code> <code>ssm</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># synthesize a sound 500 ms long, with gradually increasing hissing noise
+sound = soundgen(sylLen = 500, temperature = 0.001, noise = list(
+  time = c(0, 650), value = c(-40, 0)), formantsNoise = list(
+  f1 = list(freq = 5000, width = 10000)))
+# playme(sound, samplingRate = 16000)
+
+# basic spectrogram
+spectrogram(sound, samplingRate = 16000, yScale = 'bark')
+
+# add bells and whistles
+spectrogram(sound, samplingRate = 16000,
+  osc = 'dB',  # plot oscillogram in dB
+  heights = c(2, 1),  # spectro/osc height ratio
+  noiseReduction = 1.1,  # subtract the spectrum of noisy parts
+  brightness = -1,  # reduce brightness
+  # pick color theme - see ?hcl.colors
+  # colorTheme = 'heat.colors',
+  # ...or just specify the actual colors
+  col = colorRampPalette(c('white', 'yellow', 'red'))(50),
+  cex.lab = .75, cex.axis = .75,  # text size and other base graphics pars
+  grid = 5,  # lines per kHz; to customize, add manually with graphics::grid()
+  ylim = c(0, 5),  # always in kHz
+  main = 'My spectrogram' # title
+  # + axis labels, etc
+)
+## Not run: 
+# save spectrograms of all sounds in a folder
+spectrogram('~/Downloads/temp', savePlots = '', cores = 2)
+
+# change dynamic range
+spectrogram(sound, samplingRate = 16000, dynamicRange = 40)
+spectrogram(sound, samplingRate = 16000, dynamicRange = 120)
+
+# remove the oscillogram
+spectrogram(sound, samplingRate = 16000, osc = 'none')  # or NULL etc
+
+# frequencies on a logarithmic (musical) scale (mel/bark also available)
+spectrogram(sound, samplingRate = 16000,
+            yScale = 'log', ylim = c(.05, 8))
+
+# broad-band instead of narrow-band
+spectrogram(sound, samplingRate = 16000, windowLength = 5)
+
+# reassigned spectrograms can be plotted without rasterizing, as a
+# scatterplot instead of a contour plot
+s = soundgen(sylLen = 500, pitch = c(100, 1100, 120, 1200, 90, 900, 110, 700),
+  samplingRate = 22050, formants = NULL, lipRad = 0, rolloff = -20)
+spectrogram(s, 22050, windowLength = 5, step = 1, ylim = c(0, 2))
+spectrogram(s, 22050, specType = 'reassigned', windowLength = 5,
+  step = 1, ylim = c(0, 2))
+# ...or it can be rasterized, but that sacrifices frequency resolution:
+sp = spectrogram(s, 22050, specType = 'reassigned', rasterize = TRUE,
+                 windowLength = 5, step = 1, ylim = c(0, 2), output = 'all')
+# The raw reassigned version is saved if output = 'all' for custom plotting
+df = sp$reassigned
+df$z1 = soundgen:::zeroOne(log(df$magn))
+plot(df$time, df$freq, col = rgb(df$z1, df$z1, 1 - df$z1, 1),
+  pch = 16, cex = 0.25, ylim = c(0, 2))
+
+# focus only on values in the upper 5% for each frequency bin
+spectrogram(sound, samplingRate = 16000, qTime = 0.95)
+
+# detect 10% of the noisiest frames based on entropy and remove the pattern
+# found in those frames (in this cases, breathing)
+spectrogram(sound, samplingRate = 16000,  noiseReduction = 1.1,
+  brightness = -2)  # white noise attenuated
+
+# increase contrast, reduce brightness
+spectrogram(sound, samplingRate = 16000, contrast = .7, brightness = -.5)
+
+# apply median smoothing in both time and frequency domains
+spectrogram(sound, samplingRate = 16000, smoothFreq = 5,
+  smoothTime = 5)
+
+# Gaussian filter to blur or sharpen ("unblur") the image in time and/or
+# frequency domains
+spectrogram(sound, samplingRate = 16000, blur = c(100, 500))
+# TIP: when unblurring, set the first (frequency) parameter to the
+# frequency resolution of interest, eg ~500-1000 Hz for human formants
+spectrogram(sound, samplingRate = 16000, windowLength = 10, blur = c(-500, 50))
+
+# specify location of tick marks etc - see ?par() for base graphics
+spectrogram(sound, samplingRate = 16000,
+            ylim = c(0, 3), yaxp = c(0, 3, 5), xaxp = c(0, .8, 10))
+
+# Plot long audio files with reduced resolution
+data(sheep, package = 'seewave')
+sp = spectrogram(sheep, overlap = 0,
+  maxPoints = c(1e4, 5e3),  # limit the number of pixels in osc/spec
+  output = 'original')
+nrow(sp) * ncol(sp) / 5e3  # spec downsampled by a factor of ~2
+
+# Plot some arbitrary contour over the spectrogram (simply calling lines()
+# will not work if osc = TRUE b/c the plot layout is modified)
+s = soundgen()
+an = analyze(s, 16000, plot = FALSE)
+spectrogram(s, 16000, extraContour = an$detailed$dom,
+  ylim = c(0, 2), yScale = 'bark')
+# For values that are not in Hz, normalize any way you like
+spectrogram(s, 16000, ylim = c(0, 2), extraContour = list(
+  x = an$detailed$loudness / max(an$detailed$loudness, na.rm = TRUE) * 2000,
+  # ylim[2] = 2000 Hz
+  type = 'b', pch = 5, lwd = 2, lty = 2, col = 'blue'))
+
+## End(Not run)
+</code></pre>
+
+
+</div>

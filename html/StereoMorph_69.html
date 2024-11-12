@@ -1,0 +1,329 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dltCalibrateCameras</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Finds the optimized DLT coefficients for a stereo camera setup</h2>
+
+<h3>Description</h3>
+
+<p>This function uses the corners from a grid positioned in several different orientations within a stereo camera setup to estimate the DLT calibration coefficients that minimize reconstruction error.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dltCalibrateCameras(coor.2d, nx, grid.size, c.run = FALSE, reduce.grid.dim = 3,
+                    fit.min.break = 1, nlm.iter.max.init = 100, objective.min.init = 10, 
+                    nlm.eval.max = 350, nlm.iter.max = 250, nlm.calls.max = 100,
+                    min.views = 'max', objective.min = 1, grid.incl.min=2, 
+                    objective.min.break = NULL, start.param=NULL, 
+                    sx = NULL, sy = NULL, print.progress = FALSE, print.tab = '')
+
+## S3 method for class 'dltCalibrateCameras'
+summary(object, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>coor.2d</code></td>
+<td>
+<p>a four-dimensional array of grid points. The first two dimensions correspond to each matrix of grid points, the third corresponds to each grid position/orientation and the fourth corresponds to each camera view. Can be read from file by the function <code>readCheckerboardsToArray</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nx</code></td>
+<td>
+<p>the number of points along the first dimension (e.g. this would be the number of points in each row if points in <code>coor.2d</code> are listed first by row). The number of points along the second dimension is calculated based on the total number of points per view and orientation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid.size</code></td>
+<td>
+<p>the size of the grid squares in real-world units (e.g. millimeters).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c.run</code></td>
+<td>
+<p>a logical indicating whether a second optimization should be performed on the calibration coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reduce.grid.dim</code></td>
+<td>
+<p>a numeric indicating the number of grid points along each dimension for each grid after resampling. The total number of resampled points is <code>reduce.grid.dim^2</code>. Resampling can be turned off by setting this to <code>0</code> or <code>FALSE</code>. The default is recommended. <code>reduce.grid.dim</code> must be greater than two.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.min.break</code></td>
+<td>
+<p>passed to <code>resampleGridImagePoints()</code>. A minimum returned by <code>nlminb()</code> (indicating goodness of fit in pixel coordinates) at which <code>resampleGridImagePoints()</code> will stop iterating to find a better fit for each checkerboard grid. Ignored if <code>reduce.grid.dim</code> is <code>0</code> or <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlm.iter.max.init</code></td>
+<td>
+<p>The maximum number of iterations to be performed by <code>nlminb()</code> during initial coefficient optimization, passed as a control parameter to <code>nlminb()</code>. These are the number of iterations for an initial determination of whether the function is likely to converge on the correct estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>objective.min.init</code></td>
+<td>
+<p>The objective used during the initial coefficient optimization, passed as a control parameter to <code>nlminb()</code>, to determine whether the function is close to convergence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlm.eval.max</code></td>
+<td>
+<p>The maximum number of evaluations to be performed by <code>nlminb()</code> during primary coefficient optimization, passed as a control parameter to <code>nlminb()</code>. Keeping this value as low as possible without excluding actual convergence speeds performance of the function by preventing the function from stalling far from the optimal values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlm.iter.max</code></td>
+<td>
+<p>The maximum number of iterations to be performed by <code>nlminb()</code> during primary coefficient optimization, passed as a control parameter to <code>nlminb()</code>. Keeping this value as low as possible without excluding actual convergence speeds performance of the function by preventing the function from stalling far from the optimal values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlm.calls.max</code></td>
+<td>
+<p>The maximum number of different sets of random starting parameters to use during coefficient optimization. This parameter cannot exceed 576.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min.views</code></td>
+<td>
+<p>The minimum views in which corners must be detected in order to use in coefficient estimation. If set to 'max' (default) this will be equal to the number of input views.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>objective.min</code></td>
+<td>
+<p>The expected mean reconstruction error when optimizing the calibration coefficients (the minimum, or <code>objective</code> value returned by <code>nlminb()</code>). A value between 0.7 and 3 should be reasonable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid.incl.min</code></td>
+<td>
+<p>The minimum number of grids to include during coefficient optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>objective.min.break</code></td>
+<td>
+<p>During coefficient optimization if the error (in pixels) always exceeds this value the estimation will stop estimating the position of additional checkerboards.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.param</code></td>
+<td>
+<p>An set of fixed starting parameters to be used during coefficient optimization. This parameter is intended primarily for debugging.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sx</code></td>
+<td>
+<p>Used for de-bugging.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sy</code></td>
+<td>
+<p>Used for de-bugging.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print.progress</code></td>
+<td>
+<p>a logical indicating whether the progress of the function should be printed while running. This includes the error in grid re-sampling, an iteration count during optimization and other outputs relating to the optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print.tab</code></td>
+<td>
+<p>Tabs preceding lines printed to console.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>a list of class <code>"dltCalibrateCameras"</code> (the output of <code>dltCalibrateCameras()</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments passed to or from other methods.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Calibration is the most challenging step in stereo camera data collection. Most fundamentally, DLT calibration requires a set of 3D coordinates and their corresponding 2D pixel coordinates in each camera view in order to derive calibration coefficients (see <code>dltCoefficients</code>). These coefficients can then be used to reconstruct any point in 3D given its 2D pixel coordinates in two or more camera views. DLT calibration has traditionally been done using a "calibration object", typically a 3D box-shaped structure filled with markers at known 3D positions. Such objects require the use of high precision machining in order to achieve an accurate calibration and the calibration points are usually digitized manually.
+</p>
+<p>The <code>dltCalibrateCameras()</code> function provides a camera calibration routine that is easier to implement and potentially more accurate. This function uses the corners from a grid positioned in several different orientations within the calibration space to estimate the DLT calibration coefficients that minimize reconstruction error. The easiest method for obtaining these corner points is to print a checkerboard pattern (using <code>drawCheckerboard</code>), attach the pattern to flat, hard surface and use <code>findCheckerboardCorners</code> to automatically extract the pixel coordinates of the internal corners.
+</p>
+<p>The grid pattern should be photographed in at least four different positions and orientations spanning the volume to be calibrated (the tutorial files loaded with StereoMorph include eight different positions). Using only a couple of positions will result in uneven sampling of the calibration volume causing larger errors in some regions relative to others. Additionally, using only a single orientation of the checkerboard will produce higher errors along a particular dimension relative to the others. Once the pixel coordinates of the grid points (e.g. the internal corners of the checkerboard pattern) have been extracted from all of the calibration images, they should be read into an array using <code>readCheckerboardsToArray</code>. This function allows for the point order to be reversed along rows, columns or both. If one of the cameras views the pattern upside down relative to another camera or if the pattern is in a different orientation, the grid points may be extracted in a different order.  This can be fixed using the <code>row.reverse</code> and <code>col.reverse</code> arguments in <code>readCheckerboardsToArray</code>. It is <strong>essential</strong> that the grid points extracted from each camera view correspond to each other row-by-row or else the calibration will not work.
+</p>
+<p><code>dltCalibrateCameras()</code> first calls <code>resampleGridImagePoints</code> to downsample the number of grid points. <code>reduce.grid.dim</code> is the downsample number (the default is 3, meaning 3x3 or nine points per grid). Downsampling can be turned off by setting <code>reduce.grid.dim</code> to <code>0</code>, although this is not recommended as it will increase run-time substantially without increasing accuracy. A camera perspective model is fit to the full point set such that the number of points input to the coefficient optimization can be reduced (thereby reducing run-time) without losing any relevant information (see <code>resampleGridImagePoints</code>). If <code>print.progress</code> is set to <code>TRUE</code>, the mean and maximum fit error is printed for each input grid. As the fitting does not take into account lens distortion, high fit errors may indicate large distortional effects.
+</p>
+<p>Since each checkerboard grid has been photographed in an arbitrary position and orientation, the 3D coordinates of the grid points are unknown. However, if the first grid is fixed, each additional grid can be described by applying six transformation parameters relative to the first (three translational and three rotational). Using the reduced grid point set, <code>dltCalibrateCameras()</code> uses <code>nlminb()</code> to search for the six transformation parameters per grid that minimizes the RMS error when the 3D coordinates are input (with the corresponding 2D coordinates) to <code>dltCoefficients</code>. In effect, <code>dltCalibrateCameras()</code> solves for the position of each grid in 3D space using the error from <code>dltCoefficients</code> as an optimality criterion. Since the first grid is fixed, the optimization will search for 6*(n-1) parameters, where n is the number of separate grid orientations. <code>nlminb()</code> calls the function <code>dltTransformationParameterRMSError</code>.
+</p>
+<p>In order to fully explore the parameter space, <code>dltCalibrateCameras()</code> calls <code>nlminb()</code> several times with a different set of randomly generated starting parameters to estimate the transformation parameters for each additional grid. The number of different sets of starting parameters is determined by <code>nlm.calls.max</code>. An initial optimization run is intended to quickly determine whether a particular set of starting parameters is likely to lead to convergence. The number of iterations for this initial optimization is determined by <code>nlm.iter.max.init</code> and the objective used in determining likely convergence is <code>objective.min.init</code>. If it is determined that the starting parameters are likely to lead to convergence below <code>objective.min</code>, <code>nlminb()</code> is allowed to continue optimizing. For each grid, the solution yielding the lowest error, or the first solution below the <code>objective.min</code> threshold, is retained for the next grid optimization.
+</p>
+<p>These optimal transformation parameters are then used to obtain the 3D coordinates of the original grid points (not downsampled). Once these 3D coordinates are known, the 3D and 2D pixel coordinates are input to <code>dltCoefficients</code> to obtain the 11 calibration coefficients per camera. For this reason, the calibration coefficient RMS Error (<code>coefficient.rmse</code>) returned will differ slightly from the reported final <code>nlminb()</code> minimum (<code>t.min</code>).
+</p>
+<p>If <code>c.run</code> is set to <code>TRUE</code>, <code>dltCalibrateCameras()</code> performs a second optimization on the calibration coefficients themselves. <code>nlminb()</code> is used, this time calling <code>dltCoefficientRMSError</code>, to find the 11 calibration coefficients per view that minimizes the reconstruction RMS error. Note that <code>dltCoefficients</code> cannot be used as with the previous optimization because the coefficients must be an input. Running this second optimization seems to have little effect in increasing the accuracy of the calibration but is included as this may be useful for some stereo setups.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list of class <code>"dltCalibrateCameras"</code> with the following elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>cal.coeff</code></td>
+<td>
+<p>a matrix of 11 optimized DLT calibration coefficients per camera view.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coor.3d</code></td>
+<td>
+<p>the optimized 3D coordinates of the input grid points in <code>coor.2d</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mean.reconstruct.rmse</code></td>
+<td>
+<p>the RMS error when <code>coor.2d</code> and the optimized calibration coefficients <code>cal.coeff</code> are input to <code>dltReconstruct</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coefficient.rmse</code></td>
+<td>
+<p>the RMS error when <code>coor.2d</code> and the optimized 3D coordinates <code>coor.3d</code> are input to <code>dltCoefficients</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t.param.final</code></td>
+<td>
+<p>the final transformation parameters reported by <code>nlminb()</code> from the first optimization. <code>'t.'</code> refers to the transformation optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t.min</code></td>
+<td>
+<p>the minimum reported by <code>nlminb()</code> from the first optimization. This is the mean RMS error across all camera views returned by <code>dltCoefficients</code> for the downsampled grid points.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t.runtime</code></td>
+<td>
+<p>the run-time (in seconds) for the first optimization.</p>
+</td>
+</tr>
+</table>
+<p>if <code>c.run</code> is <code>FALSE</code>, the following are <code>NA</code>. Otherwise,
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>c.param.init</code></td>
+<td>
+<p>the initial parameters for the second optimization. <code>'c.'</code> refers to the coefficient optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c.param.final</code></td>
+<td>
+<p>the final parameters reported by <code>nlminb()</code> from the second optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c.min</code></td>
+<td>
+<p>the minimum reported by <code>nlminb()</code> from the second optimization. This is the mean RMS error across all camera views returned by <code>dltReconstruct</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c.iter</code></td>
+<td>
+<p>the number of iterations reported by <code>nlminb()</code> from the second optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c.runtime</code></td>
+<td>
+<p>the run-time (in seconds) for the second optimization.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Aaron Olsen</p>
+
+
+<h3>References</h3>
+
+<p>For a general overview of DLT: <a href="http://kwon3d.com/theory/dlt/dlt.html">http://kwon3d.com/theory/dlt/dlt.html</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>dltTestCalibration</code>,
+<code>dltCoefficients</code>,
+<code>readCheckerboardsToArray</code>,
+</p>
+<p><code>transformPlanarCalibrationCoordinates</code>,
+<code>dltTransformationParameterRMSError</code>,
+</p>
+<p><code>dltCoefficientRMSError</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## SET NUMBER OF INTERNAL CORNERS FOR CALIBRATION GRIDS
+nx &lt;- 21
+ny &lt;- 14
+
+## GET THE FILE DIRECTORY FOR EXTRA R PACKAGE FILES
+fdir &lt;- paste0(path.package("StereoMorph"), "/extdata/")
+
+## SET FILE PATH TO CHECKERBOARD CORNERS FROM CALIBRATION IMAGE SET
+## THE TUTORIAL INCLUDES 8 CALIBRATION IMAGES FROM TWO CAMERA VIEWS
+file &lt;- matrix(c(paste0(fdir, "cal_a", 1:8, "_v1.txt"), 
+  paste0(fdir, "cal_a", 1:8, "_v2.txt")), ncol=2)
+
+## READ IN CHECKERBOARD CORNERS
+## NOTE THAT col.reverse IS USED TO MAKE POINTS CORRESPOND
+coor.2d &lt;- readCheckerboardsToArray(file=file, nx=nx, ny=ny, col.reverse=TRUE)
+
+## SET GRID SIZE (IN MM)
+grid.size &lt;- 6.347889
+
+## Not run: 
+## CALIBRATE CAMERAS
+## TO REDUCE RUN-TIME, WE JUST USE CORNERS FROM TWO IMAGES (1 AND 5)
+dlt_calibrate_cameras &lt;- dltCalibrateCameras(coor.2d=coor.2d[, , c(1, 5), ], nx=nx, 
+  grid.size=grid.size, c.run=FALSE, print.progress=TRUE)
+
+## RUN CALIBRATION ON ALL IMAGES, ACCURACY IS GREATLY IMPROVED
+dlt_calibrate_cameras &lt;- dltCalibrateCameras(coor.2d=coor.2d, nx=nx, 
+  grid.size=grid.size, c.run=FALSE, print.progress=TRUE)
+
+## PRINT SUMMARY
+summary(dlt_calibrate_cameras)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

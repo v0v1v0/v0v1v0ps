@@ -1,0 +1,283 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cir</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Identify pixels in a circle or ring (doughnut) around an object.</h2>
+
+<h3>Description</h3>
+
+<p>Identify the pixels and coordinates that are at a (set of) buffer distance(s)
+of the objects passed into <code>coords</code>.
+This is similar to <code>sf::st_buffer</code> but much faster and without the georeferencing information.
+In other words, it can be used for similar problems, but where speed is important.
+This code is substantially adapted from <code>PlotRegionHighlighter::createCircle</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cir(
+  landscape,
+  coords,
+  loci,
+  maxRadius = ncol(landscape)/4,
+  minRadius = maxRadius,
+  allowOverlap = TRUE,
+  allowDuplicates = FALSE,
+  includeBehavior = "includePixels",
+  returnDistances = FALSE,
+  angles = NA_real_,
+  returnAngles = FALSE,
+  returnIndices = TRUE,
+  closest = FALSE,
+  simplify = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>landscape</code></td>
+<td>
+<p>Raster on which the circles are built.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>Either a matrix with 2 (or 3) columns, <code>x</code> and <code>y</code> (and <code>id</code>), representing the
+coordinates (and an associated id, like cell index),
+or a <code style="white-space: pre;">⁠SpatialPoints*⁠</code> object around which to make circles. Must be same
+coordinate system as the <code>landscape</code> argument. Default is missing,
+meaning it uses the default to <code>loci</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loci</code></td>
+<td>
+<p>Numeric. An alternative to <code>coords</code>.
+These are the indices on <code>landscape</code> to initiate this function (see <code>coords</code>).
+Default is one point in centre of <code>landscape</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxRadius</code></td>
+<td>
+<p>Numeric vector of length 1 or same length as <code>coords</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minRadius</code></td>
+<td>
+<p>Numeric vector of length 1 or same length as <code>coords</code>. Default is
+<code>maxRadius</code>, meaning return all cells that are touched
+by the narrow ring at that exact radius. If smaller than <code>maxRadius</code>,
+then this will create a buffer or doughnut or ring.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allowOverlap</code></td>
+<td>
+<p>Logical. Should duplicates across id be removed or kept. Default TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allowDuplicates</code></td>
+<td>
+<p>Logical. Should duplicates within id be removed or kept. Default FALSE.
+This is useful if the actual x, y coordinates are desired, rather
+than the cell indices. This will increase the size of the returned
+object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>includeBehavior</code></td>
+<td>
+<p>Character string. Currently accepts only <code>"includePixels"</code>, the default,
+and <code>"excludePixels"</code>. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnDistances</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then a column will be added to the returned
+data.table that reports the distance from <code>coords</code> to every
+point that was in the circle/doughnut surrounding <code>coords</code>.
+Default <code>FALSE</code>, which is faster.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>angles</code></td>
+<td>
+<p>Numeric. Optional vector of angles, in radians, to use. This will create
+"spokes" outward from <code>coords.</code> Default is <code>NA</code>, meaning, use internally
+derived angles that will "fill" the circle.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnAngles</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then a column will be added to the returned
+data.table that reports the angle from <code>coords</code> to every
+point that was in the circle/doughnut surrounding <code>coords</code>. Default <code>FALSE.</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnIndices</code></td>
+<td>
+<p>Logical or numeric. If <code>1</code> or <code>TRUE</code>, will return a <code>data.table</code>
+with indices and values of successful spread events.
+If <code>2</code>, it will simply return a vector of pixel indices of
+all cells that were touched. This will be the fastest option.
+If <code>FALSE</code>, then it will return a raster with values.
+See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>closest</code></td>
+<td>
+<p>Logical. When determining non-overlapping circles, should the function
+give preference to the closest <code>loci</code> or the first one (much faster).
+Default is <code>FALSE</code>, meaning the faster, though maybe not desired behaviour.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simplify</code></td>
+<td>
+<p>logical. If <code>TRUE</code>, then all duplicate pixels are removed.
+This means that some <code>x</code>, <code>y</code> combinations will disappear.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function identifies all the pixels as defined by a donut
+with inner radius <code>minRadius</code> and outer radius of <code>maxRadius</code>.
+The <code>includeBehavior</code> defines whether the cells that intersect the radii
+but whose centres are not inside the donut are included <code>includePixels</code>
+or not <code>excludePixels</code> in the returned pixels identified.
+If this is <code>excludePixels</code>, and if a <code>minRadius</code> and
+<code>maxRadius</code> are equal, this will return no pixels.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>matrix</code> with 4 columns, <code>id</code>, <code>indices</code>,
+<code>x</code>, <code>y</code>. The <code>x</code> and <code>y</code> indicate the exact coordinates of
+the <code>indices</code> (i.e., cell number) of the <code>landscape</code>
+associated with the ring or circle being identified by this function.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>rings()</code> which uses <code>spread</code> internally.
+<code>cir</code> tends to be faster when there are few starting points, <code>rings</code> tends to be faster
+when there are many starting points. <code>cir</code> scales with <code>maxRadius^2</code> and <code>coords</code>.
+Another difference between the two functions is that <code>rings</code> takes the centre of the pixel
+as the centre of a circle, whereas <code>cir</code> takes the exact coordinates.
+See example. For the specific case of creating distance surfaces from specific
+points, see <code>distanceFromEachPoint()</code>, which is often faster.
+For the more general GIS buffering, see <code>sf::st_buffer</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(data.table)
+library(terra)
+
+origDTThreads &lt;- data.table::setDTthreads(2L)
+origNcpus &lt;- options(Ncpus = 2L)
+set.seed(1462)
+
+# circle centred
+ras &lt;- rast(ext(0, 15, 0, 15), res = 1, val = 0)
+middleCircle &lt;- cir(ras)
+ras[middleCircle[, "indices"]] &lt;- 1
+circlePoints &lt;- vect(middleCircle[, c("x", "y")])
+if (interactive()) {
+  # clearPlot()
+  terra::plot(ras)
+  terra::plot(circlePoints, add = TRUE)
+}
+
+# circles non centred
+ras &lt;- randomPolygons(ras, numTypes = 4)
+n &lt;- 2
+agent &lt;- vect(cbind(x = stats::runif(n, xmin(ras), xmax(ras)),
+                    y = stats::runif(n, xmin(ras), xmax(ras))))
+
+cirs &lt;- cir(ras, agent, maxRadius = 15, simplify = TRUE) ## TODO: empty with some seeds! e.g. 1642
+cirsSP &lt;- vect(cirs[, c("x", "y")]) ## TODO: error with some seeds! e.g. 1642
+cirsRas &lt;- rast(ras)
+cirsRas[] &lt;- 0
+cirsRas[cirs[, "indices"]] &lt;- 1
+
+if (interactive()) {
+  terra::plot(ras)
+  terra::plot(cirsRas, add = TRUE, col = c("transparent", "#00000055"))
+  terra::plot(agent, add = TRUE)
+  terra::plot(cirsSP, add = TRUE)
+}
+
+# Example comparing rings and cir
+hab &lt;- rast(system.file("extdata", "hab1.tif", package = "SpaDES.tools"))
+radius &lt;- 4
+n &lt;- 2
+coords &lt;- vect(cbind(x = stats::runif(n, xmin(hab), xmax(hab)),
+                     y = stats::runif(n, xmin(hab), xmax(hab))))
+
+# cirs
+cirs &lt;- cir(hab, coords, maxRadius = rep(radius, length(coords)), simplify = TRUE)
+
+ras1 &lt;- rast(hab)
+ras1[] &lt;- 0
+ras1[cirs[, "indices"]] &lt;- cirs[, "id"]
+if (interactive()) {
+  terra::plot(ras1)
+}
+
+# rings
+loci &lt;- cellFromXY(hab, crds(coords))
+cirs2 &lt;- rings(hab, loci, maxRadius = radius, minRadius = radius - 1, returnIndices = TRUE)
+
+ras2 &lt;- rast(hab)
+ras2[] &lt;- 0
+ras2[cirs2$indices] &lt;- cirs2$id
+if (interactive()) {
+  terra::plot(c(ras1, ras2))
+}
+
+hab &lt;- rast(system.file("extdata", "hab2.tif", package = "SpaDES.tools"))
+cirs &lt;- cir(hab, coords, maxRadius = 44, minRadius = 0)
+ras1 &lt;- rast(hab)
+ras1[] &lt;- 0
+cirsOverlap &lt;- data.table::data.table(cirs)[, list(sumIDs = sum(id)), by = indices]
+ras1[cirsOverlap$indices] &lt;- cirsOverlap$sumIDs
+if (interactive()) {
+  terra::plot(ras1)
+}
+
+# Provide a specific set of angles
+ras &lt;- rast(ext(0, 330, 0, 330), res = 1)
+ras[] &lt;- 0
+n &lt;- 2
+coords &lt;- cbind(x = stats::runif(n, xmin(ras), xmax(ras)),
+                y = stats::runif(n, xmin(ras), xmax(ras)))
+circ &lt;- cir(ras, coords, angles = seq(0, 2 * pi, length.out = 21),
+            maxRadius = 200, minRadius = 0, returnIndices = FALSE,
+            allowOverlap = TRUE, returnAngles = TRUE)
+
+# clean up
+data.table::setDTthreads(origDTThreads)
+options(Ncpus = origNcpus)
+</code></pre>
+
+
+</div>

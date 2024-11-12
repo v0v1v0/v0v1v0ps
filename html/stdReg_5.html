@@ -1,0 +1,187 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>parfrailty</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Fits shared frailty gamma-Weibull models
+</h2>
+
+<h3>Description</h3>
+
+<p><code>parfrailty</code> fits shared frailty gamma-Weibull models. It is specifically 
+designed to work with the function <code>stdParfrailty</code>, which performs regression 
+standardization in shared frailty gamma-Weibull models.   
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">parfrailty(formula, data, clusterid, init)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+
+<p>an object of class "<code>formula</code>", on the same format as accepted by the 
+<code>coxph</code> function in the <span class="pkg">survival</span> package.  
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>a data frame containing the variables in the model. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clusterid</code></td>
+<td>
+
+<p>an string containing the name of a cluster identification variable. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init</code></td>
+<td>
+
+<p>an optional vector of initial values for the model parameters.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>parfrailty</code> fits the shared frailty gamma-Weibull model 
+</p>
+<p style="text-align: center;"><code class="reqn">\lambda(t_{ij}|C_{ij})=\lambda(t_{ij};\alpha,\eta)U_iexp\{h(C_{ij};\beta)\},</code>
+</p>
+
+<p>where <code class="reqn">t_{ij}</code> and <code class="reqn">C_{ij}</code> are the survival time and covariate vector
+for subject <code class="reqn">j</code> in cluster <code class="reqn">i</code>, respectively. <code class="reqn">\lambda(t;\alpha,\eta)</code> is the 
+Weibull baseline hazard function
+</p>
+<p style="text-align: center;"><code class="reqn">\eta t^{\eta-1}\alpha^{-\eta},</code>
+</p>
+  
+<p>where <code class="reqn">\eta</code> is the shape parameter and <code class="reqn">\alpha</code> is the scale parameter.
+<code class="reqn">U_i</code> is the unobserved frailty term for cluster <code class="reqn">i</code>, which is assumed 
+to have a gamma distribution with scale = 1/shape = <code class="reqn">\phi</code>. <code class="reqn">h(X;\beta)</code> 
+is the regression function as specified by the <code>formula</code> argument, 
+parametrized by a vector <code class="reqn">\beta</code>. The ML estimates 
+<code class="reqn">\{log(\hat{\alpha}),log(\hat{\eta}),log(\hat{\phi}),\hat{\beta}\}</code> 
+are obtained by maximizing the marginal (over <code class="reqn">U</code>) likelihood.  
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>"parfrailty"</code> is a list containing:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>est</code></td>
+<td>
+
+<p>the ML estimates <code class="reqn">\{log(\hat{\alpha}),log(\hat{\eta}),
+log(\hat{\phi}),\hat{\beta}\}</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vcov</code></td>
+<td>
+
+<p>the variance-covariance vector of the ML estimates.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>score</code></td>
+<td>
+
+<p>a matrix containing the cluster-specific contributions to the ML score equations. 
+</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>If left truncation is present, it is assumed that it is strong left truncation. 
+This means that, even if the truncation time may be subject-specific, the whole 
+cluster is unobserved if at least one subject in the cluster dies before 
+his/her truncation time. If all subjects in the cluster survive beyond their 
+subject-specific truncation times, then the whole cluster is observed 
+(Van den Berg and Drepper, 2016). 
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Arvid Sjolander and Elisabeth Dahlqwist. 
+</p>
+
+
+<h3>References</h3>
+
+<p>Dahlqwist E., Pawitan Y., Sjolander A. (2019). Regression standardization 
+and attributable fraction estimation with between-within frailty models for 
+clustered survival data. <em>Statistical Methods in Medical Research</em> 
+<b>28</b>(2), 462-485.
+</p>
+<p>Van den Berg G.J., Drepper B. (2016). Inference for shared frailty survival 
+models with left-truncated data. <em>Econometric Reviews</em>, 35(6), 1075-1098.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+require(survival)
+
+#simulate data
+n &lt;- 1000
+m &lt;- 3
+alpha &lt;- 1.5
+eta &lt;- 1
+phi &lt;- 0.5
+beta &lt;- 1
+id &lt;- rep(1:n, each=m)
+U &lt;- rep(rgamma(n, shape=1/phi,scale=phi), each=m)
+X &lt;- rnorm(n*m)
+#reparametrize scale as in rweibull function
+weibull.scale &lt;- alpha/(U*exp(beta*X))^(1/eta)
+T &lt;- rweibull(n*m, shape=eta, scale=weibull.scale)
+
+#right censoring
+C &lt;- runif(n*m, 0,10)
+D &lt;- as.numeric(T&lt;C)
+T &lt;- pmin(T, C)
+             
+#strong left-truncation
+L &lt;- runif(n*m, 0, 2)
+incl &lt;- T&gt;L
+incl &lt;- ave(x=incl, id, FUN=sum)==m
+dd &lt;- data.frame(L, T, D, X, id)
+dd &lt;- dd[incl, ]  
+ 
+fit &lt;- parfrailty(formula=Surv(L, T, D)~X, data=dd, clusterid="id")
+print(summary(fit))
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

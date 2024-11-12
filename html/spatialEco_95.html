@@ -1,0 +1,171 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>raster.modified.ttest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Dutilleul moving window bivariate raster correlation</h2>
+
+<h3>Description</h3>
+
+<p>A bivarate raster correlation using Dutilleul's
+modified t-test
+</p>
+<p>This function provides a bivariate moving window correlation using the modified
+t-test to account for spatial autocorrelation. Point based subsampling is provided
+for computation tractability. The hexagon sampling is recommended as it it good
+at capturing spatial process that includes nonstationarity and anistropy.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">raster.modified.ttest(
+  x,
+  y,
+  d = "auto",
+  sample = c("none", "random", "hexagonal", "regular"),
+  p = 0.1,
+  size = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A terra SpatRaster class object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A terra SpatRaster class object, same dimensions as x</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>Distance for finding neighbors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample</code></td>
+<td>
+<p>Apply sub-sampling options; c("none", "random", "hexagonal", "regular")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>If sample != "none", what proportion of population
+should be sampled</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>size</code></td>
+<td>
+<p>Fixed sample size (default NULL)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A terra SpatRaster or sf POINT class object with the following attributes:
+</p>
+
+<ul>
+<li>
+<p> corr - Correlation
+</p>
+</li>
+<li>
+<p> Fstat - The F-statistic calculated as degrees of freedom unscaled F-statistic
+</p>
+</li>
+<li>
+<p> p.value - p-value for the test
+</p>
+</li>
+<li>
+<p> moran.x - Moran's-I for x
+</p>
+</li>
+<li>
+<p> moran.y - Moran's-I for y
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Jeffrey S. Evans  <a href="mailto:jeffrey_evans@tnc.org">jeffrey_evans@tnc.org</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Clifford, P., S. Richardson, D. Hemon (1989), Assessing the significance of the
+correlationbetween two spatial processes. Biometrics 45:123-134.
+</p>
+<p>Dutilleul, P. (1993), Modifying the t test for assessing the correlation between
+two spatial processes. Biometrics 49:305-314.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>modified.ttest</code> for test details
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+ p = c("sf", "sp", "terra", "gstat")
+ if(any(!unlist(lapply(p, requireNamespace, quietly=TRUE)))) { 
+   m = which(!unlist(lapply(p, requireNamespace, quietly=TRUE)))
+   message("Can't run examples, please install ", paste(p[m], collapse = " "))
+ } else {
+   invisible(lapply(p, require, character.only=TRUE))
+
+data(meuse, package = "sp")
+meuse &lt;- st_as_sf(meuse, coords = c("x", "y"), crs = 28992, 
+                  agr = "constant") 
+data(meuse.grid, package = "sp")                                      
+meuse.grid &lt;- st_as_sf(meuse.grid, coords = c("x", "y"), crs = 28992, 
+                  agr = "constant") 
+
+ref &lt;- rast(ext(meuse.grid), resolution = 40)
+  crs(ref) &lt;- crs(meuse)
+e &lt;- ext(179407.8, 181087.9, 331134.4, 332332.1)
+                                       
+# GRID-1 log(copper): 
+v1 &lt;- variogram(log(copper) ~ 1, meuse) 
+  x1 &lt;- fit.variogram(v1, vgm(1, "Sph", 800, 1))           
+  G1 &lt;- krige(zinc ~ 1, meuse, meuse.grid, x1, nmax = 30)
+G1 &lt;- crop(rasterize(G1, ref, "var1.pred"),e)
+names(G1) &lt;- "copper"
+ 
+ # GRID-2 log(elev):
+v2 &lt;- variogram(log(elev) ~ 1, meuse) 
+  x2 &lt;- fit.variogram(v2, vgm(1, "Sph", 800, 1))           
+  G2 &lt;- krige(zinc ~ 1, meuse, meuse.grid, x2, nmax = 30)
+G2 &lt;- crop(rasterize(G2, ref, "var1.pred"),e)
+names(G2) &lt;- "elev"
+
+# Raster corrected correlation 
+acor &lt;- raster.modified.ttest(G1, G2)
+  plot(acor)
+ 
+# Sample-based corrected correlation
+( cor.hex &lt;- raster.modified.ttest(G1, G2, sample = "hexagonal") )	 
+  plot(cor.hex["corr"], pch=20)
+}
+
+</code></pre>
+
+
+</div>

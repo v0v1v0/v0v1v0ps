@@ -1,0 +1,156 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>observer</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get or Set an Observer Functions to an ‘simObj’ Object</h2>
+
+<h3>Description</h3>
+
+<p>Get or set a user-defined observer to enable user-specified storage
+of simulation results, visualisation or logging.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+observer(obj, ...)
+observer(obj) &lt;- value
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>A valid <code>simObj</code> instance.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>value</code></td>
+<td>
+<p>A function specifying an observer, see Details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Reserved for method consistency.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The observer can be used with solver <code>iteration</code> or a user-defined
+solver function. It does not work with differential equations solvers.
+</p>
+<p>The observer is a function with the following arguments:
+</p>
+<p><code>function(state)</code>
+</p>
+<p>or:
+</p>
+<p><code>function(state, time, i, out, y)</code>
+</p>
+<p>Where <code>state</code> is the actual state of the system, <code>time</code> and <code>i</code>
+are the simulation time and the indexof the time step respectively,
+<code>out</code> is the output of the actual simulation collected so far. 
+The original object used in the simulation is passed via <code>y</code> and can be used
+to get access on parameter values or model equations.
+</p>
+<p>If available, the observer function is called for every time step in the 
+iteration. It can be used for calculations “on the fly” to reduce memory
+of saved data, for user-specified animation or for logging purposes.
+</p>
+<p>If the value returned by observer is a vector, than resulting <code>out</code> will be a
+<code>data.frame</code>, otherwise it will be a list of all states.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The observer function either modifies <code>obj</code> or it returns the 
+assigned observer function or <code>NULL</code> (the default).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>iteration</code> for the iteration solver,
+</p>
+<p><code>parms</code> for accessor and replacement functions of other slots,
+</p>
+<p><code>simecol-package</code> for an overview of the package.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## load model "diffusion"
+data(diffusion)
+
+solver(diffusion) # solver is iteration, supports observer
+times(diffusion) &lt;- c(from=0, to=20, by=1) # to can be increased, to e.g. 100
+
+### == Example 1 ===============================================================
+
+## assign an observer for visualisation
+observer(diffusion) &lt;- function(state) {
+  ## numerical output to the screen
+  cat("mean x=", mean(state$x),
+      ", mean y=", mean(state$y),
+      ", sd   x=", sd(state$x),
+      ", sd   y=", sd(state$y), "\n")
+  ## animation
+  par(mfrow = c(2, 2))
+  plot(state$x, state$y, xlab = "x", ylab = "y", pch = 16, 
+    col = "red", xlim = c(0, 100))
+  hist(state$y)
+  hist(state$x)
+  
+  ## default case: 
+  ## return the state --&gt; iteration stores full state in "out"
+  state
+}
+
+sim(diffusion)
+
+### == Example 2 ===============================================================
+
+## an extended observer with full argument list
+observer(diffusion) &lt;- function(state, time, i, out, y) {
+  ## numerical output to the screen
+  cat("index =", i,
+      ", time =", time,
+      ", sd   x=", sd(state$x),
+      ", sd   y=", sd(state$y), "\n")
+  ## animation
+  par(mfrow = c(2, 2))
+  plot(state$x, state$y, xlab = "x", ylab = "y", pch = 16, 
+    col = "red", xlim = c(0, 100))
+  hist(state$y)
+  hist(state$x)
+  if (is.matrix(out)) # important because out may be NULL for the first call
+    matplot(out[,1], out[,-1]) # dynamic graph of sd in both directions
+  
+  ## return a vector with summary information
+  c(times = time, sdx=sd(state$x), sdy=sd(state$y))
+}
+
+diffusion &lt;- sim(diffusion)
+
+### == Restore default =========================================================
+
+observer(diffusion) &lt;- NULL # delete observer
+diffusion &lt;- sim(diffusion)
+
+</code></pre>
+
+
+</div>

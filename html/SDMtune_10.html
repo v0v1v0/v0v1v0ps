@@ -1,0 +1,101 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>combineCV</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Combine Cross Validation models</h2>
+
+<h3>Description</h3>
+
+<p>This function combines cross-validation models by retraining a new model with
+all presence and absence/background locations and the same hyperparameters.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">combineCV(model)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>SDMmodelCV object.</p>
+</td>
+</tr></table>
+<h3>Details</h3>
+
+<p>This is an utility function to retrain a model with all data after,
+for example, the hyperparameters tuning (gridSearch,
+randomSearch or optimizeModel) to avoid manual setting of the
+hyperparameters in the train function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An SDMmodel object.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sergio Vignali
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Acquire environmental variables
+files &lt;- list.files(path = file.path(system.file(package = "dismo"), "ex"),
+                    pattern = "grd",
+                    full.names = TRUE)
+
+predictors &lt;- terra::rast(files)
+
+# Prepare presence and background locations
+p_coords &lt;- virtualSp$presence
+bg_coords &lt;- virtualSp$background
+
+# Create SWD object
+data &lt;- prepareSWD(species = "Virtual species",
+                   p = p_coords,
+                   a = bg_coords,
+                   env = predictors,
+                   categorical = "biome")
+
+# Create 4 random folds splitting only the presence data
+folds &lt;- randomFolds(data,
+                     k = 4,
+                     only_presence = TRUE)
+
+model &lt;- train(method = "Maxnet",
+               data = data,
+               folds = folds)
+
+# Define the hyperparameters to test
+h &lt;- list(reg = 1:2,
+          fc = c("lqp", "lqph"))
+
+# Run the function using the AUC as metric
+output &lt;- gridSearch(model,
+                     hypers = h,
+                     metric = "auc")
+output@results
+output@models
+
+# Order results by highest test AUC
+output@results[order(-output@results$test_AUC), ]
+
+# Combine cross validation models for output with highest test AUC
+idx &lt;- which.max(output@results$test_AUC)
+combined_model &lt;- combineCV(output@models[[idx]])
+combined_model
+</code></pre>
+
+
+</div>

@@ -1,0 +1,180 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>extrapolate_rejection</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extrapolate coverage and width using sub-sampled bootstrap confidence
+intervals.</h2>
+
+<h3>Description</h3>
+
+<p>Given a set of bootstrap confidence intervals calculated across
+sub-samples with different numbers of replications, extrapolates confidence
+interval coverage and width of bootstrap confidence intervals to a
+specified (larger) number of bootstraps. The function also calculates the
+associated Monte Carlo standard errors. The confidence interval percentage
+is based on how you calculated the lower and upper bounds.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">extrapolate_rejection(
+  data,
+  pvalue_subsamples,
+  B_target = Inf,
+  alpha = 0.05,
+  nested = FALSE,
+  format = "wide"
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>data frame or tibble containing the simulation results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pvalue_subsamples</code></td>
+<td>
+<p>list or name of column from <code>data</code> containing list
+of confidence intervals calculated based on sub-samples with different
+numbers of replications.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B_target</code></td>
+<td>
+<p>number of bootstrap replications to which the criteria should
+be extrapolated, with a default of <code>B = Inf</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>scalar or vector indicating the nominal alpha level(s). Default
+value is set to the conventional .05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nested</code></td>
+<td>
+<p>logical value controlling the format of the output. If
+<code>FALSE</code> (the default), then the results will be returned as a data
+frame with rows for each distinct number of bootstraps. If <code>TRUE</code>,
+then the results will be returned as a data frame with a single row, with
+each performance criterion containing a nested data frame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>format</code></td>
+<td>
+<p>character string controlling the format of the output when
+<code>CI_subsamples</code> has results for more than one type of confidence
+interval. If <code>"wide"</code> (the default), then each performance criterion
+will have a separate column for each CI type. If <code>"long"</code>, then each
+performance criterion will be a single variable, with separate rows for
+each CI type.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A tibble containing the number of simulation iterations, performance
+criteria estimate(s) and the associated MCSE.
+</p>
+
+
+<h3>References</h3>
+
+<p>Boos DD, Zhang J (2000).
+“Monte Carlo evaluation of resampling-based hypothesis tests.”
+<em>Journal of the American Statistical Association</em>, <b>95</b>(450), 486–492.
+<a href="https://doi.org/10.1080/01621459.2000.10474226">doi:10.1080/01621459.2000.10474226</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# function to generate data from two distinct populations
+dgp &lt;- function(N_A, N_B, shape_A, scale_A, shape_B, scale_B) {
+  data.frame(
+    group = rep(c("A","B"), c(N_A, N_B)),
+      y = c(
+        rgamma(N_A, shape = shape_A, scale = scale_A),
+        rgamma(N_B, shape = shape_B, scale = scale_B)
+      )
+  )
+}
+
+# function to do a bootstrap t-test
+estimator &lt;- function(
+    dat,
+    B_vals = c(49,59,89,99), # number of booties to evaluate
+    pval_reps = 4L
+) {
+  stat &lt;- t.test(y ~ group, data = dat)$statistic
+
+  # create bootstrap replications under the null of no difference
+  boot_dat &lt;- dat
+  booties &lt;- replicate(max(B_vals), {
+    boot_dat$group &lt;- sample(dat$group)
+    t.test(y ~ group, data = boot_dat)$statistic
+  })
+
+  # calculate multiple bootstrap p-values using sub-sampling of replicates
+  res &lt;- data.frame(stat = stat)
+
+  res$pvalue_subsamples &lt;- bootstrap_pvals(
+    boot_stat = booties,
+    stat = stat,
+    B_vals = B_vals,
+    reps = pval_reps,
+    enlist = TRUE
+  )
+
+  res
+}
+
+# create simulation driver
+simulate_boot_pvals &lt;- bundle_sim(
+  f_generate = dgp,
+  f_analyze = estimator
+)
+
+# replicate the bootstrap process
+x &lt;- simulate_boot_pvals(
+  reps = 50L,
+  N_A = 20, N_B = 25,
+  shape_A = 7, scale_A = 2,
+  shape_B = 4, scale_B = 3,
+  B_vals = c(49, 99, 149, 199),
+  pval_reps = 2L
+)
+
+extrapolate_rejection(
+  data = x,
+  pvalue_subsamples = pvalue_subsamples,
+  B_target = 1999,
+  alpha = c(.01, .05, .10)
+)
+
+extrapolate_rejection(
+  data = x,
+  pvalue_subsamples = pvalue_subsamples,
+  B_target = Inf,
+  alpha = c(.01, .05, .10),
+  nested = TRUE
+)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,133 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pitch_app</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Interactive pitch tracker</h2>
+
+<h3>Description</h3>
+
+<p>Starts a shiny app for manually editing pitch contours. The settings in the
+panels on the left correspond to arguments to <code>analyze</code> - see
+'?analyze' and the vignette on acoustic analysis for help and examples. You
+can verify the pitch contours first, and then feed them back into
+<code>analyze</code> (see examples).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">pitch_app()
+</code></pre>
+
+
+<h3>Value</h3>
+
+<p>When proceeding to the next file in the cue, two types of backups are
+created. (1) A global object called "my_pitch" is created or updated. This
+list becomes visible when the app is terminated, and it contains the usual
+outputs of analyze() ($detailed and $summary) plus lists of manually
+corrected voiced and unvoiced frames. (2) The app saves to disk a .csv file
+with one row per audio file. Apart from the usual descriptives from
+analyze(), there are two additional columns: "time" with time stamps (the
+midpoint of each STFT frame, ms) and "pitch" with the manually corrected
+pitch values for each frame (Hz). When the orange "Download results" button
+is clicked, a context menu pops up offering to terminate the app - if that
+happens, the results are also returned directly into R. To process pitch
+contours further in R, work directly with my_pitch[[myfile]]$time and
+my_pitch[[myfile]]$pitch or, if loading the csv file, do something like:
+</p>
+<pre>
+a = read.csv('~/Downloads/output.csv', stringsAsFactors = FALSE)
+pitch = as.numeric(unlist(strsplit(a$pitch, ',')))
+mean(pitch, na.rm = TRUE); sd(pitch, na.rm = TRUE)
+</pre>
+<p><b>Suggested workflow</b>
+</p>
+<p>Start by setting the basic analysis settings such as pitchFloor,
+pitchCeiling, silence, etc. Then click "Load audio" to upload one or several
+audio files (wav/mp3). Long files will be very slow, so please cut your audio
+into manageable chunks (ideally &lt;10 s). If Shiny complains that maximum
+upload size is exceeded, you can increase it, say to 30 MB, with
+'options(shiny.maxRequestSize = 30 * 1024^2)'. Once the audio has been
+uploaded to the browser, fine-tune the analysis settings as needed, edit the
+pitch contour in the first file to your satisfaction, then click "Next" to
+proceed to the next file, etc. Remember that setting a reasonable prior is
+often faster than adjusting the contour one anchor at a time. When done,
+click "Save results". If working with many files, you might want to save the
+results occasionally in case the app crashes (although you should still be
+able to recover your data if it does - see below).
+</p>
+<p><b>How to edit pitch contours</b>
+</p>
+<p>Left-click to add a new anchor, double-click to remove it or unvoice the
+frame. Each time you make a change, the entire pitch contour is re-fit, so
+making a change in one frame can affect the path through candidates in
+adjacent frames. You can control this behavior by changing the settings in
+Out/Path and Out/Smoothing. If correctly configured, the app corrects the
+contour with only a few manual values - you shouldn't need to manually edit
+every single frame. For longer files, you can zoom in/out and navigate within
+the file. You can also select a region to voice/unvoice or shift it as a
+whole or to set a prior based on selected frequency range.
+</p>
+<p><b>Recovering lost data</b>
+</p>
+<p>Every time you click "next" or "last" to move in between files in the queue,
+the output you've got so far is saved in a backup file called "temp.csv", and
+the "my_pitch" global object is updated. If the app crashes or is closed
+without saving the results, this backup file preserves your data. To recover
+it, access this file manually on disk or simply restart pitch_app() - a
+dialog box will pop up and ask whether you wank to append the old data to the
+new one. Path to backup file:
+"[R_installation_folder]/soundgen/shiny/pitch_app/www/temp.csv", for example,
+"/home/allgoodguys/R/x86_64-pc-linux-gnu-library/3.6/soundgen/shiny/pitch_app/www/temp.csv"
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>formant_app</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Recommended workflow for analyzing a lot of short audio files
+path_to_audio = '~/Downloads/temp'  # our audio lives here
+
+# STEP 1: extract manually corrected pitch contours
+my_pitch = pitch_app()  # runs in default browser such as Firefox or Chrome
+# To change system default browser, run something like:
+options('browser' = '/usr/bin/firefox')  # path to the executable on Linux
+
+# STEP 2: run analyze() with manually corrected pitch contours to obtain
+# accurate descriptives like the proportion of energy in harmonics above f0,
+# etc. This also gives you formants and loudness estimates (disabled in
+# pitch_app to speed things up)
+df2 = analyze(path_to_audio,
+  pitchMethods = 'autocor',  # only needed for HNR
+  nFormants = 5,        # now we can measure formants as well
+  pitchManual = my_pitch
+  # or, if loading the output of pitch_app() from the disk:
+  # pitchManual = '~/Downloads/output.csv'
+  # pitchManual = '~/path_to_some_folder/my_pitch_contours.rds
+  # etc
+)
+
+# STEP 3: add other acoustic descriptors, for ex.
+df3 = segment(path_to_audio)
+
+# STEP 4: merge df2, df3, df4, ... in R or a spreadsheet editor to have all
+# acoustic descriptives together
+
+# To verify your pitch contours and/or edit them later, copy output.csv to
+# the folder with your audio, run pitch_app(), and load the audio + csv
+# together. The saved pitch contours are treated as manual anchors
+
+## End(Not run)
+</code></pre>
+
+
+</div>

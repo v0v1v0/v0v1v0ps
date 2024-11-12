@@ -1,0 +1,158 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Psi</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Shortest angles matrix</h2>
+
+<h3>Description</h3>
+
+<p>Efficient computation of the shortest angles matrix
+<code class="reqn">\boldsymbol\Psi</code>, defined as
+</p>
+<p style="text-align: center;"><code class="reqn">\Psi_{ij}:=\cos^{-1}({\bf X}_i'{\bf X}_j),\quad
+i,j=1,\ldots,n,</code>
+</p>
+
+<p>for a sample <code class="reqn">{\bf X}_1,\ldots,{\bf X}_n\in S^{p-1}:=\{{\bf x}\in
+R^p:||{\bf x}||=1\}</code>, <code class="reqn">p\ge 2</code>.
+</p>
+<p>For a circular sample <code class="reqn">\Theta_1, \ldots, \Theta_n \in [0, 2\pi)</code>,
+<code class="reqn">\boldsymbol\Psi</code> can be expressed as
+</p>
+<p style="text-align: center;"><code class="reqn">\Psi_{ij}=\pi-|\pi-|\Theta_i-\Theta_j||,\quad
+i,j=1,\ldots,n.</code>
+</p>
+
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Psi_mat(data, ind_tri = 0L, use_ind_tri = FALSE, scalar_prod = FALSE,
+  angles_diff = FALSE)
+
+upper_tri_ind(n)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an array of size <code>c(n, p, M)</code> containing the Cartesian
+coordinates of <code>M</code> samples of size <code>n</code> of directions on
+<code class="reqn">S^{p-1}</code>. Alternatively if <code>p = 2</code>, an array of size
+<code>c(n, 1, M)</code> containing the angles on <code class="reqn">[0, 2\pi)</code> of the <code>M</code>
+circular samples of size <code>n</code> on <code class="reqn">S^{1}</code>. Must not contain
+<code>NA</code>'s.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ind_tri</code></td>
+<td>
+<p>if <code>use_ind_tri = TRUE</code>, the vector of 0-based indexes
+provided by <code>upper_tri_ind(n)</code>, which allows to extract the upper
+triangular part of the matrix <code class="reqn">\boldsymbol\Psi</code>. See the examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_ind_tri</code></td>
+<td>
+<p>use the already computed vector index <code>ind_tri</code>? If
+<code>FALSE</code> (default), <code>ind_tri</code> is computed internally.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scalar_prod</code></td>
+<td>
+<p>return the scalar products
+<code class="reqn">{\bf X}_i'{\bf X}</code> instead of the shortest angles? Only taken
+into account for data in <em>Cartesian</em> form. Defaults to
+<code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>angles_diff</code></td>
+<td>
+<p>return the (unwrapped) angles difference
+<code class="reqn">\Theta_i-\Theta_j</code> instead of the shortest angles? Only taken into
+account for data in <em>angular</em> form. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>sample size, used to determine the index vector that gives the
+upper triangular part of <code class="reqn">\boldsymbol\Psi</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+
+<ul>
+<li> <p><code>Psi_mat</code>: a matrix of size
+<code>c(n * (n - 1) / 2, M)</code> containing, for each column, the vector
+half of <code class="reqn">\boldsymbol\Psi</code> for each of the <code>M</code> samples.
+</p>
+</li>
+<li> <p><code>upper_tri_ind</code>: a matrix of size <code>n * (n - 1) / 2</code>
+containing the 0-based linear indexes for extracting the upper triangular
+matrix of a matrix of size <code>c(n, n)</code>, diagonal excluded, assuming
+column-major order.
+</p>
+</li>
+</ul>
+<h3>Warning</h3>
+
+<p>Be careful on avoiding the next bad usages of <code>Psi_mat</code>, which will
+produce spurious results:
+</p>
+
+<ul>
+<li>
+<p> The directions in <code>data</code> do <em>not</em> have unit norm when
+Cartesian coordinates are employed.
+</p>
+</li>
+<li>
+<p> The entries of <code>data</code> are <em>not</em> in <code class="reqn">[0, 2\pi)</code> when
+polar coordinates are employed.
+</p>
+</li>
+<li> <p><code>ind_tri</code> is a vector of size <code>n * (n - 1) / 2</code> that
+does <em>not</em> contain the indexes produced by <code>upper_tri_ind(n)</code>.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Shortest angles
+n &lt;- 5
+X &lt;- r_unif_sph(n = n, p = 2, M = 2)
+Theta &lt;- X_to_Theta(X)
+dim(Theta) &lt;- c(n, 1, 2)
+Psi_mat(X)
+Psi_mat(Theta)
+
+# Precompute ind_tri
+ind_tri &lt;- upper_tri_ind(n)
+Psi_mat(X, ind_tri = ind_tri, use_ind_tri = TRUE)
+
+# Compare with R
+A &lt;- acos(tcrossprod(X[, , 1]))
+ind &lt;- upper.tri(A)
+A[ind]
+
+# Reconstruct matrix
+Psi_vec &lt;- Psi_mat(Theta[, , 1, drop = FALSE])
+Psi &lt;- matrix(0, nrow = n, ncol = n)
+Psi[upper.tri(Psi)] &lt;- Psi_vec
+Psi &lt;- Psi + t(Psi)
+</code></pre>
+
+
+</div>

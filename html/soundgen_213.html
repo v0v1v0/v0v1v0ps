@@ -1,0 +1,196 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>resample</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Resample a vector</h2>
+
+<h3>Description</h3>
+
+<p>Changes the sampling rate without introducing artefacts like aliasing.
+Algorithm: to downsample, applies a low-pass filter, then decimates with
+<code>approx</code>; to upsample, performs linear interpolation with <code>approx</code>,
+then applies a low-pass filter. NAs can be interpolated or preserved in the
+output. The length of output is determined, in order of precedence, by
+<code>len / mult / samplingRate_new</code>. For simple vector operations, this is
+very similar to approx, but the leading and trailing NAs are also preserved
+(see examples).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">resample(
+  x,
+  samplingRate = NULL,
+  samplingRate_new = NULL,
+  mult = NULL,
+  len = NULL,
+  lowPass = TRUE,
+  na.rm = FALSE,
+  reportEvery = NULL,
+  cores = 1,
+  saveAudio = NULL,
+  plot = FALSE,
+  savePlots = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate_new</code></td>
+<td>
+<p>an alternative to <code>mult</code> provided that the old
+<code>samplingRate is know</code> (NB: <code>mult</code> takes precedence)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mult</code></td>
+<td>
+<p>multiplier of sampling rate: new sampling rate = old sampling
+rate x mult, so 1 = no effect, &gt;1 = upsample, &lt;1 = downsample</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>len</code></td>
+<td>
+<p>if specified, overrides mult and samplingRate_new and simply
+returns a vector of length <code>len</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lowPass</code></td>
+<td>
+<p>if TRUE, applies a low-pass filter before decimating or after
+upsampling to avoid aliasing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>if TRUE, NAs are interpolated, otherwise they are preserved in
+the output</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveAudio</code></td>
+<td>
+<p>full path to the folder in which to save audio files (one
+per detected syllable)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>should a spectrogram be plotted? TRUE / FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>full path to the folder in which to save the plots (NULL =
+don't save, ” = same folder as audio)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>graphical parameters for saving plots passed to
+<code>png</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Example 1: a short vector with NAs
+x = c(NA, 1, 2, 3, NA, NA, 6, 7, 8, NA)
+
+# upsample
+resample(x, mult = 3.5, lowPass = FALSE, plot = TRUE)  # just approx
+resample(x, mult = 3.5, lowPass = TRUE, plot = TRUE) # low-pass + approx
+resample(x, mult = 3.5, lowPass = FALSE, na.rm = TRUE, plot = TRUE)
+
+# downsample
+resample(x, mult = 0.5, lowPass = TRUE, plot = TRUE)
+resample(x, mult = 0.5, na.rm = TRUE, plot = TRUE)
+resample(x, len = 5, na.rm = TRUE, plot = TRUE) # same
+
+# The most important TIP: use resample() for audio files and the internal
+# soundgen:::.resample(list(sound = ...)) for simple vector operations because
+# it's &gt;1000 times faster. For example:
+soundgen:::.resample(list(sound = x), mult = 3.5, lowPass = FALSE)
+
+## Example 2: a sound
+silence = rep(0, 10)
+samplingRate = 1000
+fr = seq(100, 300, length.out = 400)
+x = c(silence, sin(cumsum(fr) * 2 * pi / samplingRate), silence)
+spectrogram(x, samplingRate)
+
+# downsample
+x1 = resample(x, mult = 1 / 2.5)
+spectrogram(x1, samplingRate / 2.5)  # no aliasing
+# cf:
+x1bad = resample(x, mult = 1 / 2.5, lowPass = FALSE)
+spectrogram(x1bad, samplingRate / 2.5)  # aliasing
+
+# upsample
+x2 = resample(x, mult = 3)
+spectrogram(x2, samplingRate * 3)  # nothing above the old Nyquist
+# cf:
+x2bad = resample(x, mult = 3, lowPass = FALSE)
+spectrogram(x2bad, samplingRate * 3)  # high-frequency artefacts
+
+## Not run: 
+# Example 3: resample all audio files in a folder to 8000 Hz
+resample('~/Downloads/temp', saveAudio = '~/Downloads/temp/sr8000/',
+         samplingRate_new = 8000, savePlots = '~/Downloads/temp/sr8000/')
+
+## End(Not run)
+</code></pre>
+
+
+</div>

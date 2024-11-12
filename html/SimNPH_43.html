@@ -1,0 +1,174 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>upsert_merge</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Merge results from additional or updated simulations</h2>
+
+<h3>Description</h3>
+
+<p>Merge results from additional or updated simulations
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">upsert_merge(x, y, by)
+
+merge_additional_results(
+  old,
+  new,
+  design_names = NULL,
+  descriptive_regex = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>left data.frame</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>right data.frame</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by</code></td>
+<td>
+<p>columns to match by</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>old</code></td>
+<td>
+<p>old results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new</code></td>
+<td>
+<p>new/additional results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>design_names</code></td>
+<td>
+<p>names of the paramterst</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>descriptive_regex</code></td>
+<td>
+<p>regular expression for columns of descriptive statistics</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>updates columns in x with values from matched rows in y and add
+joins columns from y not present in x. Calls <code>rows_upsert</code> and then
+<code>full_join</code>.
+</p>
+<p>if <code>design_names</code> is omitted its value is taken from the
+<code>design_names</code> attribute of the simulation results.
+</p>
+<p>If <code>descriptive_regex</code> is given, columns matching the regular expression in
+both datasets are compared, a warning is given, if the values of those
+columns do not match. This is intended to compare descriptive statistics or
+results of unchanged analysis methods to ensure, that both results stem
+from an exact replication of the simulation results.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a data.frame
+</p>
+<p>a data.frame of the merged simulation results
+</p>
+
+
+<h3>Functions</h3>
+
+
+<ul><li> <p><code>upsert_merge()</code>: Update or add Rows and Columns
+</p>
+</li></ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">a &lt;- data.frame(x=5:2, y=5:2, a=5:2)
+b &lt;- data.frame(x=1:4, y=1:4+10, b=1:4*10)
+upsert_merge(a, b, by="x")
+
+condition &lt;- merge(
+  assumptions_delayed_effect(),
+  design_fixed_followup(),
+  by=NULL
+) |&gt;
+  tail(4) |&gt;
+  true_summary_statistics_delayed_effect(cutoff_stats = 15)
+
+condition_1 &lt;- condition[1:2, ]
+condition_2 &lt;- condition[3:4, ]
+
+# runs simulations
+sim_results_1 &lt;- runSimulation(
+  design=condition_1,
+  replications=100,
+  generate=generate_delayed_effect,
+  analyse=list(
+    logrank  = analyse_logrank(alternative = "one.sided"),
+    maxcombo = analyse_logrank(alternative = "one.sided")
+  ),
+  summarise = create_summarise_function(
+    logrank = summarise_test(0.025),
+    maxcombo = summarise_test(0.025)
+  )
+)
+
+sim_results_2 &lt;- runSimulation(
+  design=condition_2,
+  replications=100,
+  generate=generate_delayed_effect,
+  analyse=list(
+    logrank  = analyse_logrank(alternative = "one.sided"),
+    maxcombo = analyse_logrank(alternative = "one.sided")
+  ),
+  summarise = create_summarise_function(
+    logrank = summarise_test(0.025),
+    maxcombo = summarise_test(0.025)
+  )
+)
+
+sim_results_3 &lt;- runSimulation(
+  design=condition,
+  replications=100,
+  generate=generate_delayed_effect,
+  analyse=list(
+    mwlrt = analyse_modelstly_weighted(t_star = m2d(24))
+  ),
+  summarise = create_summarise_function(
+    mwlrt = summarise_test(0.025)
+  )
+)
+
+all_results &lt;- sim_results_1 |&gt;
+  merge_additional_results(sim_results_2) |&gt;
+  merge_additional_results(sim_results_3)
+
+all_results |&gt;
+  subset(select=c(delay, logrank.rejection_0.025, maxcombo.rejection_0.025, mwlrt.rejection_0.025))
+
+
+</code></pre>
+
+
+</div>

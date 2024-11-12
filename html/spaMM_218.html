@@ -1,0 +1,190 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>multIMRF</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Interpolated Markov Random Field models
+</h2>
+
+<h3>Description</h3>
+
+<p><span class="pkg">spaMM</span> can fit random-effect terms of the forms considered by Lindgren et al. (2011) or Nychka et al. (2015, 2018).
+The random effects considered here all involve a multivariate Gaussian random effect over a lattice, from which the random-effect value in any spatial position is determined by interpolation of values on the lattice. <b>IMRF</b> stands for <b>I</b>nterpolated <b>M</b>arkov <b>R</b>andom <b>F</b>ield because the specific process considered on the lattice is currently known as a Gaussian Markov Random Field (see the Details for further information). Lindgren et al. considered irregular lattices designed to approximate of the Matern correlation model with fixed smoothness &lt;= 2, while Nychka et al. considered regular grids. 
+</p>
+<p>The correlation model of Lindgren et al. (2011) can be fitted by <span class="pkg">spaMM</span> by declaring an <code>IMRF</code> random effect term in the model formula, with a <code>model</code> argument in the right-hand side whose value is the result of <code>INLA::inla.spde2.matern</code> (or <code>INLA::inla.spde2.pcmatern</code>) for given smoothness. The <span class="pkg">spaMM</span> functions for such a fit do not call <span class="pkg">INLA</span> functions. Alternatively, the same model with variable smoothness can be fitted by declaring a <code>corrFamily</code> term whose structure is described through the <code>MaternIMRFa</code> function, whose respective documentations should be considered for more details. In the latter case <code>INLA::inla.spde2.matern</code> is called internally by <code>spaMM</code>. The correlation models thus defined are fitted by the same methods as other models in <span class="pkg">spaMM</span>.     
+</p>
+<p>Regular lattices can also be declared as an <code>IMRF</code> term (with arguments distinct from <code>model</code>). The <code>multIMRF</code> syntax implements the multiresolution model of Nychka et al. Any <code>multIMRF</code> term in a formula is immediately converted to <code>IMRF</code> terms for regular grids wih different step sizes. This has distinct implications for controlling the parameters of these or other random effects in the model by <code>init</code> or <code>fixed</code> values: see Details if you need such control. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R"># IMRF( 1 | &lt;coordinates&gt;, model, nd, m, no, ce, ...) 
+# multIMRF( 1 | &lt;coordinates&gt;, levels, margin, coarse=10L, 
+#            norm=TRUE, centered=TRUE ) 
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>An <code>inla.spde2</code> object as produced by <code>INLA::inla.spde2.matern</code> or<br><code>INLA::inla.spde2.pcmatern</code> (see Examples below, and <a href="https://www.r-inla.org">https://www.r-inla.org</a> for further information).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>levels</code></td>
+<td>
+<p>integer; 
+Number of levels in the hierarchy, i.e. number of component IMRFs.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>margin, m</code></td>
+<td>
+<p>integer; 
+width of the margin, as a number of additional grid points on each side (applies to all levels of the hierarchy).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coarse</code></td>
+<td>
+<p>integer; 
+number of grid points (excluding the margins) per dimension for the coarsest IMRF. The number of grids steps nearly doubles with each level of the hierarchy (see Details). 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nd</code></td>
+<td>
+<p>integer; 
+number of grid steps (excluding the margins) per dimension for the given IMRF. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>norm, no</code></td>
+<td>
+<p>Boolean; whether to apply normalization (see Details), or not.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>centered, ce</code></td>
+<td>
+<p>Boolean; whether to center the grid in all dimensions, or not.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Not documented, for programming purposes</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><b>Formulation of the covariance models:</b>
+</p>
+<p>Gaussian Markov Random Field (MRF) and conditional autoregressive models are essentially the same thing, apart from details of specification. 
+<code>adjacency</code> and <code>AR1</code> random effects can be seen as specific MRFs.  
+The common idea is the Markov-like property that the distribution of each element <code class="reqn">b_i</code> of the random-effect <b>b</b>, given values of a few specific elements (the “neighbours” of <code class="reqn">i</code>), is independent of other elements (i.e., of non-neighbours). The non-zero non-diagonal elements of a precision matrix characterize the neighbours. 
+</p>
+<p>Given the inferred vector <b>b</b> of values of the MRF on the lattice, the interpolation of the MRF in any focal point is of the form <b>Ab</b> where each row of <b>A</b> weights the values of <b>b</b> according to the position of the focal point relative to the vertices of the lattice. Following the original publications,<br><code style="white-space: pre;">⁠ * ⁠</code>for grids given by <code>model=&lt;inla.spde2 object&gt;</code>, the non-zero weights are the barycentric coordinates of the focal point in the enclosing triangle from the mesh triangulation (points from outside the mesh would have zero weights, so the predicted effect <b>Ab=0</b>);<br><code style="white-space: pre;">⁠ * ⁠</code>for regular grids (NULL <code>model</code>), the weights are computed as &lt;Wendland function&gt;(&lt;scaled Euclidean distances between focal point and vertices&gt;). 
+</p>
+<p>The <code>IMRF</code> model defines both a lattice in space, the precision matrix for a Gaussian MRF over this lattice, and the <b>A</b> matrix of weights. The full specification of the MRF on <b>irregular lattices</b> is complex. The <code class="reqn">\kappa</code> (<code>kappa</code>) parameter considered by <code>spaMM</code> is the <code class="reqn">\kappa</code> scale parameter considered by Lindgren et al and comparable to the <code class="reqn">\rho</code> scale factor of the Matérn model. The <code class="reqn">\alpha</code> argument of the <code>INLA::inla.spde2.matern</code> controls the smoothness of the approximated Matern model, as <code class="reqn">\alpha=\nu + d/2</code>) where <code class="reqn">d</code> is the dimension of the space.   
+Correlation models created by <code>INLA::inla.spde2.pcmatern</code> are handled so as to give the same correlation values as when <code>INLA::inla.spde2.matern</code> is used with the same <code>mesh</code> and <code>alpha</code> argument (thus, the extra functionalities of “<code>pc</code>”<code>matern</code> are ignored). 
+</p>
+<p>Not all options of the INLA functions may be compatible or meaningful when used with spaMM (only the effects of <code>alpha</code> and <code>cutoff</code> have been checked). 
+
+</p>
+<p><b>Normalization</b>:
+</p>
+<p>For the MRFs on default <b>regular grids</b> (missing <code>model</code> argument), the precision matrix is defined (up to a variance parameter) as <b>M'M</b> where the diagonal elements <code class="reqn">m_{ii}</code> of <b>M</b> are 4+<code class="reqn">\kappa^2</code> and the <code class="reqn">m_{ij}</code> for the four nearest neighbours are -1 (note that <b>M'M</b> involves more than these four neighbours). The precision matrix defined in this way is the inverse of an heteroscedastic covariance matrix <b>C</b>, but (following Nychka et al.) by default a normalization is applied so that the random effect in each data position is homoscedastic (the precision matrix for the latent effect in grid positions is not modified, but it is the <b>A</b> matrix of weights which is is modified). As for other random effects, the variance is further controlled by a multiplicative factor <code class="reqn">\lambda</code>. 
+</p>
+<p>Without normalization, the covariance matrix of the random effect in data locations is <code class="reqn">\lambda</code><b>ALL'A'</b> (<b>A</b> being the above-described weight matrix, and <b>L</b> is a “square root” of <b>C</b>), and  <b>AL</b> is the original “design matrix” of the random effect. <code class="reqn">\lambda</code> may then be quite different from the marginal variance of the random effect, and is difficult to describe in a simple way. 
+For normalization, <b>A</b> is modified as <b>WA</b> where <b>W</b> is a diagonal matrix such that <b>WAL</b> is a correlation matrix (<b>WALL'A'W'</b> has unit diagonal); then, <code class="reqn">\lambda</code> is the marginal variance of the random effect. 
+</p>
+<p>For irregular grids specified using the <code>model</code> argument, the precision matrix described by this object is also the inverse of an heteroscedastic covariance matrix, but here (again following original publicatiosn such as Lindgren at al. 2011) the normalization is not applied by default (and was not even an option before version 4.3.23). But for ease of presentation and interpretation, if for no other reason, the normalized model may be preferable. 
+</p>
+<p><b>Details for rectangular grids:</b> 
+</p>
+<p>By default (meaning in particular that <code>model</code> is not used to specify a lattice defined by the INLA procedures), the IMRF lattice is rectangular (currently the only option) and is made of a core lattice, to which margins of <code>margin</code> steps are added on each side. The core lattice is defined as follows: in each of the two spatial dimensions, the range of axial coordinates is determined. The largest range is divided in <code>nd-1</code> steps, determining <code>nd</code> values and step length <code class="reqn">L</code>. The other range is divided in steps of the same length <code class="reqn">L</code>. If it extends over (say) <code class="reqn">2.5 L</code>, a grid of 2 steps and 3 values is defined, and by default centered on the range (the extreme points therefore typically extend slightly beyond the grid, within the first of the additional steps defined by the <code>margin</code>; if not centered, the grid start from the lower coordinate of the range).
+</p>
+<p><code>multIMRF</code> implements multilevel IMRFs. It defines a sequence of IMRFs, with progressively finer lattices, a common <code class="reqn">\kappa</code> value <code>hy_kap</code> for these IMRFs, and a single variance parameter <code>hy_lam</code> that determines <code class="reqn">\lambda</code> values decreasing by a factor of 4 for successive IMRF terms. By default, each component <code>IMRF</code> is normalized independently as described above (as in Nychka et al. 2019), and <code>hy_lam</code> is the sum of the variances of these terms (e.g., if there are three levels and <code>hy_lam=1</code>, the successive variances are (1,1/4,1/16)/(21/16) ). The <code>nd</code> of the first IMRF is set to the <code>coarse</code> value, and its lattice is defined accordingly. If <code>coarse=4</code>  and <code>margin=5</code>, a grid of 14 coordinates is therefore defined over the largest range. In the second IMRF, the grid spacing is halved, so that new steps are defined halfway between the previous ones (yielding a grid of 27 step in the widest range). The third IMRF proceeds from the second in the same way, and so on.
+</p>
+<p>To control initial or fixed values of <code>multIMRF</code> <code class="reqn">\kappa</code> and variance parameters, which are hyper-parameter controlling several <code>IMRF</code> terms, the <code>hyper</code> syntax shown in the Examples should be used. <code>hyper</code> is a nested list whose possible elements are named <code>"1"</code>, <code>"2"</code>, ... referring to successive <code>multIMRF</code> terms in the input formula, not to successive random effect in the expanded formula with distinct IMRF terms (see Examples). But the different IMRF terms should be counted as distinct random effects when controlling other parameters (e.g., for fixing the variances of other random effects).
+</p>
+
+
+<h3>References</h3>
+
+<p>D. Nychka, S. Bandyopadhyay, D. Hammerling, F. Lindgren, S. Sain (2015)
+A multiresolution gaussian process model for the analysis of large spatial datasets.
+Journal of Computational and Graphical Statistics 24 (2), 579-599. <a href="https://doi.org/10.1080/10618600.2014.914946">doi:10.1080/10618600.2014.914946</a>
+</p>
+<p>D. Nychka, D. Hammerling, Mitchel. Krock, A. Wiens (2018) Modeling and emulation of nonstationary Gaussian fields. Spat. Stat. 28: 21-38. <a href="https://doi.org/10.1016/j.spasta.2018.08.006">doi:10.1016/j.spasta.2018.08.006</a>
+</p>
+
+<p>Lindgren F., Rue H., Lindström J. (2011) An explicit link between Gaussian fields and Gaussian Markov random fields: the stochastic partial differential equation approach Journal of the Royal Statistical Society: Series B (Statistical Methodology), 73: 423-498. <a href="https://doi.org/10.1111/j.1467-9868.2011.00777.x">doi:10.1111/j.1467-9868.2011.00777.x</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+if (spaMM.getOption("example_maxtime")&gt;6) {
+
+data("blackcap") ## toy examples; but IMRF may be useful only for much larger datasets
+## and when using the 'cutoff' parameter of INLA::inla.mesh.2d()
+
+########################## Irregular lattice specified by 'model':
+#
+data("small_spde") ## load object of class 'inla.spde2', created and saved by :
+  # spd &lt;- sp::SpatialPointsDataFrame(coords = blackcap[, c("longitude", "latitude")],
+  #                            data = blackcap)
+  # small_mesh &lt;- INLA::inla.mesh.2d(loc = INLA::inla.mesh.map(sp::coordinates(spd)), 
+  #                           max.n=100, # only for demonstration purposes
+  #                           max.edge = c(3, 20)) 
+  # small_spde &lt;- INLA::inla.spde2.matern(small_mesh)
+  # save(small_spde, file="small_spde.RData", version=2)
+#  
+fit_SPDE &lt;- fitme(migStatus ~ means + IMRF(1|longitude+latitude, model=small_spde), 
+                  data=blackcap)
+                  
+########################## Regular lattices:   
+# 
+#Using 'hyper' to control fixed hyper-parameters
+#
+(mrf &lt;- fitme(migStatus ~ 1 + (1|pos) + 
+                          multIMRF(1|longitude+latitude,margin=5,levels=2), 
+              data=blackcap, fixed=list(phi=1,lambda=c("1"=0.5),
+              hyper=list("1"=list(hy_kap=0.1,hy_lam=1)))) )
+              
+# Using 'hyper' to control initial hyper-parameters
+#
+(mrf &lt;- fitme(migStatus ~ 1 + multIMRF(1|longitude+latitude,margin=5,levels=2),
+                data=blackcap, method="ML", fixed =list(phi=1),
+                init=list(hyper=list("1"=list(hy_kap=0.1,hy_lam=1)))) )
+                
+# *Independent* IMRF terms with default rectangular lattice (often giving dubious results)
+#
+(mrf &lt;- fitme(migStatus ~ 1 + IMRF(1|longitude+latitude,margin=5, nd=4L)
+                              + IMRF(1|longitude+latitude,margin=5, nd=7L),
+          data=blackcap,  
+          fixed=list(phi=1,lambda=c(1/4,1/16),
+                       corrPars=list("1"=list(kappa=0.1),"2"=list(kappa=0.1)))))
+                    
+}
+</code></pre>
+
+
+</div>

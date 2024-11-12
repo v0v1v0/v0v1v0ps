@@ -1,0 +1,230 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simdesign_norta</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>NORTA-based design specification</h2>
+
+<h3>Description</h3>
+
+<p>Stores information necessary to simulate datasets based on the NORTA
+procedure (Cario and Nelson 1997).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simdesign_norta(
+  cor_target_final = NULL,
+  cor_initial = NULL,
+  dist = list(),
+  tol_initial = 0.001,
+  n_obs_initial = 10000,
+  seed_initial = 1,
+  conv_norm_type = "O",
+  method = "svd",
+  name = "NORTA based simulation design",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>cor_target_final</code></td>
+<td>
+<p>Target correlation matrix for simulated datasets. At least one of
+<code>cor_target_final</code> or <code>cor_initial</code> must be specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cor_initial</code></td>
+<td>
+<p>Correlation matrix for underlying multivariate standard normal distribution
+on which the final data is based on.  At least one of <code>cor_target_final</code> or
+<code>cor_initial</code> must be specified. If NULL, then <code>cor_initial</code> will be
+numerically optimized by simulation for the NORTA procedure using
+<code>cor_target_final</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>List of functions of marginal distributions for simulated variables.
+Must have the same length as the specified correlation matrix
+(<code>cor_target_final</code> and / or <code>cor_inital</code>), and the order of the entries
+must correspond to the variables in the correlation matrix. See details for
+the specification of the marginal distributions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol_initial</code></td>
+<td>
+<p>If <code>cor_initial</code> is numerically optimized, specifies the tolerance for the
+difference to the target correlation <code>cor_target_final</code>. Parameter passed to
+<code>optimize_cor_for_pair</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_obs_initial</code></td>
+<td>
+<p>If <code>cor_initial</code> is numerically optimized, specifies the number of draws in
+simulation during optimization used to estimate correlations.
+Parameter passed to <code>optimize_cor_for_pair</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed_initial</code></td>
+<td>
+<p>Seed used for draws of the initial distribution used during optimization
+to estimate correlations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conv_norm_type</code></td>
+<td>
+<p>If <code>cor_initial</code> is numerically optimized and found not to be a proper
+correlation matrix (i.e. not positive-definite), specifies the metric used to
+find the nearest positive-definite correlation matrix.
+Parameter passed to <code>Matrix::nearPD</code>
+(conv.norm.type), see there for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p><code>method</code> argument of <code>mvtnorm::rmvnorm</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>Character, optional name of the simulation design.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Further arguments are passed to the <code>simdesign</code> constructor.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This S3 class implements a simulation design based on the
+NORmal-To-Anything (NORTA) procedure by Cario and Nelson (1997). See the
+corresponding NORTA vignette for usage examples how to approximate real
+datasets.
+</p>
+
+
+<h3>Value</h3>
+
+<p>List object with class attribute "simdesign_norta" (S3 class), inheriting
+from "simdesign". It contains the same entries as a <code>simdesign</code>
+object but in addition the following entries:
+</p>
+
+<dl>
+<dt><code>cor_target_final</code></dt>
+<dd></dd>
+<dt><code>cor_initial</code></dt>
+<dd>
+<p>Initial correlation matrix of multivariate normal
+distribution</p>
+</dd>
+<dt><code>dist</code></dt>
+<dd></dd>
+<dt><code>tol_initial</code></dt>
+<dd></dd>
+<dt><code>n_obs_initial</code></dt>
+<dd></dd>
+<dt><code>conv_norm_type</code></dt>
+<dd></dd>
+<dt><code>method</code></dt>
+<dd></dd>
+</dl>
+<h3>Data Generation</h3>
+
+<p>Data will be generated using the following procedure:
+</p>
+
+<ol>
+<li>
+<p> An underlying data matrix <code>Z</code> is sampled from a
+multivariate standard Normal distribution with correlation structure given by
+<code>cor_initial</code>.
+</p>
+</li>
+<li> <p><code>Z</code> is then transformed into a dataset <code>X</code> by applying
+the functions given in <code>dist</code> to the columns of <code>Z</code>. The resulting dataset
+<code>X</code> will then have the desired marginal distributions, and approximate the
+target correlation <code>cor_target_final</code>, if specified.
+</p>
+</li>
+<li> <p><code>X</code> is further transformed by the transformation <code>transform_initial</code>
+(note that this may affect the correlation of the final dataset and is not
+respected by the optimization procedure), and post-processed if specified.
+</p>
+</li>
+</ol>
+<h3>Marginal distributions</h3>
+
+<p>A list of functions <code>dist</code> is used to define the marginal distributions of
+the variables. Each entry must be a quantile function, i.e. a function
+that maps <code style="white-space: pre;">⁠[0, 1]⁠</code> to the domain of a probability distribution. Each entry
+must take a single input vector, and return a single numeric vector.
+Examples for acceptable entries include all standard quantile functions
+implemented in R (e.g. <code>qnorm</code>, <code>qbinom</code>, ...), user defined functions
+wrapping these (e.g. <code style="white-space: pre;">⁠function(x) = qnorm(x, mean = 10, sd = 4)⁠</code>), or
+empirical quantile functions. The helper function
+quantile_functions_from_data can be used to automatically
+estimate empirical quantile functions from a given data to reproduce it using
+the NORTA approach.See the example in the NORTA vignette of this package for
+workflow details.
+</p>
+
+
+<h3>Target correlations</h3>
+
+<p>Not every valid correlation matrix (i.e. symmetric, positive-definite matrix
+with elements in <code style="white-space: pre;">⁠[-1, 1]⁠</code> and unity diagonal) for a number of variables
+is feasible for given desired marginal distributions (see e.g.
+Ghosh and Henderson 2003). Therefore, if <code>cor_target_final</code> is specified
+as target correlation, this class optimises <code>cor_initial</code> in such a
+way, that the final simulated dataset has a correlation which approximates
+<code>cor_target_final</code>. However, the actual correlation in the end may differ
+if <code>cor_target_final</code> is infeasible for the given specification, or the
+NORTA procedure cannot exactly reproduce the target correlation. In general,
+however, approximations should be acceptable if target correlations and
+marginal structures are derived from real datasets.
+See e.g. Ghosh and Henderson 2003 for the motivation why this works.
+</p>
+
+
+<h3>References</h3>
+
+<p>Cario, M. C. and Nelson, B. L. (1997) <em>Modeling and
+generating random vectors with arbitrary marginal distributions and
+correlation matrix</em>. Technical Report, Department of Industrial Engineering
+and Management Sciences, Northwestern University, Evanston, Illinois.
+</p>
+<p>Ghosh, S. and Henderson, S. G. (2003) <em>Behavior of the NORTA method
+for correlated random vector generation as the dimension increases</em>. ACM
+Transactions on Modeling and Computer Simulation.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>simdesign</code>,
+<code>simulate_data</code>,
+<code>simulate_data_conditional</code>,
+<code>quantile_functions_from_data</code>
+</p>
+
+
+</div>

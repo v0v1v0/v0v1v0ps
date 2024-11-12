@@ -1,0 +1,111 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>parse.bits</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Parse bits</h2>
+
+<h3>Description</h3>
+
+<p>Returns specified bit value based on integer input
+</p>
+<p>Data such as MODIS the QC band are stored in bits. This function returns the 
+value(s) for specified bit. For example, the MODIS QC flag are bits 0-1 with 
+the bit value 00 representing the "LST produced, good quality" flag. When 
+exported from HDF the QC bands are often in an 8 bit integer range (0-255). 
+With this function you can parse the values for each bit to assign the 
+flag values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">parse.bits(x, bit, depth = 8, order = c("reverse", "none"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Integer value</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bit</code></td>
+<td>
+<p>A single or vector of bits to return</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>depth</code></td>
+<td>
+<p>The depth (length) of the bit range, default is 8</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>order</code></td>
+<td>
+<p>c("reverse", "none") sort order for the bits</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a vector or data.frame of parsed interger value(s) associated with input bit
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey S. Evans  &lt;jeffrey_evans@tnc.org&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Return value for bit 5 for integer value 100
+parse.bits(100, 5)
+ 
+# Return value(s) for bits 0 and 1 for integer value 100
+parse.bits(100, c(0,1))
+
+# Return value(s) for bits 0 and 1 for integer values 0-255
+for(i in 0:255) { print(parse.bits(i, c(0,1))) }
+ 
+
+#### Applied Example using Harmonized Landsat Sentinel-2 QC 
+
+# Create dummy data and qc band
+library(terra)
+r &lt;- rast(nrow=100, ncol=100)
+  r[] &lt;- round(runif(ncell(r), 0,1)) 
+qc &lt;- rast(nrow=100, ncol=100)
+  qc[] &lt;- round(runif(ncell(qc), 64,234)) 
+
+# Calculate bit values from QC table
+( qc_bits &lt;- data.frame(int=0:255, 
+	cloud = unlist(lapply(0:255, FUN=parse.bits, bit=1)),
+	shadow = unlist(lapply(0:255, FUN=parse.bits, bit=3)),
+	acloud = unlist(lapply(0:255, FUN=parse.bits, bit=2)),
+	cirrus = unlist(lapply(0:255, FUN=parse.bits, bit=0)),
+	aerosol = unlist(lapply(0:255, FUN=parse.bits, bit=c(7,6)))) )
+		
+# Query the results to create a vector of integer values indicating what to mask 
+#  cloud is bit 1 and shadow bit 3	
+m &lt;- sort(unique(qc_bits[c(which(qc_bits$cloud == 1),
+                           which(qc_bits$shadow == 1)
+						   ),]$int))
+
+# Apply queried integer values to mask image with QA band
+qc[qc %in% m] &lt;- NA
+r &lt;- mask(r, qc)
+
+
+</code></pre>
+
+
+</div>

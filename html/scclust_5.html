@@ -1,0 +1,145 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hierarchical_clustering</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Hierarchical size-constrained clustering</h2>
+
+<h3>Description</h3>
+
+<p><code>hierarchical_clustering</code> serves two purposes. Its primary use is to
+refine existing clusters subject to clustering constraints. That is, given
+a (non-optimal) clustering satisfying some constraints, the function splits
+clusters so to decrease within-cluster distances without violating the
+constraints. The function can also be used to derive size-constrained
+clusterings from scratch. In both cases, it uses a hierarchical clustering
+algorithm.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">hierarchical_clustering(
+  distances,
+  size_constraint,
+  batch_assign = TRUE,
+  existing_clustering = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>distances</code></td>
+<td>
+<p>a <code>distances</code> object with distances between the
+data points.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>size_constraint</code></td>
+<td>
+<p>an integer with the required minimum cluster size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch_assign</code></td>
+<td>
+<p>a logical indicating whether data points should be assigned in batches
+when spliting clusters (see below for details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>existing_clustering</code></td>
+<td>
+<p>a <code>scclust</code> object containing a non-empty clustering to
+refine. If <code>NULL</code>, the function derives a clustering from scratch.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>While <code>hierarchical_clustering</code> can be used to derive size-constrained
+clusters from scratch, its main purpose is to be used together with
+<code>sc_clustering</code>. The clusters produced by the main clustering
+function are guaranteed to be close to optimal (in particular, within a
+constant factor of the optimal solution). However, it is occasionally
+possible to refine the clustering. In particular,
+<code>sc_clustering</code> tends produce large clusters in regions of the
+metric space with many data points. In some cases, it is beneficial to divide
+these clusters into smaller groups. <code>hierarchical_clustering</code> splits
+these larger clusters so that all within-cluster distances weakly decrease
+while respecting the overall the size constraint.
+</p>
+<p><code>hierarchical_clustering</code> implements a divisive hierarchical clustering
+algorithm that respect size constraints. Starting from any clustering
+satisfying the size constraints (which may be a single cluster containing
+all data points), the function searches for clusters that can be broken into
+two or more new clusters without violating the constraints. When such a
+cluster is found, it breaks the cluster into two new clusters. It continues
+in this fashion until all remaining clusters are unbreakable.
+</p>
+<p>Breakable clusters are broken in three stages. First, it tries to find two
+data points as far as possible from each other. The two points are called
+<em>centers</em>, and they are the starting points for the new clusters. The
+remaining data points in the old cluster will be assigned to one of the
+centers. In the second stage, each center picks the closest data points so
+that the new two clusters exactly satisfy the size constraint. In the last
+stage, data points that still are in the old cluster are assigned to the
+cluster containing the closest center. The final stage is done either for
+each point one-by-one or in batches (see below). When all data points are
+assigned to a cluster, the old cluster is removed and the two new are added
+to the clustering. If one or both of the new clusters are breakable, they
+will go through the same procedure again.
+</p>
+<p>In some applications, it is desirable to avoid clusters that contain a number
+of data points that are not multiples of <code>size_constraint</code>. After the
+second stage described in the previous paragraph, both partial clusters are
+exact multiples of the size constraint. By assigning remaining data points
+in the third stage in batches of <code>size_constraint</code>, the function ensures,
+to the greatest extent possible, that the size of the final clusters are
+multiples of the size constraint.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a <code>scclust</code> object with the derived clustering.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sc_clustering</code> is the main clustering function in the
+package.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Make example data
+my_data &lt;- data.frame(x1 = rnorm(10000),
+                      x2 = rnorm(10000),
+                      x3 = rnorm(10000))
+
+# Construct distance metric
+my_dist &lt;- distances(my_data)
+
+# Make clustering with `sc_clustering`
+my_clustering &lt;- sc_clustering(my_dist, 3)
+
+# Refine clustering with `hierarchical_clustering`
+my_refined_clustering &lt;- hierarchical_clustering(my_dist,
+                                                 size_constraint = 3,
+                                                 existing_clustering = my_clustering)
+
+# Make clustering from scratch with `hierarchical_clustering`
+my_other_clustering &lt;- hierarchical_clustering(my_dist, 3)
+
+</code></pre>
+
+
+</div>

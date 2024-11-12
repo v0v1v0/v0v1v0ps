@@ -1,0 +1,333 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getSpectralEnvelope</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spectral envelope</h2>
+
+<h3>Description</h3>
+
+<p>Prepares a spectral envelope for filtering a sound to add formants, lip
+radiation, and some stochastic component regulated by temperature. Formants
+are specified as a list containing time, frequency, amplitude, and width
+values for each formant (see examples). See vignette('sound_generation',
+package = 'soundgen') for more information.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getSpectralEnvelope(
+  nr,
+  nc,
+  formants = NA,
+  formantDep = 1,
+  formantWidth = 1,
+  lipRad = 6,
+  noseRad = 4,
+  mouth = NA,
+  mouthOpenThres = 0.2,
+  openMouthBoost = 0,
+  vocalTract = NULL,
+  temperature = 0.05,
+  formDrift = 0.3,
+  formDisp = 0.2,
+  formantDepStoch = 1,
+  smoothLinearFactor = 1,
+  formantCeiling = 2,
+  samplingRate = 16000,
+  speedSound = 35400,
+  smoothing = list(),
+  output = c("simple", "detailed")[1],
+  plot = FALSE,
+  duration = NULL,
+  colorTheme = c("bw", "seewave", "...")[1],
+  col = NULL,
+  xlab = "Time",
+  ylab = "Frequency, kHz",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>nr</code></td>
+<td>
+<p>the number of frequency bins = windowLength_points/2, where
+windowLength_points is the size of window for Fourier transform</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nc</code></td>
+<td>
+<p>the number of time steps for Fourier transform</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formants</code></td>
+<td>
+<p>a character string like "aaui" referring to default presets
+for speaker "M1"; a vector of formant frequencies; or a list of formant
+times, frequencies, amplitudes, and bandwidths, with a single value of each
+for static or multiple values of each for moving formants. <code>formants =
+NA</code> defaults to schwa. Time stamps for formants and mouthOpening can be
+specified in ms or an any other arbitrary scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantDep</code></td>
+<td>
+<p>scale factor of formant amplitude (1 = no change relative
+to amplitudes in <code>formants</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantWidth</code></td>
+<td>
+<p>scale factor of formant bandwidth (1 = no change)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lipRad</code></td>
+<td>
+<p>the effect of lip radiation on source spectrum, dB/oct (the
+default of +6 dB/oct produces a high-frequency boost when the mouth is
+open)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noseRad</code></td>
+<td>
+<p>the effect of radiation through the nose on source spectrum,
+dB/oct (the alternative to <code>lipRad</code> when the mouth is closed)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mouth</code></td>
+<td>
+<p>mouth opening (0 to 1, 0.5 = neutral, i.e. no
+modification) (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mouthOpenThres</code></td>
+<td>
+<p>open the lips (switch from nose radiation to lip
+radiation) when the mouth is open <code>&gt;mouthOpenThres</code>, 0 to 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>openMouthBoost</code></td>
+<td>
+<p>amplify the voice when the mouth is open by
+<code>openMouthBoost</code> dB</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vocalTract</code></td>
+<td>
+<p>the length of vocal tract, cm. Used for calculating formant
+dispersion (for adding extra formants) and formant transitions as the mouth
+opens and closes. If <code>NULL</code> or <code>NA</code>, the length is estimated
+based on specified formant frequencies, if any (anchor format)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>temperature</code></td>
+<td>
+<p>hyperparameter for regulating the amount of stochasticity
+in sound generation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formDrift</code></td>
+<td>
+<p>scale factor regulating the effect of temperature on the
+depth of random drift of all formants (user-defined and stochastic): the
+higher, the more formants drift at a given temperature</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formDisp</code></td>
+<td>
+<p>scale factor regulating the effect of temperature on the
+irregularity of the dispersion of stochastic formants: the higher, the more
+unevenly stochastic formants are spaced at a given temperature</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantDepStoch</code></td>
+<td>
+<p>multiplication factor for the amplitude of additional
+formants added above the highest specified formant (0 = none, 1 = default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothLinearFactor</code></td>
+<td>
+<p>regulates smoothing of formant anchors (0 to +Inf)
+as they are upsampled to the number of fft steps <code>nc</code>. This is
+necessary because the input <code>formants</code> normally contains fewer
+sets of formant values than the number of fft steps.
+<code>smoothLinearFactor</code> = 0: close to default spline; &gt;3: approaches
+linear extrapolation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formantCeiling</code></td>
+<td>
+<p>frequency to which stochastic formants are calculated,
+in multiples of the Nyquist frequency; increase up to ~10 for long vocal
+tracts to avoid losing energy in the upper part of the spectrum</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling frequency, Hz</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>speedSound</code></td>
+<td>
+<p>speed of sound in warm air, cm/s. Stevens (2000) "Acoustic
+phonetics", p. 138</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothing</code></td>
+<td>
+<p>a list of parameters passed to
+<code>getSmoothContour</code> to control the interpolation and smoothing
+of contours: interpol (approx / spline / loess), loessSpan, discontThres,
+jumpThres</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>"simple" returns just the spectral filter, while "detailed"
+also returns a data.frame of formant frequencies over time (needed for
+internal purposes such as formant locking)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, produces a plot of the spectral envelope</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>duration</code></td>
+<td>
+<p>duration of the sound, ms (for plotting purposes only)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>colorTheme</code></td>
+<td>
+<p>black and white ('bw'), as in seewave package ('seewave'),
+or another color theme (e.g. 'heat.colors')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>col</code></td>
+<td>
+<p>actual colors, eg rev(rainbow(100)) - see ?hcl.colors for colors
+in base R (overrides colorTheme)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlab, ylab</code></td>
+<td>
+<p>labels of axes</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters passed on to <code>image()</code></p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a spectral filter: a matrix with frequency bins in rows and
+time steps in columns. Accordingly, rownames of the output give central
+frequency of each bin (in kHz), while colnames give time stamps (in ms if
+duration is specified, otherwise 0 to 1).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># [a] with only F1-F3 visible, with no stochasticity
+e = getSpectralEnvelope(nr = 512, nc = 50, duration = 300,
+  formants = soundgen:::convertStringToFormants('a'),
+  temperature = 0, plot = TRUE, col = heat.colors(150))
+# image(t(e))  # to plot the output on a linear scale instead of dB
+
+# some "wiggling" of specified formants plus extra formants on top
+e = getSpectralEnvelope(nr = 512, nc = 50,
+  formants = c(860, 1430, 2900),
+  temperature = 0.1, formantDepStoch = 1, plot = TRUE)
+
+# a schwa based on variable length of vocal tract
+e = getSpectralEnvelope(nr = 512, nc = 100, formants = NA,
+  vocalTract = list(time = c(0, .4, 1), value = c(13, 18, 17)),
+  temperature = .1, plot = TRUE)
+
+# no formants at all, only lip radiation
+e = getSpectralEnvelope(nr = 512, nc = 50, lipRad = 6,
+  formants = NA, temperature = 0, plot = FALSE)
+plot(e[, 1], type = 'l')              # linear scale
+plot(20 * log10(e[, 1]), type = 'l')  # dB scale - 6 dB/oct
+
+# mouth opening
+e = getSpectralEnvelope(nr = 512, nc = 50,
+  vocalTract = 16, plot = TRUE, lipRad = 6, noseRad = 4,
+  mouth = data.frame(time = c(0, .5, 1), value = c(0, 0, .5)))
+
+# scale formant amplitude and/or bandwidth
+e1 = getSpectralEnvelope(nr = 512, nc = 50,
+  formants = soundgen:::convertStringToFormants('a'),
+  formantWidth = 1, formantDep = 1)  # defaults
+e2 = getSpectralEnvelope(nr = 512, nc = 50,
+  formants = soundgen:::convertStringToFormants('a'),
+  formantWidth = 1.5, formantDep = 1.5)
+plot(as.numeric(rownames(e2)), 20 * log10(e2[, 1]),
+     type = 'l', xlab = 'KHz', ylab = 'dB', col = 'red', lty = 2)
+points(as.numeric(rownames(e1)), 20 * log10(e1[, 1]), type = 'l')
+
+# manual specification of formants
+e3 = getSpectralEnvelope(
+  nr = 512, nc = 50, samplingRate = 16000, plot = TRUE,
+  formants = list(
+    f1 = list(freq = c(900, 500), amp = c(30, 35), width = c(80, 50)),
+    f2 = list(freq = c(1900, 2500), amp = c(25, 30), width = 100),
+    f3 = list(freq = 3400, amp = 30, width = 120)
+))
+
+# extra zero-pole pair (doesn't affect estimated VTL and thus the extra
+# formants added on top)
+e4 = getSpectralEnvelope(
+  nr = 512, nc = 50, samplingRate = 16000, plot = TRUE,
+  formants = list(
+    f1 = list(freq = c(900, 500), amp = c(30, 35), width = c(80, 50)),
+    f1.5 = list(freq = 1300, amp = -15),
+    f1.7 = list(freq = 1500, amp = 15),
+    f2 = list(freq = c(1900, 2500), amp = c(25, 30), width = 100),
+    f3 = list(freq = 3400, amp = 30, width = 120)
+))
+plot(as.numeric(rownames(e4)), 20 * log10(e3[, ncol(e3)]),
+     type = 'l', xlab = 'KHz', ylab = 'dB')
+points(as.numeric(rownames(e4)), 20 * log10(e4[, ncol(e4)]),
+       type = 'l', col = 'red', lty = 2)
+</code></pre>
+
+
+</div>

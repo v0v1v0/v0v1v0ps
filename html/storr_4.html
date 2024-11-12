@@ -1,0 +1,171 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>storr_rds</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>rds object cache driver</h2>
+
+<h3>Description</h3>
+
+<p>Object cache driver that saves objects using R's native
+serialized file format (see <code>saveRDS</code>) on the
+filesystem.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">storr_rds(path, compress = NULL, mangle_key = NULL,
+  mangle_key_pad = NULL, hash_algorithm = NULL,
+  default_namespace = "objects")
+
+driver_rds(path, compress = NULL, mangle_key = NULL,
+  mangle_key_pad = NULL, hash_algorithm = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+<p>Path for the store.  <code>tempdir()</code> is a good choice
+for ephemeral storage, The <code>rappdirs</code> package (on CRAN)
+might be nice for persistent application data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compress</code></td>
+<td>
+<p>Compress the generated file?  This saves a small
+amount of space for a reasonable amount of time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mangle_key</code></td>
+<td>
+<p>Mangle keys?  If TRUE, then the key is encoded
+using base64 before saving to the filesystem.  See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mangle_key_pad</code></td>
+<td>
+<p>Logical indicating if the filenames created
+when using <code>mangle_key</code> should also be "padded" with the
+<code>=</code> character to make up a round number of bytes.  Padding
+is required to satisfy the document that describes base64
+encoding (RFC 4648) but can cause problems in some applications
+(see <a href="https://github.com/richfitz/storr/issues/43">this
+issue</a>.  The default is to not pad <em>new</em> storr archives.
+This should be generally safe to leave alone.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hash_algorithm</code></td>
+<td>
+<p>Name of the hash algorithm to use.  Possible
+values are "md5", "sha1", and others supported by
+<code>digest</code>.  If not given, then we will default to
+"md5".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>default_namespace</code></td>
+<td>
+<p>Default namespace (see
+<code>storr</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>mangle_key</code> argument will run each key that is created
+through a "base 64" encoding.  This means that keys that include
+symbols that are invalid on filesystems (e.g, "/", ":") will be
+replaced by harmless characters.  The RFC 4648 dialect is used
+where "-" and "_" are used for character 62 and 63 (this differs
+from most R base64 encoders).  This mangling is designed to be
+transparent to the user – the storr will appear to store things
+with unmangled keys but the names of the stored files will be
+different.
+</p>
+<p>Note that the <em>namespace</em> is not mangled (at least not yet)
+so needs to contain characters that are valid in a filename.
+</p>
+<p>Because the actual file will be stored with mangled names it is
+not safe to use the same path for a storr with and without
+mangling.  So once an rds storr has been created its "mangledness"
+is set.  Using <code>mangle_key = NULL</code> uses whatever mangledness
+exists (or no mangledness if creating a new storr).
+</p>
+
+
+<h3>Corrupt keys</h3>
+
+<p>Some file synchronisation utilities like dropbox can create file
+that confuse an rds storr (e.g.,
+<code>"myobject (Someone's conflicted copy)"</code>.  If
+<code>mangle_key</code> is <code>FALSE</code> these cannot be detected but at
+the same time are not a real problem for storr.  However, if
+<code>mangle_key</code> is <code>TRUE</code> and keys are base64 encoded then
+these conflicted copies can break parts of storr.
+</p>
+<p>If you see a warning asking you to deal with these files, please
+delete the offending files; the path will be printed along with
+the files that are causing the problem.
+</p>
+<p>Alternatively, you can try (assuming a storr object <code>st</code>)
+running
+</p>
+<pre>
+st$driver$purge_corrupt_keys()
+</pre>
+<p>which will delete corrupted keys with no confirmation.  The
+messages that are printed to screen will be printed by default at
+most once per minute per namespace.  You can control this by
+setting the R option <code>storr.corrupt.notice.period</code> - setting
+this to <code>NA</code> suppresses the notice and otherwise it is
+interpreted as the number of seconds.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Create an rds storr in R's temporary directory:
+st &lt;- storr_rds(tempfile())
+
+# Store some data (10 random numbers against the key "foo")
+st$set("foo", runif(10))
+st$list()
+
+# And retrieve the data:
+st$get("foo")
+
+# Keys that are not valid filenames will cause issues.  This will
+# cause an error:
+## Not run: 
+st$set("foo/bar", letters)
+
+## End(Not run)
+
+# The solution to this is to "mangle" the key names.  Storr can do
+# this for you:
+st2 &lt;- storr_rds(tempfile(), mangle_key = TRUE)
+st2$set("foo/bar", letters)
+st2$list()
+st2$get("foo/bar")
+
+# Behind the scenes, storr is safely encoding the filenames with base64:
+dir(file.path(st2$driver$path, "keys", "objects"))
+
+# Clean up the two storrs:
+st$destroy()
+st2$destroy()
+</code></pre>
+
+
+</div>

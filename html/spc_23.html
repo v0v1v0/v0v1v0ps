@@ -1,0 +1,215 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>phat.ewma.arl</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute ARLs of EWMA phat control charts</h2>
+
+<h3>Description</h3>
+
+<p>Computation of the (zero-state) Average Run Length (ARL), upper control limit (ucl)
+for given in-control ARL, and lambda for minimal out-of control ARL at given shift.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">phat.ewma.arl(lambda, ucl, mu, n, z0, sigma=1, type="known", LSL=-3, USL=3, N=15,
+qm=25, ntype="coll")
+
+phat.ewma.crit(lambda, L0, mu, n, z0, sigma=1, type="known", LSL=-3, USL=3, N=15, qm=25)
+
+phat.ewma.lambda(L0, mu, n, z0, sigma=1, type="known", max_l=1, min_l=.001, LSL=-3, USL=3,
+qm=25)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>smoothing parameter of the EWMA control chart.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ucl</code></td>
+<td>
+<p>upper control limit of the EWMA phat control chart.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>L0</code></td>
+<td>
+<p>pre-defined in-control ARL (Average Run Length).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>true mean or mean where the ARL should be minimized (then the in-control mean is simply 0).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>subgroup size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z0</code></td>
+<td>
+<p>so-called headstart (gives fast initial response).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>choose whether the standard deviation is given and fixed (<code>"known"</code>) or estimated and potentially monitored (<code>"estimated"</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>actual standard deviation of the data – the in-control value is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_l, min_l</code></td>
+<td>
+<p>maximal and minimal value for optimal lambda search.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LSL,USL</code></td>
+<td>
+<p>lower and upper specification limit, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>N</code></td>
+<td>
+<p>size of collocation base, dimension of the resulting linear equation system is equal to <code>N</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>qm</code></td>
+<td>
+<p>number of nodes for collocation quadratures.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ntype</code></td>
+<td>
+<p>switch between the default method <code>coll</code> (collocation) and the classic one <code>markov</code> (Markov chain approximation)
+for calculating the ARL numerically.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The three implemented functions allow to apply a new type control chart. Basically, lower and upper
+specification limits are given. The monitoring
+vehicle then is the empirical probability that an item will not follow these specification given the
+sequence of sample means. If
+the related EWMA sequence violates the control limits, then the alarm indicates a significant process
+deterioration. For details see the
+paper mentioned in the references. To be able to construct the control charts, see the first example.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Return single values which resemble the ARL, the critical value, and the optimal lambda, respectively.</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sven Knoth</p>
+
+
+<h3>References</h3>
+
+<p>S. Knoth and S. Steinmetz (2013),
+EWMA <code>p</code> charts  under sampling by variables,
+<em>International Journal of Production Research</em> 51, 3795-3807.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sewma.arl</code> for a further collocation based ARL calculation routine.</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Simple example to demonstrate the chart.
+
+# some functions
+h.mu &lt;- function(mu) pnorm(LSL-mu) + pnorm(mu-USL)
+ewma &lt;- function(x, lambda=0.1, z0=0) filter(lambda*x, 1-lambda, m="r", init=z0)
+
+# parameters
+LSL &lt;- -3       # lower specification limit
+USL &lt;-  3	# upper specification limit
+n &lt;- 5		# batch size
+lambda &lt;- 0.1	# EWMA smoothing parameter
+L0 &lt;- 1000	# in-control Average Run Length (ARL)
+z0 &lt;- h.mu(0)	# start at minimal defect level
+ucl &lt;- phat.ewma.crit(lambda, L0, 0, n, z0, LSL=LSL, USL=USL)
+
+# data
+x0 &lt;- matrix(rnorm(50*n), ncol=5)	# in-control data
+x1 &lt;- matrix(rnorm(50*n, mean=0.5), ncol=5)# out-of-control data
+x &lt;- rbind(x0,x1)			# all data
+
+# create chart
+xbar &lt;- apply(x, 1, mean)
+phat &lt;- h.mu(xbar)
+z &lt;- ewma(phat, lambda=lambda, z0=z0)
+plot(1:length(z), z, type="l", xlab="batch", ylim=c(0,.02))
+abline(h=z0, col="grey", lwd=.7)
+abline(h=ucl, col="red")
+
+
+## S. Knoth, S. Steinmetz (2013)
+
+# Table 1
+
+lambdas &lt;- c(.5, .25, .2, .1)
+L0 &lt;- 370.4
+n &lt;- 5
+LSL &lt;- -3
+USL &lt;- 3
+
+phat.ewma.CRIT &lt;- Vectorize("phat.ewma.crit", "lambda")
+p.star &lt;- pnorm( LSL ) + pnorm( -USL ) ## lower bound of the chart
+ucls &lt;- phat.ewma.CRIT(lambdas, L0, 0, n, p.star, LSL=LSL, USL=USL)
+print(cbind(lambdas, ucls))
+
+# Table 2
+
+mus &lt;- c((0:4)/4, 1.5, 2, 3)
+phat.ewma.ARL &lt;- Vectorize("phat.ewma.arl", "mu")
+arls &lt;- NULL
+for ( i in 1:length(lambdas) ) {
+  arls &lt;- cbind(arls, round(phat.ewma.ARL(lambdas[i], ucls[i], mus,
+                n, p.star, LSL=LSL, USL=USL), digits=2))
+}
+arls &lt;- data.frame(arls, row.names=NULL)
+names(arls) &lt;- lambdas
+print(arls)
+
+# Table 3
+
+## Not run: 
+mus &lt;- c(.25, .5, 1, 2)
+phat.ewma.LAMBDA &lt;- Vectorize("phat.ewma.lambda", "mu")
+lambdas &lt;- phat.ewma.LAMBDA(L0, mus, n, p.star, LSL=LSL, USL=USL)
+print(cbind(mus, lambdas))
+## End(Not run)
+</code></pre>
+
+
+</div>

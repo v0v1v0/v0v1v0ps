@@ -1,0 +1,247 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>emotion</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute Emotion Rate</h2>
+
+<h3>Description</h3>
+
+<p>Detect the rate of emotion at the sentence level.  This method uses a simple
+dictionary lookup to find emotion words and then compute the rate per sentence.
+The <code>emotion</code> score ranges between 0 (no emotion used) and 1 (all
+words used were emotional).  Note that a single emotion phrase would count as 
+just one in the <code>emotion_count</code> column but would count as two words in
+the <code>word_count</code> column.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">emotion(
+  text.var,
+  emotion_dt = lexicon::hash_nrc_emotions,
+  valence_shifters_dt = lexicon::hash_valence_shifters,
+  drop.unused.emotions = FALSE,
+  un.as.negation = TRUE,
+  un.as.negation.warn = isTRUE(all.equal(valence_shifters_dt,
+    lexicon::hash_nrc_emotions)),
+  n.before = 5,
+  n.after = 2,
+  retention_regex = "[^[:alpha:];:,']",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>text.var</code></td>
+<td>
+<p>The text variable.  Can be a <code>get_sentences</code> object or
+a raw character vector though <code>get_sentences</code> is preferred as it avoids
+the repeated cost of doing sentence boundary disambiguation every time
+<code>sentiment</code> is run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>emotion_dt</code></td>
+<td>
+<p>A <span class="pkg">data.table</span> with a <code>token</code> and <code>emotion</code>
+column (<code>tokens</code> are nested within the <code>emotion</code>s.  The table
+cannot contain any duplicate rows and must have the <code>token</code> column set
+as the key column (see <code>?data.table::setkey</code>).  The default emotion
+table is <code>lexicon::hash_nrc_emotions</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>valence_shifters_dt</code></td>
+<td>
+<p>A <span class="pkg">data.table</span> of valence shifters that
+can alter a polarized word's meaning and an integer key for negators (1),
+amplifiers [intensifiers] (2), de-amplifiers [downtoners] (3) and adversative 
+conjunctions (4) with x and y as column names.  For this purpose only 
+negators is required/used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop.unused.emotions</code></td>
+<td>
+<p>logical.  If <code>TRUE</code> unused/unfound emotion
+levels will not be included in the output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>un.as.negation</code></td>
+<td>
+<p>logical.  If <code>TRUE</code> then emotion words prefixed
+with an 'un-' are treated as a negation.  For example,<code>"unhappy"</code> would 
+be treated as <code>"not happy"</code>.  If an emotion word has an un- version in the
+<code>emotion_dt</code> then no substitution is performed and an optional warning
+will be given.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>un.as.negation.warn</code></td>
+<td>
+<p>logical.  If <code>TRUE</code> and if 
+<code>un.as.negation</code> id <code>TRUE</code>, then a warning will be given if the 
+-un version of an emotion term is already found within the <code>emotion_dt</code>.
+Note that the default <code>emotion_dt</code>, <code>lexicon::hash_nrc_emotions</code>, 
+will not give a warning unless it is explicitly set to do so.  There are
+a number of emotion words in <code>lexicon::hash_nrc_emotions</code> that contain
+un- prefixed versions already in the dictionary. Use:
+<code>emotion('', un.as.negation.warn = TRUE)</code> to see these un- prefixed
+emotion words that are contained within <code>lexicon::hash_nrc_emotions</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.before</code></td>
+<td>
+<p>The number of words to consider as negated before
+the emotion word.  To consider the entire beginning portion of a sentence
+use <code>n.before = Inf</code>.  Note that a comma, colon, or semicolon acts as a 
+boundary for considered words.  Only words between the emotion word and these
+punctuation types will be considered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.after</code></td>
+<td>
+<p>The number of words to consider as negated after
+the emotion word.  To consider the entire ending portion of a sentence
+use <code>n.after = Inf</code>.  Note that a comma, colon, or semicolon acts as a 
+boundary for considered words.  Only words between the emotion word and these
+punctuation types will be considered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>retention_regex</code></td>
+<td>
+<p>A regex of what characters to keep.  All other 
+characters will be removed.  Note that when this is used all text is lower 
+case format.  Only adjust this parameter if you really understand how it is 
+used.  Note that swapping the <code>\\{p}</code> for <code>[^[:alpha:];:,\']</code> may 
+retain more alpha letters but will likely decrease speed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a <span class="pkg">data.table</span> of:
+</p>
+
+<ul>
+<li>
+<p> element_id - The id number of the original vector passed to <code>emotion</code>
+</p>
+</li>
+<li>
+<p> sentence_id - The id number of the sentences within each <code>element_id</code>
+</p>
+</li>
+<li>
+<p> word_count - Word count
+</p>
+</li>
+<li>
+<p> emotion_type - Type designation from the <code>emotion</code> column of the <code>emotion_dt</code> table
+</p>
+</li>
+<li>
+<p> emotion_count - Count of the number of emotion words of that <code>emotion_type</code>
+</p>
+</li>
+<li>
+<p> emotion - A score of the percentage of emotion words of that <code>emotion_type</code>
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Plutchik, R. (1962). The emotions: Facts and theories, and a new 
+model. Random House studies in psychology. Random House.<br><br>
+Plutchik, R. (2001). The nature of emotions: Human emotions have deep 
+evolutionary roots, a fact that may explain their complexity and provide tools 
+for clinical practice. American Scientist , 89 (4), 344-350.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other emotion functions: 
+<code>emotion_by()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">mytext &lt;- c(
+    "I am not afraid of you",
+    NA,
+    "",
+    "I love it [not really]", 
+    "I'm not angry with you", 
+    "I hate it when you lie to me.  It's so humiliating",
+    "I'm not happpy anymore.  It's time to end it",
+    "She's a darn good friend to me",
+    "I went to the terrible store",
+    "There is hate and love in each of us",
+    "I'm no longer angry!  I'm really experiencing peace but not true joy.",
+    
+    paste("Out of the night that covers me, Black as the Pit from pole to", 
+      "pole, I thank whatever gods may be For my unconquerable soul."
+     ),
+    paste("In the fell clutch of circumstance I have not winced nor cried",
+        "aloud. Under the bludgeonings of chance My head is bloody, but unbowed."
+    ),
+    paste("Beyond this place of wrath and tears Looms but the Horror of the", 
+        "shade, And yet the menace of the years Finds, and shall find, me unafraid."
+    ),
+    paste("It matters not how strait the gate, How charged with punishments", 
+        "the scroll, I am the master of my fate: I am the captain of my soul."
+    )    
+    
+)
+
+## works on a character vector but not the preferred method avoiding the 
+## repeated cost of doing sentence boundary disambiguation every time 
+## `emotion` is run
+emotion(mytext)
+
+## preferred method avoiding paying the cost 
+split_text &lt;- get_sentences(mytext)
+(emo &lt;- emotion(split_text))
+emotion(split_text, drop.unused.emotions = TRUE)
+
+## Not run: 
+plot(emo)
+plot(emo, drop.unused.emotions = FALSE)
+plot(emo, facet = FALSE)
+plot(emo, facet = 'negated')
+
+library(data.table)
+fear &lt;- emo[
+    emotion_type == 'fear', ][, 
+    text := unlist(split_text)][]
+    
+fear[emotion &gt; 0,]
+
+brady &lt;- get_sentences(crowdflower_deflategate)
+brady_emotion &lt;- emotion(brady)
+brady_emotion
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,209 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simInitSpatial</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generation of smaller regions given an existing spatial variable and a
+table.</h2>
+
+<h3>Description</h3>
+
+<p>This function allows to manipulate an object of class
+<code>simPopObj</code> in a way that a new variable containing
+smaller regions within an already existing broader region is generated. The
+distribution of the smaller region within the broader region is respected.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simInitSpatial(
+  simPopObj,
+  additional,
+  region,
+  tspatialP = NULL,
+  tspatialHH = NULL,
+  eps = 0.05,
+  maxIter = 100,
+  nr_cpus = NULL,
+  seed = 1,
+  verbose = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>simPopObj</code></td>
+<td>
+<p>an object of class <code>simPopObj</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>additional</code></td>
+<td>
+<p>a character vector of length one holding the variable name
+of the variable containing smaller geographical units. This variable name
+must be available as a column in input argument <code>tspatial</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>region</code></td>
+<td>
+<p>a character vector of length one holding the variable name of
+the broader region. This variable must be available in the input
+<code>tspatial</code> as well as in the sample and population slots of input
+<code>simPopObj</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tspatialP</code></td>
+<td>
+<p>a  data.frame (or data.table) containing three columns. The broader region
+(with the variable name being the same as in input <code>region</code>, the
+smaller geographical units (with the variable name being the same as in
+input <code>additional</code>) and a third column containing a numeric vector
+holding counts of persons. This argument or tspatialHH has to be provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tspatialHH</code></td>
+<td>
+<p>a  data.frame (or data.table) containing three columns. The broader region
+(with the variable name being the same as in input <code>region</code>, the
+smaller geographical units (with the variable name being the same as in
+input <code>additional</code>) and a third column containing a numeric vector
+holding counts of households. This argument or tspatialP has to be provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eps</code></td>
+<td>
+<p>relative deviation of person counts if person and household counts are provided</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxIter</code></td>
+<td>
+<p>maximum number of iteration for adjustment
+if person and household counts are provided</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nr_cpus</code></td>
+<td>
+<p>if specified, an integer number defining the number of cpus
+that should be used for parallel processing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>optional; an integer value to be used as the seed of the random
+number generator, or an integer vector containing the state of the random
+number generator to be restored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>TRUE/FALSE if some information should be shown during the process</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The distributional information must be contained in an input table that
+holds combinations of characteristics of the broader region and the smaller
+regions as well as population counts (which may be available from a census).
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>simPopObj</code> with an additional
+variable in the synthetic population slot.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Bernhard Meindl and Alexander Kowarik
+</p>
+
+
+<h3>References</h3>
+
+<p>M. Templ, B. Meindl, A. Kowarik, A. Alfons, O. Dupriez (2017) Simulation of Synthetic Populations for Survey Data Considering Auxiliary
+Information. <em>Journal of Statistical Survey</em>, <strong>79</strong> (10), 1–38. <a href="https://doi.org/10.18637/jss.v079.i10">doi:10.18637/jss.v079.i10</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(data.table)
+data(eusilcS)
+data(eusilcP)
+library(data.table)
+
+# no districts are available in the population, so we have to generate those
+# we randomly assign districts within "region" in the eusilc population data
+# each hh has the same district
+simulate_districts &lt;- function(inp) {
+  hhid &lt;- "hid"
+  region &lt;- "region"
+
+  a &lt;- inp[!duplicated(inp[,hhid]),c(hhid, region)]
+  spl &lt;- split(a, a[,region])
+  regions &lt;- unique(inp[,region])
+
+  tmpres &lt;- lapply(1:length(spl), function(x) {
+    codes &lt;- paste(x, 1:sample(3:9,1), sep="")
+    spl[[x]]$district &lt;- sample(codes, nrow(spl[[x]]), replace=TRUE)
+    spl[[x]]
+  })
+  tmpres &lt;- do.call("rbind", tmpres)
+  tmpres &lt;- tmpres[,-c(2)]
+  out &lt;- merge(inp, tmpres, by.x=c(hhid), by.y=hhid, all.x=TRUE)
+  invisible(out)
+}
+
+eusilcP &lt;- data.table(simulate_districts(eusilcP))
+# we generate the input table using the broad region (variable 'region')
+# and the districts, we have generated before.
+#Generate table with household counts by district
+tabHH &lt;- eusilcP[!duplicated(hid),.(Freq=.N),by=.(db040=region,district)]
+setkey(tabHH,db040,district)
+#Generate table with person counts by district
+tabP &lt;- eusilcP[,.(Freq=.N),by=.(db040=region,district)]
+setkey(tabP,db040,district)
+
+# we generate a synthetic population
+setnames(eusilcP,"region","db040")
+setnames(eusilcP,"hid","db030")
+inp &lt;- specifyInput(data=eusilcP, hhid="db030", hhsize="hsize", strata="db040",population=TRUE)
+## Not run: 
+# use only HH counts
+simPopObj &lt;- simStructure(data=inp, method="direct", basicHHvars=c("age", "gender"))
+simPopObj1 &lt;- simInitSpatial(simPopObj, additional="district", region="db040", tspatialHH=tabHH,
+tspatialP=NULL, nr_cpus=1)
+
+# use only P counts
+simPopObj &lt;- simStructure(data=inp, method="direct", basicHHvars=c("age", "gender"))
+simPopObj2 &lt;- simInitSpatial(simPopObj, additional="district", region="db040", tspatialHH=NULL,
+tspatialP=tabP, nr_cpus = 1)
+
+# use P and HH counts
+simPopObj &lt;- simStructure(data=inp, method="direct", basicHHvars=c("age", "gender"))
+simPopObj3 &lt;- simInitSpatial(simPopObj, additional="district", region="db040", tspatialHH=tabHH,
+tspatialP=tabP, nr_cpus = 1)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

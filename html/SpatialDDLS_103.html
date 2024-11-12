@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spatialPropClustering</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Cluster spatial data based on predicted cell proportions</h2>
+
+<h3>Description</h3>
+
+<p>Cluster spatial transcriptomics data according to the cell proportions
+predicted in each spot. It allows to segregate ST data into niches with
+similar cell composition.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spatialPropClustering(
+  object,
+  index.st,
+  method = "graph",
+  k.nn = 10,
+  k.centers = 5,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p><code>SpatialDDLS</code> object with deconvoluted ST
+datasets.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>index.st</code></td>
+<td>
+<p>Name or index of the dataset/slide already deconvoluted to be
+clustered. If missing, all datasets already deconvoluted will be clustered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Clustering method. It can be <code>graph</code> (a nearest neighbor
+graph is created and Louvain algorithm is used to detect communities) or
+<code>k.means</code> (k-means algorithm is run with the specified number of
+centers (<code>k.centers</code> parameter)).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.nn</code></td>
+<td>
+<p>An integer specifying the number of nearest neighbors to be used
+during graph construction (10 by default). Only if
+<code>method == "graph"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.centers</code></td>
+<td>
+<p>An integer specifying the number of centers for k-means
+algorithm (5 by default). Only if <code>method == "k.means"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Show informative messages during the execution (<code>TRUE</code> by
+default).</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>SpatialDDLS</code> object containing computed
+clusters as a column in the slot <code>colData</code> of the
+<code>SpatialExperiment</code> objects.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plotTrainingHistory</code> <code>deconvSpatialDDLS</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(123)
+sce &lt;- SingleCellExperiment::SingleCellExperiment(
+  assays = list(
+    counts = matrix(
+      rpois(30, lambda = 5), nrow = 15, ncol = 10,
+      dimnames = list(paste0("Gene", seq(15)), paste0("RHC", seq(10)))
+    )
+  ),
+  colData = data.frame(
+    Cell_ID = paste0("RHC", seq(10)),
+    Cell_Type = sample(x = paste0("CellType", seq(2)), size = 10,
+                       replace = TRUE)
+  ),
+  rowData = data.frame(
+    Gene_ID = paste0("Gene", seq(15))
+  )
+)
+SDDLS &lt;- createSpatialDDLSobject(
+  sc.data = sce,
+  sc.cell.ID.column = "Cell_ID",
+  sc.gene.ID.column = "Gene_ID",
+  sc.filt.genes.cluster = FALSE
+) 
+SDDLS &lt;- genMixedCellProp(
+  SDDLS,
+  cell.ID.column = "Cell_ID",
+  cell.type.column = "Cell_Type",
+  num.sim.spots = 50,
+  train.freq.cells = 2/3,
+  train.freq.spots = 2/3,
+  verbose = TRUE
+) 
+SDDLS &lt;- simMixedProfiles(SDDLS) 
+SDDLS &lt;- trainDeconvModel(
+  SDDLS,
+  batch.size = 12,
+  num.epochs = 5
+) 
+# simulating spatial data
+ngenes &lt;- sample(3:40, size = 1)
+ncells &lt;- sample(10:40, size = 1)
+counts &lt;- matrix(
+  rpois(ngenes * ncells, lambda = 5), ncol = ncells,
+  dimnames = list(paste0("Gene", seq(ngenes)), paste0("Spot", seq(ncells)))
+)
+coordinates &lt;- matrix(
+  rep(c(1, 2), ncells), ncol = 2
+)
+st &lt;- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = as.matrix(counts)),
+  rowData = data.frame(Gene_ID = paste0("Gene", seq(ngenes))),
+  colData = data.frame(Cell_ID = paste0("Spot", seq(ncells))),
+  spatialCoords = coordinates
+)
+SDDLS &lt;- loadSTProfiles(
+  object = SDDLS,
+  st.data = st,
+  st.spot.ID.column = "Cell_ID",
+  st.gene.ID.column = "Gene_ID"
+)
+SDDLS &lt;- deconvSpatialDDLS(
+  SDDLS,
+  index.st = 1
+) 
+SDDLS &lt;- spatialPropClustering(SDDLS, index.st = 1, k.nn = 5)
+
+  
+</code></pre>
+
+
+</div>

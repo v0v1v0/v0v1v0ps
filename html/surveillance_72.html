@@ -1,0 +1,347 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>backprojNP</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Non-parametric back-projection of incidence cases to exposure cases
+using a known incubation time as in Becker et al (1991)
+</h2>
+
+<h3>Description</h3>
+
+<p>The function is an implementation of the non-parametric
+back-projection of incidence cases to exposure cases described in
+Becker et al. (1991). The method back-projects exposure times
+from a univariate time series containing the number of symptom onsets per time
+unit. Here, the delay between exposure and symptom onset for an
+individual is seen as a realization of a random variable governed by a
+known probability mass function.
+The back-projection function calculates the expected number of exposures
+<code class="reqn">\lambda_t</code> for each time unit under the assumption of a
+Poisson distribution, but without any parametric assumption on how the
+<code class="reqn">\lambda_t</code> evolve in time.
+</p>
+<p>Furthermore, the function contains a bootstrap based procedure, as
+given in Yip et al (2011), which allows an indication of uncertainty
+in the estimated <code class="reqn">\lambda_t</code>. The procedure is
+equivalent to the suggestion in Becker and Marschner (1993). However,
+the present implementation in <code>backprojNP</code> allows only a
+univariate time series, i.e. simultaneous age groups as in Becker and
+Marschner (1993) are not possible.
+</p>
+<p>The method in Becker et al. (1991) was originally developed for the
+back-projection of AIDS incidence, but it is equally useful for
+analysing the epidemic curve in outbreak situations of a disease
+with long incubation time, e.g. in order to qualitatively investigate
+the effect of intervention measures.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">backprojNP(sts, incu.pmf, 
+   control = list(k = 2, 
+                  eps = rep(0.005,2), 
+                  iter.max=rep(250,2), 
+                  Tmark = nrow(sts), 
+                  B = -1, 
+                  alpha = 0.05, 
+                  verbose = FALSE, 
+                  lambda0 = NULL,
+                  eq3a.method = c("R","C"),
+                  hookFun = function(stsbp) {}),
+     ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sts</code></td>
+<td>
+
+<p>an object of class <code>"sts"</code> (or one that can be
+coerced to that class): contains the observed number of symptom
+onsets as a time series. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>incu.pmf</code></td>
+<td>
+<p>Probability mass function (PMF) of the incubation
+time. The PMF is specified as a vector or matrix with the value of
+the PMF evaluated at <code class="reqn">0,...,d_max</code>, i.e. note that the
+support includes zero. The value of <code class="reqn">d_max</code> is
+automatically calculated as <code>length(incu.pmf)-1</code> or
+<code>nrow(incu.pmf)-1</code>. Note that if the sts object has more
+than one column, then for the backprojection the incubation time is
+either recycled for all components or, if it is a matrix with
+the same number of columns as the sts object, the <code class="reqn">k</code>'th
+column of <code>incu.pmf</code> is used for the backprojection of the
+<code class="reqn">k</code>'th series.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A list with named arguments controlling the
+functionality of the non-parametric back-projection.
+</p>
+
+<dl>
+<dt><code>k</code></dt>
+<dd>
+<p>An integer representing the smoothing parameter to use in the smoothing step
+of the EMS algorithm. Needs to be an even number.
+</p>
+</dd>
+<dt><code>eps</code></dt>
+<dd>
+<p>A vector of length two representing the
+convergence threshold <code class="reqn">\epsilon</code> of the EMS algorithm, see Details for further
+information. The first value is the threshold to use in the
+<code class="reqn">k=0</code> loop, which forms the values for the parametric
+bootstrap. The second value is the threshold to use in the actual fit
+and bootstrap fitting using the specified <code>k</code>. If <code>k</code> is
+only of length one, then this number is replicated twice.
+</p>
+</dd>
+<dt><code>Tmark</code></dt>
+<dd>
+<p>Numeric with <code class="reqn">T'\leq T</code>. Upper time limit
+on which to base convergence, i.e. only the values
+<code class="reqn">\lambda_1,\ldots,\lambda_{T'}</code> are monitored for convergence. See
+details. 
+</p>
+</dd>
+<dt><code>iter.max</code></dt>
+<dd>
+<p>The maximum number of EM iterations to do before stopping. 
+</p>
+</dd>
+<dt><code>B</code></dt>
+<dd>
+<p>Number of parametric bootstrap samples to perform from an
+initial k=0 fit. For each sample a back projection is performed.
+See Becker and Marschner (1993) for details.
+</p>
+</dd>
+<dt><code>alpha</code></dt>
+<dd>
+<p>(1-<code class="reqn">\alpha</code>)*100% confidence
+intervals are computed based on the percentile method.
+</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>(boolean). If true show extra progress and
+debug information.
+</p>
+</dd>
+<dt><code>lambda0</code></dt>
+<dd>
+<p>Start values for lambda. Vector needs to be
+of the length <code>nrow(sts)</code>.
+</p>
+</dd>
+<dt><code>eq3a.method</code></dt>
+<dd>
+<p>A single character being either
+<code>"R"</code> or <code>"C"</code> depending on whether the three nested loops
+of equation 3a in Becker et al. (1991) are to be executed as safe R
+code (can be extremely slow, however the implementation is not
+optimized for speed) or a C code (can be more than 200 times
+faster!). However, the C implementation is experimental and can
+hang R if, e.g., the time series does not go far enough back.
+</p>
+</dd>
+<dt><code>hookFun</code></dt>
+<dd>
+<p>Hook function called for each iteration of the EM algorithm. The
+function should take a single argument <code>stsbp</code> of class
+<code>"stsBP"</code> class. It will be have the
+lambda set to the current value of lambda. If no action desired
+just leave the function body empty (default). Additional
+arguments are possible.
+</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments are sent to the hook function.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Becker et al. (1991) specify a non-parametric back-projection
+algorithm based on the Expectation-Maximization-Smoothing (EMS)
+algorithm.
+</p>
+<p>In the present implementation the algorithm iterates until
+</p>
+<p style="text-align: center;"><code class="reqn">\frac{||\lambda^{(k+1)} - \lambda^{(k)}||}{||\lambda^{(k)}||} &lt;
+  \epsilon</code>
+</p>
+<p> This is a slight adaptation of the proposals in Becker et
+al. (1991). If <code class="reqn">T</code> is the length of <code class="reqn">\lambda</code> then one can
+avoid instability of the algorithm near the end by considering only
+the <code class="reqn">\lambda</code>'s with index <code class="reqn">1,\ldots,T'</code>.
+</p>
+<p>See the references for further information.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>backprojNP</code> returns an object of <code>"stsBP"</code>.
+</p>
+
+
+<h3>Note</h3>
+
+<p>The method is still experimental. A proper plot routine for
+<code>stsBP</code> objects is currently missing.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Michael Höhle with help by
+Daniel Sabanés Bové
+and Sebastian Meyer for <code>eq3a.method = "C"</code>
+</p>
+
+
+<h3>References</h3>
+
+<p>Becker NG, Watson LF and Carlin JB (1991), A method for
+non-parametric back-projection and its application to AIDS data,
+Statistics in Medicine, 10:1527-1542.
+</p>
+<p>Becker NG and Marschner IC (1993), A method for estimating the
+age-specific relative risk of HIV infection from AIDS incidence data,
+Biometrika, 80(1):165-178.
+</p>
+<p>Yip PSF, Lam KF, Xu Y, Chau PH, Xu J, Chang W, Peng Y, Liu Z, Xie X and
+Lau HY (2011), Reconstruction of the Infection Curve for SARS Epidemic
+in Beijing, China Using a Back-Projection Method, Communications in
+Statistics - Simulation and Computation, 37(2):425-433.
+</p>
+<p>Associations of Age and Sex on Clinical Outcome and Incubation Period
+of Shiga toxin-producing Escherichia coli O104:H4 Infections, 2011
+(2013), Werber D, King LA, Müller L, Follin P, Buchholz U, Bernard H,
+Rosner BM, Ethelberg S, de Valk H, Höhle M, American Journal of
+Epidemiology, 178(6):984-992.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Generate an artificial outbreak of size n starting at time t0 and being of length
+n &lt;- 1e3 ; t0 &lt;- 23 ; l &lt;- 10
+
+#PMF of the incubation time is an interval censored gamma distribution
+#with mean 15 truncated at 25.
+dmax &lt;- 25
+inc.pmf &lt;- c(0,(pgamma(1:dmax,15,1.4) - pgamma(0:(dmax-1),15,1.4))/pgamma(dmax,15,1.4))
+#Function to sample from the incubation time
+rincu &lt;- function(n) {
+  sample(0:dmax, size=n, replace=TRUE, prob=inc.pmf)
+}
+#Sample time of exposure and length of incubation time
+set.seed(123)
+exposureTimes &lt;- t0 + sample(x=0:(l-1),size=n,replace=TRUE)
+symptomTimes &lt;- exposureTimes + rincu(n)
+
+#Time series of exposure (truth) and symptom onset (observed)
+X &lt;- table( factor(exposureTimes,levels=1:(max(symptomTimes)+dmax)))
+Y &lt;- table( factor(symptomTimes,levels=1:(max(symptomTimes)+dmax)))
+#Convert Y to an sts object
+Ysts &lt;- sts(Y)
+
+#Plot the outbreak
+plot(Ysts, xaxis.labelFormat=NULL, legend=NULL)
+#Add true number of exposures to the plot
+lines(1:length(Y)+0.2,X,col="red",type="h",lty=2)
+
+
+#Helper function to show the EM step
+plotIt &lt;- function(cur.sts) {
+  plot(cur.sts,xaxis.labelFormat=NULL, legend.opts=NULL,ylim=c(0,140))
+}
+
+#Call non-parametric back-projection function with hook function but
+#without bootstrapped confidence intervals
+bpnp.control &lt;- list(k=0,eps=rep(0.005,2),iter.max=rep(250,2),B=-1,hookFun=plotIt,verbose=TRUE)
+
+#Fast C version (use argument: eq3a.method="C")! 
+sts.bp &lt;- backprojNP(Ysts, incu.pmf=inc.pmf,
+    control=modifyList(bpnp.control,list(eq3a.method="C")), ylim=c(0,max(X,Y)))
+
+#Show result
+plot(sts.bp,xaxis.labelFormat=NULL,legend=NULL,lwd=c(1,1,2),lty=c(1,1,1),main="")
+lines(1:length(Y)+0.2,X,col="red",type="h",lty=2)
+
+#Do the convolution for the expectation
+mu &lt;- matrix(0,ncol=ncol(sts.bp),nrow=nrow(sts.bp))
+#Loop over all series
+for (j in 1:ncol(sts.bp)) { 
+  #Loop over all time points
+  for (t in 1:nrow(sts.bp)) {
+    #Convolution, note support of inc.pmf starts at zero (move idx by 1)
+    i &lt;- seq_len(t)
+    mu[t,j] &lt;- sum(inc.pmf[t-i+1] * upperbound(sts.bp)[i,j],na.rm=TRUE)
+  }
+}
+#Show the fit
+lines(1:nrow(sts.bp)-0.5,mu[,1],col="green",type="s",lwd=3)
+
+#Non-parametric back-projection including bootstrap CIs
+bpnp.control2 &lt;- modifyList(bpnp.control, list(hookFun=NULL, k=2,
+  B=10, # in practice, use B &gt;= 1000 !
+  eq3a.method="C"))
+sts.bp2 &lt;- backprojNP(Ysts, incu.pmf=inc.pmf, control=bpnp.control2)
+
+######################################################################
+# Plot the result. This is currently a manual routine.
+# ToDo: Need to specify a plot method for stsBP objects which also
+#       shows the CI.
+#
+# Parameters:
+#  stsBP - object of class stsBP which is to be plotted.
+######################################################################
+
+plot.stsBP &lt;- function(stsBP) {
+  maxy &lt;- max(observed(stsBP),upperbound(stsBP),stsBP@ci,na.rm=TRUE)
+  plot(upperbound(stsBP),type="n",ylim=c(0,maxy), ylab="Cases",xlab="time")
+  if (!all(is.na(stsBP@ci))) {
+    polygon( c(1:nrow(stsBP),rev(1:nrow(stsBP))),
+             c(stsBP@ci[2,,1],rev(stsBP@ci[1,,1])),col="lightgray")
+  }
+  lines(upperbound(stsBP),type="l",lwd=2)
+  legend(x="topright",c(expression(lambda[t])),lty=c(1),col=c(1),fill=c(NA),border=c(NA),lwd=c(2))
+
+  invisible()
+}
+
+#Plot the result of k=0 and add truth for comparison. No CIs available
+plot.stsBP(sts.bp)
+lines(1:length(Y),X,col=2,type="h")
+#Same for k=2
+plot.stsBP(sts.bp2)
+lines(1:length(Y),X,col=2,type="h")
+
+</code></pre>
+
+
+</div>

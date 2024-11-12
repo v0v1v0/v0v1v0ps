@@ -1,0 +1,131 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>good-practice</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Clear and trustworthy formulas and prior weights</h2>
+
+<h3>Description</h3>
+
+<p>Base fitting functions in R will seek variables in the environment where the <code>formula</code> was defined (i.e., typically in the global environment), if they are not in the <code>data</code>. This increases the memory size of fit objects (as the formula and attached environment are part of such objects). This also easily leads to errors (see example in the discussion of <code>update.HLfit</code>). Indeed Chambers (2008, p.221), after describing how the environment is defined, comments that “Where clear and trustworthy software is a priority, I would personally avoid such tricks. Ideally, all the variables in the model frame should come from an explicit, verifiable data source...”. Fitting functions in <span class="pkg">spaMM</span> try to adhere to such a principle, as they assume by default that all variables from the <code>formula</code> should be in the <code>data</code> argument (and then, <b>one never needs to specify “<code>data$</code>” in the <code>formula</code>.</b>. <span class="pkg">spaMM</span> implements this by default by stripping the formula environment from any variable. It is also possible to assign a given environment to the formula, through the control <code>control.HLfit$formula_env</code>: see Examples. 
+
+</p>
+<p>The variables defining the <code>prior.weights</code> should also be in the <code>data</code>. However, the implementation of the <code>prior.weights</code> argument has limitations that can be overcome by using the more recently introduced <code>weights.formula</code> argument of <span class="pkg">spaMM</span> fitting functions (see Examples, where this is also compared  with <code>stats::lm</code>'s handling of its <code>weights</code> argument).  
+
+</p>
+<p>However, variables used in other arguments such as <code>ranFix</code> are looked up neither in the data nor in the formula environment, but in the calling environment as usual.
+</p>
+
+
+<h3>References</h3>
+
+<p>Chambers J.M. (2008) Software for data analysis: Programming with R. Springer-Verlag New York
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#######  Controlling the formula environment
+
+set.seed(123)
+d2 &lt;- data.frame(y = seq(10)/2+rnorm(5)[gl(5,2)], x1 = sample(10), grp=gl(5,2), seq10=seq(10))
+# Using only variables in the data: basic usage
+# HLfit(y ~ x1 + seq10+(1|grp), data = d2)
+# is practically equivalent to
+HLfit(y ~ x1 + seq10+(1|grp), data = d2, 
+      control.HLfit = list(formula_env=list2env(list(data=d2))))
+# 
+# The 'formula_env' avoids the need for the 'seq10' variable:
+HLfit(y ~ x1 + I(seq_len(nrow(data)))+(1|grp), data = d2, 
+      control.HLfit = list(formula_env=list2env(list(data=d2))))
+#
+# Internal imprementation exploits partial matching of argument names
+#  so that this can also be in 'control' if 'control.HLfit' is absent:      
+fitme(y ~ x1 + I(seq_len(nrow(data)))+(1|grp), data = d2, 
+      control = list(formula_env=list2env(list(data=d2))))
+      
+####### Prior-weights misery
+
+data("hills", package="MASS")
+
+(fit &lt;- lm(time ~ dist + climb, data = hills, weights=1/dist^2)) 
+# same as
+(fit &lt;- fitme(time ~ dist + climb, data = hills, prior.weights=1/dist^2, method="REML")) 
+
+# possible calls:
+(fit &lt;- fitme(time ~ dist + climb, data = hills, prior.weights=quote(1/dist^2))) 
+(fit &lt;- fitme(time ~ dist + climb, data = hills, prior.weights= 1/hills$dist^2)) 
+(fit &lt;- fitme(time ~ dist + climb, data = hills, weights.form= ~ 1/dist^2)) 
+(fit &lt;- fitme(time ~ dist + climb, data = hills, weights.form= ~ I(1/dist^2))) 
+
+# Also syntactically correct since 'dist' is found in the data:
+(fit &lt;- fitme(time ~ dist + climb, data = hills, weights.form= ~ rep(2,length(dist)))) 
+
+#### Programming with prior weights:
+
+## Different ways of passing prior weights to fitme() from another function:
+
+wrap_as_form &lt;- function(weights.form) {
+  fitme(time ~ dist + climb, data = hills, weights.form=weights.form) 
+}
+
+wrap_as_pw &lt;- function(prior.weights) {
+  fitme(time ~ dist + climb, data = hills, prior.weights=prior.weights) 
+}
+
+wrap_as_dots &lt;- function(...) {
+  fitme(time ~ dist + climb, data = hills,...) 
+}
+
+
+## Similarly for lm:
+
+wrap_lm_as_dots &lt;- function(...) {
+  lm(time ~ dist + climb, data = hills, ...) 
+}
+
+wrap_lm_as_arg &lt;- function(weights) {
+  lm(time ~ dist + climb, data = hills,weights=weights) 
+}
+
+## Programming errors with stats::lm():
+
+pw &lt;- rep(1e-6,35) # or even NULL
+
+(fit &lt;- wrap_lm_as_arg(weights=pw)) # catches weights from global envir!
+(fit &lt;- lm(time ~ dist + climb, data = hills, weights=pw)) # idem!
+
+(fit &lt;- lm(time ~ dist + climb, data = hills, 
+           weights=hills$pw)) # fails silently - no $pw in 'hills'
+(fit &lt;- wrap_lm_as_dots(weights=hills$pw)) # idem!
+(fit &lt;- wrap_lm_as_arg(weights=hills$pw)) # idem!
+
+## Safer spaMM results:
+
+try(fit &lt;- wrap_as_pw(prior.weights= pw)) # correctly catches problem
+try(fit &lt;- wrap_as_dots(prior.weights=hills$pw)) # correctly catches problem
+(fit &lt;- wrap_as_dots(prior.weights=1/dist^2)) # correct
+(fit &lt;- wrap_as_dots(prior.weights=quote(1/dist^2))) # correct
+
+## But 'prior.weights' limitations: 
+
+try(fit &lt;- wrap_as_pw(prior.weights= 1/hills$dist^2)) # fails (stop)
+try(fit &lt;- wrap_as_pw(prior.weights= 1/dist^2)) # fails (stop)
+try(fit &lt;- wrap_as_pw(prior.weights= quote(1/dist^2))) # fails (stop)
+
+## Problems all solved by using 'weights.form':
+
+try(fit &lt;- wrap_as_form(weights.form= ~ pw)) # correctly catches problem
+(fit &lt;- wrap_as_form(weights.form= ~1/dist^2)) # correct
+(fit &lt;- wrap_as_form(weights.form= ~1/hills$dist^2)) # correct
+(fit &lt;- wrap_as_dots(weights.form= ~ 1/dist^2)) # correct
+
+rm("pw")
+
+      
+      
+</code></pre>
+
+
+</div>

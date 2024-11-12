@@ -1,0 +1,197 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_eigen_spline</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute eigenSplines across a dataset</h2>
+
+<h3>Description</h3>
+
+<p>Compute "eigenSplines" across a dataset to discover the best <em>df</em> for spline fitting.  
+</p>
+
+
+<h4>Steps:</h4>
+
+
+<ul>
+<li>
+<p> UV Scale the data.
+</p>
+</li>
+<li>
+<p> Turn each VAR in (IND x TIME) and group all VAR in (IND+VAR x TIME) using <code>get_eigen_spline_matrix</code>.
+</p>
+</li>
+<li>
+<p> Compute "eigen.splines" on the transposed table (TIME x IND+VAR).
+</p>
+</li>
+<li>
+<p> Returns eigen$matrix = PCprojection x TIME and eigen$variance = variance explained for each PC.
+</p>
+</li>
+</ul>
+<h3>Usage</h3>
+
+<pre><code class="language-R">get_eigen_spline(
+  inputData,
+  ind,
+  time,
+  nPC = NA,
+  scaling = "scaling_UV",
+  method = "nipals",
+  verbose = TRUE,
+  centering = TRUE,
+  ncores = 0
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>inputData</code></td>
+<td>
+<p>Matrix of measurements with observations as rows and variables as columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ind</code></td>
+<td>
+<p>Vector of subject identifier (individual) corresponding to each measurement.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>Vector of time corresponding to each measurement.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nPC</code></td>
+<td>
+<p>(int) Number of Principal Components to compute, if none given (<code>nPC=NA</code>) compute all PC (usually number TP-1 as there is 1PC less than the smallest dimension).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling</code></td>
+<td>
+<p><code>"scaling_UV"</code> or <code>"scaling_mean"</code> scaling across all samples for each variable. Default <code>"scaling_UV"</code>. Note: scaling takes place outside of the pcaMethods call, therefore <code>$model</code> will indicate "Data was NOT scaled before running PCA".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>PCA method <code>"svd"</code> doesn't accept missing value. <code>"nipals"</code> can handle missing values. Default <code>"nipals"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>If <code>TRUE</code> print the PCA summary. Default <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>centering</code></td>
+<td>
+<p>If <code>TRUE</code> centering for PCA, needed to remove baseline levels of each pc (often PC1). Default <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>(int) Number of cores to use for parallelisation of the grouping of all splines. Default 0 for no parallelisation.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list eigen: <code>eigen$matrix</code> <code>data.frame</code> of eigenSplines values with PCprojection as row and TIME as column. <code>eigen$variance</code> Vector of variance explained for each PC. <code>eigen$model</code> resulting pcaMethods model. <code>eigen$countTP</code> Matrix of number of measurements for each unique timepoint (as row).
+</p>
+
+
+<h4>Comments:</h4>
+
+
+<ul>
+<li>
+<p> CENTERING: Centering converts all the values to fluctuations around zero instead of around the mean of the variable measurements. Hereby, it adjusts for differences in the offset between high and low intensity variables. It is therefore used to focus on the fluctuating part of the data, and leaves only the relevant variation (being the variation between the observations) for analysis.
+</p>
+</li>
+<li>
+<p> SCALING: Scaling methods are data pretreatment approaches that divide each variable by a factor -the scaling factor- which is different for each variable. They aim to adjust for the differences in fold differences between the various variables by converting the data into differences in values relative to the scaling factor. This often results in the inflation of small values, which can have an undesirable side effect as the influence of the measurement error -that is usually relatively large for small values- is increased as well.
+</p>
+</li>
+<li>
+<p> UNIT VARIANCE SCALING: UV or Autoscaling, is commonly applied and uses the standard deviation as the scaling factor. After autoscaling, all variables have a standard deviation of one and therefore the data is analysed on the basis of correlations instead of covariances, as is the case with centering.
+</p>
+</li>
+<li>
+<p> BEFORE PCA, centering must be applied on the matrix that will be submitted to PCA to remove "baseline" levels.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p>Graphical implementation with <code>santaR_start_GUI</code>
+</p>
+<p>Other DFsearch: 
+<code>get_eigen_DF()</code>,
+<code>get_eigen_DFoverlay_list()</code>,
+<code>get_param_evolution()</code>,
+<code>plot_nbTP_histogram()</code>,
+<code>plot_param_evolution()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## 7 measurements, 3 subjects, 4 unique time-points, 2 variables
+inputData &lt;- matrix(c(1,2,3,4,5,6,7,8,9 ,10,11,12,13,14,15,16,17,18), ncol=2)
+ind  &lt;- c('ind_1','ind_1','ind_1','ind_2','ind_2','ind_2','ind_3','ind_3','ind_3')
+time &lt;- c(0,5,10,0,10,15,5,10,15)
+get_eigen_spline(inputData, ind, time, nPC=NA, scaling="scaling_UV", method="nipals",
+                 verbose=TRUE, centering=TRUE, ncores=0)
+# nipals calculated PCA
+# Importance of component(s):
+#                  PC1    PC2     PC3
+# R2            0.7113 0.2190 0.05261
+# Cumulative R2 0.7113 0.9303 0.98287
+# total time: 0.12 secs
+# $matrix
+#              0          5        10         15
+# PC1 -1.7075707 -0.7066426 0.7075708  1.7066425
+# PC2 -0.3415271  0.9669724 1.0944005 -0.4297013
+# PC3 -0.1764657 -0.5129981 0.5110671  0.1987611
+# 
+# $variance
+# [1] 0.71126702 0.21899068 0.05260949
+# 
+# $model
+# nipals calculated PCA
+# Importance of component(s):
+#                  PC1    PC2     PC3
+# R2            0.7113 0.2190 0.05261
+# Cumulative R2 0.7113 0.9303 0.98287
+# 6 	Variables
+# 4 	Samples
+# 6 	NAs ( 25 %)
+# 3 	Calculated component(s)
+# Data was mean centered before running PCA 
+# Data was NOT scaled before running PCA 
+# Scores structure:
+# [1] 4 3
+# Loadings structure:
+# [1] 6 3
+# 
+# $countTP
+#   [,1]
+# 3    6
+
+</code></pre>
+
+
+</div>

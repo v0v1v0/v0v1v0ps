@@ -1,0 +1,651 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>run.scenarios</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate Sampling Designs</h2>
+
+<h3>Description</h3>
+
+<p>This function performs simulations to predict the precision of density and other
+estimates from simple 1-session SECR designs. Scenarios are specified
+via an input dataframe that will usually be constructed with
+<code>make.scenarios</code>. Each scenario comprises an index to a detector layout,
+the number of sampling occasions, and specified density (D) and detection
+parameters (usually <code class="reqn">g_0</code> and <code class="reqn">\sigma</code>).
+</p>
+<p>Detector layouts are provided in a separate list <code>trapset</code>. This
+may comprise an actual field design input with <code>read.traps</code> or
+‘traps’ objects constructed with <code>make.grid</code> etc., as in the
+Examples. Even a single layout must be presented as a component of a
+list (e.g., <code>list(make.grid())</code>).
+</p>
+<p>Alternative approaches are offered for predicting precision. Both start
+by generating a pseudorandom dataset under the design using the
+parameter values for a particular scenario. The first estimates the
+parameter values and their standard errors from each dataset by
+maximizing the full likelihood, as usual in <code>secr.fit</code>. The second
+takes the short cut of computing variances and SE from the Hessian
+estimated numerically at the known expected values of the parameters,
+without maximizing the likelihood. Set <code>method = "none"</code> in fit.args 
+for this shortcut.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+run.scenarios(nrepl, scenarios, trapset, maskset, xsigma = 4, nx = 32,
+    pop.args, CH.function = c("sim.capthist", "simCH"), det.args, 
+    fit = FALSE, fit.function = c("secr.fit", "ipsecr.fit"), 
+    fit.args, chatnsim, extractfn = NULL, multisession = FALSE,
+    joinsessions = FALSE, ncores = NULL, byscenario = FALSE, seed = 123, 
+    trap.args, prefix = NULL, ...)
+
+fit.models(rawdata, fit = FALSE, fit.function = c("secr.fit", "ipsecr.fit"), 
+    fit.args, chatnsim, extractfn = NULL, ncores = NULL, byscenario = FALSE,
+    scen, repl, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>nrepl</code></td>
+<td>
+<p>integer number of replicate simulations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scenarios</code></td>
+<td>
+<p>dataframe of simulation scenarios</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trapset</code></td>
+<td>
+<p>secr traps object or a list of traps objects or functions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maskset</code></td>
+<td>
+<p>secr mask object or a list of mask objects (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xsigma</code></td>
+<td>
+<p>numeric buffer width as multiple of sigma (alternative
+to maskset)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nx</code></td>
+<td>
+<p>integer number of cells in mask in x direction  (alternative
+to maskset)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pop.args</code></td>
+<td>
+<p>list of named arguments to
+<code>sim.popn</code> (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CH.function</code></td>
+<td>
+<p>character name of function to simulate capthist</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.args</code></td>
+<td>
+<p>list of named arguments to
+<code>sim.capthist</code> (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>logical or character; if TRUE a model is fitted with <code>fit.function</code>, otherwise
+data are generated but no model is fitted <br> 
+(see also Multi-model fit and Design-only statistics in Details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.function</code></td>
+<td>
+<p>character name of function to use for model fitting</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.args</code></td>
+<td>
+<p>list of named arguments to <code>secr.fit</code> or <code>ipsecr.fit</code> (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chatnsim</code></td>
+<td>
+<p>integer number of simulations for overdispersion of mark-resight models</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>extractfn</code></td>
+<td>
+<p>function to extract a vector of statistics from secr model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multisession</code></td>
+<td>
+<p>logical; if TRUE groups are treated as additional sessions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>joinsessions</code></td>
+<td>
+<p>logical; if TRUE function <code>join</code> is applied to multisession capthist</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>integer number of cores for parallel processing or NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>byscenario</code></td>
+<td>
+<p>logical; if TRUE then each scenario is sent to a different core</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>integer pseudorandom number seed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trap.args</code></td>
+<td>
+<p>list of arguments for trapset components if using function option </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prefix</code></td>
+<td>
+<p>character to name files saving output of each scenario </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments passed to extractfn</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rawdata</code></td>
+<td>
+<p>‘rawdata’ object from previous call to <code>run.scenarios</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scen</code></td>
+<td>
+<p>integer vector of scenario subscripts</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>repl</code></td>
+<td>
+<p>integer vector of subscripts in range 1:nrepl</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Designs are constructed from the trap layouts in <code>trapset</code>, the
+numbers of grids in <code>ngrid</code>, and the numbers of sampling
+occasions (secondary sessions) in <code>noccasions</code>. These are
+<em>not</em> crossed: the number of designs is the maximum length of any
+of these arguments. Any of these arguments whose length is less than
+the maximum will be replicated to match.
+</p>
+<p><code>pop.args</code> is used to customize the simulated population
+distribution. It will usually comprise a single list, but may be a
+list of lists (one per popindex value in scenarios).
+</p>
+<p><code>det.args</code> may be used to customize some aspects of the detection
+modelling in <code>sim.capthist</code>, but not <code>traps, popn, detectpar,
+  detectfn</code>, and <code>noccasions</code>, which are controlled directly by the
+scenarios. It will usually comprise a single list, but may be a list
+of lists (one per detindex value in scenarios).
+</p>
+<p><code>fit.args</code> is used to customize the fitted model; it will usually
+comprise a single list. If you are interested in precision alone, use
+<code>fit.args=list(method = 'none')</code> to obtain variance estimates
+from the hessian evaluated at the parameter estimates. This is much
+faster than a complete model fit, and usually accurate enough.
+</p>
+<p>If no <code>extractfn</code> is supplied then a default is used - see
+Examples. Replacement functions should follow this pattern i.e. test
+for whether the single argument is an secr object, and if not supply a
+named vector of NA values of the correct length.
+</p>
+<p>Using <code>extractfn = summary</code> has the advantage of allowing both model fits and raw statistics to be extracted from one set of simulations. However, this approach requires an additional step to retrieve the desired numeric results from each replicate (see <code>count.summary</code> and <code>predict.summary</code>).
+</p>
+
+
+<h4>Parallel processing</h4>
+
+  
+<p>If <code>byscenario = TRUE</code> then by default each scenario will be run in a separate worker
+process using <code>parLapply</code> from <span class="pkg">parallel</span> (see also Parallel). The number of scenarios should not exceed the available number of cores (set by the 'ncores' argument or a prior call to 'setNumThreads').
+</p>
+<p>If <code>byscenario = FALSE</code> then from <span class="pkg">secrdesign</span> 2.6.0 onwards the usual multithreading of <span class="pkg">secr</span> 4.5 is applied. The number of cores should usually be preset with 'setNumThreads'. If <code>ncores</code> is provided then the environment variable RCPP_PARALLEL_NUM_THREADS is reset. The default behaviour of the fitting functions (secr.fit, ipsecr.fit) is to use this value (unless specified in fit.args).
+</p>
+<p>When ‘byscenario = TRUE' the L’Ecuyer pseudorandom generator is used with a separate random
+number stream for each core (see <code>clusterSetRNGStream</code>).
+</p>
+<p>For <code>ncores &gt; 1</code> it pays to keep an eye on the processes from the
+Performance page of Windows Task Manager (&lt;ctrl&gt;&lt;alt&gt;&lt;del&gt;), or ‘top’ in
+linux OS. If you interrupt <code>run.scenarios</code> (&lt;Esc&gt; from Windows)
+you may occasionally find some processes do not terminate and have to
+be manually terminated from the Task Manager - they appear as
+Rscript.exe on the Processes page.
+</p>
+
+
+
+<h4>Alternate functions for simulation and fitting</h4>
+
+<p>The default is to use functions <code>sim.capthist</code> and <code>secr.fit</code> from <span class="pkg">secr</span>. Either may be substituted by the corresponding function (<code>simCH</code> or <code>ipsecr.fit</code>) from package <span class="pkg">ipsecr</span> if that has been installed.
+</p>
+
+
+
+<h4>Multi-model fit</h4>
+
+<p>Multiple models may be fitted to the same simulated data for multi-model inference. This requires both (i) ‘fit = "multifit"’, and (ii) 'fit.args' should be a nested list (fit arguments within models within fit.index) with a separate specification for each model fit. See the vignette for examples.
+</p>
+
+
+
+<h4>Design-only statistics</h4>
+
+<p>Designs for distance sampling were evaluated by Fewster and Buckland (2004) by computing statistics from simulated detections without fitting a model to estimate the detection parameters. An analogous procedure for SECR is implemented by setting <code>fit = 'design'</code>. A new default extractfn (designextractfn) computes the effective sampling area with the <span class="pkg">secr</span> function <code>pdot</code> and returns a vector of values -
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+  n   </td>
+<td style="text-align: left;"> </td>
+<td style="text-align: left;"> number of individuals detected </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  r   </td>
+<td style="text-align: left;"> </td>
+<td style="text-align: left;"> number of recaptures </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  esa </td>
+<td style="text-align: left;"> </td>
+<td style="text-align: left;"> effective sampling area, given the known detection parameters </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+  D   </td>
+<td style="text-align: left;"> </td>
+<td style="text-align: left;"> D = n/esa </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>The resulting simulation object is of type 'selectedstatistics' for which the summary method works as usual.
+</p>
+<p>A similar effect may be achieved by providing a custom extractfn and passing arguments to it via the dots argument of <code>run.scenarios</code>.
+</p>
+
+
+
+<h4>Miscellaneous</h4>
+
+<p>From 2.2.0, two or more rows in <code>scenarios</code> may share the same scenario number. This is used to generate multiple population subclasses (e.g. sexes) differing in density and/or detection parameters. If <code>multisession = TRUE</code> the subclasses become separate sessions in a multi-session capthist object (this may require a custom <code>extractfn</code>). <code>multisession</code> is ignored with a warning if each scenario row has a unique number.
+</p>
+<p>From 2.7.0, each component of ‘trapset’ may be a function that constructs a detector layout. This allows layouts to be constructed dynamically at the time each capthist is generated; arguments of each function are provided in the ‘trap.args’ list which should be of the same length as ‘trapset’ The primary purpose is to allow systematic grids, laceworks etc. to be constructed with a unique random origin for each replicate. The ‘maskset’ argument must be provided - it should cover all potential layouts, regardless of origins.
+</p>
+<p>In <code>fit.models</code> the arguments <code>scen</code> and <code>repl</code> may be used to select a subset of datasets for model fitting.
+</p>
+
+
+
+<h4>Mark-resight</h4>
+
+  <p><code>chatnsim</code> controls an additional quasi-likelihood model step to adjust for overdispersion of sighting counts. No adjustment happens when <code>chatnsim = 0</code>; otherwise <code>abs(chatnsim)</code> gives the number of simulations to perform to estimate overdispersion. If <code>chatnsim &lt; 0</code> then the quasilikelihood is used only to re-estimate the variance at the previous MLE (method = "none").
+</p>
+
+
+
+<h4>Intermediate output</h4>
+
+<p> If 'prefix' is provided than results will be saved for each scenario separately. The filename of scenario 1 is of the form 'prefix1.RDS'. The prefix may include a file path.
+</p>
+
+
+
+<h4>Further processing</h4>
+
+<p>A summary method is provided (see
+<code>summary.secrdesign</code>). It is usually necessary to process
+the simulation results further with <code>predict.fittedmodels</code>
+and/or <code>select.stats</code> before summarization.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>An object of class (x, ‘secrdesign’, ‘list’), where x is one of
+‘fittedmodels’, ‘estimatetables’, ‘selectedstatistics’ or ‘rawdata’,
+with components
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>function call</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>version</code></td>
+<td>
+<p>character string including the software version number</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>starttime</code></td>
+<td>
+<p>character string for date and time of run</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proctime</code></td>
+<td>
+<p>processor time for simulations, in seconds</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scenarios</code></td>
+<td>
+<p>dataframe as input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trapset</code></td>
+<td>
+<p>list of trap layouts as input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maskset</code></td>
+<td>
+<p>list of habitat masks (input or generated)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xsigma</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nx</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pop.args</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CH.function</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.args</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.function</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit.args</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>extractfn</code></td>
+<td>
+<p>function used to extract statistics from each
+simulation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nrepl</code></td>
+<td>
+<p>from input</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>list with one component per scenario </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outputtype</code></td>
+<td>
+<p>character code - see vignette</p>
+</td>
+</tr>
+</table>
+<p>If <code>fit = FALSE</code> and <code>extractfn = identity</code> the result is of
+class (‘rawdata’, ‘secrdesign’, ‘list’). This may be used as input to
+<code>fit.models</code>, which interprets each model specification in
+<code>fit.args</code> as a new ‘sub-scenario’ of each input scenario
+(i.e. all models are fitted to every dataset). The output
+possibilities are the same as for <code>run.scenarios</code>.
+</p>
+<p>If subclasses have been defined (i.e. scenarios has multiple rows with the same scenario ID), each simulated capthist object has covariates with a character-valued column named "group" ("1", "2" etc.) (there is also a column "sex" generated automatically by <code>sim.popn</code>).
+</p>
+
+
+<h3>Note</h3>
+
+<p>100 ha = 1 km^2.
+</p>
+<p>fit.function = 'openCR.fit' was deprecated from 2.5.8 and has been removed.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Murray Efford
+</p>
+
+
+<h3>References</h3>
+
+<p>Fewster, R. M. and Buckland, S. T. 2004. Assessment of distance
+sampling estimators. In: S. T. Buckland, D. R. Anderson,
+K. P. Burnham, J. L. Laake, D. L. Borchers and L. Thomas (eds)
+<em>Advanced distance sampling</em>. Oxford University Press, Oxford,
+U. K. Pp. 281–306.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>expand.arg</code>,
+</p>
+<p><code>select.stats</code>,
+</p>
+<p><code>summary.secrdesign</code>,
+</p>
+<p><code>summary.estimatetables</code>,
+</p>
+<p><code>summary.selectedstatistics</code>,
+</p>
+<p><code>estimateSummary</code>
+</p>
+<p>Miscellaneous –
+</p>
+<p><code>predict.fittedmodels</code>,
+</p>
+<p><code>scenarioSummary</code>, 
+</p>
+<p><code>count.summary</code>,
+</p>
+<p><code>predict.summary</code>
+</p>
+<p><span class="pkg">secr</span> functions used internally –
+</p>
+<p><code>sim.popn</code>,
+</p>
+<p><code>sim.capthist</code>,
+</p>
+<p><code>secr.fit</code>
+</p>
+<p>To combine output –
+</p>
+<p><code>rbind.estimatetables</code>,
+</p>
+<p><code>rbind.selectedstatistics</code>,
+</p>
+<p><code>c.estimatetables</code>,
+</p>
+<p><code>c.selectedstatistics</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Simple example: generate and summarise trapping data
+## at two densities and for two levels of sampling frequency
+scen1 &lt;- make.scenarios(D = c(5,10), sigma = 25, g0 = 0.2, noccasions =
+    c(5,10))
+traps1 &lt;- make.grid()   ## default 6 x 6 trap grid
+tmp1 &lt;- run.scenarios(nrepl = 20, trapset = traps1, scenarios = scen1,
+    fit = FALSE)
+summary(tmp1)
+
+## Not run: 
+
+setNumThreads(7)
+
+##########################################
+# new summary method (secrdesign &gt;= 2.8.1)
+# assumes fit = TRUE, extractfn = predict
+
+tmp2 &lt;- run.scenarios(nrepl = 10, trapset = traps1, scenarios = scen1,
+    fit = TRUE, extractfn = predict)
+estimateSummary(tmp2, format = "data.frame", 
+    cols = c('scenario', 'noccasions'))
+
+###########################
+## 2-phase example
+## first make and save rawdata
+scen1 &lt;- make.scenarios(D = c(5,10), sigma = 25, g0 = 0.2)
+traps1 &lt;- make.grid()   ## default 6 x 6 trap grid
+tmp1 &lt;- run.scenarios(nrepl = 20, trapset = traps1, scenarios = scen1,
+    fit = FALSE, extractfn = identity)
+
+## review rawdata
+summary(tmp1)
+
+## then fit and summarise models
+tmp2 &lt;- fit.models(tmp1, fit.args = list(list(model = g0~1),
+    list(model = g0~T)), fit = TRUE)
+summary(tmp2)
+###########################
+
+## Construct a list of detector arrays
+## Each is a set of 5 parallel lines with variable between-line spacing;
+## the argument that we want to vary (spacey) follows nx, ny and spacex
+## in the argument list of make.grid().
+
+spacey &lt;- seq(2000,5000,500)
+names(spacey) &lt;- paste('line', spacey, sep = '.')
+trapset &lt;- lapply(spacey, make.grid, nx = 101, ny = 5, spacex = 1000,
+    detector = 'proximity')
+
+## Make corresponding set of masks with constant spacing (1 km)
+maskset &lt;- lapply(trapset, make.mask, buffer = 8000, spacing = 1000,
+    type = 'trapbuffer')
+
+## Generate scenarios
+scen &lt;- make.scenarios (trapsindex = 1:length(spacey), nrepeats = 8,
+    noccasions = 2, D = 0.0002, g0 = c(0.05, 0.1), sigma = 1600, cross = TRUE)
+
+## RSE without fitting model
+sim &lt;- run.scenarios (50, scenarios = scen, trapset = trapset, maskset = maskset,
+    fit = TRUE, fit.args = list(method = 'none'), seed = 123)
+
+## Extract statistics for predicted density
+sim &lt;- select.stats(sim, parameter = 'D')
+
+## Plot to compare line spacing
+summ &lt;- summary (sim, type='array',  fields = c('mean','lcl','ucl'))$OUTPUT
+plot(0,0,type='n', xlim=c(1.500,5.500), ylim = c(0,0.36), yaxs = 'i',
+    xaxs = 'i', xlab = 'Line spacing  km', ylab = 'RSE (D)')
+xv &lt;- seq(2,5,0.5)
+points(xv, summ$mean[,1,'RSE'], type='b', pch=1)
+points(xv, summ$mean[,2,'RSE'], type='b', pch=16)
+segments(xv, summ$lcl[,1,'RSE'], xv, summ$ucl[,1,'RSE'])
+segments(xv, summ$lcl[,2,'RSE'], xv, summ$ucl[,2,'RSE'])
+legend(4,0.345, pch=c(1,16), title = 'Baseline detection',
+    legend = c('g0 = 0.05', 'g0 = 0.1'))
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

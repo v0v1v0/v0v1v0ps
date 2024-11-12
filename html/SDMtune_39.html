@@ -1,0 +1,250 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict,SDMmodelCV-method</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Predict for Cross Validation</h2>
+
+<h3>Description</h3>
+
+<p>Predict the output for a new dataset given a trained SDMmodelCV
+model. The output is given as the provided function applied to the prediction
+of the k models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S4 method for signature 'SDMmodelCV'
+predict(
+  object,
+  data,
+  fun = "mean",
+  type = NULL,
+  clamp = TRUE,
+  filename = "",
+  overwrite = FALSE,
+  wopt = list(),
+  extent = NULL,
+  progress = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>SDMmodelCV object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>data.frame, SWD or raster rast with
+the data for the prediction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>character. Function used to combine the output of the k models.
+Note that fun is a character argument, you must use <code>"mean"</code> and not <code>mean</code>.
+You can also pass a vector of character containing multiple function names,
+see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>character. Output type, see details, used only for <strong>Maxent</strong> and
+<strong>Maxnet</strong> methods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clamp</code></td>
+<td>
+<p>logical for clumping during prediction, used only for <strong>Maxent</strong>
+and <strong>Maxnet</strong> methods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>filename</code></td>
+<td>
+<p>character. If provided the raster map is saved in a file. It
+must include the extension.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overwrite</code></td>
+<td>
+<p>logical. If <code>TRUE</code> an existing file is overwritten.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wopt</code></td>
+<td>
+<p>list. Writing options passed to writeRaster.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>extent</code></td>
+<td>
+<p>ext object, if provided it restricts the
+prediction to the given extent.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>logical. If <code>TRUE</code> shows a progress bar during prediction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments to pass to the predict
+function.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+<ul>
+<li>
+<p> filename, and extent are arguments used only when the prediction is run for
+a rast object.
+</p>
+</li>
+<li>
+<p> When a character vector is passed to the <code>fun</code> argument, than all the
+given functions are applied and a named list is returned, see examples.
+</p>
+</li>
+<li>
+<p> When <code>filename</code> is provided and the <code>fun</code> argument contains more than one
+function name, the saved files are named as <code>filename_fun</code>, see example.
+</p>
+</li>
+<li>
+<p> For models trained with the <strong>Maxent</strong> method the argument <code>type</code> can be:
+"raw", "logistic" and "cloglog". The function performs the prediction in
+<strong>R</strong> without calling the <strong>MaxEnt</strong> Java software. This results in a faster
+computation for large datasets and might result in a slightly different
+output compared to the Java software.
+</p>
+</li>
+<li>
+<p> For models trained with the <strong>Maxnet</strong> method the argument <code>type</code> can be:
+"link", "exponential", "logistic" and "cloglog", see maxnet
+for more details.
+</p>
+</li>
+<li>
+<p> For models trained with the <strong>ANN</strong> method the function uses the "raw"
+output type.
+</p>
+</li>
+<li>
+<p> For models trained with the <strong>RF</strong> method the output is the probability of
+class 1.
+</p>
+</li>
+<li>
+<p> For models trained with the <strong>BRT</strong> method the function uses the number of
+trees defined to train the model and the "response" output type.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>A vector with the prediction or a rast object if data
+is a rast or a list in the case of multiple functions.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sergio Vignali
+</p>
+
+
+<h3>References</h3>
+
+<p>Wilson P.D., (2009). Guidelines for computing MaxEnt model output
+values from a lambdas file.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Acquire environmental variables
+files &lt;- list.files(path = file.path(system.file(package = "dismo"), "ex"),
+                    pattern = "grd",
+                    full.names = TRUE)
+
+predictors &lt;- terra::rast(files)
+
+# Prepare presence and background locations
+p_coords &lt;- virtualSp$presence
+bg_coords &lt;- virtualSp$background
+
+# Create SWD object
+data &lt;- prepareSWD(species = "Virtual species",
+                   p = p_coords,
+                   a = bg_coords,
+                   env = predictors,
+                   categorical = "biome")
+
+# Create 4 random folds splitting only the presence data
+folds &lt;- randomFolds(data,
+                     k = 4,
+                     only_presence = TRUE)
+
+model &lt;- train(method = "Maxnet",
+               data = data,
+               fc = "l",
+               folds = folds)
+
+# Make cloglog prediction for the whole study area and get the result as
+# average of the k models
+predict(model,
+        data = predictors,
+        fun = "mean",
+        type = "cloglog")
+
+# Make cloglog prediction for the whole study area, get the average, standard
+# deviation, and maximum values of the k models, and save the output in three
+# files.
+# The following commands save the output in the working directory. Note that
+# the `filename` must include the extension
+## Not run: 
+maps &lt;- predict(model,
+                data = predictors,
+                fun = c("mean", "sd", "max"),
+                type = "cloglog",
+                filename = "prediction.tif")
+
+# In this case three files are created: prediction_mean.tif,
+# prediction_sd.tif and prediction_max.tif
+plotPred(maps$mean)
+plotPred(maps$sd)
+plotPred(maps$max)
+
+# Make logistic prediction for the whole study area, given as standard
+# deviation of the k models, and save it in a file
+predict(model,
+        data = predictors,
+        fun = "sd",
+        type = "logistic",
+        filename = "my_map.tif")
+## End(Not run)
+</code></pre>
+
+
+</div>

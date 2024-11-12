@@ -1,0 +1,177 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ploidy.inference</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Ploidy inference with quantogram</h2>
+
+<h3>Description</h3>
+
+<p>Infer ploidy of a cell, given a copy number profile.
+Constructs a quantogram (either modular or cosine, depending on parameters).
+The maximum of the quantogram is the estimated ploidy.
+If unsegmented bincounts are given, segmentation will be performed using the
+fused lasso.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ploidy.inference(
+  x,
+  chrom = NULL,
+  start = NULL,
+  end = NULL,
+  penalty = 25,
+  do_segmentation = TRUE,
+  seg_length = NULL,
+  iod = NULL,
+  mean_bincount = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Bincounts or segment means</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chrom</code></td>
+<td>
+<p>Optional chromosome numbers</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Optional bin/segment start positions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>end</code></td>
+<td>
+<p>Optional bin/segment end positions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>If segmenting, penalty parameter for the fused lasso (higher penalty, fewer segments)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do_segmentation</code></td>
+<td>
+<p>Boolean, whether to do segmentation (set this to TRUE if giving unsegmented bincounts)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seg_length</code></td>
+<td>
+<p>If giving already segmented data, length of each segment</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iod</code></td>
+<td>
+<p>If giving already segmented data, the index of dispersion of the bincount distribution (that is, within segments, not including between-segment variance)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mean_bincount</code></td>
+<td>
+<p>If giving already segmented ratio values, the original mean bincount</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A ploidy inference object
+</p>
+
+<dl>
+<dt>penalty</dt>
+<dd>
+<p>The segmentation penalty given as an argument, if any</p>
+</dd>
+<dt>multiply_ratios_by</dt>
+<dd>
+<p>To convert ratios to (unrounded) copy number estimates, multiply by this number</p>
+</dd>
+<dt>subtract_from_scaled_ratios</dt>
+<dd>
+<p>To convert ratios to (unrounded) copy numbers, after multiplying, subtract this number. Only required if the count data have some extra reads even at copy number 0, generally due to mapping problems</p>
+</dd>
+<dt>ploidy</dt>
+<dd>
+<p>The estimated ploidy</p>
+</dd>
+<dt>peak_height</dt>
+<dd>
+<p>The height of the quantogram peak at the estimated ploidy. Between 0 and 1. Higher values indicate a stronger signal</p>
+</dd>
+<dt>segmentation</dt>
+<dd>
+<p>The segmented values (either given as an argument, or produced interally by segmentation)</p>
+</dd>
+<dt>polar_quantogram</dt>
+<dd>
+<p>The complex-valued quantogram, whose absolute values measure consistency with each possible ploidy</p>
+</dd>
+<dt>bincounts</dt>
+<dd>
+<p>The raw bincounts given as an argument (if a segmentation was not given directly)</p>
+</dd>
+<dt>theoretical_quantogram</dt>
+<dd>
+<p>Based on the inferred copy numbers and index of dispersion, what the absolute value of the quantogram should look like. Deviation of this theoretical quantogram from the real one indicate that the ploidy estimate may be wrong</p>
+</dd>
+<dt>theoretical_peak_height</dt>
+<dd>
+<p>Height of the peak in the theoretical quantogram, measuring the expected strength of signal for the ploidy value</p>
+</dd>
+<dt>confidence_ratio</dt>
+<dd>
+<p>Ratio of actual to theoretical peak height. Values near (or above) 1 indicate the signal was as strong as would be expected gievn this data quality and ploidy; low values indicate that the ploidy inference may be wrong or that there are unexpected quality issues with the data</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Generating a random copy number profile
+set.seed(705)
+cns &lt;- rpois(30, 3) + 1
+x &lt;- unlist(lapply(cns, function(cn) rpois(100, 25 * cn)))
+annotations &lt;- data.frame(chrom = 1, start = 1:length(x), end = 1:length(x))
+
+# Inferring ploidy
+# Annotations and penalty are optional
+estimate.from.bincounts &lt;- ploidy.inference(x, annotations$chrom, annotations$start, penalty = 25)
+
+# Using scquantum internal functions to segment the data and estimate index
+# of git@github.com:navinlabcode/scquantum.git
+# dispersion
+mu.est &lt;- mean(x)
+iod.est &lt;- timeseries.iod(x)
+seg &lt;- prof2invals(x, 25, annotations, "chrom", "start", "end")
+mean.est &lt;- mean(x)
+iod.est &lt;- timeseries.iod(x)
+estimate.from.segmentation &lt;-
+  ploidy.inference(
+    seg$mean,
+    seg$chrom,
+    seg$start,
+    seg$end,
+    iod = iod.est,
+    mean_bincount = mean.est,
+    do_segmentation = FALSE
+  )
+</code></pre>
+
+
+</div>

@@ -1,0 +1,246 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>processTimeseries</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Process a time-series for clustering and segmentation.</h2>
+
+<h3>Description</h3>
+
+<p>Prepares a time-series (time points in columns) for subsequent
+clustering, and performs requested data transformations, including
+a Discrete Fourier Transform (DFT) of the time-series, as direct
+input for the clustering wrapper
+<code>clusterTimeseries</code>. When used for segmentation
+the row order reflects the order of the data points along which
+segmentation will occur. The function can also be used as a
+stand-alone function equipped especially for analysis of
+oscillatory time-series, including calculation of phases and
+p-values for all DFT components, and can also be used for
+Fourier Analysis and subsequent clustering without segmentation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">processTimeseries(ts, na2zero = FALSE, trafo = "raw",
+  use.fft = FALSE, dc.trafo = "raw", dft.range, perm = 0,
+  use.snr = FALSE, lambda = 1, low.thresh = -Inf, smooth.space = 1,
+  smooth.time = 1, circular.time = FALSE, verb = 0)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ts</code></td>
+<td>
+<p>a time-series as a matrix, where columns are the
+time points and rows are ordered measurements, e.g., genomic
+positions for transcriptome data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na2zero</code></td>
+<td>
+<p>interpret NA values as 0</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trafo</code></td>
+<td>
+<p>prior data transformation, pass any function name,
+e.g., "log", or the package functions "ash" (asinh:
+<code>ash(x) = log(x + sqrt(x^2+1))</code>) or "log_1"
+(<code>log(ts+1)</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use.fft</code></td>
+<td>
+<p>use the Discrete Fourier Transform of the data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dc.trafo</code></td>
+<td>
+<p>data transformation for the first (DC) component of
+the DFT, pass any function name, e.g., "log", or the package
+functions "ash" (asinh: <code>ash(x) = log(x + sqrt(x^2+1))</code>)
+or "log_1" (<code>log(x+1)</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dft.range</code></td>
+<td>
+<p>a vector of integers, giving the components of the
+Discrete Fourier Transform to be used where 1 is the first
+component (DC) corresponding to the total signal (sum over all
+time points), and 2:n are the higher components corresponding
+to 2:n full cycles in the data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>perm</code></td>
+<td>
+<p>number of permutations of the data set, to obtain
+p-values for the oscillation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use.snr</code></td>
+<td>
+<p>use a scaled amplitude, where each component of the
+Discrete Fourier Transform is divided by the mean of all other
+components (without the first or DC component), a normalization
+that can be interpreted to reflect a signal-to-noise ratio
+(SNR)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>parameter lambda for Box-Cox transformation of DFT
+amplitudes (experimental; not tested)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>low.thresh</code></td>
+<td>
+<p>use this threshold to cut-off data, which will be
+added to the absent/nuisance cluster later</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth.space</code></td>
+<td>
+<p>integer, if set a moving average is calculated
+for each time-point between adjacent data points using stats
+package's <code>smooth</code> with option
+<code>span=smooth.space</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth.time</code></td>
+<td>
+<p>integer, if set the time-series will be smoothed
+using stats package's <code>filter</code> to
+calculate a moving average with span <code>smooth.time</code> and
+<code>smoothEnds</code> to extrapolate
+smoothed first and last time-points (again using span
+<code>smooth.time</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>circular.time</code></td>
+<td>
+<p>logical value indicating whether time can be
+treated as circular in smoothing via option <code>smooth.time</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verb</code></td>
+<td>
+<p>level of verbosity, 0: no output, 1: progress messages</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function exemplifies the processing of an oscillatory
+transcriptome time-series data as used in the establishment of this
+algorithm and the demo <code>segment_data</code>. As suggested by Machne &amp; Murray
+(PLoS ONE 2012) and Lehmann et al. (BMC Bioinformatics 2014) a Discrete
+Fourier Transform of time-series data allows to cluster time-series by
+their change pattern. 
+</p>
+<p>Note that NA values are here interpreted as 0. Please take care of NA
+values yourself, if you do not want this behavior.
+</p>
+<p>Rows consisting only of 0 (or NA) values, or with a total signal
+(sum over all time points) below the value passed in argument
+<code>low.thresh</code>, are detected, result in NA values in the
+transformed data, and will be assigned to the
+"nuisance" cluster in <code>clusterTimeseries</code>.
+</p>
+<p>Discrete Fourier Transform (DFT): if requested (option
+<code>use.fft=TRUE</code>), a DFT will be applied using base R's
+<code>mvfft</code> function and reporting all or only
+requested (option <code>dft.range</code>) DFT components, where the
+first, or DC ("direct current") component, equals the total signal
+(sum over all points) and other components are numbered 1:n,
+reflecting the number of full cycles in the time-series. Values are
+reported as complex numbers, from which both amplitude and phase
+can be calculated.  All returned DFT components will be used by
+<code>clusterTimeseries</code>.
+</p>
+<p>Additional Transformations: data can be transformed prior to DFT
+(options <code>trafo</code>, <code>smooth.time</code>, <code>smooth.space</code>), or
+after DFT (options <code>use.snr</code> and <code>dc.trafo</code>). It is
+recommended to use the amplitude scaling (a signal-to-noise ratio
+transformation, see option documentation).  The separate
+transformation of the DC component allows to de-emphasize the total
+signal in subsequent clustering &amp; segmentation.  Additionally, but
+not tested in the context of segmentation, a Box-Cox transformation
+of the DFT can be performed (option <code>lambda</code>).  This
+transformation proofed useful in DFT-based clustering with the
+model-based clustering algorithm in package <span class="pkg">flowClust</span>, and is
+available here for further tests with k-means clustering.
+</p>
+<p>Phase, Amplitude and Permutation Analysis: this time-series
+processing and subsequent clustering can also be used without
+segmentation, eg. for conventional microarray data or RNA-seq data
+already mapped to genes. The option <code>perm</code> allows to perform a
+permutation test (<code>perm</code> times) and adds a matrix of empirical
+p-values for all DFT components to the results object, ie. the
+fraction of <code>perm</code> where amplitude was higher then the
+amplitude of the randomized time-series.  Phases and amplitudes can
+be derived from the complex numbers in matrix "dft" of the result
+object.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list of class "timeseries" which comprises of
+the transformed time-series and additional information, such as
+the total signal, and positions of rows with only NA/0
+values. Note that NA values are interpreted as 0.
+</p>
+
+
+<h3>References</h3>
+
+<p>Machne &amp; Murray (2012)
+&lt;doi:10.1371/journal.pone.0037906&gt;, and Lehmann et al. (2013)
+&lt;doi:10.1186/1471-2105-14-133&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(primseg436)
+## The input data is a matrix with time points in columns
+## and a 1D order, here 7624 genome positions, is reflected in rows,
+## if the time-series should be segmented.
+nrow(tsd)
+## Time-series processing prepares the data for clustering,
+## the example data is periodic, and we will cluster its Discrete Fourier
+## Transform (DFT) rather then the original data. Specifically we will
+## only use components 1 to 7 of the DFT (dft.range) and also apply
+## a signal/noise ratio normalization, where each component is
+## divided by the mean of all other components. To de-emphasize
+## total levels the first component (DC for "direct current") of the
+## DFT will be separately arcsinh transformed. This peculiar combination
+## proofed best for our data:
+tset &lt;- processTimeseries(ts=tsd, na2zero=TRUE, use.fft=TRUE,
+                          dft.range=1:7, dc.trafo="ash", use.snr=TRUE)
+## a plot method exists for the returned time-series class:
+par(mfcol=c(2,1))
+plot(tset)
+</code></pre>
+
+
+</div>

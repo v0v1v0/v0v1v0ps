@@ -1,0 +1,111 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>wrap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Wrap coordinates or pixels in a torus-like fashion</h2>
+
+<h3>Description</h3>
+
+<p>Generally useful for model development purposes. Primarily used internally
+in e.g., <code>crw</code> if <code>torus = TRUE</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">wrap(X, bounds, withHeading = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p><code>SpatVector</code>, <code>sf</code>, or matrix of coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bounds</code></td>
+<td>
+<p>Either a <code style="white-space: pre;">⁠SpatRaster*⁠</code>, <code>Extent</code>, or <code>bbox</code> object defining bounds to wrap around.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>withHeading</code></td>
+<td>
+<p>logical. If <code>TRUE</code>, the previous points must be wrapped
+also so that the subsequent heading calculation will work.
+Default <code>FALSE</code>. See details.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <code>withHeading</code> used, then <code>X</code> must be an <code>sf</code> or <code>SpatVector</code> object
+that contains two columns, <code>x1</code> and <code>y1</code>, with the immediately
+previous agent locations.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object of the same class as <code>X</code>, but with coordinates updated to reflect the wrapping.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eliot McIntire
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">origDTThreads &lt;- data.table::setDTthreads(2L)
+origNcpus &lt;- options(Ncpus = 2L)
+
+xrange &lt;- yrange &lt;- c(-50, 50)
+hab &lt;- terra::rast(terra::ext(c(xrange, yrange)))
+hab[] &lt;- 0
+
+# initialize agents
+N &lt;- 10
+
+# previous points
+x1 &lt;- y1 &lt;- rep(0, N)
+# initial points
+starts &lt;- cbind(x = stats::runif(N, xrange[1], xrange[2]),
+                y = stats::runif(N, yrange[1], yrange[2]))
+
+# create the agent object # the x1 and y1 are needed for "previous location"
+agent &lt;- terra::vect(data.frame(x1, y1, starts), geom = c("x", "y"))
+
+ln &lt;- rlnorm(N, 1, 0.02) # log normal step length
+sd &lt;- 30 # could be specified globally in params
+
+if (interactive()) {
+  # clearPlot()
+  terra::plot(hab, col = "white")
+}
+
+for (i in 1:10) {
+  agent &lt;- crw(agent = agent, extent = terra::ext(hab), stepLength = ln,
+               stddev = sd, lonlat = FALSE, torus = FALSE) # don't wrap
+  if (interactive()) terra::plot(agent[, 1], add = TRUE, col = 1:10)
+}
+terra::crds(agent) # many are "off" the map, i.e., beyond the extent of hab
+agent &lt;- SpaDES.tools::wrap(agent, bounds = terra::ext(hab))
+terra::plot(agent, add = TRUE, col = 1:10) # now inside the extent of hab
+
+# clean up
+data.table::setDTthreads(origDTThreads)
+options(Ncpus = origNcpus)
+
+</code></pre>
+
+
+</div>

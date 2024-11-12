@@ -1,0 +1,156 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim_pedigree</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Construct a random pedigree</h2>
+
+<h3>Description</h3>
+
+<p>Specify the number of individuals per generation, and some other optional parameters, and a single pedigree with those properties will be simulated, where close relatives are never paired, sex is drawn randomly per individual and pairings are strictly across opposite-sex individuals, and otherwise closest individuals (on an underlying 1D geography given by their index) are paired in a random order.
+Pairs are reordered based on the average of their indexes, where their children are placed (determines their indexes in the 1D geography).
+The procedure may leave some individuals unpaired in the next generation, and family sizes vary randomly (with a fixed minimum family size) to achieve the desired population size in each generation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim_pedigree(
+  n,
+  G = length(n),
+  sex = draw_sex(n[1]),
+  kinship_local = diag(n[1])/2,
+  cutoff = 1/4^3,
+  children_min = 1L,
+  full = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>The number of individuals per generation.
+If scalar, the number of generations <code>G &gt;= 2</code> must also be specified.
+Otherwise, the length of <code>n</code> is the number of generations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>G</code></td>
+<td>
+<p>The number of generations (optional).
+Note <code>G == 1</code> is founders only, so it is invalid (there is no pedigree).
+Must specify a <code>G &gt;= 2</code> if <code>n</code> is a scalar.
+If both <code>G</code> is specified and <code>length(n) &gt; 1</code>, both values must agree.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sex</code></td>
+<td>
+<p>The numeric sex values for the founders (1L for male, 2L for female).
+By default they are drawn randomly using <code>draw_sex()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kinship_local</code></td>
+<td>
+<p>The local kinship matrix of the founder population.
+The default value is half the identity matrix, which corresponds to locally unrelated and locally outbred founders.
+This "local" kinship is the basis for all kinship calculations used to decide on close relative avoidance.
+The goal is to make a decision to not pair close relatives based on the pedigree only (and not based on population structure, which otherwise increases all kinship values), so the default value is appropriate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutoff</code></td>
+<td>
+<p>Local kinship values strictly less than <code>cutoff</code> are required for pairs.
+The default value of <code>1/4^3</code> corresponds to second cousins, so those and closer relatives are forbidden pairs (but a third cousin pair is allowed).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>children_min</code></td>
+<td>
+<p>The minimum number of children per family.
+Must be 0 or larger, but not exceed the average number of children per family in each generation (varies depending on how many individuals were left unpaired, but this upper limit is approximately <code>2 * n[i] / n[i-1]</code> for generation <code>i</code>).
+The number of children for each given family is first chosen as <code>children_min</code> plus a Poisson random variable with parameter equal to the mean number of children per family needed to achieve the desired population size (<code>n</code>) minus <code>children_min</code>.
+As these numbers may not exactly equal the target population size, random families are incremented or decremented (respecting the minimum family size) by single counts until the target population size is met.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>full</code></td>
+<td>
+<p>If <code>TRUE</code>, part of the return object is a list of local kinship matrices for every generation.
+If <code>FALSE</code> (default), only the local kinship matrix of the last generation is returned.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list with these named elements:
+</p>
+
+<ul>
+<li> <p><code>fam</code>: the pedigree, a tibble in plink FAM format.  Following the column naming convention of the related <code>genio</code> package, it contains columns:
+</p>
+
+<ul>
+<li> <p><code>fam</code>: Family ID, trivial "fam1" for all individuals
+</p>
+</li>
+<li> <p><code>id</code>: Individual ID, in this case a code of format (in regular expression) "(\d+)-(\d+)" where the first integer is the generation number and the second integer is the index number (1 to <code>n[g]</code> for generation <code>g</code>).
+</p>
+</li>
+<li> <p><code>pat</code>: Paternal ID.  Matches an <code>id</code> except for founders, which have fathers set to <code>NA</code>.
+</p>
+</li>
+<li> <p><code>mat</code>: Maternal ID.  Matches an <code>id</code> except for founders, which have mothers set to <code>NA</code>.
+</p>
+</li>
+<li> <p><code>sex</code>: integers 1L (male) or 2L (female) which were drawn randomly; no other values occur in these outputs.
+</p>
+</li>
+<li> <p><code>pheno</code>: Phenotype, here all 0 (missing value).
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>ids</code>: a list of IDs for each generation (indexed in the list by generation).
+</p>
+</li>
+<li> <p><code>kinship_local</code>: if <code>full = FALSE</code>, the local kinship matrix of the last generation, otherwise a list of local kinship matrices for every generation.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p>Plink FAM format reference:
+<a href="https://www.cog-genomics.org/plink/1.9/formats#fam">https://www.cog-genomics.org/plink/1.9/formats#fam</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># number of individuals for each generation
+n &lt;- c(15, 20, 25)
+
+# create random pedigree with 3 generations, etc
+data &lt;- sim_pedigree( n )
+
+# this is the FAM table defining the entire pedigree,
+# which is the most important piece of information desired!
+data$fam
+
+# the IDs separated by generation
+data$ids
+
+# bonus: the local kinship matrix of the final generation
+data$kinship_local
+
+</code></pre>
+
+
+</div>

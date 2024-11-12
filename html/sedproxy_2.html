@@ -1,0 +1,393 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ClimToProxyClim</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate sediment archived proxy records from an input climate signal.</h2>
+
+<h3>Description</h3>
+
+<p><code>ClimToProxyClim</code> simulates the creation of a proxy climate
+record from a climate signal that is assumed to be true.
+</p>
+<p>The following aspects of proxy creation are currently modelled.
+</p>
+
+<ol>
+<li>
+<p> Seasonal bias in the encoding of a proxy due to the interaction between
+climate seasonality and any seasonality in the life cycle of the organism
+encoding the climate signal (e.g. Foraminifera for Mg/Ca ratios, or
+phytoplankton for Alkenone unsaturation indices).
+</p>
+</li>
+<li>
+<p> Bioturbation of the sediment archived proxy. For each requested
+timepoint, the simulated proxy consists of a weighted mean of the climate
+signal over a time window that is determined by the sediment accumulation
+rate <em>sed.acc.rate</em> and the bioturbation depth <em>bio.depth</em> which defaults
+to 10 cm. The weights are given by the depth solution to an impulse
+response function (Berger and Heath, 1968).
+</p>
+</li>
+<li>
+<p> Aliasing of seasonal and inter-annual climate variation onto to
+bioturbated (smoothed) signal. For proxies measured on a small number of
+discrete particles both seasonal and inter-annual climate variation is
+aliased into the proxy record. For example, Foraminifera have a life-cycle
+of approximately 1 month, so they record something like the mean
+temperature from a single month. If Mg/Ca is measured on e.g.
+<code>n.samples</code> = 30 individuals, the measured proxy signal is a mean of
+30 distinct monthly mean temperatures and will thus be a stochastic sample
+of the true mean climate.
+</p>
+</li>
+<li>
+<p> Measurement noise/error is added as a pure Gaussian white noise process
+with mean = 0, standard deviation =
+<code>sqrt(sigma.meas^2 + sigma.ind^2/n.samples)</code>.
+</p>
+</li>
+<li>
+<p> Additionally, a random <em>bias</em> can be added to each realisation of a
+proxy record. Bias is simulated as a Gaussian random variable with mean =
+0, standard deviation = <code>meas.bias</code>. The same randomly generated bias
+value is applied to all timepoints in a simulated proxy record, when
+multiple replicate proxies are generated (<em>n.replicates</em> &gt; 1) each
+replicate has a different bias applied.
+</p>
+</li>
+</ol>
+<p><code>ClimToProxyClim</code> returns one or more replicates of the final
+simulated proxy as well as several intermediate stages (see section
+<strong>Value</strong> below).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ClimToProxyClim(
+  clim.signal,
+  timepoints,
+  calibration.type = c("identity", "Uk37", "MgCa"),
+  calibration = switch(calibration.type, identity = NA, Uk37 = "Mueller global", MgCa =
+    "Ten planktonic species_350-500"),
+  slp.int.means = NULL,
+  slp.int.vcov = NULL,
+  noise.type = switch(calibration.type, identity = "additive", Uk37 = "additive", MgCa
+    = "multiplicative"),
+  plot.sig.res = 100,
+  habitat.weights = rep(1/ncol(clim.signal), ncol(clim.signal)),
+  habitat.wt.args = NULL,
+  bio.depth = 10,
+  sed.acc.rate = 50,
+  layer.width = 1,
+  sigma.meas = 0,
+  sigma.ind = 0,
+  meas.bias = 0,
+  scale.noise = switch(calibration.type, identity = FALSE, Uk37 = TRUE, MgCa = TRUE),
+  n.samples = Inf,
+  n.replicates = 1,
+  top.of.core = NULL,
+  n.bd = 3
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>clim.signal</code></td>
+<td>
+<p>The "assumed true" climate signal, e.g. climate model
+output or instrumental record. A <code>ts</code> object consisting of a
+years x 12 (months) x n habitats (e.g. depths) matrix of temperatures. The
+time series should be at annual resolution and in reverse, i.e. "most
+recent timepoint first" order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timepoints</code></td>
+<td>
+<p>The timepoints for which the proxy record is to be modelled</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>calibration.type</code></td>
+<td>
+<p>Type of proxy, e.g. Uk'37 or MgCa, to which the
+clim.signal is converted before the archiving and measurement of the proxy
+is simulated. Defaults to "identity" which means no conversion takes place.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>calibration</code></td>
+<td>
+<p>The name of a specific calibration for which calibration parameters
+are provided by sedproxy. Currently applies only to calibration.type MgCa.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slp.int.means</code></td>
+<td>
+<p>Optional user supplied vector of values for the slope
+and intercept of the calibration function. Overides the defaults.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slp.int.vcov</code></td>
+<td>
+<p>Optional user supplied variance covariance matrix
+calibration parameters. Overides the defaults.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise.type</code></td>
+<td>
+<p>Determines whether additive or multiplicative measurement
+noise is added. The appropriate type depends on the units of the proxy.
+Defaults to multiplicative for MgCa, additive for Uk'37 and identity (none)
+calibration types. Can be overidden with a string, "additive" or
+"multiplicative" in the case that pre-converted climate signal and
+measurement noise values are used in combination with an "identity"
+calibration type.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot.sig.res</code></td>
+<td>
+<p>The resolution, in years, of the smoothed (block
+averaged) version of the input climate signal returned for plotting. This
+does not affect what the proxy model uses as input. If set to NA, no
+smoothed climate output is generated, this can speed up some simulations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>habitat.weights</code></td>
+<td>
+<p>Production weights for the proxy / proxy-carrier
+either as a vector of values with length = ncol(clim.signal), i.e. 1 weight
+for each month x habitat combination, a matrix of the same dimensions as the
+input climate signal matrix, or a function that produces an index of
+productivity as a function of temperature.
+Defaults to a vector of length = ncol(clim.signal) of equal weights.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>habitat.wt.args</code></td>
+<td>
+<p>A named list of parameter values to be passed to
+a function named in habitat.weights.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bio.depth</code></td>
+<td>
+<p>Depth of the bioturbated layer in cm, defaults to 10 cm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sed.acc.rate</code></td>
+<td>
+<p>Sediment accumulation rate in cm per 1000 years. Defaults
+to 50 cm per ka. Either a single value, or vector of same length as
+"timepoints"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>layer.width</code></td>
+<td>
+<p>the width of the sediment layer from which samples were
+taken, e.g. foraminifera were picked or alkenones were extracted, in cm.
+Defaults to 1 cm. If bio.depth and layer.width are both set to zero,
+each timepoint samples from a single year of the clim.signal, equivalent to
+sampling an annually laminated sediment core.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.meas</code></td>
+<td>
+<p>The standard deviation of the measurement error
+added to each simulated proxy value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.ind</code></td>
+<td>
+<p>The standard deviation of error between individuals
+(e.g. Forams) not otherwise modelled. This could included "vital effects" or
+aliasing of depth habitat variation not modelled via a depth resolved input
+climate signal and habitat weights. sigma.ind is scaled by n.samples
+before being combined with sigma.meas.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meas.bias</code></td>
+<td>
+<p>The amount of bias to add to each simulated proxy
+time-series. Each replicate proxy time-series has a constant bias added,
+drawn from a normal distribution with mean = 0, sd = meas.bias. Bias
+defaults to zero.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale.noise</code></td>
+<td>
+<p>Scale noise to proxy units. Defaults to TRUE if
+calibration.type is not "identity"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>Number of e.g. Foraminifera sampled per timepoint, this can
+be either a single number, or a vector of length = timepoints. Can be set
+to Inf for non-discrete proxies, e.g. for Uk’37.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.replicates</code></td>
+<td>
+<p>Number of replicate proxy time-series to simulate from
+the climate signal</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>top.of.core</code></td>
+<td>
+<p>The theoretical minimum age at the top of the core, ie.
+the year the core was sampled, defaults to the start of clim.in</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.bd</code></td>
+<td>
+<p>Number of multiples of the bioturbation width at which to truncate
+the bioturbation filter</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p><code>ClimToProxyClim</code> returns an object of class "sedproxy.pfm", a list with three elements:
+</p>
+
+<ol>
+<li>
+<p> a dataframe <code>simulated.proxy</code>
+</p>
+</li>
+<li>
+<p> a dataframe <code>smoothed.signal</code>
+</p>
+</li>
+<li>
+<p> a dataframe <code>everything</code>
+</p>
+</li>
+</ol>
+<p>The dataframe <code>simulated.proxy</code> contains a single realisation of the
+final forward modelled proxy, as well as the intermediate stages and the
+original climate signal at the requested timepoints.
+</p>
+<p>The dataframe <code>smoothed.signal</code> contains a block averaged version the
+input climate signal, defaults to 100 year means but this is set by the
+parameter plot.sig.res. This is useful for plotting against the
+resulting simulated proxy.
+</p>
+<p>The dataframe <code>everything</code> contains all of the above but with multiple
+replicates of the pseudo-proxy records if requested. The data are in
+"long form", with the column "stage" inidcating the proxy stage or input
+climate resolution and column "value" giving the values.
+</p>
+<p><strong>Named elements of the returned proxy record:</strong>
+</p>
+
+<dl>
+<dt>timepoints</dt>
+<dd>
+<p>Requested timepoints</p>
+</dd>
+<dt>clim.signal.ann</dt>
+<dd>
+<p>Input climate signal at requested timepoints at annual resolution</p>
+</dd>
+<dt>clim.signal.smoothed</dt>
+<dd>
+<p>Input climate signal at regular time intervals and resolution = plot.sig.res</p>
+</dd>
+<dt>clim.timepoints.ssr</dt>
+<dd>
+<p>Input climate signal at requested timepoints, smoothed to resolution = plot.sig.res</p>
+</dd>
+<dt>proxy.bt</dt>
+<dd>
+<p>Climate signal after bioturbation</p>
+</dd>
+<dt>proxy.bt.sb</dt>
+<dd>
+<p>Climate signal after bioturbation and habitat bias</p>
+</dd>
+<dt>proxy.bt.sb.inf.b</dt>
+<dd>
+<p>Climate signal after bioturbation, habitat bias, and calibration bias</p>
+</dd>
+<dt>proxy.bt.sb.inf.b.n</dt>
+<dd>
+<p>Climate signal after bioturbation, habitat bias, and measurement error</p>
+</dd>
+<dt>proxy.bt.sb.sampY</dt>
+<dd>
+<p>Climate signal after bioturbation, habitat bias, and aliasing of inter-annual variation</p>
+</dd>
+<dt>proxy.bt.sb.sampYM</dt>
+<dd>
+<p>Climate signal after bioturbation, habitat bias, and aliasing of inter-annual and intra-annual variation such as monthly temperatures or depth habitats</p>
+</dd>
+<dt>proxy.bt.sb.sampYM.b</dt>
+<dd>
+<p>Climate signal after bioturbation, habitat bias, and aliasing of inter-annual and intra-annual variation such as monthly temperatures or depth habitats, and calibration bias</p>
+</dd>
+<dt>proxy.bt.sb.sampYM.b.n</dt>
+<dd>
+<p>Climate signal after bioturbation, habitat bias, aliasing, and measurement error</p>
+</dd>
+<dt>simulated.proxy</dt>
+<dd>
+<p>Final simulated pseudo-proxy, this will be same as proxy.bt.sb.inf.b.n when n.samples = Inf, and proxy.bt.sb.sampYM.b.n when n.samples is finite</p>
+</dd>
+<dt>observed.proxy</dt>
+<dd>
+<p>True observed proxy (when supplied)</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(ggplot2)
+set.seed(26052017)
+clim.in &lt;- ts(N41.t21k.climate[nrow(N41.t21k.climate):1,] - 273.15, start = -39)
+
+PFM &lt;- ClimToProxyClim(clim.signal = clim.in,
+                       timepoints = round(N41.proxy$Published.age),
+                       calibration.type = "identity",
+                       habitat.weights = N41.G.ruber.seasonality,
+                       sed.acc.rate = N41.proxy$Sed.acc.rate.cm.ka,
+                       layer.width = 1,
+                       sigma.meas = 0.46,
+                       sigma.ind = 0, n.samples = Inf,
+                       plot.sig.res = 10, meas.bias = 1,
+                       n.replicates = 10)
+
+PlotPFMs(PFM$everything, max.replicates = 1, stage.order = "seq") +
+  facet_wrap(~stage)
+
+PlotPFMs(PFM$everything, max.replicates = 1, stage.order = "var")
+
+PlotPFMs(PFM$everything, stage.order = "var", plot.stages = "all")
+
+</code></pre>
+
+
+</div>

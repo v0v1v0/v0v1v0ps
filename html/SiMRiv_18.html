@@ -1,0 +1,268 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>simulate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate movements in river networks, homogeneous, or heterogeneous landscapes</h2>
+
+<h3>Description</h3>
+
+<p>Performs fast and spatially-explicit simulation of multi-state random movements (<cite>Morales et al. 2004, McClintock et al. 2012</cite>) of individuals created with the function <code>species</code> in an optional landscape resistance raster.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simulate(individuals, time, coords = NULL
+  , states = NULL, resist = NULL, angles = NULL
+  , start.resistance)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>individuals</code></td>
+<td>
+<p>a <code>species</code> or a list of N <code>species</code> whose movements are to be simulated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>the number of time steps to be simulated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>a N x 2 matrix giving the initial coordinates of the simulation, for each individual. Can be a vector of the form c(x, y) if only one individual is provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resist</code></td>
+<td>
+<p>an optional landscape resistance raster of class <code>RasterLayer</code>. If not provided, movements are simulated in an homogeneous environment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>angles</code></td>
+<td>
+<p>an optional numeric vector of length N defining the initial heading of each individual, in radians. Zero is north and angles increase clockwise.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.resistance</code></td>
+<td>
+<p>an optional scalar in the range [0, 1] giving the maximum resistance value in which the individuals are allowed to start, if <code>coords</code> is <code>NULL</code> and <code>resist</code> is provided</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>states</code></td>
+<td>
+<p>Not implemented yet. An optional numeric vector of length N defining the initial state of each individual.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Performs a mechanistic simulation of the movement of the given individual/s (when more than one individual is given,
+their movements are simulated simultaneously) in the given landscape raster defining physical resistance values.
+At present, multiple individuals do not interact, but in the upcoming version it will be possible to
+define positive and negative interactions between simulated individuals, thus accounting for spatial bias.
+</p>
+<p>The simulation runs in a series of micro-steps, and is intended to be a high-resolution simulation
+(which can be later sampled with <code>sampleMovement</code> to emulate real field data, e.g. telemetry data).
+</p>
+<p>In summary, at each micro-step the individual chooses a random direction which is based on the previous step heading and
+in the resistance context at the current position, such that it will avoid heading to areas with high resistance.
+This evaluation depends on the individual's perceptual range in the current movement state.
+At each step, a test to see if the individual changes its state is also performed, based on the provided <code>transitionMatrix</code>.
+Each state may have its own perceptual range, step length and angular correlation (with previous step heading). It's up to the user the
+definition of these values (e.g., expert- or literature-based), but we provide an experimental function to numerically approximate these
+values from real data, see <code>adjustModel</code>.
+</p>
+<p>In more detail, in each of the <code>time</code> steps, the procedure is as follows:
+</p>
+
+<ol>
+<li>
+<p>Draw state for the current step according to state transition matrix and previous state
+</p>
+</li>
+<li>
+<p>Compute empirical probability density for changing heading, from the landscape raster values around current position (resistance component). See details below.
+</p>
+</li>
+<li>
+<p>Compute probability density for changing heading, given the previous step heading and correlation defined in the current state (correlated walk component)
+</p>
+</li>
+<li>
+<p>Intersect the resistance component with the correlated walk component to make a compound probability density for changing heading
+</p>
+</li>
+<li>
+<p>Draw the new heading from the probability density distribution computed above
+</p>
+</li>
+<li>
+<p>Compute the length of the step that will be taken as a fraction of current step's defined length proportional to mean resistance of the starting and ending points in the chosen heading
+</p>
+</li>
+<li>
+<p>Move to the new position, defined by the drawn heading and length of step.
+</p>
+</li>
+</ol>
+<h4>Details of the simulation algorithm</h4>
+
+
+
+<h5>The landscape resistance raster</h5>
+
+<p>This raster represents the amount of physical resistance that is offered to the simulated individuals. The values must be between 0 (no resistance) and 1 (infinite resistance).
+In the future, other types of rasters can be provided, for example rasters for resource
+availability, habitat suitability and points of attraction/repulsion, allowing to conduct simulations
+with various types of spatial bias.
+</p>
+<p>A careful choice of pixel size must be taken for the resistance raster. If rasterizing from vector lines (e.g. river network),
+please be sure to adjust the pixel size so that there are no gaps between river pixels and all pixels of the river are connected
+orthogonally.
+</p>
+
+
+
+<h5>The empirical probability density</h5>
+
+<p>The empirical probability density for a given point (resistance component) is computed by summing the <code>1 - resistance</code> values along a set of discrete radial lines departing from that point, forming a circle.
+The length of the lines (i.e. radius) and weighting given to each pixel are defined in the current state's perceptual range.
+The sums are packed and used as the circular empirical distribution of the resistance component.
+This will be crossed with the correlated walk component to yield the final empirical probability distribution from which heading will be drawn.
+</p>
+
+
+
+
+<h3>Value</h3>
+
+<p>A matrix with 3 columns for each simulated individual, in the order x1, y1, state1, x2, y2, state2, ...; and the same number of rows as the simulation length (given by <code>time</code>).
+</p>
+
+
+<h3>Note</h3>
+
+<p>The structure of the returned object will change in the upcoming version.</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p>McClintock, B. T., King, R., Thomas, L., Matthiopoulos, J., McConnell, B. J., &amp; Morales, J. M. 2012. A general discrete-time modeling framework for animal movement using multistate random walks. Ecological Monographs, 82(3), 335-349.
+</p>
+</li>
+<li>
+<p>Morales, J. M., Haydon, D. T., Frair, J., Holsinger, K. E., &amp; Fryxell, J. M. 2004. Extracting more out of relocation data: building movement models as mixtures of random walks. Ecology, 85(9), 2436-2445.
+</p>
+</li>
+<li>
+<p>Sims, D. W., Southall, E. J., Humphries, N. E., Hays, G. C., Bradshaw, C. J., Pitchford, J. W., ... &amp; Morritt, D. 2008. Scaling laws of marine predator search behaviour. Nature, 451(7182), 1098-1102.
+</p>
+</li>
+<li>
+<p>Turchin, P. 1998. Quantitative analysis of movement: measuring and modeling population redistribution in animals and plants (Vol. 1). Sinauer Associates, Sunderland, MA.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>species</code>, <code>sampleMovement</code>, <code>adjustModel</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(SiMRiv)
+
+## A classic: simple random walk (Brownian motion) (Turchin 1998)
+## i.e. single-state uncorrelated movement in an homogeneous landscape
+######################################################################
+
+## a single state, other parameters set to defaults
+
+rand.walker &lt;- species(state.RW())
+sim &lt;- simulate(rand.walker, 10000)
+plot(sim, type="l", asp=1)
+
+## two random walkers
+#####################
+
+sim &lt;- simulate(list(rand.walker, rand.walker), 10000)
+plot(sim[,1:2], type="l", asp=1, xlim=range(sim), ylim=range(sim), col=2)
+lines(sim[,4:5], col=3)
+
+## Another classic: Levy walk-like movement (e.g. Sims et al. 2008)
+## i.e. two-state movement: composition of small-scale random walks
+## with bursts of longer, correlated random walks
+###################################################################
+
+LevyWalker &lt;- species(
+    state.RW() + state.CRW(0.99),
+    transitionMatrix(0.005, 0.02))
+    
+sim &lt;- simulate(LevyWalker, 10000)
+plot(sim, type="l", asp=1)
+
+## Linear habitats, e.g. fish in a river network
+################################################
+
+## load sample river raster in a fish's perspective,
+## i.e. resistance is 0 within the river, 1 otherwise.
+
+river &lt;- terra::rast(system.file("doc/river.tif", package="SiMRiv"))
+
+## let's try a Levy-like movement in a river network
+## note: perceptual range radii and step lengths must be
+## adequate to the raster resolution!
+
+LevyWalker &lt;- species(list(
+    state(0, perceptualRange("cir", 100), 10, "RandomWalk")
+    ,state(0.97, perceptualRange("cir", 500), 20, "CorrelatedRW")
+), transitionMatrix(0.005, 0.001))
+
+## NOTE: the following lines do exactly the same as above, but
+## using the more convenient arithmetic operator shortcuts
+
+LevyWalker &lt;- species(
+	(state.RW() * 100 + 10) + (state.CRW(0.97) * 500 + 20)
+, transitionMatrix(0.005, 0.001))
+
+sim &lt;- simulate(LevyWalker, 20000, resist = river
+    , coords = c(280635, 505236))
+
+## plot movement; we use a high-res TIFF so that it
+## can be viewed in detail
+## Not run: 
+tiff("movement.tif", wid=5000, hei=5000, comp="lzw")
+par(mar = c(0, 0, 0, 0))
+plot(river, asp = 1, col = gray(seq(1, 0.5, len = 2))
+    , ylim = range(sim[,2]), xlim = range(sim[,1]), axes = FALSE)
+lines(sim, lwd = 2, col = "#0000ffcc")
+dev.off()
+
+## End(Not run)
+
+## if we want the kernel density overlaid,
+## uncomment these and put before dev.off()
+# library(ks)
+# d &lt;- kde(sim[,1:2])
+# plot(d, disp = "image", add=TRUE
+#    , col = rgb(1, 0, 0, seq(0, 1, len = 15)))
+</code></pre>
+
+
+</div>

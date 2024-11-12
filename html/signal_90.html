@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>kaiserord</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Parameters for an FIR filter from a Kaiser window </h2>
+
+<h3>Description</h3>
+
+<p>Returns the parameters needed for fir1 to produce a filter of the
+desired specification from a Kaiser window.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">kaiserord(f, m, dev, Fs = 2)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+<p> frequency bands, given as pairs, with the first half of the
+first pair assumed to start at 0 and the last half of the last
+pair assumed to end at 1.  It is important to separate the
+band edges, since narrow transition regions require large order
+filters. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p> magnitude within each band.  Should be non-zero for pass band
+and zero for stop band.  All passbands must have the same
+magnitude, or you will get the error that pass and stop bands
+must be strictly alternating. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dev</code></td>
+<td>
+<p> deviation within each band.  Since all bands in the resulting
+filter have the same deviation, only the minimum deviation is
+used.  In this version, a single scalar will work just as well. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Fs</code></td>
+<td>
+<p> sampling rate.  Used to convert the frequency specification into
+the [0, 1], where 1 corresponds to the Nyquist frequency, Fs/2. </p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>FilterOfOrder</code> with the following list elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p> filter order </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Wc</code></td>
+<td>
+<p> cutoff frequency </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p> filter type, one of <code>"low"</code>, <code>"high"</code>, <code>"stop"</code>, <code>"pass"</code>,
+<code>"DC-0"</code>, or <code>"DC-1"</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p> shape parameter </p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p> Original Octave version by Paul Kienzle
+<a href="mailto:pkienzle@users.sf.net">pkienzle@users.sf.net</a>. Conversion to R by Tom Short. </p>
+
+
+<h3>References</h3>
+
+<p>Oppenheim, A. V., Schafer, R. W., and Buck, J. R. (1999). 
+<em>Discrete-time signal processing</em>. Upper Saddle River, N.J.: Prentice Hall.
+</p>
+<p><a href="https://en.wikipedia.org/wiki/Kaiser_window">https://en.wikipedia.org/wiki/Kaiser_window</a>
+</p>
+<p>Octave Forge <a href="https://octave.sourceforge.io/">https://octave.sourceforge.io/</a>
+</p>
+
+
+<h3>See Also</h3>
+
+ <p><code>hamming</code>, <code>kaiser</code> </p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">Fs &lt;- 11025
+op &lt;- par(mfrow = c(2, 2), mar = c(3, 3, 1, 1))
+for (i in 1:4) {
+  switch(i,
+    "1" = {
+        bands &lt;- c(1200, 1500)
+        mag &lt;- c(1, 0)
+        dev &lt;- c(0.1, 0.1)
+    },
+    "2" = {
+        bands &lt;- c(1000, 1500)
+        mag &lt;- c(0, 1)
+        dev &lt;- c(0.1, 0.1)
+    },
+    "3" = {
+        bands &lt;- c(1000, 1200, 3000, 3500)
+        mag &lt;- c(0, 1, 0)
+        dev &lt;- 0.1
+    },
+    "4" = {
+        bands &lt;- 100 * c(10, 13, 15, 20, 30, 33, 35, 40)
+        mag &lt;- c(1, 0, 1, 0, 1)
+        dev &lt;- 0.05
+    })
+}
+
+  kaisprm &lt;- kaiserord(bands, mag, dev, Fs)
+  with(kaisprm, {
+    d &lt;&lt;- max(1, trunc(n/10))
+    if (mag[length(mag)]==1 &amp;&amp; (d %% 2) == 1)
+      d &lt;&lt;- d+1
+    f1 &lt;&lt;- freqz(fir1(n, Wc, type, kaiser(n+1, beta), 'noscale'), 
+        Fs = Fs)
+    f2 &lt;&lt;- freqz(fir1(n-d, Wc, type, kaiser(n-d+1, beta), 'noscale'), 
+        Fs = Fs)
+  })                                                               
+  plot(f1$f,abs(f1$h), col = "blue", type = "l", 
+       xlab = "", ylab = "")
+  lines(f2$f,abs(f2$h), col = "red")
+  legend("right", paste("order", c(kaisprm$n-d, kaisprm$n)), 
+         col = c("red", "blue"), lty = 1, bty = "n")
+  b &lt;- c(0, bands, Fs/2)
+  for (i in seq(2, length(b), by=2)) {
+    hi &lt;- mag[i/2] + dev[1]
+    lo &lt;- max(mag[i/2] - dev[1], 0)
+    lines(c(b[i-1], b[i], b[i], b[i-1], b[i-1]), c(hi, hi, lo, lo, hi))
+  }
+par(op)
+</code></pre>
+
+
+</div>

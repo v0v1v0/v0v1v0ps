@@ -1,0 +1,736 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hhh4</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fitting HHH Models with Random Effects and Neighbourhood Structure</h2>
+
+<h3>Description</h3>
+
+<p>Fits an autoregressive Poisson or negative binomial model
+to a univariate or multivariate time series of counts.
+The characteristic feature of <code>hhh4</code> models is the additive
+decomposition of the conditional mean into <em>epidemic</em> and
+<em>endemic</em> components (Held et al, 2005).
+Log-linear predictors of covariates and random intercepts are allowed
+in all components; see the Details below.
+A general introduction to the <code>hhh4</code> modelling approach and its
+implementation is given in the <code>vignette("hhh4")</code>. Meyer et al
+(2017, Section 5, available as <code>vignette("hhh4_spacetime")</code>)
+describe <code>hhh4</code> models for areal time series of infectious
+disease counts.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">hhh4(stsObj,
+     control = list(
+         ar = list(f = ~ -1, offset = 1, lag = 1),
+         ne = list(f = ~ -1, offset = 1, lag = 1,
+                   weights = neighbourhood(stsObj) == 1,
+                   scale = NULL, normalize = FALSE),
+         end = list(f = ~ 1, offset = 1),
+         family = c("Poisson", "NegBin1", "NegBinM"),
+         subset = 2:nrow(stsObj),
+         optimizer = list(stop = list(tol=1e-5, niter=100),
+                          regression = list(method="nlminb"),
+                          variance = list(method="nlminb")),
+         verbose = FALSE,
+         start = list(fixed=NULL, random=NULL, sd.corr=NULL),
+         data = list(t = stsObj@epoch - min(stsObj@epoch)),
+         keep.terms = FALSE
+     ),
+     check.analyticals = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>stsObj</code></td>
+<td>
+<p>object of class <code>"sts"</code> containing the (multivariate)
+count data time series.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>a list containing the model specification and control arguments:
+</p>
+
+<dl>
+<dt><code>ar</code></dt>
+<dd>
+<p>Model for the autoregressive component given as
+list with the following components: 
+</p>
+
+<dl>
+<dt>f = ~ -1</dt>
+<dd>
+<p>a formula specifying <code class="reqn">\log(\lambda_{it})</code></p>
+</dd>
+<dt>offset = 1</dt>
+<dd>
+<p>optional multiplicative offset, either 1 or
+a matrix of the same dimension as <code>observed(stsObj)</code></p>
+</dd>
+<dt>lag = 1</dt>
+<dd>
+<p>a positive integer meaning autoregression on
+<code class="reqn">y_{i,t-lag}</code></p>
+</dd>
+</dl>
+</dd>
+<dt><code>ne</code></dt>
+<dd>
+<p>Model for the neighbour-driven component given as
+list with the following components:
+</p>
+
+<dl>
+<dt>f = ~ -1</dt>
+<dd>
+<p>a formula specifying <code class="reqn">\log(\phi_{it})</code></p>
+</dd>
+<dt>offset = 1</dt>
+<dd>
+<p>optional multiplicative offset, either 1 or
+a matrix of the same dimension as <code>observed(stsObj)</code></p>
+</dd>
+<dt>lag = 1</dt>
+<dd>
+<p>a non-negative integer meaning dependency on
+<code class="reqn">y_{j,t-lag}</code></p>
+</dd>
+<dt>weights = neighbourhood(stsObj) == 1</dt>
+<dd>
+<p>neighbourhood weights <code class="reqn">w_{ji}</code>. The default
+corresponds to the original formulation by Held et al
+(2005), i.e., the spatio-temporal component incorporates an
+unweighted sum over the lagged cases of the first-order
+neighbours. See Paul et al (2008) and Meyer and Held (2014)
+for alternative specifications, e.g.,
+<code>W_powerlaw</code>.
+Time-varying weights are possible by specifying an
+array of <code>dim()</code> <code>c(nUnits, nUnits, nTime)</code>, where
+<code>nUnits=ncol(stsObj)</code> and <code>nTime=nrow(stsObj)</code>.</p>
+</dd>
+<dt>scale = NULL</dt>
+<dd>
+<p>optional matrix of the same dimensions as <code>weights</code> (or
+a vector of length <code>ncol(stsObj)</code>) to scale the
+<code>weights</code> to <code>scale * weights</code>.
+</p>
+</dd>
+<dt>normalize = FALSE</dt>
+<dd>
+<p>logical indicating if the (scaled) <code>weights</code> should be
+normalized such that each row sums to 1.
+</p>
+</dd>
+</dl>
+</dd>
+<dt><code>end</code></dt>
+<dd>
+<p>Model for the endemic component given as list
+with the following components
+</p>
+
+<dl>
+<dt>f = ~ 1</dt>
+<dd>
+<p>a formula specifying <code class="reqn">\log(\nu_{it})</code></p>
+</dd>
+<dt>offset = 1</dt>
+<dd>
+<p>optional multiplicative offset <code class="reqn">e_{it}</code>,
+either 1 or a matrix of the same dimension as <code>observed(stsObj)</code></p>
+</dd>
+</dl>
+</dd>
+<dt><code>family</code></dt>
+<dd>
+<p>Distributional family – either <code>"Poisson"</code>,
+or the Negative Binomial distribution. For the latter, the
+overdispersion parameter can be assumed to be the same for all
+units (<code>"NegBin1"</code>), to vary freely over all units
+(<code>"NegBinM"</code>), or to be shared by some units (specified by
+a factor of length <code>ncol(stsObj)</code> such that its number of
+levels determines the number of overdispersion parameters).
+Note that <code>"NegBinM"</code> is equivalent to
+<code>factor(colnames(stsObj), levels = colnames(stsObj))</code>.
+</p>
+</dd>
+<dt><code>subset</code></dt>
+<dd>
+<p>Typically <code>2:nrow(obs)</code> if model contains
+autoregression</p>
+</dd>
+<dt><code>optimizer</code></dt>
+<dd>
+<p>a list of three lists of control arguments.
+</p>
+<p>The <code>"stop"</code> list specifies two criteria for the outer
+optimization of regression and variance parameters: the relative
+<code>tol</code>erance for parameter change using the criterion 
+<code>max(abs(x[i+1]-x[i])) / max(abs(x[i]))</code>,
+and the maximum number <code>niter</code> of outer iterations.
+</p>
+<p>Control arguments for the single optimizers are specified in the
+lists named <code>"regression"</code> and <code>"variance"</code>.
+<code>method="nlminb"</code> is the default optimizer for both (taking
+advantage of the analytical Fisher information matrices), however,
+the <code>method</code>s from <code>optim</code> may also be specified
+(as well as <code>"nlm"</code> but that one is not recommended here).
+Especially for the variance updates, Nelder-Mead optimization
+(<code>method="Nelder-Mead"</code>) is an attractive alternative.
+All other elements of these two lists are passed as
+<code>control</code> arguments to the chosen <code>method</code>, e.g., if
+<code>method="nlminb"</code>, adding <code>iter.max=50</code> increases the 
+maximum number of inner iterations from 20 (default) to 50.
+For <code>method="Nelder-Mead"</code>, the respective argument is
+called <code>maxit</code> and defaults to 500.
+</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>non-negative integer (usually in the range
+<code>0:3</code>) specifying the amount of tracing information to be
+output during optimization.</p>
+</dd>
+<dt><code>start</code></dt>
+<dd>
+<p>a list of initial parameter values replacing
+initial values set via <code>fe</code> and <code>ri</code>.
+Since <span class="pkg">surveillance</span> 1.8-2, named vectors are matched
+against the coefficient names in the model (where unmatched
+start values are silently ignored), and need not be complete,
+e.g., <code>start = list(fixed = c("-log(overdisp)" = 0.5))</code>
+(default: 2) for a <code>family = "NegBin1"</code> model.
+In contrast, an unnamed start vector must specify the full set
+of parameters as used by the model.</p>
+</dd>
+<dt><code>data</code></dt>
+<dd>
+<p>a named list of covariates that are to be
+included as fixed effects (see <code>fe</code>) in any of the 3
+component formulae.
+By default, the time variable <code>t</code> is available and used for
+seasonal effects created by <code>addSeason2formula</code>.
+In general, covariates in this list can be either vectors of
+length <code>nrow(stsObj)</code> interpreted as time-varying but
+common across all units, or matrices of the same dimension as
+the disease counts <code>observed(stsObj)</code>.</p>
+</dd>
+<dt><code>keep.terms</code></dt>
+<dd>
+<p>logical indicating if the terms object
+used in the fit is to be kept as part of the returned object.
+This is usually not necessary, since the terms object is
+reconstructed by the <code>terms</code>-method for class
+<code>"hhh4"</code> if necessary (based on <code>stsObj</code> and
+<code>control</code>, which are both part of the returned
+<code>"hhh4"</code> object).</p>
+</dd>
+</dl>
+<p>The auxiliary function <code>makeControl</code> might be useful to
+create such a list of control parameters.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check.analyticals</code></td>
+<td>
+<p>logical (or a subset of
+<code>c("numDeriv", "maxLik")</code>), indicating if (how) the implemented
+analytical score vector and Fisher information matrix should be
+checked against numerical derivatives at the parameter starting values,
+using the packages <span class="pkg">numDeriv</span> and/or <span class="pkg">maxLik</span>. If activated,
+<code>hhh4</code> will return a list containing the analytical and numerical
+derivatives for comparison (no ML estimation will be performed). 
+This is mainly intended for internal use by the package developers.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>An endemic-epidemic multivariate time-series model for infectious
+disease counts <code class="reqn">Y_{it}</code> from units <code class="reqn">i=1,\dots,I</code> during
+periods <code class="reqn">t=1,\dots,T</code> was proposed by Held et al (2005) and was
+later extended in a series of papers (Paul et al, 2008; Paul and Held,
+2011; Held and Paul, 2012; Meyer and Held, 2014).
+In its most general formulation, this so-called <code>hhh4</code> (or HHH or
+<code class="reqn">H^3</code> or triple-H) model assumes that, conditional on past
+observations, <code class="reqn">Y_{it}</code> has a Poisson or negative binomial
+distribution with mean
+</p>
+<p style="text-align: center;"><code class="reqn">\mu_{it} = \lambda_{it} y_{i,t-1} + 
+                   \phi_{it} \sum_{j\neq i} w_{ji} y_{j,t-1} +
+                   e_{it} \nu_{it}  </code>
+</p>
+
+<p>In the case of a negative binomial model, the conditional 
+variance is <code class="reqn">\mu_{it}(1+\psi_i\mu_{it})</code> 
+with overdispersion parameters <code class="reqn">\psi_i &gt; 0</code> (possibly shared
+across different units, e.g., <code class="reqn">\psi_i\equiv\psi</code>).
+Univariate time series of counts <code class="reqn">Y_t</code> are supported as well, in
+which case <code>hhh4</code> can be regarded as an extension of
+<code>glm.nb</code> to account for autoregression.
+See the Examples below for a comparison of an endemic-only
+<code>hhh4</code> model with a corresponding <code>glm.nb</code>.
+</p>
+<p>The three unknown quantities of the mean <code class="reqn">\mu_{it}</code>,
+</p>
+
+<ul>
+<li> <p><code class="reqn">\lambda_{it}</code> in the autoregressive (<code>ar</code>) component, 
+</p>
+</li>
+<li> <p><code class="reqn">\phi_{it}</code> in the neighbour-driven (<code>ne</code>) component, and
+</p>
+</li>
+<li> <p><code class="reqn">\nu_{it}</code> in the endemic (<code>end</code>) component,
+</p>
+</li>
+</ul>
+<p>are log-linear predictors incorporating time-/unit-specific
+covariates. They may also contain unit-specific random intercepts
+as proposed by Paul and Held (2011). The endemic mean is usually
+modelled proportional to a unit-specific offset <code class="reqn">e_{it}</code>
+(e.g., population numbers or fractions); it is possible to include
+such multiplicative offsets in the epidemic components as well.
+The <code class="reqn">w_{ji}</code> are transmission weights reflecting the flow of
+infections from unit <code class="reqn">j</code> to unit <code class="reqn">i</code>. If weights vary over time
+(prespecified as a 3-dimensional array <code class="reqn">(w_{jit})</code>), the
+<code>ne</code> sum in the mean uses <code class="reqn">w_{jit} y_{j,t-1}</code>.
+In spatial <code>hhh4</code> applications, the “units” refer to
+geographical regions and the weights could be derived from movement
+network data. Alternatively, the weights <code class="reqn">w_{ji}</code> can be
+estimated parametrically as a function of adjacency order (Meyer and
+Held, 2014), see <code>W_powerlaw</code>.
+</p>
+<p>(Penalized) Likelihood inference for such <code>hhh4</code> models has been
+established by Paul and Held (2011) with extensions for parametric
+neighbourhood weights by Meyer and Held (2014).
+Supplied with the analytical score function and Fisher information,
+the function <code>hhh4</code> by default uses the quasi-Newton algorithm
+available through <code>nlminb</code> to maximize the log-likelihood.
+Convergence is usually fast even for a large number of parameters.
+If the model contains random effects, the penalized and marginal
+log-likelihoods are maximized alternately until convergence.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>hhh4</code> returns an object of class <code>"hhh4"</code>,
+which is a list containing the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>coefficients</code></td>
+<td>
+<p>named vector with estimated (regression) parameters of the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>estimated standard errors (for regression parameters)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov</code></td>
+<td>
+<p>covariance matrix (for regression parameters)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma</code></td>
+<td>
+<p>estimated variance-covariance matrix of random effects</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma.orig</code></td>
+<td>
+<p>estimated variance parameters on internal scale used
+for optimization</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma.cov</code></td>
+<td>
+<p>inverse of marginal Fisher information (on internal
+scale), i.e., the asymptotic covariance matrix of <code>Sigma.orig</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p> the matched call </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dim</code></td>
+<td>
+<p> vector with number of fixed and random effects in the model </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loglikelihood</code></td>
+<td>
+<p>(penalized) loglikelihood evaluated at the MLE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>margll</code></td>
+<td>
+<p> (approximate) log marginal likelihood should the model contain random effects  </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>convergence</code></td>
+<td>
+<p>logical. Did optimizer converge?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fitted.values</code></td>
+<td>
+<p>fitted mean values <code class="reqn">\mu_{i,t}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>control object of the fit</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>terms</code></td>
+<td>
+<p>the terms object used in the fit if <code>keep.terms = TRUE</code>
+and <code>NULL</code> otherwise</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stsObj</code></td>
+<td>
+<p> the supplied <code>stsObj</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lags</code></td>
+<td>
+<p>named integer vector of length two containing the lags
+used for the epidemic components <code>"ar"</code> and <code>"ne"</code>,
+respectively. The corresponding lag is <code>NA</code> if the component
+was not included in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nObs</code></td>
+<td>
+<p>number of observations used for fitting the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nTime</code></td>
+<td>
+<p> number of time points used for fitting the model </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nUnit</code></td>
+<td>
+<p> number of units (e.g. areas) used for fitting the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>runtime</code></td>
+<td>
+<p>the <code>proc.time</code>-queried time taken
+to fit the model, i.e., a named numeric vector of length 5 of class
+<code>"proc_time"</code></p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Michaela Paul, Sebastian Meyer, Leonhard Held</p>
+
+
+<h3>References</h3>
+
+<p>Held, L., Höhle, M. and Hofmann, M. (2005):
+A statistical framework for the analysis of multivariate infectious
+disease surveillance counts.
+<em>Statistical Modelling</em>, <b>5</b> (3), 187-199.
+<a href="https://doi.org/10.1191/1471082X05st098oa">doi:10.1191/1471082X05st098oa</a>
+</p>
+<p>Paul, M., Held, L. and Toschke, A. M. (2008):
+Multivariate modelling of infectious disease surveillance data.
+<em>Statistics in Medicine</em>, <b>27</b> (29), 6250-6267.
+<a href="https://doi.org/10.1002/sim.4177">doi:10.1002/sim.4177</a>
+</p>
+<p>Paul, M. and Held, L. (2011):
+Predictive assessment of a non-linear random effects model for
+multivariate time series of infectious disease counts.
+<em>Statistics in Medicine</em>, <b>30</b> (10), 1118-1136.
+<a href="https://doi.org/10.1002/sim.4177">doi:10.1002/sim.4177</a>
+</p>
+<p>Held, L. and Paul, M. (2012):
+Modeling seasonality in space-time infectious disease surveillance data.
+<em>Biometrical Journal</em>, <b>54</b> (6), 824-843.
+<a href="https://doi.org/10.1002/bimj.201200037">doi:10.1002/bimj.201200037</a>
+</p>
+<p>Meyer, S. and Held, L. (2014):
+Power-law models for infectious disease spread.
+<em>The Annals of Applied Statistics</em>, <b>8</b> (3), 1612-1639.
+<a href="https://doi.org/10.1214/14-AOAS743">doi:10.1214/14-AOAS743</a>
+</p>
+<p>Meyer, S., Held, L. and Höhle, M. (2017):
+Spatio-temporal analysis of epidemic phenomena using the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package
+<span class="pkg">surveillance</span>.
+<em>Journal of Statistical Software</em>, <b>77</b> (11), 1-55.
+<a href="https://doi.org/10.18637/jss.v077.i11">doi:10.18637/jss.v077.i11</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See the special functions <code>fe</code>, <code>ri</code> and the
+examples below for how to specify unit-specific effects.
+</p>
+<p>Further details on the modelling approach and illustrations of its
+implementation can be found in <code>vignette("hhh4")</code> and
+<code>vignette("hhh4_spacetime")</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">######################
+## Univariate examples
+######################
+
+### weekly counts of salmonella agona cases, UK, 1990-1995
+
+data("salmonella.agona")
+## convert old "disProg" to new "sts" data class
+salmonella &lt;- disProg2sts(salmonella.agona)
+salmonella
+plot(salmonella)
+
+## generate formula for an (endemic) time trend and seasonality
+f.end &lt;- addSeason2formula(f = ~1 + t, S = 1, period = 52)
+f.end
+## specify a simple autoregressive negative binomial model
+model1 &lt;- list(ar = list(f = ~1), end = list(f = f.end), family = "NegBin1")
+## fit this model to the data
+res &lt;- hhh4(salmonella, model1)
+## summarize the model fit
+summary(res, idx2Exp=1, amplitudeShift=TRUE, maxEV=TRUE)
+plot(res)
+plot(res, type = "season", components = "end")
+
+
+### weekly counts of meningococcal infections, Germany, 2001-2006
+
+data("influMen")
+fluMen &lt;- disProg2sts(influMen)
+meningo &lt;- fluMen[, "meningococcus"]
+meningo
+plot(meningo)
+
+## again a simple autoregressive NegBin model with endemic seasonality
+meningoFit &lt;- hhh4(stsObj = meningo, control = list(
+    ar = list(f = ~1),
+    end = list(f = addSeason2formula(f = ~1, S = 1, period = 52)),
+    family = "NegBin1"
+))
+
+summary(meningoFit, idx2Exp=TRUE, amplitudeShift=TRUE, maxEV=TRUE)
+plot(meningoFit)
+plot(meningoFit, type = "season", components = "end")
+
+
+########################
+## Multivariate examples
+########################
+
+### bivariate analysis of influenza and meningococcal infections
+### (see Paul et al, 2008)
+
+plot(fluMen, same.scale = FALSE)
+     
+## Fit a negative binomial model with
+## - autoregressive component: disease-specific intercepts
+## - neighbour-driven component: only transmission from flu to men
+## - endemic component: S=3 and S=1 sine/cosine pairs for flu and men, respectively
+## - disease-specific overdispersion
+
+WfluMen &lt;- neighbourhood(fluMen)
+WfluMen["meningococcus","influenza"] &lt;- 0
+WfluMen
+f.end_fluMen &lt;- addSeason2formula(f = ~ -1 + fe(1, which = c(TRUE, TRUE)),
+                                  S = c(3, 1), period = 52)
+f.end_fluMen
+fluMenFit &lt;- hhh4(fluMen, control = list(
+    ar = list(f = ~ -1 + fe(1, unitSpecific = TRUE)),
+    ne = list(f = ~ 1, weights = WfluMen),
+    end = list(f = f.end_fluMen),
+    family = "NegBinM"))
+summary(fluMenFit, idx2Exp=1:3)
+plot(fluMenFit, type = "season", components = "end", unit = 1)
+plot(fluMenFit, type = "season", components = "end", unit = 2)
+
+
+
+### weekly counts of measles, Weser-Ems region of Lower Saxony, Germany
+
+data("measlesWeserEms")
+measlesWeserEms
+plot(measlesWeserEms)  # note the two districts with zero cases
+
+## we could fit the same simple model as for the salmonella cases above
+model1 &lt;- list(
+    ar = list(f = ~1),
+    end = list(f = addSeason2formula(~1 + t, period = 52)),
+    family = "NegBin1"
+)
+measlesFit &lt;- hhh4(measlesWeserEms, model1)
+summary(measlesFit, idx2Exp=TRUE, amplitudeShift=TRUE, maxEV=TRUE)
+
+## but we should probably at least use a population offset in the endemic
+## component to reflect heterogeneous incidence levels of the districts,
+## and account for spatial dependence (here just using first-order adjacency)
+measlesFit2 &lt;- update(measlesFit,
+    end = list(offset = population(measlesWeserEms)),
+    ne = list(f = ~1, weights = neighbourhood(measlesWeserEms) == 1))
+summary(measlesFit2, idx2Exp=TRUE, amplitudeShift=TRUE, maxEV=TRUE)
+plot(measlesFit2, units = NULL, hide0s = TRUE)
+
+## 'measlesFit2' corresponds to the 'measlesFit_basic' model in
+## vignette("hhh4_spacetime"). See there for further analyses,
+## including vaccination coverage as a covariate,
+## spatial power-law weights, and random intercepts.
+
+
+## Not run: 
+### last but not least, a more sophisticated (and time-consuming)
+### analysis of weekly counts of influenza from 140 districts in
+### Southern Germany (originally analysed by Paul and Held, 2011,
+### and revisited by Held and Paul, 2012, and Meyer and Held, 2014)
+
+data("fluBYBW")
+plot(fluBYBW, type = observed ~ time)
+plot(fluBYBW, type = observed ~ unit,
+     ## mean yearly incidence per 100.000 inhabitants (8 years)
+     population = fluBYBW@map$X31_12_01 / 100000 * 8)
+
+## For the full set of models for data("fluBYBW") as analysed by
+## Paul and Held (2011), including predictive model assessement
+## using proper scoring rules, see the (computer-intensive)
+## demo("fluBYBW") script:
+demoscript &lt;- system.file("demo", "fluBYBW.R", package = "surveillance")
+demoscript
+#file.show(demoscript)
+
+## Here we fit the improved power-law model of Meyer and Held (2014)
+## - autoregressive component: random intercepts + S = 1 sine/cosine pair
+## - neighbour-driven component: random intercepts + S = 1 sine/cosine pair
+##   + population gravity with normalized power-law weights
+## - endemic component: random intercepts + trend + S = 3 sine/cosine pairs
+## - random intercepts are iid but correlated between components
+f.S1 &lt;- addSeason2formula(
+    ~-1 + ri(type="iid", corr="all"),
+    S = 1, period = 52)
+f.end.S3 &lt;- addSeason2formula(
+    ~-1 + ri(type="iid", corr="all") + I((t-208)/100),
+    S = 3, period = 52)
+
+## for power-law weights, we need adjaceny orders, which can be
+## computed from the binary adjacency indicator matrix
+nbOrder1 &lt;- neighbourhood(fluBYBW)
+neighbourhood(fluBYBW) &lt;- nbOrder(nbOrder1)
+
+## full model specification
+fluModel &lt;- list(
+    ar = list(f = f.S1),
+    ne = list(f = update.formula(f.S1, ~ . + log(pop)),
+              weights = W_powerlaw(maxlag=max(neighbourhood(fluBYBW)),
+                                   normalize = TRUE, log = TRUE)),
+    end = list(f = f.end.S3, offset = population(fluBYBW)),
+    family = "NegBin1", data = list(pop = population(fluBYBW)),
+    optimizer = list(variance = list(method = "Nelder-Mead")),
+    verbose = TRUE)
+
+## CAVE: random effects considerably increase the runtime of model estimation
+## (It is usually advantageous to first fit a model with simple intercepts
+## to obtain reasonable start values for the other parameters.)
+set.seed(1)  # because random intercepts are initialized randomly
+fluFit &lt;- hhh4(fluBYBW, fluModel)
+
+summary(fluFit, idx2Exp = TRUE, amplitudeShift = TRUE)
+
+plot(fluFit, type = "fitted", total = TRUE)
+
+plot(fluFit, type = "season")
+range(plot(fluFit, type = "maxEV"))
+
+plot(fluFit, type = "maps", prop = TRUE)
+
+gridExtra::grid.arrange(
+    grobs = lapply(c("ar", "ne", "end"), function (comp)
+        plot(fluFit, type = "ri", component = comp, main = comp,
+             exp = TRUE, sub = "multiplicative effect")),
+    nrow = 1, ncol = 3)
+
+plot(fluFit, type = "neweights", xlab = "adjacency order")
+
+## End(Not run)
+
+
+########################################################################
+## An endemic-only "hhh4" model can also be estimated using MASS::glm.nb
+########################################################################
+
+## weekly counts of measles, Weser-Ems region of Lower Saxony, Germany
+data("measlesWeserEms")
+
+## fit an endemic-only "hhh4" model
+## with time covariates and a district-specific offset
+hhh4fit &lt;- hhh4(measlesWeserEms, control = list(
+    end = list(f = addSeason2formula(~1 + t, period = frequency(measlesWeserEms)),
+               offset = population(measlesWeserEms)),
+    ar = list(f = ~-1), ne = list(f = ~-1), family = "NegBin1",
+    subset = 1:nrow(measlesWeserEms)
+))
+summary(hhh4fit)
+
+## fit the same model using MASS::glm.nb
+measlesWeserEmsData &lt;- as.data.frame(measlesWeserEms, tidy = TRUE)
+measlesWeserEmsData$t &lt;- c(hhh4fit$control$data$t)
+glmnbfit &lt;- MASS::glm.nb(
+    update(formula(hhh4fit)$end, observed ~ . + offset(log(population))),
+    data = measlesWeserEmsData
+)
+summary(glmnbfit)
+
+## Note that the overdispersion parameter is parametrized inversely.
+## The likelihood and point estimates are all the same.
+## However, the variance estimates are different: in glm.nb, the parameters
+## are estimated conditional on the overdispersion theta.
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,121 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getGradientWeight</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Gradient Weight Approach for neural network variable importance</h2>
+
+<h3>Description</h3>
+
+<p>The function computes the gradient matrix, i.e., the average
+conditional effects of the input variables w.r.t the neural network model,
+as discussed by Amesöder et al (2024).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getGradientWeight(object, thr = NULL, verbose = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A neural network object from <code>SEMdnn()</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thr</code></td>
+<td>
+<p>A threshold value to apply to gradient weights of input
+nodes (variables). If NULL (default), the threshold is set to
+thr=mean(abs(gradient weights)).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>A logical value. If FALSE (default), the processed graph
+will not be plotted to screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The partial derivatives method calculates the derivative (the gradient)
+of each output variable (y) with respect to each input variable (x) evaluated at
+each observation (i=1,...,n) of the training data. The contribution of each input 
+is evaluated in terms of both magnitude taking into account not only the connection
+weights and activation functions, but also the values of each observation of the
+input variables. 
+Once the gradients for each variable and observation, a summary gradient is calculated
+by averaging over the observation units. Finally, the average weights are entered into
+a matrix, W(pxp) and the element-wise product with the binary (1,0) adjacency matrix,
+A(pxp) of the input DAG, W*A maps the weights on the DAG edges.
+Note that the operations required to compute partial derivatives are time consuming
+compared to other methods such as Olden's (connection weight). The computational
+time increases with the size of the neural network or the size of the data. Therefore,
+the function uses a progress bar to check the progress of the gradient evaluation per
+observation.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list od two object: (i) a data.frame including the connections together
+with their weights, and (ii) the DAG with colored edges. If abs(W) &gt; thr and W &lt; 0,
+the edge is inhibited and it is highlighted in blue; otherwise, if abs(W) &gt; thr and
+W &gt; 0, the edge is activated and it is highlighted in red.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Amesöder, C., Hartig, F. and Pichler, M. (2024), ‘cito': an R package for training
+neural networks using ‘torch'. Ecography, 2024: e07143. https://doi.org/10.1111/ecog.07143
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+if (torch::torch_is_installed()){
+
+# load ALS data
+ig&lt;- alsData$graph
+data&lt;- alsData$exprs
+data&lt;- transformData(data)$data
+
+dnn0 &lt;- SEMdnn(ig, data, train=1:nrow(data), cowt = FALSE,
+			#loss = "mse", hidden = 5*K, link = "selu",
+			loss = "mse", hidden = c(10, 10, 10), link = "selu",
+			validation = 0, bias = TRUE, lr = 0.01,
+			epochs = 32, device = "cpu", verbose = TRUE)
+
+res&lt;- getGradientWeight(dnn0, thr=NULL, verbose=TRUE)
+table(E(res$dag)$color)
+}
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,413 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>unif_stat_MC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Monte Carlo simulation of circular and (hyper)spherical uniformity
+statistics</h2>
+
+<h3>Description</h3>
+
+<p>Utility for performing Monte Carlo simulation of several
+statistics for assessing uniformity on the (hyper)sphere
+<code class="reqn">S^{p-1}:=\{{\bf x}\in R^p:||{\bf x}||=1\}</code>, <code class="reqn">p\ge 2</code>.
+</p>
+<p><code>unif_stat_MC</code> provides a convenient wrapper for parallel
+evaluation of <code>unif_stat</code>, the estimation of critical values under the
+null distribution, and the computation of empirical powers under the
+alternative.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">unif_stat_MC(n, type = "all", p, M = 10000, r_H1 = NULL,
+  crit_val = NULL, alpha = c(0.1, 0.05, 0.01), return_stats = TRUE,
+  stats_sorted = FALSE, chunks = ceiling((n * M)/1e+05), cores = 1,
+  seeds = NULL, CCF09_dirs = NULL, CJ12_reg = 3, cov_a = 2 * pi,
+  Cressie_t = 1/3, K_CCF09 = 25, Poisson_rho = 0.5, Pycke_q = 0.5,
+  Rayleigh_m = 1, Riesz_s = 1, Rothman_t = 1/3, Sobolev_vk2 = c(0, 0,
+  1), Softmax_kappa = 1, Stereo_a = 0, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>sample size.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>type of test to be applied. A character vector containing any of
+the following types of tests, depending on the dimension <code class="reqn">p</code>:
+</p>
+
+<ul>
+<li>
+<p> Circular data: any of the names available at object
+<code>avail_cir_tests</code>.
+</p>
+</li>
+<li>
+<p> (Hyper)spherical data: any of the names available at object
+<code>avail_sph_tests</code>.
+</p>
+</li>
+</ul>
+<p>If <code>type = "all"</code> (default), then <code>type</code> is set as
+<code>avail_cir_tests</code> or <code>avail_sph_tests</code>, depending on the value of
+<code class="reqn">p</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>integer giving the dimension of the ambient space <code class="reqn">R^p</code> that
+contains <code class="reqn">S^{p-1}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>M</code></td>
+<td>
+<p>number of Monte Carlo replications. Defaults to <code>1e4</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r_H1</code></td>
+<td>
+<p>if provided, the computation of empirical powers is
+carried out for the alternative hypothesis sampled with <code>r_H1</code>.
+This must be a function with the same arguments and value as
+<code>r_unif_sph</code> (see examples). Defaults to <code>NULL</code>, indicating
+that the critical values are estimated from samples of <code>r_unif_sph</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crit_val</code></td>
+<td>
+<p>if provided, must be the critical values as returned by
+<code>$stats_MC</code> in a call to <code>unif_stat_MC</code>. They are used for
+computing the empirical powers of the tests present in <code>type</code>.
+Defaults to <code>NULL</code>, which means that no power computation is done.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>vector with significance levels. Defaults to
+<code>c(0.10, 0.05, 0.01)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_stats</code></td>
+<td>
+<p>return the Monte Carlo statistics? If only the critical
+values or powers are desired, <code>FALSE</code> saves memory in the returned
+object. Defaults to <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stats_sorted</code></td>
+<td>
+<p>sort the returned Monte Carlo statistics? If
+<code>TRUE</code>, this is useful for evaluating faster the empirical cumulative
+distribution function when approximating the distribution in
+<code>unif_stat_distr</code>. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chunks</code></td>
+<td>
+<p>number of chunks to split the <code>M</code> Monte Carlo
+replications. Useful for parallelizing the simulation study in <code>chunks</code>
+tasks containing <code>ceiling(M / chunks)</code> replications. Useful also for
+avoiding memory bottlenecks when <code>M</code> is large. Defaults to
+<br><code>ceiling((n * M) / 1e5)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores to perform the simulation. Defaults to <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seeds</code></td>
+<td>
+<p>if provided, a vector of size <code>chunks</code> for fixing the
+seeds on each of the simulation chunks (useful for reproducing parallel
+simulations). Specifically, for <code>k in 1:chunks</code>, seeds are
+set as <code>set.seed(seeds[k], kind = "Mersenne-Twister")</code> in each chunk.
+Defaults to <code>NULL</code> (no seed setting is done).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CCF09_dirs</code></td>
+<td>
+<p>a matrix of size <code>c(n_proj, p)</code> containing
+<code>n_proj</code> random directions (in Cartesian coordinates) on <code class="reqn">S^{p-1}</code>
+to perform the CCF09 test. If <code>NULL</code> (default), a sample of size
+<code>n_proj = 50</code> directions is computed internally.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CJ12_reg</code></td>
+<td>
+<p>type of asymptotic regime for CJ12 test, either <code>1</code>
+(sub-exponential regime), <code>2</code> (exponential), or <code>3</code>
+(super-exponential; default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov_a</code></td>
+<td>
+<p><code class="reqn">a_n = a / n</code> parameter used in the length of the arcs
+of the coverage-based tests. Must be positive. Defaults to <code>2 * pi</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Cressie_t</code></td>
+<td>
+<p><code class="reqn">t</code> parameter for the Cressie test, a real in
+<code class="reqn">(0, 1)</code>. Defaults to <code>1 / 3</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K_CCF09</code></td>
+<td>
+<p>integer giving the truncation of the series present in the
+asymptotic distribution of the Kolmogorov-Smirnov statistic. Defaults to
+<code>25</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Poisson_rho</code></td>
+<td>
+<p><code class="reqn">\rho</code> parameter for the Poisson test, a real in
+<code class="reqn">[0, 1)</code>. Defaults to <code>0.5</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Pycke_q</code></td>
+<td>
+<p><code class="reqn">q</code> parameter for the Pycke "<code class="reqn">q</code>-test", a real in
+<code class="reqn">(0, 1)</code>. Defaults to <code>1 / 2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Rayleigh_m</code></td>
+<td>
+<p>integer <code class="reqn">m</code> for the <code class="reqn">m</code>-modal Rayleigh test.
+Defaults to <code>m = 1</code> (the standard Rayleigh test).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Riesz_s</code></td>
+<td>
+<p><code class="reqn">s</code> parameter for the <code class="reqn">s</code>-Riesz test, a real in
+<code class="reqn">(0, 2)</code>. Defaults to <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Rothman_t</code></td>
+<td>
+<p><code class="reqn">t</code> parameter for the Rothman test, a real in
+<code class="reqn">(0, 1)</code>. Defaults to <code>1 / 3</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sobolev_vk2</code></td>
+<td>
+<p>weights for the finite Sobolev test. A non-negative
+vector or matrix. Defaults to <code>c(0, 0, 1)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Softmax_kappa</code></td>
+<td>
+<p><code class="reqn">\kappa</code> parameter for the Softmax test, a
+non-negative real. Defaults to <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Stereo_a</code></td>
+<td>
+<p><code class="reqn">a</code> parameter for the Stereo test, a real in
+<code class="reqn">[-1, 1]</code>. Defaults to <code>0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>optional arguments to be passed to the <code>r_H1</code> sampler or to
+<code>foreach</code> (for example, <code>.export</code> to export global
+variables or other functions to the <code>foreach</code> environment).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>It is possible to have a progress bar if <code>unif_stat_MC</code> is wrapped with
+<code>progressr::with_progress</code> or if
+<code>progressr::handlers(global = TRUE)</code> is invoked (once) by the user.
+See the examples below. The progress bar is updated with the number of
+finished chunks.
+</p>
+<p>All the tests reject for large values of the test statistic
+(<code>max_gap = TRUE</code> is assumed for the Range test), so the critical
+values for the significance levels <code>alpha</code> correspond to the
+<code>alpha</code>-upper quantiles of the null distribution of the test statistic.
+</p>
+<p>The Monte Carlo simulation for the CCF09 test is made conditionally
+on the choice of <code>CCF09_dirs</code>. That is, all the Monte Carlo statistics
+share the same random directions.
+</p>
+<p>Except for <code>CCF09_dirs</code>, <code>K_CCF09</code>, and <code>CJ12_reg</code>, all the
+test-specific parameters are vectorized.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with the following entries:
+</p>
+
+<ul>
+<li> <p><code>crit_val_MC</code>: a data frame of size
+<code>c(length(alpha), length(type))</code>, with column names given by
+<code>type</code> and rows corresponding to the significance levels <code>alpha</code>,
+that contains the estimated critical values of the tests.
+</p>
+</li>
+<li> <p><code>power_MC</code>: a data frame of size
+<code>c(nrow(crit_val), length(type))</code>, with column names given by
+<code>type</code> and rows corresponding to the significance levels of
+<code>crit_val</code>, that contains the empirical powers of the tests. <code>NA</code>
+if <code>crit_val = NULL</code>.
+</p>
+</li>
+<li> <p><code>stats_MC</code>: a data frame of size <code>c(M, length(type))</code>, with
+column names given by <code>type</code>, that contains the Monte Carlo
+statistics.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Critical values
+
+# Single statistic, specific alpha
+cir &lt;- unif_stat_MC(n = 10, M = 1e2, type = "Ajne", p = 2, alpha = 0.15)
+summary(cir$stats_MC)
+cir$crit_val_MC
+
+# All circular statistics
+cir &lt;- unif_stat_MC(n = 10, M = 1e2, p = 2)
+head(cir$stats_MC)
+cir$crit_val_MC
+
+# All spherical statistics
+sph &lt;- unif_stat_MC(n = 10, M = 1e2, p = 3)
+head(sph$stats_MC)
+sph$crit_val_MC
+
+## Using a progress bar
+
+# Define a progress bar
+require(progress)
+require(progressr)
+handlers(handler_progress(
+  format = paste("(:spin) [:bar] :percent Iter: :current/:total Rate:",
+                 ":tick_rate iter/sec ETA: :eta Elapsed: :elapsedfull"),
+  clear = FALSE))
+
+# Call unif_stat_MC() within with_progress()
+with_progress(unif_stat_MC(n = 10, M = 1e2, p = 3, chunks = 10))
+
+# With several cores
+with_progress(unif_stat_MC(n = 10, M = 1e2, p = 3, chunks = 10, cores = 2))
+
+# Instead of using with_progress() each time, it is more practical to run
+# handlers(global = TRUE)
+# once to activate progress bars in your R session
+
+## Power computation
+
+# Single statistic
+cir_pow &lt;- unif_stat_MC(n = 10, M = 1e2, type = "Ajne", p = 2,
+                        crit_val = cir$crit_val_MC)
+cir_pow$crit_val_MC
+cir_pow$power_MC
+
+# All circular statistics
+cir_pow &lt;- unif_stat_MC(n = 10, M = 1e2, p = 2, crit_val = cir$crit_val_MC)
+cir_pow$crit_val_MC
+cir_pow$power_MC
+
+# All spherical statistics
+sph_pow &lt;- unif_stat_MC(n = 10, M = 1e2, p = 3, crit_val = sph$crit_val_MC)
+sph_pow$crit_val_MC
+sph_pow$power_MC
+
+## Custom r_H1
+
+# Circular
+r_H1 &lt;- function(n, p, M, l = 0.05) {
+
+  stopifnot(p == 2)
+  Theta_to_X(matrix(runif(n * M, 0, (2 - l) * pi), n, M))
+
+}
+dirs &lt;- r_unif_sph(n = 5, p = 2, M = 1)[, , 1]
+cir &lt;- unif_stat_MC(n = 50, M = 1e2, p = 2, CCF09_dirs = dirs)
+cir_pow &lt;- unif_stat_MC(n = 50, M = 1e2, p = 2, r_H1 = r_H1, l = 0.10,
+                        crit_val = cir$crit_val_MC, CCF09_dirs = dirs)
+cir_pow$crit_val_MC
+cir_pow$power_MC
+
+# Spherical
+r_H1 &lt;- function(n, p, M, l = 0.5) {
+
+  samp &lt;- array(dim = c(n, p, M))
+  for (j in 1:M) {
+
+    samp[, , j] &lt;- mvtnorm::rmvnorm(n = n, mean = c(l, rep(0, p - 1)),
+                                    sigma = diag(rep(1, p)))
+    samp[, , j] &lt;- samp[, , j] / sqrt(rowSums(samp[, , j]^2))
+
+  }
+  return(samp)
+
+}
+dirs &lt;- r_unif_sph(n = 5, p = 3, M = 1)[, , 1]
+sph &lt;- unif_stat_MC(n = 50, M = 1e2, p = 3, CCF09_dirs = dirs)
+sph_pow &lt;- unif_stat_MC(n = 50, M = 1e2, p = 3, r_H1 = r_H1, l = 0.5,
+                       crit_val = sph$crit_val_MC, CCF09_dirs = dirs)
+sph_pow$power_MC
+
+## Pre-built r_H1
+
+# Circular
+dirs &lt;- r_unif_sph(n = 5, p = 2, M = 1)[, , 1]
+cir_pow &lt;- unif_stat_MC(n = 50, M = 1e2, p = 2, r_H1 = r_alt, alt = "vMF",
+                        kappa = 1, crit_val = cir$crit_val_MC,
+                        CCF09_dirs = dirs)
+cir_pow$power_MC
+
+# Spherical
+dirs &lt;- r_unif_sph(n = 5, p = 3, M = 1)[, , 1]
+sph_pow &lt;- unif_stat_MC(n = 50, M = 1e2, p = 3, r_H1 = r_alt, alt = "vMF",
+                        kappa = 1, crit_val = sph$crit_val_MC,
+                        CCF09_dirs = dirs)
+sph_pow$power_MC
+
+</code></pre>
+
+
+</div>

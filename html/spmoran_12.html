@@ -1,0 +1,121 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>nongauss_y</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Parameter setup for modeling non-Gaussian continuous data and count data</h2>
+
+<h3>Description</h3>
+
+<p>Parameter setup for modeling non-Gaussian continuous data and count data. The SAL transformation (see details) is used to model a wide variety of non-Gaussian data without explicitly assuming data distribution (see Murakami et al., 2021 for further detail). In addition, Box-Cox transformation is used for non-negative continuous variables while another transformation approximating overdispersed Poisson distribution is used for count variables. The output from this function is used as an input of the resf and resf_vc functions. For further details about its implementation and case study examples, see Murakami (2021).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">nongauss_y( y_type = "continuous", y_nonneg = FALSE, tr_num = 0 )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y_type</code></td>
+<td>
+<p>Type of explained variables y. "continuous" for continuous variables and "count" for count variables</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_nonneg</code></td>
+<td>
+<p>Effective if y_type = "continuous". TRUE if y cannot take negative value. If y_nonneg = TRUE and tr_num = 0, the Box-Cox transformation is applied to y. If y_nonneg = TRUE and tr_num &gt; 0, the Box-Cox transformation is applied first to roughly Gaussianize y. Then, the SAL transformation is iterated tr_num times to improve the modeling accuracy. Default is FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tr_num</code></td>
+<td>
+<p>Number of the SAL transformations (SinhArcsinh and Affine, where the use of "L" stems from the "Linear") applied to Gaussianize y. Default is 0</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If tr_num &gt;0, the SAL transformation is iterated tr_num times to Gaussianize y. The SAL transformation is defined as SAL(y)=a+b*sinh(c*arcsinh(y)-d) where a,b,c,d are parameters. Based on Rios and Tobar (2019), the iteration of the SAL transformation approximates a wide variety of non-Gaussian distributions without explicitly assuming data distribution. The resf and resf_vc functions return tr_par, which is a list whose k-th element includes the a,b,c,d parameters used for the k-th SAL transformation.
+</p>
+<p>In addition, for non-negative y (y_nonneg = TRUE), the Box-Cox transformation is applied prior to the iterative SAL transformation. tr_num and y_nonneg can be selected by comparing the BIC (or AIC) values across models. This compositionally-warped spatial regression approach is detailed in Murakami et al. (2021).
+</p>
+<p>For count data (y_type = "count"), an overdispersed Poisson distribution (Gaussian approximation) is assumed. If tr_num &gt; 0, the distribution is adjusted to fit the data (y) through the iterative SAL transformations. y_nonneg is ignored if y_type = "count".
+</p>
+
+
+<h3>Value</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>nongauss</code></td>
+<td>
+<p>List of parameters for modeling non-Gaussian data</p>
+</td>
+</tr></table>
+<h3>References</h3>
+
+<p>Rios, G. and Tobar, F. (2019) Compositionally-warped Gaussian processes. Neural Networks, 118, 235-246.
+</p>
+<p>Murakami, D. (2021) Transformation-based generalized spatial regression using the spmoran package: Case study examples, ArXiv.
+</p>
+<p>Murakami, D., Kajita, M., Kajita, S. and Matsui, T. (2021) Compositionally-warped additive mixed modeling for a wide variety of non-Gaussian data. Spatial Statistics, 43, 100520.
+</p>
+<p>Murakami, D., &amp; Matsui, T. (2021). Improved log-Gaussian approximation for over-dispersed Poisson regression: application to spatial analysis of COVID-19. ArXiv, 2104.13588.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>resf</code>, <code>resf_vc</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+###### Regression for non-negative data (BC trans.)
+ng1  &lt;-nongauss_y( y_nonneg = TRUE )
+ng1
+
+###### General non-Gaussian regression for continuous data (two SAL trans.)
+ng2  &lt;-nongauss_y( tr_num = 2 )
+ng2
+
+###### General non-Gaussian regression for non-negative continuous data
+ng3  &lt;-nongauss_y( y_nonneg = TRUE, tr_num = 5 )
+ng3
+
+###### Over-dispersed Poisson regression for count data
+ng4  &lt;-nongauss_y( y_type = "count" )
+ng4
+
+###### A general non-Gaussian regression for count data
+ng5  &lt;-nongauss_y( y_type = "count", tr_num = 5 )
+ng5
+
+############################## Fitting example
+require(spdep);require(Matrix)
+data(boston)
+y	    &lt;- boston.c[, "CMEDV" ]
+x	    &lt;- boston.c[,c("CRIM","ZN","INDUS", "CHAS", "NOX","RM", "AGE",
+                     "DIS" ,"RAD", "TAX", "PTRATIO", "B", "LSTAT")]
+xgroup&lt;- boston.c[,"TOWN"]
+coords&lt;- boston.c[,c("LON","LAT")]
+meig 	&lt;- meigen(coords=coords)
+res	  &lt;- resf(y = y, x = x, meig = meig,nongauss=ng2)
+res                    # Estimation results
+
+plot(res$pdf,type="l") # Estimated probability density function
+res$skew_kurt          # Skew and kurtosis of the estimated PDF
+res$pred_quantile[1:2,]# predicted value by quantile
+coef_marginal(res)     # Estimated marginal effects (dy/dx)
+</code></pre>
+
+
+</div>

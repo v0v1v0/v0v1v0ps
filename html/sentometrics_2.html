@@ -1,0 +1,129 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>add_features</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Add feature columns to a (sento_)corpus object</h2>
+
+<h3>Description</h3>
+
+<p>Adds new feature columns, either user-supplied or based on keyword(s)/regex pattern search, to
+a provided <code>sento_corpus</code> or a <span class="pkg">quanteda</span> <code>corpus</code> object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">add_features(
+  corpus,
+  featuresdf = NULL,
+  keywords = NULL,
+  do.binary = TRUE,
+  do.regex = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>corpus</code></td>
+<td>
+<p>a <code>sento_corpus</code> object created with <code>sento_corpus</code>, or a <span class="pkg">quanteda</span>
+<code>corpus</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>featuresdf</code></td>
+<td>
+<p>a named <code>data.frame</code> of type <code>numeric</code> where each columns is a new feature to be added to the
+inputted <code>corpus</code> object. If the number of rows in <code>featuresdf</code> is not equal to the number of documents
+in <code>corpus</code>, recycling will occur. The numeric values should be between 0 and 1 (included).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keywords</code></td>
+<td>
+<p>a named <code>list</code>. For every element, a new feature column is added with a value of 1 for the texts
+in which (at least one of) the keyword(s) appear(s), and 0 if not (for <code>do.binary = TRUE</code>), or with as value the
+normalized number of times the keyword(s) occur(s) in the text (for <code>do.binary = FALSE</code>). If no texts match a
+keyword, no column is added. The <code>list</code> names are used as the names of the new features. For more complex searching,
+instead of just keywords, one can also directly use a single regex expression to define a new feature (see the details section).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.binary</code></td>
+<td>
+<p>a <code>logical</code>, if <code>do.binary = FALSE</code>, the number of occurrences are normalized
+between 0 and 1 (see argument <code>keywords</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.regex</code></td>
+<td>
+<p>a <code>logical</code> vector equal in length to the number of elements in the <code>keywords</code> argument
+<code>list</code>, or a single value if it applies to all. It should be set to <code>TRUE</code> at those positions where a single
+regex expression is used to identify the particular feature.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If a provided feature name is already part of the corpus, it will be replaced. The <code>featuresdf</code> and
+<code>keywords</code> arguments can be provided at the same time, or only one of them, leaving the other at <code>NULL</code>. We use
+the <span class="pkg">stringi</span> package for searching the keywords. The <code>do.regex</code> argument points to the corresponding elements
+in <code>keywords</code>. For <code>FALSE</code>, we transform the keywords into a simple regex expression, involving <code>"\b"</code> for
+exact word boundary matching and (if multiple keywords) <code>|</code> as OR operator. The elements associated to <code>TRUE</code> do
+not undergo this transformation, and are evaluated as given, if the corresponding keywords vector consists of only one
+expression. For a large corpus and/or complex regex patterns, this function may require some patience. Scaling between 0
+and 1 is performed via min-max normalization, per column.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An updated <code>corpus</code> object.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Samuel Borms
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(505)
+
+# construct a corpus and add (a) feature(s) to it
+corpus &lt;- quanteda::corpus_sample(
+  sento_corpus(corpusdf = sentometrics::usnews), 500
+)
+corpus1 &lt;- add_features(corpus,
+                        featuresdf = data.frame(random = runif(quanteda::ndoc(corpus))))
+corpus2 &lt;- add_features(corpus,
+                        keywords = list(pres = "president", war = "war"),
+                        do.binary = FALSE)
+corpus3 &lt;- add_features(corpus,
+                        keywords = list(pres = c("Obama", "US president")))
+corpus4 &lt;- add_features(corpus,
+                        featuresdf = data.frame(all = 1),
+                        keywords = list(pres1 = "Obama|US [p|P]resident",
+                                        pres2 = "\\bObama\\b|\\bUS president\\b",
+                                        war = "war"),
+                        do.regex = c(TRUE, TRUE, FALSE))
+
+sum(quanteda::docvars(corpus3, "pres")) ==
+  sum(quanteda::docvars(corpus4, "pres2")) # TRUE
+
+# adding a complementary feature
+nonpres &lt;- data.frame(nonpres = as.numeric(!quanteda::docvars(corpus3, "pres")))
+corpus3 &lt;- add_features(corpus3, featuresdf = nonpres)
+
+</code></pre>
+
+
+</div>

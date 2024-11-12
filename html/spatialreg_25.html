@@ -1,0 +1,652 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ML_models</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spatial simultaneous autoregressive model estimation by maximum likelihood</h2>
+
+<h3>Description</h3>
+
+<p>The <code>lagsarlm</code> function provides Maximum likelihood estimation of spatial simultaneous autoregressive lag and spatial Durbin (mixed) models of the form:
+</p>
+<p style="text-align: center;"><code class="reqn">y = \rho W y + X \beta + \varepsilon</code>
+</p>
+
+<p>where <code class="reqn">\rho</code> is found by <code>optimize()</code> first, and <code class="reqn">\beta</code> and other parameters by generalized least squares subsequently (one-dimensional search using optim performs badly on some platforms). In the spatial Durbin (mixed) model, the spatially lagged independent variables are added to X. Note that interpretation of the fitted coefficients should use impact measures, because of the feedback loops induced by the data generation process for this model. With one of the sparse matrix methods, larger numbers of observations can be handled, but the <code>interval=</code> argument may need be set when the weights are not row-standardised.
+</p>
+<p>Maximum likelihood estimation of spatial simultaneous autoregressive
+error models of the form:
+</p>
+<p style="text-align: center;"><code class="reqn">y = X \beta + u, u = \lambda W u + \varepsilon</code>
+</p>
+
+<p>where <code class="reqn">\lambda</code> is found by <code>optimize()</code> first, and <code class="reqn">\beta</code> and other parameters by generalized least squares subsequently. With one of the sparse matrix methods, larger numbers of observations can be handled, but the <code>interval=</code> argument may need be set when the weights are not row-standardised. When <code>etype</code> is “emixed”, a so-called spatial Durbin error model is fitted.
+</p>
+<p>Maximum likelihood estimation of spatial simultaneous autoregressive
+“SAC/SARAR” models of the form:
+</p>
+<p style="text-align: center;"><code class="reqn">y = \rho W1 y + X \beta + u, u = \lambda W2 u + \varepsilon</code>
+</p>
+
+<p>where <code class="reqn">\rho</code> and <code class="reqn">\lambda</code> are found by <code>nlminb</code> or <code>optim()</code> first, and <code class="reqn">\beta</code> and other parameters by generalized least squares subsequently.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">lagsarlm(formula, data = list(), listw, na.action, Durbin, type,
+ method="eigen", quiet=NULL, zero.policy=NULL, interval=NULL,
+ tol.solve=.Machine$double.eps, trs=NULL, control=list())
+errorsarlm(formula, data=list(), listw, na.action, weights=NULL,
+ Durbin, etype, method="eigen", quiet=NULL, zero.policy=NULL,
+ interval = NULL, tol.solve=.Machine$double.eps, trs=NULL, control=list())
+sacsarlm(formula, data = list(), listw, listw2 = NULL, na.action, Durbin, type,
+ method="eigen", quiet=NULL, zero.policy=NULL, tol.solve=.Machine$double.eps,
+ llprof=NULL, interval1=NULL, interval2=NULL, trs1=NULL, trs2=NULL,
+ control = list())
+## S3 method for class 'Sarlm'
+summary(object, correlation = FALSE, Nagelkerke = FALSE,
+ Hausman=FALSE, adj.se=FALSE, ...)
+## S3 method for class 'Sarlm'
+print(x, ...)
+## S3 method for class 'summary.Sarlm'
+print(x, digits = max(5, .Options$digits - 3),
+ signif.stars = FALSE, ...)
+## S3 method for class 'Sarlm'
+residuals(object, ...)
+## S3 method for class 'Sarlm'
+deviance(object, ...)
+## S3 method for class 'Sarlm'
+coef(object, ...)
+## S3 method for class 'Sarlm'
+vcov(object, ...)
+## S3 method for class 'Sarlm'
+fitted(object, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit. The details 
+of model specification are given for <code>lm()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the model. 
+By default the variables are taken from the environment which the function 
+is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>listw, listw2</code></td>
+<td>
+<p>a <code>listw</code> object created for example by <code>nb2listw</code>; if <code>nb2listw</code> not given, set to the same spatial weights as the <code>listw</code> argument</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+<p>a function (default <code>options("na.action")</code>), can also be <code>na.omit</code> or <code>na.exclude</code> with consequences for residuals and fitted values - in these cases the weights list will be subsetted to remove NAs in the data. It may be necessary to set zero.policy to TRUE because this subsetting may create no-neighbour observations. Note that only weights lists created without using the glist argument to <code>nb2listw</code> may be subsetted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>an optional vector of weights to be used in the fitting process. Non-NULL weights can be used to indicate that different observations have different variances (with the values in weights being inversely proportional to the variances); or equivalently, when the elements of weights are positive integers w_i, that each response y_i is the mean of w_i unit-weight observations (including the case that there are w_i observations equal to y_i and the data have been summarized) - <code>lm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Durbin</code></td>
+<td>
+<p>default FALSE (spatial lag model); if TRUE, full spatial Durbin model; if a formula object, the subset of explanatory variables to lag</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>(use the ‘Durbin=’ argument - retained for backwards compatibility only) default "lag", may be set to "mixed"; when "mixed", the lagged intercept is dropped for spatial weights style "W", that is row-standardised weights, but otherwise included; “Durbin” may be used instead of “mixed”</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>etype</code></td>
+<td>
+<p>(use the ‘Durbin=’ argument - retained for backwards compatibility only) default "error", may be set to "emixed" to include the spatially lagged independent variables added to X; when "emixed", the lagged intercept is dropped for spatial weights style "W", that is row-standardised weights, but otherwise included</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>"eigen" (default) - the Jacobian is computed as the product 
+of (1 - rho*eigenvalue) using <code>eigenw</code>, and "spam" or "Matrix_J" for strictly symmetric weights lists of styles "B" and "C", or made symmetric by similarity (Ord, 1975, Appendix C) if possible for styles "W" and "S", using code from the spam or Matrix packages to calculate the determinant; “Matrix” and “spam_update” provide updating Cholesky decomposition methods; "LU" provides an alternative sparse matrix decomposition approach. In addition, there are "Chebyshev" and Monte Carlo "MC" approximate log-determinant methods; the Smirnov/Anselin (2009) trace approximation is available as "moments". Three methods: "SE_classic", "SE_whichMin", and "SE_interp" are provided experimentally, the first to attempt to emulate the behaviour of Spatial Econometrics toolbox ML fitting functions. All use grids of log determinant values, and the latter two attempt to ameliorate some features of "SE_classic".
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>default NULL, use !verbose global option value; if FALSE, reports function values during optimization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zero.policy</code></td>
+<td>
+<p>default NULL, use global option value; if TRUE assign zero to the lagged value of zones without 
+neighbours, if FALSE (default) assign NA - causing <code>lagsarlm()</code> to terminate with an error</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>default is NULL, search interval for autoregressive parameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol.solve</code></td>
+<td>
+<p>the tolerance for detecting linear dependencies in the columns of matrices to be inverted - passed to <code>solve()</code> (default=1.0e-10). This may be used if necessary to extract coefficient standard errors (for instance lowering to 1e-12), but errors in <code>solve()</code> may constitute indications of poorly scaled variables: if the variables have scales differing much from the autoregressive coefficient, the values in this matrix may be very different in scale, and inverting such a matrix is analytically possible by definition, but numerically unstable; rescaling the RHS variables alleviates this better than setting tol.solve to a very small value</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>llprof</code></td>
+<td>
+<p>default NULL, can either be an integer, to divide the feasible ranges into a grid of points, or a two-column matrix of spatial coefficient values, at which to evaluate the likelihood function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trs1, trs2</code></td>
+<td>
+<p>default NULL, if given, vectors for each weights object of powered spatial weights matrix traces output by <code>trW</code>; when given, used in some Jacobian methods</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval1, interval2</code></td>
+<td>
+<p>default is NULL, search intervals for each weights object for autoregressive parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trs</code></td>
+<td>
+<p>default NULL, if given, a vector of powered spatial weights matrix traces output by <code>trW</code>; when given, insert the asymptotic analytical values into the numerical Hessian instead of the approximated values; may be used to get around some problems raised when the numerical Hessian is poorly conditioned, generating NaNs in subsequent operations; the use of trs is recommended</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>list of extra control arguments - see section below</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p><code>Sarlm</code> object from <code>lagsarlm</code>, <code>errorsarlm</code> or <code>sacsarlm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>correlation</code></td>
+<td>
+<p>logical; if 'TRUE', the correlation matrix of the estimated parameters including sigma is returned and printed (default=FALSE)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Nagelkerke</code></td>
+<td>
+<p>if TRUE, the Nagelkerke pseudo R-squared is reported</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Hausman</code></td>
+<td>
+<p>if TRUE, the results of the Hausman test for error models are reported</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adj.se</code></td>
+<td>
+<p>if TRUE, adjust the coefficient standard errors for the number of fitted coefficients</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code>Sarlm</code> object from <code>lagsarlm</code>, <code>errorsarlm</code> or <code>sacsarlm</code> in <code>print.Sarlm</code>, summary object from <code>summary.Sarlm</code> for 
+<code>print.summary.Sarlm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>digits</code></td>
+<td>
+<p>the number of significant digits to use when printing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>signif.stars</code></td>
+<td>
+<p>logical. If TRUE, "significance stars" are printed
+for each coefficient.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments passed to or from other methods</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The asymptotic standard error of <code class="reqn">\rho</code> is only computed when
+method=“eigen”, because the full matrix operations involved would be costly
+for large n typically associated with the choice of method="spam" or "Matrix". The same applies to the coefficient covariance matrix. Taken as the
+asymptotic matrix from the literature, it is typically badly scaled, and with the elements involving <code class="reqn">\rho</code> (lag model) or <code class="reqn">\lambda</code> (error model) being very small,
+while other parts of the matrix can be very large (often many orders
+of magnitude in difference). It often happens that the <code>tol.solve</code>
+argument needs to be set to a smaller value than the default, or the RHS variables can be centred or reduced in range.
+</p>
+<p>Versions of the package from 0.4-38 include numerical Hessian values where asymptotic standard errors are not available. This change has been introduced to permit the simulation of distributions for impact measures. The warnings made above with regard to variable scaling also apply in this case.
+</p>
+<p>Note that the fitted() function for the output object assumes that the response 
+variable may be reconstructed as the sum of the trend, the signal, and the
+noise (residuals). Since the values of the response variable are known,
+their spatial lags are used to calculate signal components (Cressie 1993, 
+p. 564). This differs from other software, including GeoDa, which does not use 
+knowledge of the response variable in making predictions for the fitting data. 
+Refer to the help page of <code>predict.Sarlm</code> for discussions and 
+references.
+</p>
+<p>Because numerical optimisation is used to find the values of lambda and rho in <code>sacsarlm</code>, care needs to be shown. It has been found that the surface of the 2D likelihood function often forms a “banana trench” from (low rho, high lambda) through (high rho, high lambda) to (high rho, low lambda) values. In addition, sometimes the banana has optima towards both ends, one local, the other global, and conseqently the choice of the starting point for the final optimization becomes crucial. The default approach is not to use just (0, 0) as a starting point, nor the (rho, lambda) values from <code>gstsls</code>, which lie in a central part of the “trench”, but either four values at (low rho, high lambda), (0, 0), (high rho, high lambda), and (high rho, low lambda), and to use the best of these start points for the final optimization. Optionally, nine points can be used spanning the whole (lower, upper) space.
+</p>
+
+
+<h3>Control arguments</h3>
+
+
+<dl>
+<dt>tol.opt:</dt>
+<dd>
+<p>the desired accuracy of the optimization - passed to <code>optimize()</code> (default=square root of double precision machine tolerance, a larger root may be used needed, see help(boston) for an example)</p>
+</dd>
+<dt>returnHcov:</dt>
+<dd>
+<p>(error model) default TRUE, return the Vo matrix for a spatial Hausman test</p>
+</dd>
+<dt>pWOrder:</dt>
+<dd>
+<p>(error model) default 250, if returnHcov=TRUE and the method is not “eigen”, pass this order to <code>powerWeights</code> as the power series maximum limit</p>
+</dd>
+<dt>fdHess:</dt>
+<dd>
+<p>default NULL, then set to (method != "eigen") internally; use <code>fdHess</code> to compute an approximate Hessian using finite differences when using sparse matrix methods; used to make a coefficient covariance matrix when the number of observations is large; may be turned off to save resources if need be</p>
+</dd>
+<dt>optimHess:</dt>
+<dd>
+<p>default FALSE, use <code>fdHess</code> from <span class="pkg">nlme</span>, if TRUE, use <code>optim</code> to calculate Hessian at optimum</p>
+</dd>
+<dt>optimHessMethod:</dt>
+<dd>
+<p>default “optimHess”, may be “nlm” or one of the <code>optim</code> methods</p>
+</dd>
+<dt>compiled_sse:</dt>
+<dd>
+<p>default FALSE; logical value used in the log likelihood function to choose compiled code for computing SSE</p>
+</dd>
+<dt>Imult:</dt>
+<dd>
+<p>default 2; used for preparing the Cholesky decompositions for updating in the Jacobian function</p>
+</dd>
+<dt>super:</dt>
+<dd>
+<p>if NULL (default), set to FALSE to use a simplicial decomposition for the sparse Cholesky decomposition and method “Matrix_J”, set to  <code>as.logical(NA)</code> for method “Matrix”, if TRUE, use a supernodal decomposition</p>
+</dd>
+<dt>cheb_q:</dt>
+<dd>
+<p>default 5; highest power of the approximating polynomial for the Chebyshev approximation</p>
+</dd>
+<dt>MC_p:</dt>
+<dd>
+<p>default 16; number of random variates</p>
+</dd>
+<dt>MC_m:</dt>
+<dd>
+<p>default 30; number of products of random variates matrix and spatial weights matrix</p>
+</dd>
+<dt>spamPivot:</dt>
+<dd>
+<p>default “MMD”, alternative “RCM”</p>
+</dd>
+<dt>in_coef</dt>
+<dd>
+<p>default 0.1, coefficient value for initial Cholesky decomposition in “spam_update”</p>
+</dd>
+<dt>type</dt>
+<dd>
+<p>default “MC”, used with method “moments”; alternatives “mult” and “moments”, for use if <code>trs</code> is missing, <code>trW</code></p>
+</dd>
+<dt>correct</dt>
+<dd>
+<p>default TRUE, used with method “moments” to compute the Smirnov/Anselin correction term</p>
+</dd>
+<dt>trunc</dt>
+<dd>
+<p>default TRUE, used with method “moments” to truncate the Smirnov/Anselin correction term</p>
+</dd>
+<dt>SE_method</dt>
+<dd>
+<p>default “LU”, may be “MC”</p>
+</dd>
+<dt>nrho</dt>
+<dd>
+<p>default 200, as in SE toolbox; the size of the first stage lndet grid; it may be reduced to for example 40</p>
+</dd>
+<dt>interpn</dt>
+<dd>
+<p>default 2000, as in SE toolbox; the size of the second stage lndet grid</p>
+</dd>
+<dt>small_asy</dt>
+<dd>
+<p>default TRUE; if the method is not “eigen”, use asymmetric covariances rather than numerical Hessian ones if n &lt;= small</p>
+</dd>
+<dt>small</dt>
+<dd>
+<p>default 1500; threshold number of observations for asymmetric covariances when the method is not “eigen”</p>
+</dd>
+<dt>SElndet</dt>
+<dd>
+<p>default NULL, may be used to pass a pre-computed SE toolbox style matrix of coefficients and their lndet values to the "SE_classic" and "SE_whichMin" methods</p>
+</dd>
+<dt>LU_order</dt>
+<dd>
+<p>default FALSE; used in “LU_prepermutate”, note warnings given for <code>lu</code> method</p>
+</dd>
+<dt>pre_eig</dt>
+<dd>
+<p>default NULL; may be used to pass a pre-computed vector of eigenvalues</p>
+</dd>
+<dt>return_impacts</dt>
+<dd>
+<p>default TRUE; may be set FALSE to avoid problems calculating impacts with aliased variables</p>
+</dd>
+<dt>OrdVsign</dt>
+<dd>
+<p>default 1; used to set the sign of the final component to negative if -1 (alpha times ((sigma squared) squared) in Ord (1975) equation B.1).</p>
+</dd>
+<dt>opt_method:</dt>
+<dd>
+<p>default “nlminb”, may be set to “L-BFGS-B” to use box-constrained optimisation in <code>optim</code></p>
+</dd>
+<dt>opt_control:</dt>
+<dd>
+<p>default <code>list()</code>, a control list to pass to <code>nlminb</code> or <code>optim</code></p>
+</dd>
+<dt>pars:</dt>
+<dd>
+<p>default <code>NULL</code>, for which five trial starting values spanning the lower/upper range are tried and the best selected, starting values of <code class="reqn">\rho</code> and <code class="reqn">\lambda</code></p>
+</dd>
+<dt>npars</dt>
+<dd>
+<p>default integer <code>4L</code>, four trial points; if not default value, nine trial points</p>
+</dd>
+<dt>pre_eig1, pre_eig2</dt>
+<dd>
+<p>default NULL; may be used to pass pre-computed vectors of eigenvalues</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+<p>Roger Bivand <a href="mailto:Roger.Bivand@nhh.no">Roger.Bivand@nhh.no</a>, with thanks to Andrew 
+Bernat for contributions to the asymptotic standard error code.</p>
+
+
+<h3>References</h3>
+
+<p>Cliff, A. D., Ord, J. K. 1981 <em>Spatial processes</em>, Pion;
+Ord, J. K. 1975 Estimation methods for models of spatial interaction,
+<em>Journal of the American Statistical Association</em>, 70, 120-126;
+Anselin, L. 1988 <em>Spatial econometrics: methods and models.</em>
+(Dordrecht: Kluwer); Anselin, L. 1995 SpaceStat, a software program for
+the analysis of spatial data, version 1.80. Regional Research Institute,
+West Virginia University, Morgantown, WV;
+Anselin L, Bera AK (1998) Spatial dependence in linear regression models
+with an introduction to spatial econometrics. In: Ullah A, Giles DEA
+(eds) Handbook of applied economic statistics. Marcel Dekker, New York,
+pp. 237-289; Nagelkerke NJD (1991) A note on a general definition of the 
+coefficient of determination. Biometrika 78: 691-692; Cressie, N. A. C. 1993 <em>Statistics for spatial data</em>, Wiley, New York; LeSage J and RK Pace (2009) Introduction to Spatial Econometrics. CRC Press, Boca Raton.
+</p>
+<p>Roger Bivand, Gianfranco Piras (2015). Comparing Implementations of Estimation Methods for Spatial Econometrics. <em>Journal of Statistical Software</em>, 63(18), 1-36. <a href="https://doi.org/10.18637/jss.v063.i18">doi:10.18637/jss.v063.i18</a>.
+</p>
+<p>Bivand, R. S., Hauke, J., and Kossowski, T. (2013). Computing the Jacobian in Gaussian spatial autoregressive models: An illustrated comparison of available methods. <em>Geographical Analysis</em>, 45(2), 150-179.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>lm</code>, <code>impacts</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(oldcol, package="spdep")
+listw &lt;- spdep::nb2listw(COL.nb, style="W")
+ev &lt;- eigenw(listw)
+W &lt;- as(listw, "CsparseMatrix")
+trMatc &lt;- trW(W, type="mult")
+COL.lag.eig &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD, listw=listw,
+ method="eigen", quiet=FALSE, control=list(pre_eig=ev, OrdVsign=1))
+(x &lt;- summary(COL.lag.eig, correlation=TRUE))
+coef(x)
+## Not run: 
+COL.lag.eig$fdHess
+COL.lag.eig$resvar
+# using the apparent sign in Ord (1975, equation B.1) 
+COL.lag.eigb &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD, listw=listw,
+ method="eigen", control=list(pre_eig=ev, OrdVsign=-1))
+summary(COL.lag.eigb)
+COL.lag.eigb$fdHess
+COL.lag.eigb$resvar
+# force numerical Hessian
+COL.lag.eig1 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw=listw, method="Matrix", control=list(small=25))
+summary(COL.lag.eig1)
+COL.lag.eig1$fdHess
+# force LeSage &amp; Pace (2008, p. 57) approximation 
+COL.lag.eig1a &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw=listw, method="Matrix", control=list(small=25), trs=trMatc)
+summary(COL.lag.eig1a)
+COL.lag.eig1a$fdHess
+COL.lag.eig$resvar[2,2]
+# using the apparent sign in Ord (1975, equation B.1) 
+COL.lag.eigb$resvar[2,2]
+# force numerical Hessian
+COL.lag.eig1$fdHess[1,1]
+# force LeSage &amp; Pace (2008, p. 57) approximation 
+COL.lag.eig1a$fdHess[2,2]
+
+## End(Not run)
+system.time(COL.lag.M &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix", quiet=FALSE))
+summary(COL.lag.M)
+impacts(COL.lag.M, listw=listw)
+## Not run: 
+system.time(COL.lag.sp &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw=listw, method="spam", quiet=FALSE))
+summary(COL.lag.sp)
+COL.lag.B &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ spdep::nb2listw(COL.nb, style="B"), control=list(pre_eig=ev))
+summary(COL.lag.B)
+COL.mixed.B &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ spdep::nb2listw(COL.nb, style="B"), type="mixed", tol.solve=1e-9,
+ control=list(pre_eig=ev))
+summary(COL.mixed.B)
+COL.mixed.W &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, type="mixed", control=list(pre_eig=ev))
+summary(COL.mixed.W)
+COL.mixed.D00 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin=TRUE, control=list(pre_eig=ev))
+summary(COL.mixed.D00)
+COL.mixed.D01 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin=FALSE, control=list(pre_eig=ev))
+summary(COL.mixed.D01)
+COL.mixed.D1 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin= ~ INC + HOVAL, control=list(pre_eig=ev))
+summary(COL.mixed.D1)
+f &lt;- CRIME ~ INC + HOVAL
+COL.mixed.D2 &lt;- lagsarlm(f, data=COL.OLD, listw,
+ Durbin=as.formula(delete.response(terms(f))),
+ control=list(pre_eig=ev))
+summary(COL.mixed.D2)
+COL.mixed.D1a &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin= ~ INC, control=list(pre_eig=ev))
+summary(COL.mixed.D1a)
+try(COL.mixed.D1 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin= ~ inc + HOVAL, control=list(pre_eig=ev)))
+try(COL.mixed.D1 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin= ~ DISCBD + HOVAL, control=list(pre_eig=ev)))
+NA.COL.OLD &lt;- COL.OLD
+NA.COL.OLD$CRIME[20:25] &lt;- NA
+COL.lag.NA &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=NA.COL.OLD,
+ listw, na.action=na.exclude)
+COL.lag.NA$na.action
+COL.lag.NA
+resid(COL.lag.NA)
+COL.lag.NA1 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=NA.COL.OLD,
+ listw, Durbin=~INC) # https://github.com/r-spatial/spatialreg/issues/10
+COL.lag.NA1$na.action
+COL.lag.NA2 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=NA.COL.OLD,
+ listw, Durbin=~INC, na.action=na.exclude)
+COL.lag.NA2$na.action
+# https://github.com/r-spatial/spatialreg/issues/11
+COL.lag.NA3 &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=NA.COL.OLD,
+ listw, control=list(pre_eig=ev))
+COL.lag.NA3$na.action
+
+## End(Not run)
+
+## Not run: 
+data(boston, package="spData")
+gp2mM &lt;- lagsarlm(log(CMEDV) ~ CRIM + ZN + INDUS + CHAS + I(NOX^2) + 
+I(RM^2) +  AGE + log(DIS) + log(RAD) + TAX + PTRATIO + B + log(LSTAT), 
+data=boston.c, spdep::nb2listw(boston.soi), type="mixed", method="Matrix")
+summary(gp2mM)
+W &lt;- as(spdep::nb2listw(boston.soi), "CsparseMatrix")
+trMatb &lt;- trW(W, type="mult")
+gp2mMi &lt;- lagsarlm(log(CMEDV) ~ CRIM + ZN + INDUS + CHAS + I(NOX^2) + 
+I(RM^2) +  AGE + log(DIS) + log(RAD) + TAX + PTRATIO + B + log(LSTAT), 
+data=boston.c, spdep::nb2listw(boston.soi), type="mixed", method="Matrix", 
+trs=trMatb)
+summary(gp2mMi)
+
+## End(Not run)
+COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, quiet=FALSE, control=list(pre_eig=ev))
+summary(COL.errW.eig)
+COL.errW.eig_ev &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, control=list(pre_eig=ev))
+all.equal(coefficients(COL.errW.eig), coefficients(COL.errW.eig_ev))
+COL.errB.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ spdep::nb2listw(COL.nb, style="B"))
+summary(COL.errB.eig)
+COL.errW.M &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix", quiet=FALSE, trs=trMatc)
+summary(COL.errW.M)
+COL.SDEM.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, etype="emixed", control=list(pre_eig=ev))
+summary(COL.SDEM.eig)
+## Not run: 
+COL.SDEM.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, Durbin=TRUE, control=list(pre_eig=ev))
+summary(COL.SDEM.eig)
+COL.SDEM.eig &lt;- errorsarlm(CRIME ~ DISCBD + INC + HOVAL, data=COL.OLD,
+ listw, Durbin=~INC, control=list(pre_eig=ev))
+summary(COL.SDEM.eig)
+summary(impacts(COL.SDEM.eig))
+NA.COL.OLD &lt;- COL.OLD
+NA.COL.OLD$CRIME[20:25] &lt;- NA
+COL.err.NA &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=NA.COL.OLD,
+ listw, na.action=na.exclude)
+COL.err.NA$na.action
+COL.err.NA
+resid(COL.err.NA)
+print(system.time(ev &lt;- eigenw(similar.listw(listw))))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="eigen", control=list(pre_eig=ev))))
+ocoef &lt;- coefficients(COL.errW.eig)
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="eigen", control=list(pre_eig=ev, LAPACK=FALSE))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="eigen", control=list(pre_eig=ev, compiled_sse=TRUE))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix_J", control=list(super=TRUE))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix_J", control=list(super=FALSE))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix_J", control=list(super=as.logical(NA)))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix", control=list(super=TRUE))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix", control=list(super=FALSE))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="Matrix", control=list(super=as.logical(NA)))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="spam", control=list(spamPivot="MMD"))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="spam", control=list(spamPivot="RCM"))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="spam_update", control=list(spamPivot="MMD"))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+print(system.time(COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, method="spam_update", control=list(spamPivot="RCM"))))
+print(all.equal(ocoef, coefficients(COL.errW.eig)))
+
+## End(Not run)
+COL.sacW.eig &lt;- sacsarlm(CRIME ~ INC + HOVAL, data=COL.OLD, listw,
+ control=list(pre_eig1=ev, pre_eig2=ev))
+summary(COL.sacW.eig)
+set.seed(1)
+summary(impacts(COL.sacW.eig, tr=trMatc, R=2000), zstats=TRUE, short=TRUE)
+COL.msacW.eig &lt;- sacsarlm(CRIME ~ INC + HOVAL, data=COL.OLD, listw,
+ type="sacmixed", control=list(pre_eig1=ev, pre_eig2=ev))
+summary(COL.msacW.eig)
+set.seed(1)
+summary(impacts(COL.msacW.eig, tr=trMatc, R=2000), zstats=TRUE, short=TRUE)
+COL.msacW1.eig &lt;- sacsarlm(CRIME ~ INC + HOVAL, data=COL.OLD, listw,
+ Durbin=TRUE, control=list(pre_eig1=ev, pre_eig2=ev))
+summary(COL.msacW1.eig)
+set.seed(1)
+summary(impacts(COL.msacW1.eig, tr=trMatc, R=2000), zstats=TRUE, short=TRUE)
+COL.msacW2.eig &lt;- sacsarlm(CRIME ~ DISCBD + INC + HOVAL, data=COL.OLD, 
+ listw, Durbin= ~ INC, control=list(pre_eig1=ev, pre_eig2=ev))
+summary(COL.msacW2.eig)
+summary(impacts(COL.msacW2.eig, tr=trMatc, R=2000), zstats=TRUE, short=TRUE)
+## Not run: 
+COL.mix.eig &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, type="mixed", method="eigen")
+summary(COL.mix.eig, correlation=TRUE, Nagelkerke=TRUE)
+COL.mix.M &lt;- lagsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+ listw, type="mixed", method="Matrix")
+summary(COL.mix.M, correlation=TRUE, Nagelkerke=TRUE)
+COL.errW.eig &lt;- errorsarlm(CRIME ~ INC + HOVAL, data=COL.OLD,
+  spdep::nb2listw(COL.nb, style="W"), method="eigen")
+summary(COL.errW.eig, correlation=TRUE, Nagelkerke=TRUE, Hausman=TRUE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,733 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>syn</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generating synthetic data sets</h2>
+
+<h3>Description</h3>
+
+<p>Generates synthetic version(s) of a data set. Function <code>syn.strata()</code> 
+performs stratified synthesis.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">syn(data, method = "cart", visit.sequence = (1:ncol(data)),
+    predictor.matrix = NULL,  
+    m = 1, k = nrow(data), proper = FALSE, 
+    minnumlevels = 1, maxfaclevels = 60, 
+    rules = NULL, rvalues = NULL, 
+    cont.na = NULL, semicont = NULL, 
+    smoothing = NULL, event = NULL, denom = NULL, 
+    drop.not.used = FALSE, drop.pred.only = FALSE, 
+    default.method = c("normrank", "logreg", "polyreg", "polr"),
+    numtocat = NULL, catgroups = rep(5, length(numtocat)), 
+    models = FALSE, print.flag = TRUE, seed = "sample", ...)
+    
+syn.strata(data, strata = NULL, 
+    minstratumsize = 10 + 10 * length(visit.sequence),  
+    tab.strataobs = TRUE, tab.stratasyn = FALSE,
+    method = "cart", visit.sequence = (1:ncol(data)),
+    predictor.matrix = NULL,
+    m = 1, k = nrow(data), proper = FALSE, 
+    minnumlevels = 1, maxfaclevels = 60, 
+    rules = NULL, rvalues = NULL,
+    cont.na = NULL, semicont = NULL, 
+    smoothing = NULL, event = NULL, denom = NULL, 
+    drop.not.used = FALSE, drop.pred.only = FALSE,
+    default.method = c("normrank", "logreg", "polyreg", "polr"),
+    numtocat = NULL, catgroups = rep(5,length(numtocat)), 
+    models = FALSE, print.flag = TRUE, seed = "sample", ...)    
+   
+## S3 method for class 'synds'
+print(x, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a data frame or a matrix (<code>n</code> x <code>p</code>) containing the 
+original data. Observations are in rows and variables are in columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a single string or a vector of strings of length
+<code>ncol(data)</code> specifying the synthesising method to be
+used for each variable in the data. Order of variables is exactly the
+same as in <code>data</code>. If specified as a single string, the same method
+is used for all variables in a visit sequence unless a data type or
+a position in a visit sequence requires a different method. 
+If <code>method</code> is set to <code>"parametric"</code> the
+default synthesising method specified by the <code>default.method</code> argument
+are applied. Variables that are transformations of other variables can
+be synthesised using a passive method that is specified as a string 
+starting with <code>~</code> (see <code>syn.passive</code>). Variables that need 
+not to be synthesised have the empty method <code>""</code>. By default all 
+variables are synthesised using <code>"cart"</code> method, which is 
+<code>rpart</code> implementation of a CART model (see <code>syn.cart</code>). 
+See details for more information on method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>visit.sequence</code></td>
+<td>
+<p>a character vector of names of variables or an integer 
+vector of their column indices specifying the order of synthesis.
+The default sequence <code>1:ncol(data)</code> implies that column variables are
+synthesised from left to right. See details for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predictor.matrix</code></td>
+<td>
+<p>a square matrix of size <code>ncol(data)</code> specifying
+the set of column predictors to be used for each target variable in the row.
+Each entry has value 0 or 1. A value of 1 means that the column
+variable is used as a predictor for the row variable. Order of
+variables is exactly the same as in <code>data</code>. By default all
+variables that are earlier in the visit sequence are used as predictors.
+For the default visit sequence (<code>1:ncol(data)</code>) the default
+<code>predictor.matrix</code> will have values of 1 in the lower triangle.
+See details for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>number of synthetic copies of the original (observed) data to be 
+generated. The default is <code>m = 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>a size of the synthetic data set (<code>k x p</code>),
+which can be smaller or greater than the size of the original data 
+set (<code>n x p</code>). The default is <code>nrow(data)</code> which means 
+that the number of individuals in the synthesised data is the same 
+as in the original (observed) data (<code>k = n</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proper</code></td>
+<td>
+<p>a logical value with default set to <code>FALSE</code>. 
+If <code>TRUE</code> proper synthesis is conducted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minnumlevels</code></td>
+<td>
+<p>a minimum number of values a numeric variable should exceed
+to be treated as numeric during the synthesis. Numeric variables with only 
+<code>minnumlevels</code> or fewer distinct values are changed into factors. 
+If set to <code>1</code> (default) numeric variables are left unchanged unless 
+they have only one non-missing value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxfaclevels</code></td>
+<td>
+<p>a maximum number of factor levels that can be handled.
+It can be increased to allow the synthesis to run but too large a value may
+cause computational problems, especially for parametric methods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rules</code></td>
+<td>
+<p>a named list of rules for restricted values. Restricted values 
+are those that are determined explicitly by values of other variables.
+The names of the list elements must correspond to the variables names for 
+which the rules need to be specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rvalues</code></td>
+<td>
+<p>a named list of the values corresponding to the rules
+specified by <code>rules</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cont.na</code></td>
+<td>
+<p>a named list of codes for missing values for continuous
+variables if different from the <code>R</code> missing data code <code>NA</code>.
+The names of the list elements must correspond to the variables names for 
+which the missing data codes need to be specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>semicont</code></td>
+<td>
+<p>a named list of values at which semi-continuous
+variables have spikes. The names of the list elements must correspond 
+to the names of the semi-continuous variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothing</code></td>
+<td>
+<p>a single string specifying a smoothing method for all numeric 
+variables in the data or a named list specifying a smoothing method to be 
+used for selected variables. Avaliable methods include: <code>"spline"</code> 
+(recommended), <code>"rmean"</code>, <code>"density"</code>, and <code>""</code>).
+Smoothing can only be applied to continuous variables synthesised using 
+<code>sample</code>, <code>ctree</code>, <code>cart</code>, <code>rf</code>, <code>bag</code>, 
+<code>ranger</code>, <code>normrank</code>, <code>pmm</code> or <code>nested</code> method. 
+The names of the list elements must correspond to the names of the 
+variables whose values are to be smoothed. Smoothing is applied to the 
+synthesised values. For more details see <code>syn.smooth</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>event</code></td>
+<td>
+<p>a named list specifying for survival data the names of 
+corresponding event indicators. The names of the list elements 
+must correspond to the names of the survival variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>denom</code></td>
+<td>
+<p>a named list specifying for variables to be modelled using 
+binomial regression the names of corresponding denominator variables. 
+The names of the list elements must correspond to the names of the 
+variables to be modelled using binomial regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop.not.used</code></td>
+<td>
+<p>a logical value. If <code>TRUE</code> (default) variables not 
+used in synthesis are not saved in the synthesised data and are not 
+included in the corresponding synthesis parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop.pred.only</code></td>
+<td>
+<p>a logical value. If <code>TRUE</code> (default) variables not 
+synthesised and used as predictors only are not saved in the synthesised 
+data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>default.method</code></td>
+<td>
+<p>a vector of four strings containing the default
+parametric synthesising methods for numerical variables, factors 
+with two levels, unordered factors with more than two levels 
+and ordered factors with more than two levels respectively. 
+They are used when <code>method</code> is set to <code>"parametric"</code> or 
+when there is an inconsistency between variable type and provided method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numtocat</code></td>
+<td>
+<p>a vector of numbers or names to indicate columns of <code>data</code>
+that are to be divided into groups to allow the grouped variables to be 
+synthesised as factors. The target number of groups for each variable is 
+specified by <code>catgroups</code>. After the grouped variables have been synthesised 
+the  numeric variables are synthesised from them by the method <code>syn.nested</code> 
+and are placed in the same position in the synthetic data as in the original. 
+The grouped variables are not stored in the synthetic data. If you want to keep
+the categorised values you should change the relevant variables in <code>data</code> 
+before running <code>syn()</code> with the function <code>numtocat.syn()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>catgroups</code></td>
+<td>
+<p>An integer or a vector of integers of the same length as
+<code>numtocat</code> giving the target number of groups into which of the
+numeric variables is to be categorised. The function <code>group_var</code>
+from the <code>classInt</code> package performs the categorisation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>models</code></td>
+<td>
+<p>if <code>TRUE</code> parameters of models fitted to the original data 
+and used to generate the synthetic values are stored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print.flag</code></td>
+<td>
+<p>if <code>TRUE</code> (default) synthesising history and 
+information messages will be printed at the console. For silent 
+computation use <code>print.flag = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>an integer to be used as an argument for the <code>set.seed()</code>.
+If no integer is provided, the default <code>"sample"</code> will generate one
+and it will be stored. To prevent generating an integer set <code>seed</code>
+to <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to be passed to synthesising functions. See 
+section 'Details' below for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata</code></td>
+<td>
+<p>a numeric vector with strata identifiers or a string vector with 
+names of stratifying variable(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minstratumsize</code></td>
+<td>
+<p>minimum size of each stratum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tab.strataobs</code></td>
+<td>
+<p>a logical value indicating whether a frequency table of
+the number of observations in strata in the original data set should be 
+printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tab.stratasyn</code></td>
+<td>
+<p>a logical value indicating whether a frequency table of
+the number of observations in strata in the synthetic data set(s) should 
+be printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an object of class <code>synds</code>; a result of a call to <code>syn()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Only variables that are in <code>visit.sequence</code> with corresponding non-empty 
+<code>method</code> are synthesised. The only exceptions are event indicators. They 
+are synthesised along with the corresponding time to event variables and should
+not be included in <code>visit.sequence</code>. All other variables (not in 
+<code>visit.sequence</code> or in <code>visit.sequence</code> with a corresponding blank 
+method) can be used as predictors. Including them in <code>visit.sequence</code> 
+generates a default <code>predictor.matrix</code> reflecting the order of variables 
+in the <code>visit.sequence</code> otherwise <code>predictor.matrix</code> has to be 
+adjusted accordingly. All predictors of the variables that are not in
+<code>visit.sequence</code> or are in <code>visit.sequence</code> but with a blank method
+are removed from <code>predictor.matrix</code>.
+</p>
+<p>Variables to be synthesised that are not synthesised yet cannot be used
+as predictors. Also all variables used in passive synthesis or in restricted
+values rules (<code>rules</code>) have to be synthesised before the variables they
+apply to.
+</p>
+<p>Mismatch between data type and synthesising method stops execution and
+print an error message but numeric variables with number of levels less
+than <code>minnumlevels</code> are changed into factors and methods are changed
+automatically, if necessary, to methods for categorical variables. 
+Methods for variables not in a visit sequence will be changed into blank.
+</p>
+<p>The built-in elementary synthesising methods defined by conditional 
+distributions include:
+</p>
+
+<dl>
+<dt>ctree, cart</dt>
+<dd>
+<p>classification and regression trees (CART), 
+see <code>syn.cart</code></p>
+</dd>
+<dt>bagging, random forests, ranger</dt>
+<dd>
+<p>methods using ensembles of CART trees, 
+see <code>syn.bag</code>, <code>syn.rf</code>, and <code>syn.ranger</code></p>
+</dd>
+<dt>survctree</dt>
+<dd>
+<p>classification and regression trees (CART)
+for duration time data (parametric methods for survival data are 
+not implemented yet),  see <code>syn.survctree</code></p>
+</dd>
+<dt>norm</dt>
+<dd>
+<p>normal linear regression, see <code>syn.norm</code></p>
+</dd>
+<dt>normrank</dt>
+<dd>
+<p>normal linear regression preserving the marginal 
+distribution, see <code>syn.normrank</code></p>
+</dd>
+<dt>lognorm, sqrtnorm, cubertnorm</dt>
+<dd>
+<p>normal linear regression after 
+natural logarithmic, square root and cube root transformation of 
+a dependent variable respectively, see <code>syn.lognorm</code></p>
+</dd> 
+<dt>logreg</dt>
+<dd>
+<p>logistic regression, see  <code>syn.logreg</code></p>
+</dd>
+<dt>polyreg</dt>
+<dd>
+<p>unordered polytomous regression, see 
+<code>syn.polyreg</code></p>
+</dd>
+<dt>polr</dt>
+<dd>
+<p>ordered polytomous regression, see <code>syn.polr</code></p>
+</dd>
+<dt>pmm</dt>
+<dd>
+<p>predictive mean matching, see <code>syn.pmm</code></p>
+</dd>
+<dt>sample</dt>
+<dd>
+<p>random sample from the observed data, 
+see <code>syn.sample</code></p>
+</dd>
+<dt>passive</dt>
+<dd>
+<p>function of other synthesised data,  
+see <code>syn.passive</code></p>
+</dd>
+<dt>nested</dt>
+<dd>
+<p>bootstrap sample within each category of the original 
+grouping variable, see <code>syn.nested</code></p>
+</dd>
+<dt>satcat</dt>
+<dd>
+<p>bootstrap sample within each category of the 
+crosstabulation of all the predictor variables, 
+see <code>syn.satcat</code></p>
+</dd>
+</dl>
+<p>These methods use a group of variables that are synthesised together. 
+They must always be together at the start of the visit sequence:
+</p>
+
+<dl>
+<dt>catall</dt>
+<dd>
+<p>fit a saturated log-linear model,
+see <code>syn.catall</code></p>
+</dd>
+<dt>ipf</dt>
+<dd>
+<p>fit a log-linear model, defined by its margins, by iterative 
+proportional fitting  see <code>syn.ipf</code></p>
+</dd>
+</dl>
+<p>The functions corresponding to these methods are called <code>syn.method</code>, 
+where <code>method</code> is a string with the name of a synthesising method. 
+For instance a function corresponding to <code>ctree</code> function is called
+<code>syn.ctree</code>. A new synthesising method can be introduced by writing 
+a function named <code>syn.newmethod</code> and then specifying <code>method</code> 
+parameter of <code>syn()</code> function as <code>"newmethod"</code>.
+</p>
+<p>In order to use <code>"nested"</code> sampling, <code>method</code> parameter of <code>syn</code> 
+function has to be specified as <code>"nested.varname"</code>, where <code>"varname"</code>
+is the name of the grouped (less detailed) variable, the only one used in 
+nested synthesis. A variable synthesised using <code>"nested"</code> method is 
+excluded from synthesising other variables except when used for <code>"nested"</code> 
+method.  
+</p>
+<p>Additional parameters can be passed to synthesising methods as part of the 
+<code>dots</code> argument. They have to be named using period-separated method and 
+parameter name (<code>method.parameter</code>). For instance, in order to set 
+a <code>minbucket</code> (minimum number of observations in any terminal node of 
+a CART model) for a <code>ctree</code> synthesising method, <code>ctree.minbucket</code>
+has to be specified. The parameters are method-specific and will be used for 
+all variables to be synthesised using that method. See help for 
+<code>syn.method</code> for further details about the allowed parameters for 
+a specific method.  
+</p>
+
+
+<h3>Value</h3>
+
+<p>The <code>summary</code> function (<code>summary.synds</code>) can be used  
+to obtain a summary of the synthesised variables.
+</p>
+<p>An object of class <code>synds</code>, which stands for 'synthesised 
+data set'. It is a list with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>an original call to <code>syn()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>m</code></td>
+<td>
+<p>number of synthetic versions of the original (observed) data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>syn</code></td>
+<td>
+<p>a data frame (for <code>m = 1</code>) or a list of <code>m</code> data frames 
+(for <code>m &gt; 1</code>) with synthetic data set(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a vector of synthesising methods applied to each variable
+in the saved synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>visit.sequence</code></td>
+<td>
+<p>a vector of column indices of the visiting sequence.
+The indices refer to the columns in the saved synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predictor.matrix</code></td>
+<td>
+<p>a matrix specifying the set of predictors used
+for each variable in the saved synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothing</code></td>
+<td>
+<p>a vector specifying smoothing methods 
+applied to each variable in the saved synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>event</code></td>
+<td>
+<p>a vector of integers specifying for survival data the column 
+indices for corresponding event indicators. The indices refer to the 
+columns in the saved synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>denom</code></td>
+<td>
+<p>a vector of integers specifying for variables modelled 
+using binomial regression the column indices for corresponding 
+denominator variables. The indices refer to the columns in the 
+saved synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proper</code></td>
+<td>
+<p>a logical value indicating whether proper synthesis was
+conducted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>a number of cases in the original data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>a number of cases in the synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rules</code></td>
+<td>
+<p>a list of rules for restricted values applied to the synthetic 
+data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rvalues</code></td>
+<td>
+<p>a list of the values corresponding to the rules
+specified by <code>rules</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cont.na</code></td>
+<td>
+<p>a list of codes for missing values for continuous variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>semicont</code></td>
+<td>
+<p>a list of values for semi-continuous variables at which they 
+have spikes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop.not.used</code></td>
+<td>
+<p>a logical value indicating whether variables not used
+in synthesis are saved in the synthesised data and corresponding
+synthesis parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop.pred.only</code></td>
+<td>
+<p>a logical value indicating whether variables not
+synthesised and used as predictors only are saved in the synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>models</code></td>
+<td>
+<p>if <code>models = TRUE</code> a named list of estimates of models 
+fitted to the original data and used to generate the synthetic values is 
+returned from the <code>$fit</code> component of each method 
+(e.g. <code>syn.cart()</code>). The list is ordered by the variables position 
+in the data, and any models used to predict missing values are appended 
+to the list.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>an integer used as a <code>set.seed()</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var.lab</code></td>
+<td>
+<p>a vector of variable labels for data imported from SPSS using 
+<code>read.obs()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>val.lab</code></td>
+<td>
+<p>a list of value labels for factors for data imported from SPSS 
+using <code>read.obs()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs.vars</code></td>
+<td>
+<p>a vector of all variable names in the observed data set.</p>
+</td>
+</tr>
+</table>
+<p>When <code>syn.strata()</code> is used there are two additiona components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>strata.syn</code></td>
+<td>
+<p>a factor variable or a list of factor variables containing 
+stratum values for all observation units in <code>syn</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata.lab</code></td>
+<td>
+<p>a character vector of strata labels.</p>
+</td>
+</tr>
+</table>
+<p>Note also that when <code>syn.strata</code> is used most values of the items are matrices 
+with each row corresponding to a stratum or lists with one element per stratum.
+</p>
+
+
+<h3>Note</h3>
+
+<p>See package vignette for additional information.</p>
+
+
+<h3>References</h3>
+
+<p>Nowok, B., Raab, G.M and Dibben, C. (2016). synthpop: Bespoke
+creation of synthetic data in R. <em>Journal of Statistical Software</em>,
+<b>74</b>(11), 1-26. <a href="https://doi.org/10.18637/jss.v074.i11">doi:10.18637/jss.v074.i11</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>compare.synds</code>, <code>summary.synds</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### selection of variables
+vars &lt;- c("sex","age","marital","income","ls","smoke")
+ods  &lt;- SD2011[1:1000, vars]
+ 
+### default synthesis
+s1 &lt;- syn(ods)
+s1
+  
+### synthesis with default parametric methods
+s2 &lt;- syn(ods, method = "parametric", seed = 123)
+s2$method
+  
+### multiple synthesis of selected variables with customised methods
+s3 &lt;- syn(ods, visit.sequence = c(2, 1, 4, 5), m = 2,
+          method = c("logreg","sample","","normrank","ctree",""),
+          ctree.minbucket = 10)
+summary(s3)
+summary(s3, msel = 1:2)
+  
+### adjustment to the default predictor matrix 
+s4.ini &lt;- syn(data = ods, visit.sequence = c(1, 2, 5, 3),
+              m = 0, drop.not.used = FALSE)
+pM.cor &lt;- s4.ini$predictor.matrix
+pM.cor["marital","ls"] &lt;- 0
+s4 &lt;- syn(data = ods, visit.sequence = c(1, 2, 5, 3),
+          predictor.matrix = pM.cor)
+  
+### handling missing values in continuous variables
+s5 &lt;- syn(ods, cont.na = list(income = c(NA, -8)))
+  
+### rules for restricted values - marital status of males under 18 should be 'single'
+s6 &lt;- syn(ods, rules = list(marital = "age &lt; 18 &amp; sex == 'MALE'"),
+          rvalues = list(marital = 'SINGLE'), method = "parametric", seed = 123)
+with(s6$syn, table(marital[age &lt; 18 &amp; sex == 'MALE']))
+### results for default parametric synthesis without the rule  
+with(s2$syn, table(marital[age &lt; 18 &amp; sex == 'MALE']))
+
+### synthesis with ipf for all variables
+s7 &lt;- syn(ods[, 1:3], method = "ipf", numtocat = "age")
+
+### alternatively group the numeric variable before synthesis to save
+### the grouped data rather than the numeric in the synthetic data set
+ods.cat &lt;- numtocat.syn(ods, numtocat = "age", catgroups = 10)$data
+s8 &lt;- syn(ods.cat[, 1:3], method = "ipf")
+
+### stratified synthesis
+s9 &lt;- syn.strata(ods, strata = "sex")
+</code></pre>
+
+
+</div>

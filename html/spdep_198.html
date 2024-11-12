@@ -1,0 +1,140 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Graph Components</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Depth First Search on Neighbor Lists</h2>
+
+<h3>Description</h3>
+
+<p><code>n.comp.nb()</code> finds the number of disjoint connected subgraphs in the graph depicted by <code>nb.obj</code> - a spatial neighbours list object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">n.comp.nb(nb.obj)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>nb.obj</code></td>
+<td>
+<p>a neighbours list object of class <code>nb</code></p>
+</td>
+</tr></table>
+<h3>Details</h3>
+
+<p>If <code>attr(nb.obj, "sym")</code> is <code>FALSE</code> and <code>igraph::components</code> is available, the components of the directed graph will be found by a simple breadth-first search; if <code>igraph::components</code> is not available, the object will be made symmetric (which may be time-consuming with large numbers of neighbours) and the components found by depth-first search. If <code>attr(nb.obj, "sym")</code> is <code>TRUE</code>, the components of the directed graph will be found by depth-first search. The time complexity of algorithms used in native code and through <code>igraph::components</code> is linear in the sum of the number of nodes and the number of edges in the graph, see <a href="https://github.com/r-spatial/spdep/issues/160">https://github.com/r-spatial/spdep/issues/160</a> for details; very dense neighbour objects will have large numbers of edges.</p>
+
+
+<h3>Value</h3>
+
+<p>A list of:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>nc</code></td>
+<td>
+<p>number of disjoint connected subgraphs</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>comp.id</code></td>
+<td>
+<p>vector with the indices of the disjoint connected subgraphs that
+the nodes in <code>nb.obj</code> belong to</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Nicholas Lewin-Koh <a href="mailto:nikko@hailmail.net">nikko@hailmail.net</a></p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.nb</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">columbus &lt;- st_read(system.file("shapes/columbus.gpkg", package="spData")[1], quiet=TRUE)
+col.gal.nb &lt;- read.gal(system.file("weights/columbus.gal", package="spData")[1])
+coords &lt;- st_coordinates(st_centroid(st_geometry(columbus)))
+plot(col.gal.nb, coords, col="grey")
+col2 &lt;- droplinks(col.gal.nb, 21)
+res &lt;- n.comp.nb(col2)
+table(res$comp.id)
+plot(col2, coords, add=TRUE)
+points(coords, col=res$comp.id, pch=16)
+run &lt;- FALSE
+if (require("igraph", quietly=TRUE) &amp;&amp; require("spatialreg", quietly=TRUE)) run &lt;- TRUE
+if (run) {
+B &lt;- as(nb2listw(col2, style="B", zero.policy=TRUE), "CsparseMatrix")
+g1 &lt;- graph_from_adjacency_matrix(B, mode="undirected")
+c1 &lt;- components(g1)
+print(c1$no == res$nc)
+}
+if (run) {
+print(all.equal(c1$membership, res$comp.id))
+}
+if (run) {
+print(all.equal(c1$csize, c(table(res$comp.id)), check.attributes=FALSE))
+}
+if (run) {
+W &lt;- as(nb2listw(col2, style="W", zero.policy=TRUE), "CsparseMatrix")
+g1W &lt;- graph_from_adjacency_matrix(W, mode="directed", weighted="W")
+c1W &lt;- components(g1W, mode="weak")
+print(all.equal(c1W$membership, res$comp.id, check.attributes=FALSE))
+}
+
+if (run) {
+data(house, package="spData")
+house &lt;- sf::st_as_sf(house)
+k6 &lt;- knn2nb(knearneigh(house, k=6))
+is.symmetric.nb(k6)
+}
+if (run) {
+print(k6)
+}
+if (run) {
+length(k6) + sum(card(k6))
+}
+if (run) {
+# no pre-computed graph components
+str(attr(k6, "ncomp"))
+}
+if (run) {
+# raising the subgraph compute ceiling to above |N|+|E| computes and stores the
+# object in the neighbour object
+set.SubgraphCeiling(180000L)
+k6 &lt;- knn2nb(knearneigh(house, k=6))
+str(attr(k6, "ncomp"))
+}
+if (run) {
+print(k6)
+}
+if (run) {
+system.time(udir &lt;- n.comp.nb(make.sym.nb(k6)))
+}
+if (run) {
+system.time(dir &lt;- n.comp.nb(k6))
+}
+if (run) {
+udir$nc
+}
+if (run) {
+dir$nc
+}
+if (run) {
+all.equal(dir, udir)
+}
+
+</code></pre>
+
+
+</div>

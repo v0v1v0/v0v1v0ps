@@ -1,0 +1,198 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ecometab</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Ecosystem metabolism</h2>
+
+<h3>Description</h3>
+
+<p>Estimate ecosystem metabolism using the Odum open-water method.  Estimates of daily integrated gross production, total respiration, and net ecosystem metabolism are returned.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ecometab(dat_in, ...)
+
+## S3 method for class 'swmpr'
+ecometab(dat_in, depth_val = NULL, metab_units = "mmol", trace = FALSE, ...)
+
+## Default S3 method:
+ecometab(
+  dat_in,
+  tz,
+  lat,
+  long,
+  depth_val = NULL,
+  metab_units = "mmol",
+  trace = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dat_in</code></td>
+<td>
+<p>Input data object, see details for required time series</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>arguments passed to other methods</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>depth_val</code></td>
+<td>
+<p>numeric value for station depth (m) if time series is not available</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metab_units</code></td>
+<td>
+<p>chr indicating desired units of output for oxygen, either as mmol or grams</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+<p>logical indicating if progress is shown in the console</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tz</code></td>
+<td>
+<p>chr string for timezone, e.g., 'America/Chicago'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lat</code></td>
+<td>
+<p>numeric for latitude</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>long</code></td>
+<td>
+<p>numeric for longitude (negative west of prime meridian)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Input data include both water quality and weather time series, which are typically collected with independent instrument systems.  For SWMP data, this requires merging water quality and meteorology <code>swmpr</code> data objects using the <code>comb</code> function (see examples).  For the default method not using SWMP data, the input <code>data.frame</code> must have columns named <code>datetimestamp</code> (date/time column, as <code>POSIXct</code> object), <code>do_mgl</code> (dissolved oxygen, mg/L), <code>depth</code> (depth, m), <code>atemp</code> (air temperature, C), <code>sal</code> (salinity, psu), <code>temp</code> (water temperature, C), <code>wspd</code> (wind speed, m/s), and <code>bp</code> (barometric pressure, mb). 
+</p>
+<p>The open-water method is a common approach to quantify net ecosystem metabolism using a mass balance equation that describes the change in dissolved oxygen over time from the balance between photosynthetic and respiration processes, corrected using an empirically constrained air-sea gas diffusion model (see Ro and Hunt 2006, Thebault et al. 2008).  The diffusion-corrected DO flux estimates are averaged separately over each day and night of the time series. The nighttime average DO flux is used to estimate respiration rates, while the daytime DO flux is used to estimate net primary production. To generate daily integrated rates, respiration rates are assumed constant such that hourly night time DO flux rates are multiplied by 24. Similarly, the daytime DO flux rates are multiplied by the number of daylight hours, which varies with location and time of year, to yield net daytime primary production. Respiration rates are subtracted from daily net production estimates to yield gross production rates.  The metabolic day is considered the 24 hour period between sunsets on two adjacent calendar days.
+</p>
+<p>Areal rates for gross production and total respiration are based on volumetric rates normalized to the depth of the water column at the sampling location, which is assumed to be well-mixed, such that the DO sensor is reflecting the integrated processes in the entire water column (including the benthos).  Water column depth is calculated as the mean value of the depth variable across the time series in the <code>swmpr</code> object.  Depth values are floored at one meter for very shallow stations and 0.5 meters is also added to reflect the practice of placing sensors slightly off of the bottom. A user-supplied depth value can also be passed to the <code>depth_val</code> argument, either as a single value that is repeated or as a vector equal in length to the number of rows in the input data.  An accurate depth value should be used as this acts as a direct scalar on metabolism estimates.
+</p>
+<p>The air-sea gas exchange model is calibrated with wind data either collected at, or adjusted to, wind speed at 10 m above the surface. The metadata should be consulted for exact height.  The value can be changed manually using a <code>height</code> argument, which is passed to <code>calckl</code>.
+</p>
+<p>A minimum of three records are required for both day and night periods to calculate daily metabolism estimates.  Occasional missing values for air temperature, barometric pressure, and wind speed are replaced with the climatological means (hourly means by month) for the period of record using adjacent data within the same month as the missing data.
+</p>
+<p>All DO calculations within the function are done using molar units (e.g., mmol O2 m-3).  The output can be returned as mass units by setting <code>metab_units = 'grams'</code> (i.e., 1mol = 32 g O2, which multiplies all estimates by 32 g mol-1/1000 mg/g).  Input data must be in standard mass units for DO (mg L-1).
+</p>
+<p>The specific approach for estimating metabolism with the open-water method is described in Caffrey et al. 2013 and references cited therein.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>data.frame</code> of daily integrated metabolism estimates is returned. If a <code>swmpr</code> object is passed to the function, this <code>data.frame</code> is added to the <code>metab</code> attribute and the original object is returned.  See the examples for retrieval from a <code>swmpr</code> object.  The metabolism <code>data.frame</code> contains the following:  
+</p>
+
+<dl>
+<dt><code>date</code></dt>
+<dd>
+<p>The metabolic day, defined as the 24 hour period starting at sunrise (calculated using <code>metab_day</code>)</p>
+</dd>
+<dt><code>DOF_d</code></dt>
+<dd>
+<p>Mean DO flux during day hours, mmol m-2 hr-1. Day hours are calculated using the <code>metab_day</code> function.</p>
+</dd>
+<dt><code>D_d</code></dt>
+<dd>
+<p>Mean air-sea gas exchange of DO during day hours, mmol m-2 hr-1</p>
+</dd>
+<dt><code>DOF_n</code></dt>
+<dd>
+<p>Mean DO flux during night hours, mmol m-2 hr-1</p>
+</dd>
+<dt><code>D_n</code></dt>
+<dd>
+<p>Mean air-sea gas exchange of DO during night hours, mmol m-2 hr-1</p>
+</dd>
+<dt><code>Pg</code></dt>
+<dd>
+<p>Gross production, mmol m-2 d-1, calculated as ((DOF_d - D_d) - (DOF_n - D_n)) * day hours</p>
+</dd>
+<dt><code>Rt</code></dt>
+<dd>
+<p>Total respiration, mmol m-2 d-1, calculated as (DOF_n - D_n) * 24</p>
+</dd>
+<dt><code>NEM</code></dt>
+<dd>
+<p>Net ecosytem metabolism, mmol m-2 d-1, calculated as Pg + Rt</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Caffrey JM, Murrell MC, Amacker KS, Harper J, Phipps S, Woodrey M. 2013. Seasonal and inter-annual patterns in primary production, respiration and net ecosystem metabolism in 3 estuaries in the northeast Gulf of Mexico. Estuaries and Coasts. 37(1):222-241.
+</p>
+<p>Odum HT. 1956. Primary production in flowing waters. Limnology and Oceanography. 1(2):102-117.
+</p>
+<p>Ro KS, Hunt PG. 2006. A new unified equation for wind-driven surficial oxygen transfer into stationary water bodies. Transactions of the American Society of Agricultural and Biological Engineers. 49(5):1615-1622.
+</p>
+<p>Thebault J, Schraga TS, Cloern JE, Dunlavey EG. 2008. Primary production and carrying capacity of former salt ponds after reconnection to San Francisco Bay. Wetlands. 28(3):841-851.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>calckl</code> for estimating the oxygen mass transfer coefficient used with the air-sea gas exchange model, <code>comb</code> for combining <code>swmpr</code> objects, <code>metab_day</code> for identifying the metabolic day for each observation in the time series, <code>plot_metab</code> for plotting the results, and <code>aggremetab</code> for aggregating the metabolism attribute.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+## import water quality and weather data, qaqc
+data(apadbwq)
+data(apaebmet)
+wq &lt;- qaqc(apadbwq)
+met &lt;- qaqc(apaebmet)
+
+## combine
+dat &lt;- comb(wq, met)
+
+## output units in grams of oxygen
+res &lt;- ecometab(dat, metab_units = 'grams')
+attr(res, 'metabolism')
+
+## manual input of integration depth
+## NA values must be filled
+dat_fill &lt;- na.approx(dat, params = 'depth', maxgap = 1e6)
+depth &lt;- dat_fill$depth
+res &lt;- ecometab(dat, metab_units = 'grams', depth_val = depth)
+attr(res, 'metabolism')
+
+## use the default method for ecometab with a generic data frame
+## first recreate a generic object from the sample data
+cols &lt;- c('datetimestamp', 'do_mgl', 'depth', 'atemp', 'sal', 'temp', 'wspd', 'bp')
+dat &lt;- data.frame(dat)
+dat &lt;- dat[, cols]
+res &lt;- ecometab(dat, tz = 'America/Jamaica', lat = 29.67, long = -85.06)
+res
+
+## End(Not run)
+</code></pre>
+
+
+</div>

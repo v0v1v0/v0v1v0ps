@@ -1,0 +1,167 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>snnrce</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SNNRCE method</h2>
+
+<h3>Description</h3>
+
+<p>SNNRCE (Self-training Nearest Neighbor Rule using Cut Edges) is a variant 
+of the self-training classification method (<code>selfTraining</code>) with a different 
+addition mechanism and a fixed learning scheme (1-NN). SNNRCE uses an amending scheme 
+to avoid the introduction of noisy examples into the enlarged labeled set.
+The mislabeled examples are identified using the local information provided 
+by the neighborhood graph. A statistical test using cut edge weight is used to modify 
+the labels of the missclassified examples.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">snnrce(x, y, x.inst = TRUE, dist = "Euclidean", alpha = 0.1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A object that can be coerced as matrix. This object has two possible 
+interpretations according to the value set in the <code>x.inst</code> argument:
+a matrix with the training instances where each row represents a single instance
+or a precomputed distance matrix between the training examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A vector with the labels of the training instances. In this vector 
+the unlabeled instances are specified with the value <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x.inst</code></td>
+<td>
+<p>A boolean value that indicates if <code>x</code> is or not an instance matrix.
+Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>A distance function available in the <code>proxy</code> package to compute 
+the distance matrix in the case that <code>x.inst</code> is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Rejection threshold to test the critical region. Default is 0.1.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SNNRCE initiates the self-labeling process by training a 1-NN from the original 
+labeled set. This method attempts to reduce the noise in examples by labeling those instances 
+with no cut edges in the initial stages of self-labeling learning. 
+These highly confident examples are added into the training set. 
+The remaining examples follow the standard self-training process until a minimum number 
+of examples will be labeled for each class. A statistical test using cut edge weight is used 
+to modify the labels of the missclassified examples The value of the <code>alpha</code> argument 
+defines the critical region where the candidates examples are tested. The higher this value 
+is, the more relaxed it is the selection of the examples that are considered mislabeled.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list object of class "snnrce" containing:
+</p>
+
+<dl>
+<dt>model</dt>
+<dd>
+<p>The final base classifier trained using the enlarged labeled set.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of the training instances used to 
+train the <code>model</code>. These indexes include the initial labeled instances
+and the newly labeled instances.
+Those indexes are relative to <code>x</code> argument.</p>
+</dd>
+<dt>classes</dt>
+<dd>
+<p>The levels of <code>y</code> factor.</p>
+</dd>
+<dt>x.inst</dt>
+<dd>
+<p>The value provided in the <code>x.inst</code> argument.</p>
+</dd>
+<dt>dist</dt>
+<dd>
+<p>The value provided in the <code>dist</code> argument when x.inst is <code>TRUE</code>.</p>
+</dd>
+<dt>xtrain</dt>
+<dd>
+<p>A matrix with the subset of training instances referenced by the indexes 
+<code>instances.index</code> when x.inst is <code>TRUE</code>.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Yu Wang, Xiaoyan Xu, Haifeng Zhao, and Zhongsheng Hua.<br><em>Semisupervised learning based on nearest neighbor rule and cut edges.</em><br>
+Knowledge-Based Systems, 23(6):547-554, 2010. ISSN 0950-7051. doi: http://dx.doi.org/10.1016/j.knosys.2010.03.012.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(ssc)
+
+## Load Wine data set
+data(wine)
+
+cls &lt;- which(colnames(wine) == "Wine")
+x &lt;- wine[, -cls] # instances without classes
+y &lt;- wine[, cls] # the classes
+x &lt;- scale(x) # scale the attributes
+
+## Prepare data
+set.seed(20)
+# Use 50% of instances for training
+tra.idx &lt;- sample(x = length(y), size = ceiling(length(y) * 0.5))
+xtrain &lt;- x[tra.idx,] # training instances
+ytrain &lt;- y[tra.idx]  # classes of training instances
+# Use 70% of train instances as unlabeled set
+tra.na.idx &lt;- sample(x = length(tra.idx), size = ceiling(length(tra.idx) * 0.7))
+ytrain[tra.na.idx] &lt;- NA # remove class information of unlabeled instances
+
+# Use the other 50% of instances for inductive testing
+tst.idx &lt;- setdiff(1:length(y), tra.idx)
+xitest &lt;- x[tst.idx,] # testing instances
+yitest &lt;- y[tst.idx] # classes of testing instances
+
+## Example: Training from a set of instances with 1-NN as base classifier.
+m1 &lt;- snnrce(x = xtrain, y = ytrain,  dist = "Euclidean")
+pred1 &lt;- predict(m1, xitest)
+table(pred1, yitest)
+
+## Example: Training from a distance matrix with 1-NN as base classifier.
+dtrain &lt;- proxy::dist(x = xtrain, method = "euclidean", by_rows = TRUE)
+m2 &lt;- snnrce(x = dtrain, y = ytrain, x.inst = FALSE)
+ditest &lt;- proxy::dist(x = xitest, y = xtrain[m2$instances.index,],
+                      method = "euclidean", by_rows = TRUE)
+pred2 &lt;- predict(m2, ditest)
+table(pred2, yitest)
+
+</code></pre>
+
+
+</div>

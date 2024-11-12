@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>add_inactive_replicates</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Add inactive replicates to a survey design object</h2>
+
+<h3>Description</h3>
+
+<p>Adds inactive replicates to a survey design object. An inactive
+replicate is a replicate that does not contribute to variance estimates but
+adds to the matrix of replicate weights so that the matrix has the desired
+number of columns. The new replicates' values are simply equal to the full-sample weights.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">add_inactive_replicates(design, n_total, n_to_add, location = "last")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>A survey design object, created with either the <code>survey</code> or <code>srvyr</code> packages.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_total</code></td>
+<td>
+<p>The total number of replicates
+that the result should contain. If the design already contains <code>n_total</code>
+replicates (or more), then no update is made.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_to_add</code></td>
+<td>
+<p>The number of additional replicates to add.
+Can only use the <code>n_total</code> argument OR the <code>n_to_add</code> argument,
+not both.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>location</code></td>
+<td>
+<p>Either <code>"first"</code>, <code>"last"</code> (the default), or <code>"random"</code>.
+Specifies where the columns of new replicates should be located in the
+matrix of replicate weights. Use <code>"first"</code>
+to place new replicates first (i.e., in the leftmost part of the matrix),
+<code>"last"</code> to place the new replicates last (i.e., in the rightmost part
+of the matrix). Use <code>"random"</code> to intersperse the new replicates
+in random column locations of the matrix; the original replicates will
+still be in their original order.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An updated survey design object, where the number of columns
+of replicate weights has potentially increased. The increase only happens
+if the user specifies the <code>n_to_add</code> argument instead of <code>n_total</code>,
+of if the user specifies <code>n_total</code> and <code>n_total</code> is less than the number
+of columns of replicate weights that the design already had.
+</p>
+
+
+<h3>Statistical Details</h3>
+
+<p>Inactive replicates are also sometimes referred to as "dead replicates",
+for example in Ash (2014). The purpose of adding inactive replicates
+is to increase the number of columns of replicate weights without impacting
+variance estimates. This can be useful, for example, when combining data
+from a survey across multiple years, where different years use different number
+of replicates, but a consistent number of replicates is desired in the combined
+data file.
+</p>
+<p>Suppose the initial replicate design has <code class="reqn">L</code> replicates, with
+respective constants <code class="reqn">c_k</code> for <code class="reqn">k=1,\dots,L</code> used to estimate variance
+with the formula
+</p>
+<p style="text-align: center;"><code class="reqn">v_{R} = \sum_{k=1}^L c_k\left(\hat{T}_y^{(k)}-\hat{T}_y\right)^2</code>
+</p>
+
+<p>where <code class="reqn">\hat{T}_y</code> is the estimate produced using the full-sample weights
+and <code class="reqn">\hat{T}_y^{(k)}</code> is the estimate from replicate <code class="reqn">k</code>.
+</p>
+<p>Inactive replicates are simply replicates that are exactly equal to the full sample:
+that is, the replicate <code class="reqn">k</code> is called "inactive" if its vector of replicate
+weights exactly equals the full-sample weights. In this case, when using the formula
+above to estimate variances, these replicates contribute nothing to the variance estimate.
+</p>
+<p>If the analyst uses the variant of the formula above where the full-sample estimate
+<code class="reqn">\hat{T}_y</code> is replaced by the average replicate estimate (i.e., <code class="reqn">L^{-1}\sum_{k=1}^{L}\hat{T}_y^{(k)}</code>),
+then variance estimates will differ before vs. after adding the inactive replicates.
+For this reason, it is strongly recommend to explicitly specify <code>mse=TRUE</code>
+when creating a replicate design object in R with functions such as <code>svrepdesign()</code>,
+<code>as_bootstrap_design()</code>, etc. If working with an already existing replicate design,
+you can update the <code>mse</code> option to <code>TRUE</code> simply by using code such as
+<code>my_design$mse &lt;- TRUE</code>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Ash, S. (2014). "<em>Using successive difference replication for estimating variances</em>."
+<strong>Survey Methodology</strong>, Statistics Canada, 40(1), 47–59.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(survey)
+set.seed(2023)
+
+# Create an example survey design object
+
+  sample_data &lt;- data.frame(
+    PSU     = c(1,2,3)
+  )
+
+  survey_design &lt;- svydesign(
+    data = sample_data,
+    ids = ~ PSU,
+    weights = ~ 1
+  )
+
+  rep_design &lt;- survey_design |&gt;
+    as.svrepdesign(type = "JK1", mse = TRUE)
+
+# Inspect replicates before subsampling
+
+  rep_design |&gt; weights(type = "analysis")
+
+# Inspect replicates after adding inactive replicates
+
+  rep_design |&gt;
+    add_inactive_replicates(n_total = 5, location = "first") |&gt;
+    weights(type = "analysis")
+
+  rep_design |&gt;
+    add_inactive_replicates(n_to_add = 2, location = "last") |&gt;
+    weights(type = "analysis")
+
+  rep_design |&gt;
+    add_inactive_replicates(n_to_add = 5, location = "random") |&gt;
+    weights(type = "analysis")
+
+</code></pre>
+
+
+</div>

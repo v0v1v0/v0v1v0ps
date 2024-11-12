@@ -1,0 +1,147 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rf_tuning</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Tuning of random forest hyperparameters via spatial cross-validation</h2>
+
+<h3>Description</h3>
+
+<p>Finds the optimal set of random forest hyperparameters <code>num.trees</code>, <code>mtry</code>, and <code>min.node.size</code> via grid search by maximizing the model's R squared, or AUC, if the response variable is binomial, via spatial cross-validation performed with <code>rf_evaluate()</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rf_tuning(
+  model = NULL,
+  num.trees = NULL,
+  mtry = NULL,
+  min.node.size = NULL,
+  xy = NULL,
+  repetitions = 30,
+  training.fraction = 0.75,
+  seed = 1,
+  verbose = TRUE,
+  n.cores = parallel::detectCores() - 1,
+  cluster = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>A model fitted with <code>rf()</code>. If provided, the training data is taken directly from the model definition (stored in <code>model$ranger.arguments</code>). Default: <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num.trees</code></td>
+<td>
+<p>Numeric integer vector with the number of trees to fit on each model repetition. Default: <code>c(500, 1000, 2000)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mtry</code></td>
+<td>
+<p>Numeric integer vector, number of predictors to randomly select from the complete pool of predictors on each tree split. Default: <code>floor(seq(1, length(predictor.variable.names), length.out = 4))</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min.node.size</code></td>
+<td>
+<p>Numeric integer, minimal number of cases in a terminal node. Default: <code>c(5, 10, 20, 40)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xy</code></td>
+<td>
+<p>Data frame or matrix with two columns containing coordinates and named "x" and "y". If <code>NULL</code>, the function will throw an error. Default: <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>repetitions</code></td>
+<td>
+<p>Integer, number of independent spatial folds to use during the cross-validation. Default: <code>30</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>training.fraction</code></td>
+<td>
+<p>Proportion between 0.2 and 0.9 indicating the number of records to be used in model training. Default: <code>0.75</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Integer, random seed to facilitate reproduciblity. If set to a given number, the results of the function are always the same. Default: <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Logical. If TRUE, messages and plots generated during the execution of the function are displayed, Default: <code>TRUE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.cores</code></td>
+<td>
+<p>Integer, number of cores to use for parallel execution. Creates a socket cluster with <code>parallel::makeCluster()</code>, runs operations in parallel with <code>foreach</code> and <code style="white-space: pre;">⁠%dopar%⁠</code>, and stops the cluster with <code>parallel::clusterStop()</code> when the job is done. Default: <code>parallel::detectCores() - 1</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+<p>A cluster definition generated with <code>parallel::makeCluster()</code>. If provided, overrides <code>n.cores</code>. When <code>cluster = NULL</code> (default value), and <code>model</code> is provided, the cluster in <code>model</code>, if any, is used instead. If this cluster is <code>NULL</code>, then the function uses <code>n.cores</code> instead. The function does not stop a provided cluster, so it should be stopped with <code>parallel::stopCluster()</code> afterwards. The cluster definition is stored in the output list under the name "cluster" so it can be passed to other functions via the <code>model</code> argument, or using the <code style="white-space: pre;">⁠%&gt;%⁠</code> pipe. Default: <code>NULL</code></p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A model with a new slot named <code>tuning</code>, with a data frame with the results of the tuning analysis.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>rf_evaluate()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if(interactive()){
+
+#loading example data
+data(plant_richness_df)
+data(distance_matrix)
+
+#fitting model to tune
+out &lt;- rf(
+  data = plant_richness_df,
+  dependent.variable.name = "richness_species_vascular",
+  predictor.variable.names = colnames(plant_richness_df)[5:21],
+  distance.matrix = distance_matrix,
+  distance.thresholds = 0,
+  n.cores = 1
+)
+
+#model tuning
+tuning &lt;- rf_tuning(
+  model = out,
+  num.trees = c(100, 500),
+  mtry = c(2, 8),
+  min.node.size = c(5, 10),
+  xy = plant_richness_df[, c("x", "y")],
+  n.cores = 1
+)
+
+}
+</code></pre>
+
+
+</div>

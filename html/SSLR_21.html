@@ -1,0 +1,161 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>democratic</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>General Interface for Democratic model</h2>
+
+<h3>Description</h3>
+
+<p>Democratic Co-Learning is a semi-supervised learning algorithm with a
+co-training style. This algorithm trains N classifiers with different learning schemes
+defined in list <code>gen.learners</code>. During the iterative process, the multiple classifiers
+with different inductive biases label data for each other.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">democratic(learners, schemes = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>learners</code></td>
+<td>
+<p>List of models from parsnip package for training a supervised base classifier
+using a set of instances. This model need to have probability predictions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>schemes</code></td>
+<td>
+<p>List of schemes (col x names in each learner).
+Default is null, it means that learner uses all x columns</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This method trains an ensemble of diverse classifiers. To promote the initial diversity
+the classifiers must represent different learning schemes.
+When x.inst is <code>FALSE</code> all <code>learners</code> defined must be able to learn a classifier
+from the precomputed matrix in <code>x</code>.
+The iteration process of the algorithm ends when no changes occurs in
+any model during a complete iteration.
+The generation of the final hypothesis is
+produced via a weigthed majority voting.
+</p>
+
+
+<h3>Value</h3>
+
+<p>(When model fit) A list object of class "democratic" containing:
+</p>
+
+<dl>
+<dt>W</dt>
+<dd>
+<p>A vector with the confidence-weighted vote assigned to each classifier.</p>
+</dd>
+<dt>model</dt>
+<dd>
+<p>A list with the final N base classifiers trained using the
+enlarged labeled set.</p>
+</dd>
+<dt>model.index</dt>
+<dd>
+<p>List of N vectors of indexes related to the training instances
+used per each classifier. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of all training instances used to
+train the N <code>models</code>. These indexes include the initial labeled instances
+and the newly labeled instances. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>model.index.map</dt>
+<dd>
+<p>List of three vectors with the same information in <code>model.index</code>
+but the indexes are relative to <code>instances.index</code> vector.</p>
+</dd>
+<dt>classes</dt>
+<dd>
+<p>The levels of <code>y</code> factor.</p>
+</dd>
+<dt>preds</dt>
+<dd>
+<p>The functions provided in the <code>preds</code> argument.</p>
+</dd>
+<dt>preds.pars</dt>
+<dd>
+<p>The set of lists provided in the <code>preds.pars</code> argument.</p>
+</dd>
+<dt>x.inst</dt>
+<dd>
+<p>The value provided in the <code>x.inst</code> argument.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(tidyverse)
+library(tidymodels)
+library(caret)
+library(SSLR)
+
+data(wine)
+
+set.seed(1)
+train.index &lt;- createDataPartition(wine$Wine, p = .7, list = FALSE)
+train &lt;- wine[ train.index,]
+test  &lt;- wine[-train.index,]
+
+cls &lt;- which(colnames(wine) == "Wine")
+
+#% LABELED
+labeled.index &lt;- createDataPartition(wine$Wine, p = .2, list = FALSE)
+train[-labeled.index,cls] &lt;- NA
+
+#We need a model with probability predictions from parsnip
+#https://tidymodels.github.io/parsnip/articles/articles/Models.html
+#It should be with mode = classification
+
+
+rf &lt;-  rand_forest(trees = 100, mode = "classification") %&gt;%
+  set_engine("randomForest")
+
+
+bt &lt;-  boost_tree(trees = 100, mode = "classification") %&gt;%
+  set_engine("C5.0")
+
+
+m &lt;- democratic(learners = list(rf,bt)) %&gt;% fit(Wine ~ ., data = train)
+
+#' \donttest{
+#Accuracy
+predict(m,test) %&gt;%
+  bind_cols(test) %&gt;%
+  metrics(truth = "Wine", estimate = .pred_class)
+
+
+#With schemes
+set.seed(1)
+m &lt;- democratic(learners = list(rf,bt),
+                schemes = list(c("Malic.Acid","Ash"), c("Magnesium","Proline")) ) %&gt;%
+  fit(Wine ~ ., data = train)
+
+
+#Accuracy
+predict(m,test) %&gt;%
+  bind_cols(test) %&gt;%
+  metrics(truth = "Wine", estimate = .pred_class)
+
+#'}
+</code></pre>
+
+
+</div>

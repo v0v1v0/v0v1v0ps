@@ -1,0 +1,123 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>do_parallel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Perform Parallel Tasks</h2>
+
+<h3>Description</h3>
+
+<p>This brick encapsulates the activity of <code>n</code> workers running parallel
+sub-trajectories.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">do_parallel(.trj, ..., .env, wait = TRUE, mon_all = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>.trj</code></td>
+<td>
+<p>the trajectory object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>sub-trajectories or list of sub-trajectories to parallelise.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.env</code></td>
+<td>
+<p>the simulation environment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wait</code></td>
+<td>
+<p>if <code>TRUE</code>, the arrival waits until all parallel sub-trajectories
+are finished; if <code>FALSE</code>, the arrival continues as soon as the first
+parallel task ends.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mon_all</code></td>
+<td>
+<p>if <code>TRUE</code>, <code>get_mon_arrivals</code> will show one
+line per clone.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns the following chain of activities: <code>clone</code>
+&gt; <code>synchronize</code> (&gt; <code>wait</code>
+&gt; <code>untrap</code> if <code>wait=FALSE</code>) (see examples below).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">env &lt;- simmer()
+signal &lt;- function() get_name(env)
+
+task.1 &lt;- trajectory("task 1") %&gt;%
+  timeout(function() rexp(1))
+task.2 &lt;- trajectory("task 2") %&gt;%
+  timeout(function() rexp(1))
+
+## These are equivalent:
+trajectory() %&gt;%
+  do_parallel(
+    task.1,
+    task.2,
+    .env = env, wait = TRUE
+  )
+
+trajectory() %&gt;%
+  clone(
+    n = 3,
+    trajectory("original") %&gt;%
+      trap(signal) %&gt;%
+      wait() %&gt;%
+      wait() %&gt;%
+      untrap(signal),
+    task.1[] %&gt;%
+      send(signal),
+    task.2[] %&gt;%
+      send(signal)) %&gt;%
+  synchronize(wait = TRUE)
+
+## These are equivalent:
+trajectory() %&gt;%
+  do_parallel(
+    task.1,
+    task.2,
+    .env = env, wait = FALSE
+  )
+
+trajectory() %&gt;%
+  clone(
+    n = 3,
+    trajectory("original") %&gt;%
+      trap(signal),
+    task.1[] %&gt;%
+      send(signal),
+    task.2[] %&gt;%
+      send(signal)) %&gt;%
+  synchronize(wait = FALSE) %&gt;%
+  wait() %&gt;%
+  untrap(signal)
+
+</code></pre>
+
+
+</div>

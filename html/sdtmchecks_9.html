@@ -1,0 +1,137 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>check_ae_aeacn_ds_disctx_covid</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Check for COVID-19 AE with DRUG WITHDRAWN action without "ADVERSE EVENT" for DS Trt Discon</h2>
+
+<h3>Description</h3>
+
+<p>This checks for a COVID-19 AE reported with Action Taken
+(AEACN*==DRUG WITHDRAWN) but without a corresponding DS record indicating
+DS.DSDECOD with "ADVERSE EVENT" on any Treatment Discontinuation
+form. This relies on DSSPID with the string "DISCTX" when DSCAT ==
+"DISPOSITION EVENT" to select Treatment Discontinuation records in DS,
+as DSSCAT typically includes a text string referring to specific study
+drug(s).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">check_ae_aeacn_ds_disctx_covid(
+  AE,
+  DS,
+  covid_terms = c("COVID-19", "CORONAVIRUS POSITIVE")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>AE</code></td>
+<td>
+<p>Adverse Events SDTM dataset with variables USUBJID, AETERM, AEDECOD,
+AESTDTC, AEACNx</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DS</code></td>
+<td>
+<p>Disposition SDTM dataset with variables USUBJID, DSSPID, DSCAT, DSDECOD</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covid_terms</code></td>
+<td>
+<p>A length &gt;=1 vector of AE terms identifying COVID-19 (case does not matter)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>boolean value if check returns 0 obs, otherwise return subset dataframe.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sarwan Singh
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other COVID: 
+<code>check_ae_aeacnoth_ds_stddisc_covid()</code>,
+<code>check_dv_ae_aedecod_covid()</code>,
+<code>check_dv_covid()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+AE &lt;- data.frame(
+    STUDYID = 1,
+    USUBJID = c(1,2,3,1,2,3),
+    AESTDTC = '2020-05-05',
+    AETERM  = c("abc Covid-19", "covid TEST POSITIVE",rep("other AE",4)),
+    AEDECOD = c("COVID-19", "CORONAVIRUS POSITIVE", rep("OTHER AE",4)),
+    AEACN = c("DRUG WITHDRAWN", rep("DOSE NOT CHANGED",5)),
+    AESPID = "FORMNAME-R:13/L:13XXXX",
+    stringsAsFactors = FALSE
+)
+
+DS &lt;- data.frame(
+ USUBJID = c(1,1,2,3,4),
+ DSSPID  = 'XXX-DISCTX-XXX',
+ DSCAT   = "DISPOSITION EVENT",
+ DSDECOD = "OTHER REASON",
+ DSSEQ = c(1,2,1,1,1),
+ stringsAsFactors = FALSE
+)
+
+# expect fail
+check_ae_aeacn_ds_disctx_covid(AE, DS)
+
+
+AE2 &lt;- data.frame( 
+    AEACN1 =  rep(NA, nrow(AE)),
+    AEACN2 = c("DRUG WITHDRAWN", rep("DOSE NOT CHANGED", nrow(AE)-1)),
+    AEACN3 = c("DRUG WITHDRAWN", rep("DOSE NOT CHANGED", nrow(AE)-1)),
+    AEACN4 = "",
+    stringsAsFactors = FALSE
+)
+AE2 &lt;- cbind(AE, AE2) 
+AE2$AEACN &lt;- "MULTIPLE" 
+
+# expect fail
+check_ae_aeacn_ds_disctx_covid(AE2, DS)
+
+DS[1, "DSDECOD"] &lt;- 'ADVERSE EVENT'
+# this passes, one form with DSDECOD = "ADVERSE EVENT"
+## NOTE: This may be a false negative if study-specific data collection 
+##       requires &gt;1 record with DSDECOD = "ADVERSE EVENT" and not just one record
+check_ae_aeacn_ds_disctx_covid(AE2, DS)
+
+# expect pass
+check_ae_aeacn_ds_disctx_covid(AE, DS)
+
+
+# non-required variable is missing
+DS$DSSEQ &lt;- NULL
+check_ae_aeacn_ds_disctx_covid(AE, DS)
+
+# required variable is missing 
+DS$DSSPID &lt;- NULL
+check_ae_aeacn_ds_disctx_covid(AE, DS)
+
+
+</code></pre>
+
+
+</div>

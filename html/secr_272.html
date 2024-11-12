@@ -1,0 +1,170 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predictDsurface</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2> Predict Density Surface </h2>
+
+<h3>Description</h3>
+
+<p>Predict density at each point on a raster mask from a fitted secr model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">predictDsurface(object, mask = NULL, se.D = FALSE, cl.D = FALSE, alpha =
+0.05, parameter = c('D', 'noneuc'))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>fitted secr object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+<p>secr mask object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se.D</code></td>
+<td>
+<p> logical for whether to compute prediction SE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl.D</code></td>
+<td>
+<p> logical for whether to compute confidence limits</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p> alpha level for 100(1 – alpha)% confidence intervals </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parameter</code></td>
+<td>
+<p> character for real parameter to predict</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Predictions use the linear model for density on the link scale in the
+fitted secr model ‘object’, or the fitted user-defined function, if
+that was specified in <code>secr.fit</code>.
+</p>
+<p>If ‘mask’ is NULL then predictions are for the mask component of
+‘object’.
+</p>
+<p>SE and confidence limits are computed only if specifically
+requested. They are not available for user-defined density functions.
+</p>
+<p>Density is adjusted automatically for the number of clusters in
+‘mashed’ models (see <code>mash</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object of class ‘Dsurface’ inheriting from ‘mask’. Predicted densities
+are added to the covariate dataframe (attribute ‘covariates’) as
+column(s) with prefix ‘D.’ If the model uses multiple groups, multiple
+columns will be distinguished by the group name (e.g., "D.F" and
+"D.M"). If groups are not defined the column is named "D.0".
+</p>
+<p>For multi-session models the value is a multi-session mask.
+</p>
+<p>The pointwise prediction SE is saved as a covariate column prefixed
+‘SE.’ (or multiple columns if multiple groups). Confidence limits are
+likewise saved with prefixes ‘lcl.’  and ‘ucl.’.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.Dsurface</code>, <code>secr.fit</code>, <code>predict.secr</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## use canned possum model
+shorePossums &lt;- predictDsurface(possum.model.Ds)
+par(mar = c(1,1,1,6))
+plot(shorePossums, plottype = "shaded", polycol = "blue", border = 100)
+plot(traps(possumCH), detpar = list(col = "black"), add = TRUE)
+par(mar = c(5,4,4,2) + 0.1)  ## reset to default
+## extract and summarise
+summary(covariates(shorePossums))
+
+## Not run: 
+
+## extrapolate to a new mask; add covariate needed by model; plot
+regionmask &lt;- make.mask(traps(possumCH), buffer = 1000, spacing = 10,
+    poly = possumremovalarea)
+dts &lt;- distancetotrap(regionmask, possumarea)
+covariates(regionmask) &lt;- data.frame(d.to.shore = dts)
+regionPossums &lt;- predictDsurface(possum.model.Ds, regionmask,
+    se.D = TRUE, cl.D = TRUE)
+par(mfrow = c(1,2), mar = c(1,1,1,6))
+plot(regionPossums, plottype = "shaded", mesh = NA, breaks = 20)
+plot(regionPossums, plottype = "contour", add = TRUE)
+plot(regionPossums, covariate = "SE", plottype = "shaded",
+    mesh = NA, breaks = 20)
+plot(regionPossums, covariate = "SE", plottype = "contour",
+    add = TRUE)
+
+## confidence surfaces
+plot(regionPossums, covariate = "lcl", breaks = seq(0,3,0.2),
+    plottype = "shaded")
+plot(regionPossums, covariate = "lcl", plottype = "contour",
+    add = TRUE, levels = seq(0,2.7,0.2))
+title("lower 95% surface")
+plot(regionPossums, covariate = "ucl", breaks=seq(0,3,0.2),
+    plottype = "shaded")
+plot(regionPossums, covariate = "ucl", plottype = "contour",
+    add = TRUE, levels = seq(0,2.7,0.2))
+title("upper 95% surface")
+
+## annotate with CI
+par(mfrow = c(1,1))
+plot(regionPossums, plottype = "shaded", mesh = NA, breaks = 20)
+plot(traps(possumCH), add = TRUE, detpar = list(col = "black"))
+
+if (interactive()) {
+    spotHeight(regionPossums, dec = 1, pre = c("lcl","ucl"), cex = 0.8)
+}
+
+## perspective plot
+pm &lt;- plot(regionPossums, plottype = "persp", box = FALSE, zlim =
+    c(0,3), phi=30, d = 5, col = "green", shade = 0.75, border = NA)
+lines(trans3d (possumremovalarea$x, possumremovalarea$y,
+     rep(1,nrow(possumremovalarea)), pmat = pm))
+
+par(mfrow = c(1,1), mar = c(5, 4, 4, 2) + 0.1)  ## reset to default
+
+## compare estimates of region N
+## grid cell area is 0.01 ha
+sum(covariates(regionPossums)[,"D.0"]) * 0.01
+region.N(possum.model.Ds, regionmask)
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

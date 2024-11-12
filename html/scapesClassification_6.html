@@ -1,0 +1,166 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cond.4.all</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Test conditions for all cells</h2>
+
+<h3>Description</h3>
+
+<p>Evaluate conditions for unclassified cells and classify them if conditions
+are true.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cond.4.all(attTbl, cond, classVector = NULL, class, ovw_class = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>attTbl</code></td>
+<td>
+<p>data.frame, the attribute table returned by the function
+<code>attTbl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond</code></td>
+<td>
+<p>character string, the conditions a cell have to meet to be
+classified as indicated by the argument <code>class</code>. If there is a
+<code>classVector</code> input, the classification number is only assigned to
+unclassified cells unless the argument <code>ovw_class = TRUE</code>. See
+<code>conditions</code> for more details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>classVector</code></td>
+<td>
+<p>numeric vector, if provided, it defines the cells in the
+attribute table that have already been classified. See
+<code>conditions</code> for more information about class vectors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>class</code></td>
+<td>
+<p>numeric, the classification number to assign to all cells that
+meet the function conditions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ovw_class</code></td>
+<td>
+<p>logic, if there is a <code>classVector</code> input,
+reclassify cells that were already classified and that meet the function
+conditions.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+ <ul>
+<li>
+<p> The function evaluates the conditions of the
+argument <code>conditions</code> for all unclassified cells (i.e.,
+<code>classVector</code> NA-cells).
+</p>
+</li>
+<li>
+<p> Cells that meet the function conditions are classified as indicted by
+the argument <code>class</code>.
+</p>
+</li>
+<li> <p><em>Absolute test cell conditions</em> can be used (see
+<code>conditions</code>).</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Update <code>classVector</code> with the new cells that were classified by
+the function. If there is no <code>classVector</code> input, the function returns
+a new class vector. See <code>conditions</code> for more details about
+class vectors.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>conditions()</code>, <code>attTbl()</code>, <code>cond.4.nofn()</code>, <code>cond.reclass()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># DUMMY DATA
+################################################################################
+library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r)
+
+################################################################################
+# COND.4.ALL
+################################################################################
+# compute new class vector
+# conditions: "dummy_var == 1"
+cv1 &lt;- cond.4.all(attTbl = at, cond = "dummy_var &lt;= 1", class = 1)
+
+unique(cv1) # one class (class 1)
+
+# update class vector `cv1`
+# conditions: "dummy_var &lt;= 3"
+cv2   &lt;- cond.4.all(attTbl = at, cond = "dummy_var &lt;= 3", class = 2,
+                    classVector = cv1) # input previous class vector
+
+unique(cv2) # two classes (class 1 and class 2)
+
+# convert class vector 2 raster
+r_cv1 &lt;- cv.2.rast(r, at$Cell, classVector = cv1)
+r_cv2 &lt;- cv.2.rast(r, at$Cell, classVector = cv2)
+
+################################################################################
+# PLOTS
+################################################################################
+oldpar &lt;- par(mfrow = c(1,2))
+m &lt;- c(4.5, 0.5, 2, 3.2)
+
+# 1.
+r_cv1[which(is.na(values(r_cv1)))] &lt;- 10
+plot(r_cv1, type="classes", mar=m, col=c("#78b2c4","#818792"), axes=FALSE,
+     plg=list(x=1, y=1, cex=.80, title="Classes",legend=c("1", "NA")))
+text(r); lines(r)
+mtext(side=3, line=1, adj=0, cex=1, font=2, "1. COND.4.ALL")
+mtext(side=3, line=0, adj=0, cex=0.9, "New class vector")
+mtext(side=1, line=0, cex=0.9, adj=0, "Rule: 'dummy_var &lt;= 1'")
+mtext(side=1, line=1, cex=0.9, adj=0, "Class: 1")
+
+# 2.
+r_cv2[which(is.na(values(r_cv2)))] &lt;- 10
+plot(r_cv2, type="classes", mar=m, col=c("#78b2c4","#cfad89","#818792"), axes=FALSE,
+     plg=list(x=1, y=1, cex=.80, title="Classes",legend=c("1", "2", "NA")))
+text(r); lines(r)
+mtext(side=3, line=1, adj=0, cex=1, font=2, "2. COND.4.ALL")
+mtext(side=3, line=0, adj=0, cex=0.9, "Update class vector (class 1 not overwritten)")
+mtext(side=1, line=0, cex=0.9, adj=0, "Rule: 'dummy_var &lt;= 3'")
+mtext(side=1, line=1, cex=0.9, adj=0, "Class: 2")
+par(oldpar)
+</code></pre>
+
+
+</div>

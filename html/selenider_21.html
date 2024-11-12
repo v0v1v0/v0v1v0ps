@@ -1,0 +1,125 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>elem_cache</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Force an element to be collected and stored</h2>
+
+<h3>Description</h3>
+
+<p><code>selenider_element</code>/<code>selenider_elements</code> objects are generally
+<em>lazy</em>, meaning they only collect the actual element in the DOM
+when absolutely necessary, and forget it immediately after. This
+is to avoid situations where the DOM changes after an element
+has been collected, resulting in errors and unreliable behaviour.
+</p>
+<p><code>elem_cache()</code> forces an element or collection of elements to be collected
+and stored, making it eager rather than lazy. This is useful when you are
+operating on the same element multiple times, since only collecting the
+element once will improve performance. However, you must be sure that the
+element will not change on the page while you are using it.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">elem_cache(x, timeout = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A <code>selenider_element</code>/<code>selenider_elements</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timeout</code></td>
+<td>
+<p>How long to wait for the element(s) to exist while collecting
+them.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>These functions do not make selenider elements <em>permanently</em> eager. Further
+sub-elements will not be cached unless specified.
+</p>
+<p>For example, consider the following code:
+</p>
+<div class="sourceCode r"><pre>s(".class1") |&gt;
+  elem_parent() |&gt;
+  elem_cache() |&gt;
+  find_element(".class2")
+</pre></div>
+<p>In this example, the parent of the element with class ".class1" will be
+cached, but the child element with class ".class2" will not.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A modified version of <code>x</code>. The result of <code>elem_cache()</code> can be used
+as a normal <code>selenider_element</code>/<code>selenider_elements</code> object.
+</p>
+
+
+<h3>See Also</h3>
+
+
+<ul>
+<li> <p><code>find_element()</code> and <code>find_elements()</code> to select elements.
+</p>
+</li>
+<li> <p><code>element_list()</code>, <code>find_each_element()</code> and <code>find_all_elements()</code> if you
+want to iterate over an element collection.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+html &lt;- "
+&lt;div&gt;
+&lt;p id='specifictext'&gt;&lt;/p&gt;
+&lt;button&gt;&lt;/button&gt;
+&lt;/div&gt;
+"
+
+session &lt;- minimal_selenider_session(html)
+
+# Selecting this button may be slow, since we are using relative XPath
+# selectors.
+button &lt;- s("#specifictext") |&gt;
+  elem_siblings() |&gt;
+  elem_find(has_name("button"))
+
+# But we need to click the button 10 times!
+# Normally, this would involve fetching the button from the DOM 10 times
+click_button_10_times &lt;- function(x) {
+  lapply(1:10, \(unnused) elem_click(x))
+  invisible(NULL)
+}
+
+# But with elem_cache(), the button will only be fetched once
+cached_button &lt;- elem_cache(button)
+
+click_button_10_times(cached_button)
+
+# But the cached button is less reliable if the DOM is changing
+execute_js_fn("x =&gt; { x.outerHTML = '&lt;button&gt;&lt;/button&gt;'; }", button)
+
+try(elem_click(cached_button, timeout = 0.1))
+
+# But the non-cached version works
+elem_click(button)
+
+</code></pre>
+
+
+</div>

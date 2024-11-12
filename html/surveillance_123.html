@@ -1,0 +1,478 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>epidata</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Continuous-Time SIR Event History of a Fixed Population
+</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>as.epidata</code> is used to generate objects
+of class <code>"epidata"</code>.  Objects of this class are
+specific data frames containing the event history of an epidemic together
+with some additional attributes.  These objects are the basis for fitting
+spatio-temporal epidemic intensity models with the function
+<code>twinSIR</code>.  Their implementation is illustrated in Meyer
+et al. (2017, Section 4), see <code>vignette("twinSIR")</code>.
+Note that the spatial information itself, i.e.
+the positions of the individuals, is assumed to be constant over time.  
+Besides epidemics following the SIR compartmental model, also data from SI,
+SIRS and SIS epidemics may be supplied.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">as.epidata(data, ...)
+
+## S3 method for class 'data.frame'
+as.epidata(data, t0,
+           tE.col, tI.col, tR.col, id.col, coords.cols,
+           f = list(), w = list(), D = dist,
+           max.time = NULL, keep.cols = TRUE, ...)
+## Default S3 method:
+as.epidata(data, id.col, start.col, stop.col,
+           atRiskY.col, event.col, Revent.col, coords.cols,
+           f = list(), w = list(), D = dist, .latent = FALSE, ...)
+
+## S3 method for class 'epidata'
+print(x, ...)
+## S3 method for class 'epidata'
+x[i, j, drop]
+## S3 method for class 'epidata'
+update(object, f = list(), w = list(), D = dist, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>For the <code>data.frame</code>-method, a data frame with as many rows as
+there are individuals in the population and time columns indicating
+when each individual became exposed (optional), infectious
+(mandatory, but can be <code>NA</code> for non-affected individuals) and
+removed (optional). Note that this data format does not allow for
+re-infection (SIRS) and time-varying covariates.
+The <code>data.frame</code>-method converts the individual-indexed data
+frame to the long event history start/stop format and then feeds it
+into the default method. If calling the generic function
+<code>as.epidata</code> on a <code>data.frame</code> and the <code>t0</code> argument
+is missing, the default method is called directly.<br>
+For the default method, <code>data</code> can be a <code>matrix</code> or
+a <code>data.frame</code>.
+It must contain the observed event history in a form similar to 
+<code>Surv(, type="counting")</code> in package <span class="pkg">survival</span>,
+with additional information (variables) along 
+the process.  Rows will be sorted automatically during conversion.
+The observation period is split up into <em>consecutive</em>
+intervals of constant state - thus constant infection intensities.
+The data frame consists of a block of <code class="reqn">N</code> (number of individuals) 
+rows for each of those time intervals (all rows in a block have the same start 
+and stop values... therefore the name “block”), where there is one 
+row per individual in the block.  Each row describes the (fixed) state of 
+the individual during the interval given by the start and stop columns 
+<code>start.col</code> and <code>stop.col</code>.<br>
+Note that there may not be more than one event (infection or removal) in a
+single block.  Thus, in a single block, only one entry in the 
+<code>event.col</code> and <code>Revent.col</code> may be 1, all others are 0.  This
+rule follows the point process characteristic that there are no
+concurrent events (infections or removals).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0,max.time</code></td>
+<td>
+
+<p>observation period. In the resulting <code>"epidata"</code>, the time
+scale will be relative to the start time <code>t0</code>.
+Individuals that have already been removed prior to <code>t0</code>, i.e.,
+rows with <code>tR &lt;= t0</code>, will be dropped.
+The end of the observation period (<code>max.time</code>) will by default
+(<code>NULL</code>, or if <code>NA</code>) coincide with the last observed event.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tE.col, tI.col, tR.col</code></td>
+<td>
+
+<p>single numeric or character indexes of the time columns in
+<code>data</code>, which specify when the individuals became exposed,
+infectious and removed, respectively.
+<code>tE.col</code> and <code>tR.col</code> can be missing, corresponding to
+SIR, SEI, or SI data. <code>NA</code> entries mean that the respective
+event has not (yet) occurred. Note that <code>is.na(tE)</code> implies
+<code>is.na(tI)</code> and <code>is.na(tR)</code>, and <code>is.na(tI)</code> implies
+<code>is.na(tR)</code> (and this is checked for the provided data).<br>
+CAVE: Support for latent periods (<code>tE.col</code>) is experimental!
+<code>twinSIR</code> cannot handle them anyway.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id.col</code></td>
+<td>
+
+<p>single numeric or character index of the <code>id</code> column in <code>data</code>.
+The <code>id</code> column identifies the individuals in the data frame.
+It is converted to a factor by calling <code>factor</code>, i.e.,
+unused levels are dropped if it already was a factor.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.col</code></td>
+<td>
+
+<p>single index of the <code>start</code> column in <code>data</code>.  Can be numeric
+(by column number) or character (by column name).
+The <code>start</code> column contains the (numeric) time points of the beginnings
+of the consecutive time intervals of the event history.  The minimum value
+in this column, i.e. the start of the observation period should be 0.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stop.col</code></td>
+<td>
+
+<p>single index of the <code>stop</code> column in <code>data</code>.  Can be numeric
+(by column number) or character (by column name).
+The <code>stop</code> column contains the (numeric) time points of the ends
+of the consecutive time intervals of the event history.  The stop value must
+always be greater than the start value of a row.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>atRiskY.col</code></td>
+<td>
+
+<p>single index of the <code>atRiskY</code> column in <code>data</code>.  Can be numeric
+(by column number) or character (by column name).
+The <code>atRiskY</code> column indicates if the individual was “at-risk”
+of becoming infected during the time interval (start; stop].  This variable 
+must be logical or in 0/1-coding.
+Individuals with <code>atRiskY == 0</code> in the first time interval (normally 
+the rows with <code>start == 0</code>) are taken as <em>initially infectious</em>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>event.col</code></td>
+<td>
+
+<p>single index of the <code>event</code> column in <code>data</code>.  Can be numeric
+(by column number) or character (by column name).
+The <code>event</code> column indicates if the individual became <em>infected</em>
+at the <code>stop</code> time of the interval.  This variable must be logical or
+in 0/1-coding.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Revent.col</code></td>
+<td>
+
+<p>single index of the <code>Revent</code> column in <code>data</code>.  Can be numeric
+(by column number) or character (by column name).
+The <code>Revent</code> column indicates if the individual was <em>recovered</em> 
+at the <code>stop</code> time of the interval.  This variable must be logical or
+in 0/1-coding.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords.cols</code></td>
+<td>
+
+<p>index<em>es</em> of the <code>coords</code> column<em>s</em> in <code>data</code>. Can be
+numeric (by column number), character (by column name), or <code>NULL</code>
+(no coordinates, e.g., if <code>D</code> is a pre-specified distance matrix).
+These columns contain the individuals' coordinates, which determine
+the distance matrix for the distance-based components of the force
+of infection (see argument <code>f</code>). By default, Euclidean distance
+is used (see argument <code>D</code>).<br>
+Note that the functions related to <code>twinSIR</code> currently assume
+<em>fixed positions</em> of the individuals during the whole epidemic.  Thus, an
+individual has the same coordinates in every block.  For simplicity, the
+coordinates are derived from the first time block only (normally the rows 
+with <code>start == 0</code>).<br>
+The <code>animate</code>-method requires coordinates.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+
+<p>a <em>named</em> list of <em>vectorized</em> functions for a
+distance-based force of infection.
+The functions must interact elementwise on a (distance) matrix <code>D</code> so that
+<code>f[[m]](D)</code> results in a matrix.  A simple example is
+<code>function(u) {u &lt;= 1}</code>, which indicates if the Euclidean distance
+between the individuals is smaller than or equal to 1.
+The names of the functions determine the names of the epidemic variables
+in the resulting data frame.  So, the names should not coincide with
+names of other covariates.
+The distance-based weights are computed as follows:
+Let <code class="reqn">I(t)</code> denote the set of infectious
+individuals just before time <code class="reqn">t</code>.
+Then, for individual <code class="reqn">i</code> at time <code class="reqn">t</code>, the
+<code class="reqn">m</code>'th covariate has the value
+<code class="reqn">\sum_{j \in I(t)} f_m(d_{ij})</code>,
+where <code class="reqn">d_{ij}</code> denotes entries of the distance matrix
+(by default this is the Euclidean distance <code class="reqn">||s_i - s_j||</code>
+between the individuals' coordinates, but see argument <code>D</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w</code></td>
+<td>
+
+<p>a <em>named</em> list of <em>vectorized</em> functions for extra 
+covariate-based weights <code class="reqn">w_{ij}</code> in the epidemic component.
+Each function operates on a single time-constant covariate in
+<code>data</code>, which is determined by the name of the first argument:
+The two function arguments should be named <code>varname.i</code> and
+<code>varname.j</code>, where <code>varname</code> is one of <code>names(data)</code>.
+Similar to the components in <code>f</code>, <code>length(w)</code> epidemic
+covariates will be generated in the resulting <code>"epidata"</code> named
+according to <code>names(w)</code>.  So, the names should not coincide with
+names of other covariates.  For individual <code class="reqn">i</code> at time
+<code class="reqn">t</code>, the <code class="reqn">m</code>'th such covariate has the value
+<code class="reqn">\sum_{j \in I(t)} w_m(z^{(m)}_i, z^{(m)}_j)</code>,
+where <code class="reqn">z^{(m)}</code> denotes the variable in <code>data</code> associated
+with <code>w[[m]]</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+
+<p>either a function to calculate the distances between the individuals
+with locations taken from <code>coord.cols</code> (the default is
+Euclidean distance via the function <code>dist</code>) and
+the result converted to a matrix via <code>as.matrix</code>,
+or a pre-computed distance matrix with <code>dimnames</code> containing
+the individual ids (a classed <code>"Matrix"</code> is supported).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.cols</code></td>
+<td>
+
+<p>logical indicating if all columns in <code>data</code>
+should be retained (and not only the obligatory <code>"epidata"</code>
+columns), in particular any additional columns with 
+time-constant individual-specific covariates.
+Alternatively, <code>keep.cols</code> can be a numeric or character vector
+indexing columns of <code>data</code> to keep.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.latent</code></td>
+<td>
+
+<p>(internal) logical indicating whether to allow for latent periods
+(EXPERIMENTAL). Otherwise (default), the function verifies that an
+event (i.e., switching to the I state) only happens when the
+respective individual is at risk (i.e., in the S state).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x,object</code></td>
+<td>
+
+<p>an object of class <code>"epidata"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>arguments passed to <code>print.data.frame</code>. Currently unused
+in the <code>as.epidata</code>-methods.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>i,j,drop</code></td>
+<td>
+
+<p>arguments passed to <code>[.data.frame</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>print</code> method for objects of class <code>"epidata"</code> simply prints
+the data frame with a small header containing the time range of the observed
+epidemic and the number of infected individuals.  Usually, the data frames
+are quite long, so the summary method <code>summary.epidata</code> might be
+useful.  Also, indexing/subsetting <code>"epidata"</code> works exactly as for
+<code>data.frame</code>s, but there is an own method, which
+assures consistency of the resulting <code>"epidata"</code> or drops this class, if
+necessary.
+The <code>update</code>-method can be used to add or replace distance-based
+(<code>f</code>) or covariate-based (<code>w</code>) epidemic variables in an
+existing <code>"epidata"</code> object.
+</p>
+<p>SIS epidemics are implemented as SIRS epidemics where the length of the
+removal period equals 0.  This means that an individual, which has an R-event
+will be at risk immediately afterwards, i.e. in the following time block.
+Therefore, data of SIS epidemics have to be provided in that form containing
+“pseudo-R-events”.  
+</p>
+
+
+<h3>Value</h3>
+
+<p>a <code>data.frame</code> with the columns <code>"BLOCK"</code>, <code>"id"</code>,
+<code>"start"</code>, <code>"stop"</code>, <code>"atRiskY"</code>, <code>"event"</code>,
+<code>"Revent"</code> and the coordinate columns (with the original names from
+<code>data</code>), which are all obligatory.  These columns are followed by any 
+remaining columns of the input <code>data</code>.  Last but not least, the newly
+generated columns with epidemic variables corresponding to the functions
+in the list <code>f</code> are appended, if <code>length(f)</code> &gt; 0.
+</p>
+<p>The <code>data.frame</code> is given the additional <em>attributes</em>
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>"eventTimes"</code></td>
+<td>
+
+<p>numeric vector of infection time points (sorted chronologically).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>"timeRange"</code></td>
+<td>
+
+<p>numeric vector of length 2: <code>c(min(start), max(stop))</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>"coords.cols"</code></td>
+<td>
+
+<p>numeric vector containing the column indices of the coordinate columns in
+the resulting data frame.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>"f"</code></td>
+<td>
+
+<p>this equals the argument <code>f</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>"w"</code></td>
+<td>
+
+<p>this equals the argument <code>w</code>.
+</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>The column name <code>"BLOCK"</code> is a reserved name.  This column will be 
+added automatically at conversion and the resulting data frame will be 
+sorted by this column and by id.  Also the names <code>"id"</code>, <code>"start"</code>,
+<code>"stop"</code>, <code>"atRiskY"</code>, <code>"event"</code> and <code>"Revent"</code> are
+reserved for the respective columns only.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+
+
+<h3>References</h3>
+
+<p>Meyer, S., Held, L. and Höhle, M. (2017):
+Spatio-temporal analysis of epidemic phenomena using the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package
+<span class="pkg">surveillance</span>.
+<em>Journal of Statistical Software</em>, <b>77</b> (11), 1-55.
+<a href="https://doi.org/10.18637/jss.v077.i11">doi:10.18637/jss.v077.i11</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p>The <code>hagelloch</code> data as an example.
+</p>
+<p>The <code>plot</code> and the
+<code>summary</code> method for class <code>"epidata"</code>.
+Furthermore, the function <code>animate.epidata</code> for the animation of
+epidemics.
+</p>
+<p>Function <code>twinSIR</code> for fitting spatio-temporal epidemic intensity
+models to epidemic data.
+</p>
+<p>Function <code>simEpidata</code> for the simulation of epidemic data.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("hagelloch")   # see help("hagelloch") for a description
+head(hagelloch.df)
+
+## convert the original data frame to an "epidata" event history
+myEpi &lt;- as.epidata(hagelloch.df, t0 = 0,
+                    tI.col = "tI", tR.col = "tR", id.col = "PN",
+                    coords.cols = c("x.loc", "y.loc"),
+                    keep.cols = c("SEX", "AGE", "CL"))
+
+
+str(myEpi)
+head(as.data.frame(myEpi))  # "epidata" has event history format
+summary(myEpi)              # see 'summary.epidata'
+plot(myEpi)                 # see 'plot.epidata' and also 'animate.epidata'
+
+
+## add distance- and covariate-based weights for the force of infection
+## in a twinSIR model, see vignette("twinSIR") for a description
+myEpi &lt;- update(myEpi,
+    f = list(
+        household    = function(u) u == 0,
+        nothousehold = function(u) u &gt; 0
+    ),
+    w = list(
+        c1 = function (CL.i, CL.j) CL.i == "1st class" &amp; CL.j == CL.i,
+        c2 = function (CL.i, CL.j) CL.i == "2nd class" &amp; CL.j == CL.i
+    )
+)
+## this is now identical to the prepared hagelloch "epidata"
+stopifnot(all.equal(myEpi, hagelloch))
+
+
+</code></pre>
+
+
+</div>

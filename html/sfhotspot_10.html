@@ -1,0 +1,192 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hotspot_change</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Identify change in hotspots over time</h2>
+
+<h3>Description</h3>
+
+<p>Identify change in the number of points (typically representing events)
+between two periods (before and after a specified date) or in two groups
+(e.g. on weekdays or at weekends).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">hotspot_change(
+  data,
+  time = NULL,
+  boundary = NULL,
+  groups = NULL,
+  cell_size = NULL,
+  grid_type = "rect",
+  grid = NULL,
+  quiet = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p><code>sf</code> data frame containing points.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>Name of the column in <code>data</code> containing <code>Date</code> or
+<code>POSIXt</code> values representing the date associated with each point.
+Ignored if <code>groups</code> is not <code>NULL</code>. If this argument is
+<code>NULL</code> and <code>data</code> contains a single column of <code>Date</code> or
+<code>POSIXt</code> values, that column will be used automatically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boundary</code></td>
+<td>
+<p>A single <code>Date</code> or <code>POSIXt</code> value representing the
+point after which points should be treated as having occurred in the second
+time period. See 'Details'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groups</code></td>
+<td>
+<p>Name of a column in <code>data</code> containing exactly two unique
+non-missing values, which will be used to identify whether each row should
+be counted in the first (before) or second (after) groups. Which groups to
+use will be determined by calling <code>sort(unique(groups))</code>. If
+<code>groups</code> is not a factor, a message will be printed confirming which
+value has been used for which group. See 'Details'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cell_size</code></td>
+<td>
+<p><code>numeric</code> value specifying the size of each equally
+spaced grid cell, using the same units (metres, degrees, etc.) as used in
+the <code>sf</code> data frame given in the <code>data</code> argument. Ignored if
+<code>grid</code> is not <code>NULL</code>. If this argument and <code>grid</code> are
+<code>NULL</code> (the default), the cell size will be calculated automatically
+(see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid_type</code></td>
+<td>
+<p><code>character</code> specifying whether the grid should be made
+up of squares (<code>"rect"</code>, the default) or hexagons (<code>"hex"</code>).
+Ignored if <code>grid</code> is not <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p><code>sf</code> data frame containing points containing
+polygons, which will be used as the grid for which counts are made.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>if set to <code>TRUE</code>, messages reporting the values of any
+parameters set automatically will be suppressed. The default is
+<code>FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function creates a regular two-dimensional grid of cells (unless a
+custom grid is specified with <code>grid</code>) and calculates the difference
+between the number of points in each grid cell:
+</p>
+
+<ul>
+<li>
+<p> before and after a set point in time, if <code>boundary</code> is specified,
+</p>
+</li>
+<li>
+<p> between two groups of points, if a column of grouping values is specified
+with <code>groups</code>,
+</p>
+</li>
+<li>
+<p> before and after the mid-point of the dates/times present in the data, if
+both <code>boundary</code> and <code>groups</code> are <code>NULL</code> (the default).
+</p>
+</li>
+</ul>
+<p>If both <code>boundary</code> and <code>groups</code> are not <code>NULL</code>, the value of
+<code>boundary</code> will be ignored.
+</p>
+
+
+<h4>Coverage of the output data</h4>
+
+<p>The grid produced by this function covers the convex hull of the input data
+layer. This means the result may include zero counts for cells that are
+outside the area for which data were provided, which could be misleading. To
+handle this, consider cropping the output layer to the area for which data
+are available. For example, if you only have crime data for a particular
+district, crop the output dataset to the district boundary using
+<code>st_intersection</code>.
+</p>
+
+
+
+<h4>Automatic cell-size selection</h4>
+
+<p>If no cell size is given then the cell size will be set so that there are 50
+cells on the shorter side of the grid. If the <code>data</code> SF object is
+projected in metres or feet, the number of cells will be adjusted upwards so
+that the cell size is a multiple of 100.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>An <code>sf</code> tibble of regular grid cells with
+corresponding hot-spot classifications for each cell. This can be plotted
+using <code>autoplot</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>hotspot_dual_kde()</code> for comparing the density of two layers, which
+will often be more useful than comparing counts if the point locations
+represent and underlying continuous distribution.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Compare counts from the first half of the period covered by the data to
+# counts from the second half
+
+hotspot_change(memphis_robberies)
+
+
+# Create a grouping variable, then compare counts across values of that
+# variable
+
+memphis_robberies$weekend &lt;-
+  weekdays(memphis_robberies$date) %in% c("Saturday", "Sunday")
+hotspot_change(memphis_robberies, groups = weekend)
+
+
+</code></pre>
+
+
+</div>

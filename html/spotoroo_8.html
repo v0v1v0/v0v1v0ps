@@ -1,0 +1,283 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hotspot_cluster</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spatiotemporal clustering of hot spot data</h2>
+
+<h3>Description</h3>
+
+<p>This is the main function of the package.
+<br>
+This function clusters hot spots into fires. It can be used to
+reconstruct fire history and detect fire ignition points.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">hotspot_cluster(
+  hotspots,
+  lon = "lon",
+  lat = "lat",
+  obsTime = "obsTime",
+  activeTime = 24,
+  adjDist = 3000,
+  minPts = 4,
+  minTime = 3,
+  ignitionCenter = "mean",
+  timeUnit = "n",
+  timeStep = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>hotspots</code></td>
+<td>
+<p>List/Data frame. A list or a data frame which
+contains information of hot spots.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lon</code></td>
+<td>
+<p>Character. The name of the column of the list which contains
+numeric longitude values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lat</code></td>
+<td>
+<p>Character. The name of the column of the list which contains
+numeric latitude values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obsTime</code></td>
+<td>
+<p>Character. The name of the column of the list which contains
+the observed time of hot spots. The observed time
+has to be in date, datetime or numeric.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>activeTime</code></td>
+<td>
+<p>Numeric (&gt;=0). Time tolerance. Unit is time index.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjDist</code></td>
+<td>
+<p>Numeric (&gt;0). Distance tolerance. Unit is metre.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minPts</code></td>
+<td>
+<p>Numeric (&gt;0). Minimum number of hot spots in a cluster.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minTime</code></td>
+<td>
+<p>Numeric (&gt;=0). Minimum length of time of a cluster.
+Unit is time index.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ignitionCenter</code></td>
+<td>
+<p>Character. Method to calculate ignition points,
+either "mean" or "median".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timeUnit</code></td>
+<td>
+<p>Character. One of "s" (seconds),
+"m" (minutes), "h" (hours),
+"d" (days) and "n" (numeric).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timeStep</code></td>
+<td>
+<p>Numeric (&gt;0). Number of units of <code>timeUnit</code> in a time step.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Arguments <code>timeUnit</code> and <code>timeStep</code> need to be
+specified to convert date/datetime/numeric to time index.
+More details can be found in <code>transform_time_id()</code>.
+<br><br>
+This clustering algorithm consisted of <strong>5 steps</strong>:
+<br><br>
+In <strong>step 1</strong>, it defines <code class="reqn">T</code> intervals using the time index
+</p>
+<p style="text-align: center;"><code class="reqn">Interval(t) = [max(1, t - activeTime),t]</code>
+</p>
+
+<p>where <code class="reqn">t = 1, 2, ..., T</code>, and <code class="reqn">T</code> is the maximum time index.
+<code>activeTime</code> is an argument that needs to be specified. It represents
+the maximum time difference between two hot spots in the same local
+cluster. Please notice that a local cluster is different with a cluster
+in the final result. More details will be given in the next part.
+<br><br>
+In <strong>step 2</strong>, the algorithm performs spatial clustering on each interval.
+A local cluster is a cluster found in an interval. Argument <code>adjDist</code>
+is used to control the spatial clustering. If the distance between two
+hot spots is smaller or equal to <code>adjDist</code>, they are directly-connected. If
+hot spot <code>A</code> is directly-connected with hot spot <code>B</code> and hot spot <code>B</code> is
+directly-connected with hot spot <code>C</code>, hot spot <code>A</code>, <code>B</code> and <code>C</code> are
+connected. All connected hot spots become a local cluster.
+<br><br>
+In <strong>step 3</strong>, the algorithm starts from interval <code class="reqn">1</code>. It marks all
+hot spots in this interval and records their membership labels.
+Then it moves on to interval <code class="reqn">2</code>. Due to a hot spot could exist in
+multiple intervals, it checks whether any hot spot in interval <code class="reqn">2</code>
+has been marked. If there is any, their membership labels will be
+carried over from the record. Unmarked hot spots in interval <code class="reqn">2</code>,
+which share the same local cluster with marked hot spots, their
+membership labels are carried over from marked hot spots. If a unmarked
+hot spot shares the same local cluster with multiple marked hot spots, the
+algorithm will carry over the membership label from the nearest one. All
+other unmarked hot spots in interval <code class="reqn">2</code> that do not share the same
+cluster with any marked hot spot, their membership labels will be adjusted
+such that the clusters they belong to are considered to be new clusters.
+Finally, all
+hot spots in interval <code class="reqn">2</code> are marked and their membership labels are
+recorded. This process continues for interval <code class="reqn">3</code>, <code class="reqn">4</code>, ...,
+<code class="reqn">T</code>. After finishing step 3, all hot spots are marked and their
+membership labels are recorded.
+<br><br>
+In <strong>step 4</strong>, it checks each cluster. If there is any cluster contains less
+than <code>minPts</code> hot spots, or lasts shorter than <code>minTime</code>, it will not be
+considered to be a cluster any more, and their hot spots will be
+assigned with <code>-1</code> as their membership labels. A hot spot with membership
+label <code>-1</code> is noise.
+Arguments <code>minPts</code> and <code>minTime</code> need to be specified.
+<br><br>
+In <strong>step 5</strong>, the algorithm finds the earliest observed hot spots in each
+cluster and records them as ignition points. If there are multiple
+earliest observed hot spots in a cluster, the mean or median of the
+longitude values and the latitude values will be used as the coordinate
+of the ignition point. This needs to be specified in argument
+<code>ignitionCenter</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A <code>spotoroo</code> object. The clustering results. It is also a list:
+</p>
+
+<ul>
+<li> <p><code>hotspots</code> : A data frame contains information of hot spots.
+</p>
+
+<ul>
+<li> <p><code>lon</code> : Longitude.
+</p>
+</li>
+<li> <p><code>lat</code> : Latitude.
+</p>
+</li>
+<li> <p><code>obsTime</code> : Observed time.
+</p>
+</li>
+<li> <p><code>timeID</code> : Time index.
+</p>
+</li>
+<li> <p><code>membership</code> : Membership label.
+</p>
+</li>
+<li> <p><code>noise</code> : Whether it is a noise point.
+</p>
+</li>
+<li> <p><code>distToIgnition</code> : Distance to the ignition location.
+</p>
+</li>
+<li> <p><code>distToIgnitionUnit</code> : Unit of distance to the ignition
+location.
+</p>
+</li>
+<li> <p><code>timeFromIgnition</code> : Time from ignition.
+</p>
+</li>
+<li> <p><code>timeFromIgnitionUnit</code> : Unit of time from ignition.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>ignition</code> : A data frame contains information of ignition
+points.
+</p>
+
+<ul>
+<li> <p><code>lon</code> : Longitude.
+</p>
+</li>
+<li> <p><code>lat</code> : Latitude.
+</p>
+</li>
+<li> <p><code>obsTime</code> : Observed time.
+</p>
+</li>
+<li> <p><code>timeID</code> : Time index.
+</p>
+</li>
+<li> <p><code>obsInCluster</code> : Number of observations in the cluster.
+</p>
+</li>
+<li> <p><code>clusterTimeLen</code> : Length of time of the cluster.
+</p>
+</li>
+<li> <p><code>clusterTimeLenUnit</code> : Unit of length of time of the
+cluster.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>setting</code> : A list contains the clustering settings.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+  # Time consuming functions (&gt;5 seconds)
+
+
+  # Get clustering results
+  result &lt;- hotspot_cluster(hotspots,
+                lon = "lon",
+                lat = "lat",
+                obsTime = "obsTime",
+                activeTime = 24,
+                adjDist = 3000,
+                minPts = 4,
+                minTime = 3,
+                ignitionCenter = "mean",
+                timeUnit = "h",
+                timeStep = 1)
+
+  # Make a summary of the clustering results
+  summary(result)
+
+  # Make a plot of the clustering results
+  plot(result, bg = plot_vic_map())
+
+
+</code></pre>
+
+
+</div>

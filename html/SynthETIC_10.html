@@ -1,0 +1,184 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>claim_payment_inflation</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Size of Partial Payments (With Inflation)</h2>
+
+<h3>Description</h3>
+
+<p>Converts the (compound) list of constant-dollar-value payment sizes to a
+(compound) list of inflated payment sizes by applying inflation rates on a
+continuous time scale. <br><br>
+Compare with <code>claim_payment_size()</code> which generates the constant dollar
+amount of partial payment sizes. Note that the constant dollar values are as
+of time 0.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">claim_payment_inflation(
+  frequency_vector,
+  payment_size_list,
+  payment_time_list,
+  occurrence_list,
+  claim_size_list,
+  base_inflation_vector,
+  si_occurrence_function,
+  si_payment_funtion
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>frequency_vector</code></td>
+<td>
+<p>a vector of claim frequencies for all the occurrence
+periods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>payment_size_list</code></td>
+<td>
+<p>(compound) list of payment size pattern (without
+inflation).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>payment_time_list</code></td>
+<td>
+<p>(compound) list of payment times on a <strong>continuous</strong>
+time scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>occurrence_list</code></td>
+<td>
+<p>(compound) list of occurrence times on a
+<strong>continuous</strong> time scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>claim_size_list</code></td>
+<td>
+<p>list of claim sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>base_inflation_vector</code></td>
+<td>
+<p>vector showing <strong>quarterly</strong> base inflation
+rates (quarterly effective) for all the periods under consideration (default
+at nil base inflation).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>si_occurrence_function</code></td>
+<td>
+<p>function of <code>occurrence_time</code> and
+<code>claim_size</code> that outputs the superimposed inflation index with respect
+to claim occurrence time (see Details for the default inflation function).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>si_payment_funtion</code></td>
+<td>
+<p>function of <code>payment_time</code> and
+<code>claim_size</code> that outputs the superimposed inflation index with respect
+to payment time (see Details for the default inflation function).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Returns a compound list structure such that the <code class="reqn">j</code>th component
+of the <code class="reqn">i</code>th sub-list gives the <strong>inflated</strong> payment pattern (as a
+vector) for the <code class="reqn">j</code>th claim of occurrence period <code class="reqn">i</code>. <br><br>
+By default we assume
+</p>
+
+<ul>
+<li>
+<p> Nil base inflation.
+</p>
+</li>
+<li>
+<p> No superimposed inflation by (continuous) occurrence time for the first 20
+quarters (converted to the relevant <code>time_unit</code>); beyond 20 quarters, the
+inflation index is given by
+</p>
+<p style="text-align: center;"><code class="reqn">1 - 0.4 max(0, 1 - claim_size/(0.25 * ref_claim))</code>
+</p>
+
+<p>where <code>ref_claim</code> is a package-wise global variable that user is required to
+define at the top of their code using <code>set_parameters</code>. The
+interpretation is that, due to some external change to the insurance scheme
+at the end of occurrence quarter 20, the smallest claims will reduce by up to
+40% in size. This change will not impact claims exceeding <code>0.25*ref_claim</code> in
+size. The reduction varies linearly between these claim sizes.
+</p>
+</li>
+<li>
+<p> Superimposed inflation by (continuous) payment time operates at a period
+rate of </p>
+<p style="text-align: center;"><code class="reqn">\gamma * max(0, 1 - claim_size/ref_claim)</code>
+</p>
+<p> where <code class="reqn">\gamma</code> is
+equivalent to a 30% p.a. inflation rate (converted to the relevant
+<code>time_unit</code>). The interpretation is that, for claims of small size the
+payment time superimposed inflation tends to be very high (30% p.a.);
+whereas for claims exceeding <code>ref_claim</code> in dollar values as of <code class="reqn">t = 0</code>,
+the payment time superimposed inflation is nil. The rate of inflation
+varies linearly between claim sizes of zero and <code>ref_claim</code>. <br><br></p>
+</li>
+</ul>
+<p><strong>Remark on continuous inflation</strong>: We note that <code>SynthETIC</code> works with
+exact transaction times, so time has been measured continuously throughout
+the program. This allows us to apply inflation on a continous time scale too.
+For example, we asked the users to provide base inflation as a vector of
+quarterly base inflation rates, quarterly effective for all the periods under
+consideration. This data is generally available online (e.g. the Australian
+quarterly inflation is available on RBA's website - see
+<a href="https://www.rba.gov.au/inflation/measures-cpi.html#quarterly">link</a>). We
+then interpolate the quarterly inflation rates to compute the addition of
+inflation by exact times. In the case of above, if we observed quarterly
+inflation rates of 0.6%, 0.5%, 0.7% and 0.3% for one particular year, then
+the base inflation applied to a payment at time <code class="reqn">t = 1.82</code> quarters will
+be <code class="reqn">1.006 * 1.005^{0.82}</code>.
+</p>
+<p><strong>Remark on out-of-bound payment times</strong>: This function includes adjustment
+for out-of-bound transaction dates, by forcing payments that were projected
+to fall out of the maximum development period to be paid at the exact end of
+the maximum development period allowed. For example, if we consider 40
+periods of development and a claim incurred in the interval (20, 21] was
+projected to have a payment at time 62.498210, then we would treat such a
+payment as if it occurred at time 60 for the purpose of inflation.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># remove SI occurrence and SI payment
+SI_occurrence &lt;- function(occurrence_time, claim_size) {1}
+SI_payment &lt;- function(payment_time, claim_size) {1}
+# base inflation constant at 0.02 p.a. effective
+# (length is 80 to cover the maximum time period)
+base_inflation_vector &lt;- rep((1 + 0.02)^(1/4) - 1, times = 80)
+attach(test_claims_object)
+payment_inflated_list &lt;- claim_payment_inflation(
+  frequency_vector, payment_size_list, payment_time_list,
+  occurrence_list, claim_size_list, base_inflation_vector,
+  SI_occurrence, SI_payment
+)
+detach(test_claims_object) # undo the attach
+# inflated payments for claim 1 of occurrence period 1
+payment_inflated_list[[1]][[1]]
+</code></pre>
+
+
+</div>

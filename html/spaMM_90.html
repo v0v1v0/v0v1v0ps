@@ -1,0 +1,204 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>corrFamily-design</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Designing new corrFamily descriptors for parametric correlation families
+</h2>
+
+<h3>Description</h3>
+
+<p>This documentation describe additional design features to be taken into account when defining a new <code>corrFamily</code> descriptor for a correlation model. Using such a descriptor will be more efficient than the equally general method, of maximizing an objective function  of the correlation parameters that calls (say) <code>fitme()</code> on a model including a <code>corrMatrix</code> itself function of the correlation parameters. But this may still be inefficient if a few issues are ignored.
+</p>
+
+<p><b>For elements of the corrFamily descriptor for basic cases</b>:
+</p>
+<dl>
+<dt>Cf</dt>
+<dd>
+<p>The function value should
+(1) be of constant class for all parameter values. For families of mathematically sparse matrices, the <code>CsparseMatrix</code> class is recommended (and more specifically the <code>dsCMatrix</code> class since the matrix is symmetric); (2) have row names that match the levels of the grouping factor  (the nested random effect Example shows the code needed when this nested effect is defined from two variables).</p>
+</dd>
+<dt>tpar</dt>
+<dd>
+<p>In order to favor the automatic selection of suitable algorithms, <code>tpar</code> should be chosen so that <code>Cf(tpar)</code> is <b>least</b> sparse (i.e., has the minimal number of elements equal to zero) in the correlation family, in terms of its sparsity and of the sparsity of its inverse. A <code>tpar</code> yielding an identity matrix is often a <b>*bad*</b> template as least sparse correlation matrices and their inverses are denser for most families except diagonal ones. For degerate corrFamily objects that describe a constant correlation model rather than a parametric family, use <code>tpar=numeric(0)</code>.</p>
+</dd>
+<dt>type</dt>
+<dd>
+<p>Do not forget <code>type="precision"</code> it if the return value of <code>Cf</code> is an inverse correlation matrix rather than a correlation matrix, in which case one should specify .</p>
+</dd>
+<dt>calc_moreargs</dt>
+<dd>
+<p> should have formal arguments including at least <code>corrfamily</code> and <code>...</code>. The source code of <code>ARp</code>, <code>ARMA</code> or <code>diallel</code> shows the expected structure of its return value.</p>
+</dd>
+</dl>
+<p><b>For advanced features of the corrFamily descriptor</b>:
+</p>
+<dl>
+<dt>Af</dt>
+<dd>
+<p><code>Af</code> has (minimally) three formal arguments <code>(newdata, term, ...)</code>. <span class="pkg">spaMM</span> will call <code>Af</code> with distinct values of the <code>newdata</code> argument for the fit, and for predictions for new data. For the curious: the <code>term</code> argument that will be provided by <span class="pkg">spaMM</span> to <code>Af</code> is the formula term for the random effect – an object of class <code>call</code>, as obtained e.g. by<br><code>( ~ 1+ corrFamily(1 | longitude + latitude))[[2]][[3]] </code> –, which will provide the names of the variables that need to be taken from the <code>newdata</code> to construct the matrix returned by <code>Af</code>.
+</p>
+</dd> 
+</dl>
+<h3>Details</h3>
+
+
+<ul>
+<li> <p><span class="pkg">spaMM</span> will regularize invalid or nearly-singular correlation or covariance matrices internally if the correlation function has not done so already, but it it better to control this in the correlation function. The <code>regularize</code> convenience function is available for that purpose, but parametrizations that avoid the need for regularization are even better, since fitting models with nearly-singular correlation matrices is prone to various difficulties (The Toeplitz example below is good to illustrate potential problems but is otherwise poor as it produces non-positive definite matrices; the <code>ARp</code> constructor illustrates a parametrization that avoids that problem).
+</p>
+
+</li>
+<li>
+<p> Users should make sure that any regularized matrix still belongs to the intended parametric family of matrices, and they should keep in mind that the <span class="pkg">spaMM</span> output will show the input parameters of the unregularized matrix, not the parameters of the regularized one (e.g., in the Toeplitz example below, the fitted matrix is a regularized Toepliz matrix with slightly different coefficients than the input parameters).  
+</p>
+<p>And for efficiency,
+</p>
+</li>
+<li>
+<p> Let us repeat that the correlation function should return matrices of constant class, and in sparse format when the matrices are indeed mathematically sparse. For mathematically dense matrices (as in the Toeplitz example below), the <code>dsyMatrix</code> class may be suitable.
+</p>
+</li>
+<li>
+<p> Let us repeat that in order to favor the automatic selection of suitable algorithms, <code>tpar</code> should be chosen so that <code>Cf(tpar)</code> is <b>least</b> sparse in the correlation family. For matrices of <code>CsparseMatrix</code>, a check is implemented to catch wrong choices of <code>tpar</code>.
+</p>
+</li>
+<li>
+<p> For challenging problems (large data, many parameters...) it may pay to optimize a bit the correlation function. The Example of nested effects with heterogenous variance below illustrates a possible trick. In the same cases,  It may also pay to try the alternative <code>algebra</code>ic methods, by first comparing speed of the different methods (<code>control.HLfit=list(algebra= &lt;"spprec"|"spcorr"|"decorr"&gt;)</code>) for given correlation parameter values, rather than to assume that <span class="pkg">spaMM</span> will find the best method (even if it often does so).
+</p>
+</li>
+<li>
+<p> The corrFamily descriptor may optionally contain booleans <code>possiblyDenseCorr</code> and <code>sparsePrec</code> to help spaMM select the most appropriate matrix algebraic methods. <code>sparsePrec</code> should be set to TRUE if sparse-precision methods are expected to be efficient for fitting the random effect. <code>possiblyDenseCorr</code> should be set to FALSE if the correlation matrix is expected to be sparse, which means here that less than 15% of its elements are non-zero.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (spaMM.getOption("example_maxtime")&gt;2 &amp;&amp;
+      requireNamespace("agridat", quietly = TRUE)) {
+
+data("onofri.winterwheat", package="agridat")
+
+##### Fitting a Toeplitz correlation model for temporal correlations #####
+
+# A Toeplitz correlation matrix of dimension d*d has d-1 parameters 
+# (by symmetry, and with 1s on the main diagonal). These d-1 parameters 
+# can be fitted as follows:
+
+Toepfn &lt;- function(v) {
+  toepmat &lt;- Matrix::forceSymmetric(toeplitz(c(1,v))) # dsyMatrix
+  # Many of the matrices in this family are not valid correlation matrices;
+  #   the regularize() function is handy here:
+  toepmat &lt;- regularize(toepmat, maxcondnum=1e12)
+  # And don't forget the rownames!
+  rownames(toepmat) &lt;- unique(onofri.winterwheat$year)
+  toepmat
+}
+
+(Toepfit &lt;- spaMM::fitme(
+  yield ~ gen + corrFamily(1|year), data=onofri.winterwheat, method="REML",
+  covStruct=list(corrFamily=list(Cf=Toepfn, tpar=rep(1e-4,6))), 
+         # (Note the gentle warning if one instead uses tpar=rep(0,6) here)  
+  lower=list(corrPars=list("1"=rep(-0.999,6))), 
+  upper=list(corrPars=list("1"=rep(0.999,6))))) 
+
+# The fitted matrix is (nearly) singular, and was regularized:
+
+eigen(Corr(Toepfit)[[1]])$values
+
+# which means that the returned likelihood may be inaccurate, 
+# and also that the actual matrix elements differ from input parameters:
+
+Corr(Toepfit)[[1]][1,-1]  
+
+### The usual rules for specifying covStruct, 'lower', 'upper' and 'init' apply
+# here when the corrFamily term is the second random-effect:
+
+(Toep2 &lt;- spaMM::fitme(
+        yield ~ 1 + (1|gen) + corrFamily(1|year), data=onofri.winterwheat, method="REML",
+        covStruct=list("1"=NULL, corrFamily=list(Cf=Toepfn, tpar=rep(1e-4,6))), 
+        , init=list(corrPars=list("2"=rep(0.1,6))),
+        lower=list(corrPars=list("2"=rep(-0.999,6))), 
+        upper=list(corrPars=list("2"=rep(0.999,6)))))
+
+##### Fitting one variance among years per each of 8 genotypes. #####
+
+# First, note that this can be *more efficiently* fitted by another syntax:
+
+### Fit as a constrained random-coefficient model: 
+    
+# Diagonal matrix of NA's, represented as vector for its lower triangle:
+ranCoefs_for_diag &lt;- function(nlevels) { 
+  vec &lt;- rep(0,nlevels*(nlevels+1L)/2L)
+  vec[cumsum(c(1L,rev(seq(nlevels-1L)+1L)))] &lt;- NA
+  vec
+} 
+    
+(by_rC &lt;- spaMM::fitme(yield ~ 1 + (0+gen|year), data=onofri.winterwheat, method="REML",
+                       fixed=list(ranCoefs=list("1"=ranCoefs_for_diag(8)))))
+                         
+### Fit as a corrFamily model:   
+
+gy_levels &lt;- paste0(gl(8,1,length =56,labels=levels(onofri.winterwheat$gen)),":",
+                        gl(7,8,labels=unique(onofri.winterwheat$year)))
+                        
+# A log scale is often suitable for variances, hence is used below;
+
+# a correct but crude implementation of the model is
+diagf &lt;- function(logvar) {
+  corr_map &lt;- kronecker(Matrix::.symDiagonal(n=7),diag(x=exp(logvar)))
+  rownames(corr_map) &lt;- gy_levels
+  corr_map
+}
+
+# but we can minimize matrix operations as follows:
+
+corr_map &lt;- Matrix::.symDiagonal(n=8,x=seq(8))
+rownames(corr_map) &lt;- unique(onofri.winterwheat$gen)
+      
+diagf &lt;- function(logvar) {
+  corr_map@x &lt;- exp(logvar)[corr_map@x]
+  corr_map
+}                 # (and this returns a dsCMatrix)
+      
+(by_cF &lt;- spaMM::fitme(
+        yield ~ 1 + corrFamily(1|gen %in% year), data=onofri.winterwheat, method="REML",
+        covStruct=list(corrFamily = list(Cf=diagf, tpar=rep(1,8))), 
+        fixed=list(lambda=1),            # Don't forget to fix this redundant parameter!
+        # init=list(corrPars=list("1"=rep(log(O.1),8))), # 'init' optional 
+        lower=list(corrPars=list("1"=rep(log(1e-6),8))), # 'lower' and 'upper' required
+        upper=list(corrPars=list("1"=rep(log(1e6),8)))))
+
+# =&gt; The 'gen' effect is nested in the 'year' effect and this must be specified in the 
+# right-hand side of corrFamily(1|gen %in% year) so that the design matrix 'Z' for the 
+# random effects to have the correct structure. And then, as for other correlation
+# structures (say Matern) it should be necessary to specify only the correlation matrix 
+# for a given year, as done above. Should this fail, it is also possible to specify the 
+# correlation matrix over years, as done below. spaMM will automatically detect, from   
+# its size matching the number of columns of Z, that it must be the matrix over years.  
+
+corr_map &lt;- Matrix::forceSymmetric(kronecker(Matrix::.symDiagonal(n=7),diag(x=seq(8))))
+rownames(corr_map) &lt;- gy_levels
+
+diagf &lt;- function(logvar) {
+  corr_map@x &lt;- exp(logvar)[corr_map@x]
+  corr_map
+}                 # (and this returns a dsCMatrix)
+
+(by_cF &lt;- spaMM::fitme(
+  yield ~ 1 + corrFamily(1|gen %in% year), data=onofri.winterwheat, method="REML",
+  covStruct=list(corrFamily = list(Cf=diagf, tpar=rep(1,8))), 
+  fixed=list(lambda=1),            # Don't forget to fix this redundant parameter!
+  # init=list(corrPars=list("1"=rep(log(O.1),8))), # 'init' optional 
+  lower=list(corrPars=list("1"=rep(log(1e-6),8))), # 'lower' and 'upper' required
+  upper=list(corrPars=list("1"=rep(log(1e6),8)))))
+
+exp(get_ranPars(by_cF)$corrPars[[1]]) # fitted variances 
+  
+}
+</code></pre>
+
+
+</div>

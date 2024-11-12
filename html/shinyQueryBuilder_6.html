@@ -1,0 +1,228 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>query-operators</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Configure available user interface operators</h2>
+
+<h3>Description</h3>
+
+<p>Configure available user interface operators
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">mapOperator(
+  name,
+  apply_to,
+  optgroup = "basic",
+  nb_inputs = 1,
+  multiple = FALSE,
+  .queryBuilderConfig = queryBuilder::queryBuilderConfig
+)
+
+listMappedOperators(
+  r_class,
+  print = TRUE,
+  .queryBuilderConfig = queryBuilder::queryBuilderConfig
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>Name of the operator to be mapped.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>apply_to</code></td>
+<td>
+<p>Precise what field types (classes) should the operator be available to.
+When <code>operators</code> is not defined for queryFilter, all of the operators matching 'queryFilter'
+type will be available in the operators dropdown.
+Possible values are 'character', 'factor', 'integer', 'numeric', 'POSIXct', 'Date' and 'logical'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>optgroup</code></td>
+<td>
+<p>Character string ("basic" default).
+Operators with the same 'optgroup' will be presented within a separate group in the operators dropdown.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_inputs</code></td>
+<td>
+<p>Integer. The number of inputs displayed. See 'Details' for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multiple</code></td>
+<td>
+<p>Logical. Inform the builder if operator can accept multiple values for associated inputs.
+In order to enable multiple values for specific input, set 'multiple = TRUE' when creating queryFilters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.queryBuilderConfig</code></td>
+<td>
+<p>R6 object of class 'queryBuilderConfig' storing queryOperators.
+See query-operator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r_class</code></td>
+<td>
+<p>Optional R class to list operators assigned to it.
+When skipped all the mapped operators will be summed up.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print</code></td>
+<td>
+<p>Should the operators summary be printed?</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>When configuring a single query rule, user needs to precise three values in 'queryBuilderInput' interface:
+</p>
+
+<ul>
+<li>
+<p>1. field - Name of the field that can be interpreted as a filtered column name. Selected with dropdown.
+</p>
+</li>
+<li>
+<p>2. operator -
+Name of the operator to be applied to the field. Selected with dropdown.
+
+</p>
+</li>
+<li>
+<p>3. operator value(s) -
+Value(s) that narrows down the operator definition.
+Depending on the chosen operator, such input can be take through various kind of **input controllers**.
+
+</p>
+</li>
+</ul>
+<p><img src="../help/figures/sqb_inputs.png" alt="Inputs explained"></p>
+<p>More detailed configuration for operators linked to specific fields as long as **input controllers** for taking
+operator values should be set with queryFilter.
+</p>
+<p><code>mapOperator</code> is responsible to establish connection between user interface operators
+and queryOperator, that are responsible to convert user input to a valid R-expression.
+The provided configuration allows to shape what **input controllers** should be used to allow users providing
+operators' value(s).
+</p>
+<p>Parameter 'multiple' precises whether queryBuilderInput should allow to provide multiple values for each
+input controller.
+When input controller accepts more than one value and user provides them, in case of 'multiple = FALSE',
+'queryBuilderInput' will alert about it and won't send any values to application server.
+</p>
+<p><img src="../help/figures/sqb_violated.png" alt="Validation"></p>
+<p>Please remember ‘multiple = TRUE', doesn’t mean the associated input controller will automatically accept
+multiple values, this needs to be separately set for each queryFilter, that is responsible for input
+controllers configuration.
+</p>
+<p>Parameter 'nb_inputs' informs how many input controllers should be rendered to take operator value(s).
+</p>
+<p>A good practice is to configure your operators the following way:
+</p>
+
+<ul>
+<li>
+<p><code>nb_inputs = 0</code> - 
+Operator associated function doesn't require any value, e.g. 'is_null' or 'is_empty' that only require
+'field' name.
+
+</p>
+</li>
+<li>
+<p><code>nb_inputs = n, multiple = FALSE</code> - 
+Operator associated function requires exactly ‘n' values, e.g. 'n=2' for ’between' that requires
+lower and upper bound to precise it.
+As a result 'n' separate input controllers will be rendered, each taking a single value.
+
+</p>
+</li>
+<li>
+<p><code>nb_inputs = 1, multiple = TRUE</code> - 
+Operator associated function accepts dynamic number of values, e.g. 'in'.
+As a result one single input controller will be rendered, and operator will allow it to have multiple values set.
+
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>No return value, called for side effects.
+</p>
+<p>List of operators registered within <code>.queryBuilderConfig</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Set backend operator
+in_closed_range &lt;- function(field, bounds) {
+  field &gt;= bounds[1] &amp; field &lt;= bounds[2]
+}
+queryBuilder::setQueryOperators(
+  within = queryBuilder::queryOperator(in_closed_range)
+)
+
+queryBuilder::listQueryOperators()
+
+# Map backend operator to the user interface one
+
+mapOperator(
+  name = "within",
+  nb_inputs = 2, # take value with 2 input controllers
+  multiple = FALSE, # verify if only single value per controller is set
+  apply_to = c("numeric", "Date", "logical") # apply operator to selected field types
+)
+
+listMappedOperators()
+
+filters = list(
+  queryFilter(
+    "Sepal.Length", operators = c("within", "less"), 
+    type = "numeric", values = range(iris$Sepal.Length)
+  ),
+  # no operators set, means take all for "character"
+  queryFilter("Species", type = "character", values = levels(iris$Species))
+)
+
+ui &lt;- shiny::fluidPage(
+  title = title,
+  queryBuilderInput(
+    "qb",
+    filters = filters
+  ),
+  shiny::verbatimTextOutput("expr")
+)
+
+server &lt;- function(input, output, session) {
+  output$expr &lt;- shiny::renderPrint({
+    print(queryToExpr(input$qb))
+  })
+}
+
+if (interactive()) {
+  shiny::shinyApp(ui, server)
+}
+
+</code></pre>
+
+
+</div>

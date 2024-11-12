@@ -1,0 +1,291 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>stdEff</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Standardised Effects</h2>
+
+<h3>Description</h3>
+
+<p>Calculate fully standardised effects (model coefficients) in
+standard deviation units, adjusted for multicollinearity.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">stdEff(
+  mod,
+  weights = NULL,
+  data = NULL,
+  term.names = NULL,
+  unique.eff = TRUE,
+  cen.x = TRUE,
+  cen.y = TRUE,
+  std.x = TRUE,
+  std.y = TRUE,
+  refit.x = TRUE,
+  incl.raw = FALSE,
+  R.squared = FALSE,
+  R2.arg = NULL,
+  env = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mod</code></td>
+<td>
+<p>A fitted model object, or a list or nested list of such objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>An optional numeric vector of weights to use for model
+averaging, or a named list of such vectors. The former should be supplied
+when <code>mod</code> is a list, and the latter when it is a nested list (with
+matching list names). If set to <code>"equal"</code>, a simple average is calculated
+instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An optional dataset, used to first refit the model(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>term.names</code></td>
+<td>
+<p>An optional vector of names used to extract and/or sort
+effects from the output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>unique.eff</code></td>
+<td>
+<p>Logical, whether unique effects should be calculated
+(adjusted for multicollinearity among predictors).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cen.x, cen.y</code></td>
+<td>
+<p>Logical, whether effects should be calculated as if from
+mean-centred variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>std.x, std.y</code></td>
+<td>
+<p>Logical, whether effects should be scaled by the standard
+deviations of variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>refit.x</code></td>
+<td>
+<p>Logical, whether the model should be refit with mean-centred
+predictor variables (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>incl.raw</code></td>
+<td>
+<p>Logical, whether to append the raw (unstandardised) effects
+to the output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R.squared</code></td>
+<td>
+<p>Logical, whether R-squared values should also be calculated
+(via <code>R2()</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R2.arg</code></td>
+<td>
+<p>A named list of additional arguments to <code>R2()</code> (where
+applicable), excepting argument <code>env</code>. Ignored if <code>R.squared = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>Environment in which to look for model data (if none supplied).
+Defaults to the <code>formula()</code> environment.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>stdEff()</code> will calculate fully standardised effects (coefficients)
+in standard deviation units for a fitted model or list of models. It
+achieves this via adjusting the 'raw' model coefficients, so no
+standardisation of input variables is required beforehand. Users can simply
+specify the model with all variables in their original units and the
+function will do the rest. However, the user is free to scale and/or centre
+any input variables should they choose, which should not affect the outcome
+of standardisation (provided any scaling is by standard deviations). This
+may be desirable in some cases, such as to increase numerical stability
+during model fitting when variables are on widely different scales.
+</p>
+<p>If arguments <code>cen.x</code> or <code>cen.y</code> are <code>TRUE</code>, effects will be calculated as
+if all predictors (x) and/or the response variable (y) were mean-centred
+prior to model-fitting (including any dummy variables arising from
+categorical predictors). Thus, for an ordinary linear model where centring
+of x and y is specified, the intercept will be zero – the mean (or weighted
+mean) of y. In addition, if <code>cen.x = TRUE</code> and there are interacting terms
+in the model, all effects for lower order terms of the interaction are
+adjusted using an expression which ensures that each main effect or lower
+order term is estimated at the mean values of the terms they interact with
+(zero in a 'centred' model) – typically improving the interpretation of
+effects. The expression used comprises a weighted sum of all the effects
+that contain the lower order term, with the weight for the term itself
+being zero and those for 'containing' terms being the product of the means
+of the other variables involved in that term (i.e. those not in the lower
+order term itself). For example, for a three-way interaction (x1 * x2 *
+x3), the expression for main effect <code class="reqn">\beta1</code> would be:
+</p>
+<p style="text-align: center;"><code class="reqn">\beta_{1} + \beta_{12}\bar{x}_{2} + \beta_{13}\bar{x}_{3} +
+  \beta_{123}\bar{x}_{2}\bar{x}_{3}</code>
+</p>
+<p> (adapted from
+<a href="https://stats.stackexchange.com/questions/65898/why-could-centering-independent-variables-change-the-main-effects-with-moderatio">here</a>)
+</p>
+<p>In addition, if <code>std.x = TRUE</code> or <code>unique.eff = TRUE</code> (see below), product
+terms for interactive effects will be recalculated using mean-centred
+variables, to ensure that standard deviations and variance inflation
+factors (VIF) for predictors are calculated correctly (the model must be
+refit for this latter purpose, to recalculate the variance-covariance
+matrix).
+</p>
+<p>If <code>std.x = TRUE</code>, effects are scaled by multiplying by the standard
+deviations of predictor variables (or terms), while if <code>std.y = TRUE</code> they
+are divided by the standard deviation of the response variable (minus any
+offsets). If the model is a GLM, this latter is calculated using the
+link-transformed response (or an estimate of same) generated using the
+function <code>glt()</code>. If both arguments are true, the effects are regarded as
+'fully' standardised in the traditional sense, often referred to as
+'betas'.
+</p>
+<p>If <code>unique.eff = TRUE</code> (default), effects are adjusted for
+multicollinearity among predictors by dividing by the square root of the
+VIFs (Dudgeon, 2016; Thompson et al., 2017; <code>RVIF()</code>). If they have also
+been scaled by the standard deviations of x and y, this converts them to
+semipartial correlations, i.e. the correlation between the unique
+components of predictors (residualised on other predictors) and the
+response variable. This measure of effect size is arguably much more
+interpretable and useful than the traditional standardised coefficient, as
+it always represents the unique effects of predictors and so can more
+readily be compared both within and across models. Values range from zero
+to +/- one rather than +/- infinity (as in the case of betas) – putting
+them on the same scale as the bivariate correlation between predictor and
+response. In the case of GLMs however, the measure is analogous but not
+exactly equal to the semipartial correlation, so its values may not always
+be bound between +/- one (such cases are likely rare). Importantly, for
+ordinary linear models, the square of the semipartial correlation equals
+the increase in R-squared when that variable is included last in the model
+– directly linking the measure to unique variance explained. See
+<a href="https://www.daviddisabato.com/blog/2016/4/8/on-effect-sizes-in-multiple-regression">here</a>
+for additional arguments in favour of the use of semipartial correlations.
+</p>
+<p>If <code>refit.x</code>, <code>cen.x</code>, and <code>unique.eff</code> are <code>TRUE</code> and there are
+interaction terms in the model, the model will be refit with any
+(newly-)centred continuous predictors, in order to calculate correct VIFs
+from the variance-covariance matrix. However, refitting may not be
+necessary in some circumstances, for example where predictors have already
+been mean-centred, and whose values will not subsequently be resampled
+(e.g. parametric bootstrap). Setting <code>refit.x = FALSE</code> in such cases will
+save time, especially with larger/more complex models and/or bootstrap
+runs.
+</p>
+<p>If <code>incl.raw = TRUE</code>, raw (unstandardised) effects can also be appended,
+i.e. those with all centring and scaling options set to <code>FALSE</code> (though
+still adjusted for multicollinearity, where applicable). These may be of
+interest in some cases, for example to compare their bootstrapped
+distributions with those of standardised effects.
+</p>
+<p>If <code>R.squared = TRUE</code>, model R-squared values are appended to effects via
+the <code>R2()</code> function, with any additional arguments passed via <code>R2.arg</code>.
+</p>
+<p>Finally, if <code>weights</code> are specified, the function calculates a weighted
+average of standardised effects across a set (or sets) of different
+candidate models for a particular response variable(s) (Burnham &amp; Anderson,
+2002), via the <code>avgEst()</code> function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A numeric vector of the standardised effects, or a list or nested
+list of such vectors.
+</p>
+
+
+<h3>References</h3>
+
+<p>Burnham, K. P., &amp; Anderson, D. R. (2002). <em>Model Selection and
+Multimodel Inference: A Practical Information-Theoretic Approach</em> (2nd
+ed.). Springer-Verlag. <a href="https://link.springer.com/book/10.1007/b97636">https://link.springer.com/book/10.1007/b97636</a>
+</p>
+<p>Dudgeon, P. (2016). A Comparative Investigation of Confidence Intervals for
+Independent Variables in Linear Regression. <em>Multivariate Behavioral
+Research</em>, <em>51</em>(2-3), 139-153. <a href="https://doi.org/10/gfww3f">doi:10/gfww3f</a>
+</p>
+<p>Thompson, C. G., Kim, R. S., Aloe, A. M., &amp; Becker, B. J. (2017).
+Extracting the Variance Inflation Factor and Other Multicollinearity
+Diagnostics from Typical Regression Results. <em>Basic and Applied Social
+Psychology</em>, <em>39</em>(2), 81-90. <a href="https://doi.org/10/gfww2w">doi:10/gfww2w</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(lme4)
+
+# Standardised (direct) effects for SEM
+m &lt;- shipley.sem
+stdEff(m)
+stdEff(m, cen.y = FALSE, std.y = FALSE)  # x-only
+stdEff(m, std.x = FALSE, std.y = FALSE)  # centred only
+stdEff(m, cen.x = FALSE, cen.y = FALSE)  # scaled only
+stdEff(m, unique.eff = FALSE)  # include multicollinearity
+stdEff(m, R.squared = TRUE)  # add R-squared
+stdEff(m, incl.raw = TRUE)  # add unstandardised
+
+# Demonstrate equality with effects from manually-standardised variables
+# (gaussian models only)
+m &lt;- shipley.growth[[3]]
+d &lt;- data.frame(scale(na.omit(shipley)))
+e1 &lt;- stdEff(m, unique.eff = FALSE)
+e2 &lt;- coef(summary(update(m, data = d)))[, 1]
+stopifnot(all.equal(e1, e2))
+
+# Demonstrate equality with square root of increment in R-squared
+# (ordinary linear models only)
+m &lt;- lm(Growth ~ Date + DD + lat, data = shipley)
+r2 &lt;- summary(m)$r.squared
+e1 &lt;- stdEff(m)[-1]
+en &lt;- names(e1)
+e2 &lt;- sapply(en, function(i) {
+  f &lt;- reformulate(en[!en %in% i])
+  r2i &lt;- summary(update(m, f))$r.squared
+  sqrt(r2 - r2i)
+})
+stopifnot(all.equal(e1, e2))
+
+# Model-averaged standardised effects
+m &lt;- shipley.growth  # candidate models
+w &lt;- runif(length(m), 0, 1)  # weights
+stdEff(m, w)
+</code></pre>
+
+
+</div>

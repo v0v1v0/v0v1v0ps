@@ -1,0 +1,435 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>shrinkTVPVAR</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Markov Chain Monte Carlo (MCMC) for TVP-VAR-SV models with shrinkage</h2>
+
+<h3>Description</h3>
+
+<p><code>shrinkTVPVAR</code> samples from the joint posterior distribution of the parameters of a TVP-VAR-SV
+model with shrinkage as described in  Cadonna et al. (2020) and returns the MCMC draws.
+The model can be written as:
+</p>
+<p style="text-align: center;"><code class="reqn">Y_t = c_t + \Phi_{1,t} Y_{t-1} + \Phi_{2,t} Y_{t-2} + \cdots + \Phi_{p,t} Y_{t-p} + \epsilon_t</code>
+</p>
+
+<p>where <code class="reqn">\epsilon_t \sim \mathcal{N}_m(0, \Sigma_t)</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">shrinkTVPVAR(
+  y,
+  p = 1,
+  mod_type = "double",
+  const = TRUE,
+  niter = 5000,
+  nburn = round(niter/2),
+  nthin = 1,
+  display_progress = TRUE,
+  TVP_params_beta = list(),
+  TVP_params_sigma = list()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>matrix or data frame containing the time series data. The rows correspond to the time
+points and the columns to the variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>positive integer indicating the number of lags in the VAR model. The default value is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mod_type</code></td>
+<td>
+<p>character string that reads either <code>"triple"</code>, <code>"double"</code> or <code>"ridge"</code>.
+Determines whether the triple gamma, double gamma or ridge prior are used for <code>theta_sr</code> and <code>beta_mean</code>.
+The default is "double".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>const</code></td>
+<td>
+<p>logical value indicating whether a constant should be included in the model. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>niter</code></td>
+<td>
+<p>positive integer, indicating the number of MCMC iterations
+to perform, including the burn-in. Has to be larger than or equal to <code>nburn</code> + 2. The default value is 10000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nburn</code></td>
+<td>
+<p>non-negative integer, indicating the number of iterations discarded
+as burn-in. Has to be smaller than or equal to <code>niter</code> - 2. The default value is <code>round(niter / 2)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nthin</code></td>
+<td>
+<p>positive integer, indicating the degree of thinning to be performed. Every <code>nthin</code> draw is kept and returned.
+The default value is 1, implying that every draw is kept.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>display_progress</code></td>
+<td>
+<p>logical value indicating whether the progress bar and other informative output should be
+displayed. The default value is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>TVP_params_beta</code></td>
+<td>
+<p><em>optional</em> named list containing hyperparameter values for the TVP prior of the beta_mean matrix.
+Not all have to be supplied, with those missing being replaced by the default values. Any list elements that are misnamed will be ignored and a warning will be thrown.
+Can either be a list of depth 1, which results in all equations having the same hyperparameters, or a list of lists of length <code>m</code>, where each sub-list contains the
+hyperparameters for the respective equation. If sub-lists are provided, they can be unnamed, in which case the order of the elements is assumed to be the same as the order of the equations in the data.
+Alternatively, they can be named <code>eq1</code>, <code>eq2</code>, ..., <code>eqm</code>.
+The meaning of the hyperparameters is the same as in <code>shrinkTVP</code>, as this function is used to sample the TVP coefficients.
+A key difference lies in how the adaptive MH arguments are provided. In this function, the adaptive MH arguments are provided as vectors of length 4,
+where the elements control the MH steps in following order: <code>a_xi</code>, <code>a_tau</code>, <code>c_xi</code>, <code>c_tau</code>.
+E.g. if <code>adaptive = c(FALSE, TRUE, TRUE, FALSE)</code>, then the MH step for <code>a_xi</code> and <code>c_tau</code> are non-adaptive, while the MH step for <code>a_tau</code> and <code>c_xi</code> are adaptive.
+The following elements can be supplied:
+</p>
+
+<ul>
+<li> <p><code>e1</code>: positive, real number. The default value is 0.5.
+</p>
+</li>
+<li> <p><code>e2</code>: positive, real number. The default value is 0.001.
+</p>
+</li>
+<li> <p><code>d1</code>: positive, real number. The default value is 0.5.
+</p>
+</li>
+<li> <p><code>d2</code>: positive, real number. The default value is 0.001.
+</p>
+</li>
+<li> <p><code>beta_a_xi</code>: positive, real number. The default value is 10.
+</p>
+</li>
+<li> <p><code>beta_a_tau</code>: positive, real number. The default value is 10.
+</p>
+</li>
+<li> <p><code>alpha_a_xi</code>: positive, real number. The default value is 5.
+</p>
+</li>
+<li> <p><code>alpha_a_tau</code>: positive, real number. The default value is 5.
+</p>
+</li>
+<li> <p><code>beta_c_xi</code>: positive, real number. The default value is 2.
+</p>
+</li>
+<li> <p><code>beta_c_tau</code>: positive, real number. The default value is 2.
+</p>
+</li>
+<li> <p><code>alpha_c_xi</code>: positive, real number. The default value is 5.
+</p>
+</li>
+<li> <p><code>alpha_c_tau</code>: positive, real number. The default value is 5.
+</p>
+</li>
+<li> <p><code>a_tuning_par_xi</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>a_tuning_par_tau</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>c_tuning_par_xi</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>c_tuning_par_tau</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>learn_a_xi</code>: logical. The default value is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>learn_a_tau</code>: logical. The default value is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>a_eq_c_xi</code>: logical. The default value is <code>FALSE</code>.
+</p>
+</li>
+<li> <p><code>a_eq_c_tau</code>: logical. The default value is <code>FALSE</code>.
+</p>
+</li>
+<li> <p><code>a_xi</code>: positive, real number. The default value is 0.1.
+</p>
+</li>
+<li> <p><code>a_tau</code>: positive, real number. The default value is 0.1.
+</p>
+</li>
+<li> <p><code>learn_c_xi</code>: logical. The default value is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>learn_c_tau</code>: logical. The default value is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>c_xi</code>: positive, real number. The default value is 0.1.
+</p>
+</li>
+<li> <p><code>c_tau</code>: positive, real number. The default value is 0.1.
+</p>
+</li>
+<li> <p><code>learn_kappa2_B</code>: logical. The default value is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>learn_lambda2_B</code>: logical. The default value is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>kappa2_B</code>: positive, real number. The default value is 20.
+</p>
+</li>
+<li> <p><code>lambda2_B</code>: positive, real number. The default value is 20.
+</p>
+</li>
+<li> <p><code>Bsigma_sv</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>a0_sv</code>: positive, real number. The default value is 5.
+</p>
+</li>
+<li> <p><code>b0_sv</code>: positive, real number. The default value is 1.5.
+</p>
+</li>
+<li> <p><code>bmu</code>: real number. The default value is 0.
+</p>
+</li>
+<li> <p><code>Bmu</code>: positive, real number. The default value is 1.
+</p>
+</li>
+<li> <p><code>adaptive</code>: logical vector of length 4. The default value is <code>rep(TRUE, 4)</code>.
+</p>
+</li>
+<li> <p><code>target_rates</code>: numeric vector of length 4. The default value is <code>rep(0.44, 4)</code>.
+</p>
+</li>
+<li> <p><code>batch_sizes</code>: numeric vector of length 4. The default value is <code>rep(50, 4)</code>.
+</p>
+</li>
+<li> <p><code>max_adapts</code>: numeric vector of length 4. The default value is <code>rep(0.01, 4)</code>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>TVP_params_sigma</code></td>
+<td>
+<p><em>optional</em> named list containing hyperparameter values for the TVP prior of the Sigma matrix.
+The structure is the same as for <code>TVP_params_beta</code>. The default values are the same as for <code>TVP_params_beta</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The elements of the VAR coefficients <code class="reqn">\Phi_{i,t}</code> are assumed to follow component-wise
+random walk.
+</p>
+<p>For further details concerning the algorithms and the model please refer to the paper by Cadonna et al. (2020).
+</p>
+
+
+<h3>Value</h3>
+
+<p>The value returned is a <code>shrinkTVPVAR</code> object containing:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>an object of class <code>"mcmc.tvp.var"</code> containing the MCMC draws of the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_mean</code></td>
+<td>
+<p>an object of class <code>"mcmc.var"</code> containing the MCMC draws of beta_mean for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta_sr</code></td>
+<td>
+<p>an object of class <code>"mcmc.var"</code> containing the MCMC draws of theta_sr for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xi2</code></td>
+<td>
+<p>an object of class <code>"mcmc.var"</code> containing the MCMC draws of xi2 for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_xi</code></td>
+<td>
+<p>an object of class <code>"mcmc"</code> containing the MCMC draws of c_xi for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa2</code></td>
+<td>
+<p>an object of class <code>"mcmc.var"</code> containing the MCMC draws of kappa2 for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa2_B</code></td>
+<td>
+<p>an object of class <code>"mcmc"</code> containing the MCMC draws of kappa2_B for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_xi</code></td>
+<td>
+<p>an object of class <code>"mcmc"</code> containing the MCMC draws of a_xi for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau2</code></td>
+<td>
+<p>an object of class <code>"mcmc.var"</code> containing the MCMC draws of tau2 for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>c_tau</code></td>
+<td>
+<p>an object of class <code>"mcmc"</code> containing the MCMC draws of c_tau for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda2</code></td>
+<td>
+<p>an object of class <code>"mcmc.var"</code> containing the MCMC draws of lambda2 for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda2_B</code></td>
+<td>
+<p>an object of class <code>"mcmc"</code> containing the MCMC draws of lambda2_B for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a_tau</code></td>
+<td>
+<p>an object of class <code>"mcmc"</code> containing the MCMC draws of a_tau for the VAR coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma</code></td>
+<td>
+<p>an object of class <code>"mcmc.tvp.var"</code> containing the MCMC draws of the covariance matrices.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pred_objs</code></td>
+<td>
+<p>a list containing objects required for prediction methods to work.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta_consts</code></td>
+<td>
+<p>a list of <code>mcmc.tvp</code> objects containing the MCMC draws of the intercepts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing the input data, as well as the synthetic "covariates" used for estimation.</p>
+</td>
+</tr>
+</table>
+<p>Note that only the values pertaining to the VAR coefficients are returned.
+The values for the variance-covariance matrix are not returned.
+</p>
+<p>To display the output, use <code>plot</code> on various elements of the list, as well as the <code>TV_heatmap</code>,
+<code>density_plotter</code> and <code>state_plotter</code> function. Many functions that can be applied to <code>coda::mcmc</code> objects
+(e.g. <code>coda::acfplot</code>) can be applied to all output elements that are <code>coda</code> compatible.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Peter Knaus <a href="mailto:peter.knaus@wu.ac.at">peter.knaus@wu.ac.at</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Cadonna, A., Frühwirth-Schnatter, S., &amp; Knaus, P. (2020). "Triple the Gamma—A Unifying Shrinkage Prior for Variance and Variable Selection in Sparse State Space and TVP Models."
+<em>Econometrics</em>, 8(2), 20. &lt;doi:10.3390/econometrics8020020&gt;
+</p>
+<p>Knaus, P., Bitto-Nemling, A., Cadonna, A., &amp; Frühwirth-Schnatter, S. (2021) "Shrinkage in the Time-Varying Parameter Model Framework Using the <code>R</code> Package <code>shrinkTVP</code>."
+<em>Journal of Statistical Software</em> 100(13), 1–32. &lt;doi:10.18637/jss.v100.i13&gt;
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>TV_heatmap</code> <code>density_plotter</code> <code>state_plotter</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(123)
+sim &lt;- simTVPVAR(p = 2)
+data &lt;- sim$data
+
+res &lt;- shrinkTVPVAR(data, p = 2)
+
+# Visualize the results
+plot(res)
+
+plot(res$theta_sr)
+
+# Change prior to triple gamma
+res2 &lt;- shrinkTVPVAR(data, p = 2, mod_type = "triple")
+
+# Modify the hyperparameter setup
+# Estimate under hierarchical horseshoe prior
+hyperparam &lt;- list(learn_a_xi = FALSE, learn_c_xi = FALSE,
+                  learn_a_tau = FALSE, learn_c_tau = FALSE,
+                  a_xi = 0.5, c_xi = 0.5, a_tau = 0.5, c_tau = 0.5)
+
+res3 &lt;- shrinkTVPVAR(data, p = 2, mod_type = "triple",
+                    TVP_params_beta = hyperparam,
+                    TVP_params_sigma = hyperparam)
+
+# Can also specify different hyperparameters for each equation
+# gen_TVP_params() is a helper function and returns a
+# list of lists (if for_each_eq = TRUE) where each sub-list
+# contains the hyperparameters for the respective equation
+hyperparam2 &lt;- gen_TVP_params(m = 3, for_each_eq = TRUE)
+
+hyperparam2[[1]]$learn_a_xi &lt;- FALSE
+hyperparam2[[1]]$a_xi &lt;- 0.5
+
+res4 &lt;- shrinkTVPVAR(data, p = 2, mod_type = "triple",
+                     TVP_params_beta = hyperparam2)
+
+# Now, a_xi is only fixed in first equation
+plot(res4$a_xi)
+
+
+</code></pre>
+
+
+</div>

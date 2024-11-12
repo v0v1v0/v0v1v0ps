@@ -1,0 +1,150 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>selectSampleSpatial</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Selection of geo-referenced points from the frame  
+</h2>
+
+<h3>Description</h3>
+
+<p>Once optimal stratification has been obtained, and a new frame has been 
+built by assigning to the units of the old one the new strata labels, 
+it is possible to select a stratified sample from the frame. 
+If geographical coordinates are available in the frame, in order to obtain spatially distributed selected points
+this function makes use of the 'lpm2_kdtree' function from the' SamplingBigData' package (Lisic-Grafstrom).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">selectSampleSpatial(frame, outstrata, coord_names)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>frame</code></td>
+<td>
+
+<p>This is the (mandatory) dataframe containing the sampling frame, as it has been modified 
+by the execution of the "updateFrame" function. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>outstrata</code></td>
+<td>
+
+<p>This is the (mandatory) dataframe containing the information related to resulting stratification obtained by the execution of "optimStrata" function. It should coincide with 'solution$aggr_strata'.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coord_names</code></td>
+<td>
+
+<p>Indicates with which names the coordinates are indicated in the frame.
+</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A dataframe containing the selected sample
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Giulio Barcaroli
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+#############################
+# Example of "spatial" method
+#############################
+library(sp)
+# locations (155 observed points)
+data("meuse")
+# grid of points (3103)
+data("meuse.grid")
+meuse.grid$id &lt;- c(1:nrow(meuse.grid))
+coordinates(meuse)&lt;-c("x","y")
+coordinates(meuse.grid)&lt;-c("x","y")
+
+## Kriging model
+library(automap)
+kriging_lead = autoKrige(log(lead) ~ dist, meuse, meuse.grid)
+plot(kriging_lead,sp.layout = NULL, justPosition = TRUE)
+kriging_zinc = autoKrige(log(zinc) ~ dist, meuse, meuse.grid)
+plot(kriging_zinc, sp.layout = list(pts = list("sp.points", meuse)))
+r2_lead &lt;- 1 - kriging_lead$sserr/sum((meuse$lead-mean(meuse$lead))^2)
+r2_lead
+r2_zinc &lt;- 1 - kriging_zinc$sserr/sum((meuse$zinc-mean(meuse$zinc))^2)
+r2_zinc
+df &lt;- NULL
+df$id &lt;- meuse.grid$id
+df$lead.pred &lt;- kriging_lead$krige_output@data$var1.pred
+df$lead.var &lt;- kriging_lead$krige_output@data$var1.var
+df$zinc.pred &lt;- kriging_zinc$krige_output@data$var1.pred
+df$zinc.var &lt;- kriging_zinc$krige_output@data$var1.var
+df$lon &lt;- meuse.grid$x
+df$lat &lt;- meuse.grid$y
+df$dom1 &lt;- 1
+df &lt;- as.data.frame(df)
+head(df)
+
+## Optimization 
+library(SamplingStrata)
+frame &lt;- buildFrameSpatial(df=df,
+                           id="id",
+                           X=c("lead.pred","zinc.pred"),
+                           Y=c("lead.pred","zinc.pred"),
+                           variance=c("lead.var","zinc.var"),
+                           lon="lon",
+                           lat="lat",
+                           domainvalue = "dom1")
+cv &lt;- as.data.frame(list(DOM=rep("DOM1",1),
+                         CV1=rep(0.01,1),
+                         CV2=rep(0.01,1),
+                         domainvalue=c(1:1) ))
+set.seed(1234)
+solution &lt;- optimStrata (
+  method = "spatial",
+  errors=cv, 
+  framesamp=frame,
+  iter = 15,
+  pops = 10,
+  nStrata = 5,
+  fitting = c(r2_lead,r2_zinc),
+  range = c(kriging_lead$var_model$range[2],kriging_zinc$var_model$range[2]),
+  kappa=1,
+  writeFiles = FALSE,
+  showPlot = TRUE,
+  parallel = FALSE)
+framenew &lt;- solution$framenew
+outstrata &lt;- solution$aggr_strata
+
+# Sample selection
+samp &lt;- selectSampleSpatial(framenew,outstrata,coord_names=c("LON","LAT"))
+table(samp$STRATO)
+
+# Plot
+library(sf)
+samp_sf &lt;- st_as_sf(samp, coords = c("LON", "LAT"))
+plot(samp_sf["STRATO"])
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

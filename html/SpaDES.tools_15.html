@@ -1,0 +1,133 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>directionFromEachPoint</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate distances and directions between many points and many grid cells</h2>
+
+<h3>Description</h3>
+
+<p>This is a modification of <code>terra::distance()</code> for the case
+of many points.
+This version can often be faster for a single point because it does not return
+a <code>RasterLayer</code>.
+This is different than <code>terra::distance()</code> because it does
+not take the minimum distance from the set of points to all cells.
+Rather this returns the every pair-wise point distance.
+As a result, this can be used for doing inverse distance weightings, seed rain,
+cumulative effects of distance-based processes etc.
+If memory limitation is an issue, <code>maxDistance</code> will keep memory use down,
+but with the consequences that there will be a maximum distance returned.
+This function has the potential to use a lot of memory if there are a lot of
+<code>from</code> and <code>to</code> points.
+</p>
+<p>Internal function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">directionFromEachPoint(from, to = NULL, landscape)
+
+.pointDirection(from, to)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>from</code></td>
+<td>
+<p>matrix with 2 or 3 columns, x and y, representing x and y coordinates
+of <code>from</code> cell, and optional <code>id</code>, which will be returned,
+and if <code>id</code> column is in <code>to</code>, it will be matched with that.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>to</code></td>
+<td>
+<p>matrix with 2  or 3 columns (or optionally more, all of which will be returned),
+x and y, representing x and y coordinates of <code>to</code> cells, and
+optional <code>id</code> which will be matched with <code>id</code> from <code>from</code>.
+It makes no sense to have <code>id</code> column here with no <code>id</code> column
+in <code>from</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>landscape</code></td>
+<td>
+<p>(optional) <code>RasterLayer</code> or <code>SpatRaster</code>.
+This is only used if <code>to = NULL</code>, in which case all cells are considered <code>to</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>directionFromEachPoint</code> calls <code>.pointDirection</code>, which is
+not intended to be called directly by the user.
+</p>
+<p>If knowing the which from cell matches with which to cell is important,
+put a column "id" (e.g., starting cell) in the <code>from</code> matrix.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A sorted matrix on <code>id</code> with same number of rows as <code>to</code>,
+but with one extra column, <code>angles</code> indicating the angle in radians between from and to.
+For speed, this angle will be between <code>-pi/2</code> and <code>3*pi/2</code>.
+If the user wants this between say, <code>0</code> and <code>2*pi</code>,
+then <code style="white-space: pre;">⁠angles \%\% (2*pi)⁠</code> will do the trick. See example.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eliot McIntire
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>distanceFromEachPoint()</code>, which will also return directions if <code>angles = TRUE</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(terra)
+
+origDTThreads &lt;- data.table::setDTthreads(2L)
+origNcpus &lt;- options(Ncpus = 2L)
+
+N &lt;- 2
+dirRas &lt;- terra::rast(terra::ext(0,40,0,40), res = 1)
+coords &lt;- cbind(x = round(runif(N, xmin(dirRas), xmax(dirRas))) + 0.5,
+                y = round(runif(N, xmin(dirRas), xmax(dirRas))) + 0.5,
+                id = 1:N)
+
+dirs1 &lt;- directionFromEachPoint(from = coords, landscape = dirRas)
+
+# helper function for converting radians to degrees
+deg2 &lt;- function(radian) (radian * 180)/pi
+dirs1[, "angles"] &lt;- deg2(dirs1[,"angles"] %% (2*pi))
+indices &lt;- cellFromXY(dirRas,dirs1[, c("x", "y")])
+minDir &lt;- tapply(dirs1[, "angles"], indices, function(x) min(x)) # minimum angle
+dirRas[] &lt;- as.vector(minDir)
+
+if (interactive()) {
+  terra::plot(dirRas)
+  start &lt;- terra::vect(coords[, c("x", "y"), drop = FALSE])
+  terra::plot(start, add = TRUE)
+}
+
+# clean up
+data.table::setDTthreads(origDTThreads)
+options(Ncpus = origNcpus)
+
+</code></pre>
+
+
+</div>

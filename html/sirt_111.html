@@ -1,0 +1,224 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fit.isop</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Fitting the ISOP and ADISOP Model for Frequency Tables
+</h2>
+
+<h3>Description</h3>
+
+<p>Fit the isotonic probabilistic model (ISOP;
+Scheiblechner, 1995) and the additive isotonic probabilistic
+model (ADISOP; Scheiblechner, 1999).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fit.isop(freq.correct, wgt, conv=1e-04, maxit=100,
+      progress=TRUE, calc.ll=TRUE)
+
+fit.adisop(freq.correct, wgt, conv=1e-04, maxit=100,
+      epsilon=0.01, progress=TRUE, calc.ll=TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>freq.correct</code></td>
+<td>
+
+<p>Frequency table
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wgt</code></td>
+<td>
+
+<p>Weights for frequency table (number of persons in
+each cell)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conv</code></td>
+<td>
+
+<p>Convergence criterion
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxit</code></td>
+<td>
+
+<p>Maximum number of iterations
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epsilon</code></td>
+<td>
+<p>Additive constant to handle cell frequencies
+of 0 or 1 in <code>fit.adisop</code>
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+
+<p>Display progress?
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>calc.ll</code></td>
+<td>
+<p>Calculate log-likelihood values?
+The default is <code>TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>See <code>isop.dich</code> for more details of the
+ISOP and ADISOP model.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with following entries
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>fX</code></td>
+<td>
+<p>Fitted frequency table</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ResX</code></td>
+<td>
+<p>Residual frequency table</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>Fit statistic: weighted least squares
+of deviations between observed and expected frequencies</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>item.sc</code></td>
+<td>
+<p>Estimated item parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>person.sc</code></td>
+<td>
+
+<p>Estimated person parameters
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ll</code></td>
+<td>
+<p>Log-likelihood of the model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>freq.fitted</code></td>
+<td>
+<p>Fitted frequencies in a long data frame</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>For fitting the ADISOP model it is recommended to first
+fit the ISOP model and then proceed with the fitted frequency
+table from ISOP (see Examples).
+</p>
+
+
+<h3>References</h3>
+
+<p>Scheiblechner, H. (1995). Isotonic ordinal
+probabilistic models (ISOP). <em>Psychometrika,
+60</em>, 281-304.
+</p>
+<p>Scheiblechner, H. (1999). Additive conjoint isotonic
+probabilistic models (ADISOP). <em>Psychometrika,
+64</em>, 295-316.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>For fitting the ISOP model to dichotomous and
+polytomous data see <code>isop.dich</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#############################################################################
+# EXAMPLE 1: Dataset Reading
+#############################################################################
+
+data(data.read)
+dat &lt;- as.matrix( data.read)
+dat.resp &lt;- 1 - is.na(dat) # response indicator matrix
+I &lt;- ncol(dat)
+
+#***
+# (1) Data preparation
+#     actually only freq.correct and wgt are needed
+#     but these matrices must be computed in advance.
+
+# different scores of students
+stud.p &lt;- rowMeans( dat, na.rm=TRUE )
+# different item p values
+item.p &lt;- colMeans( dat, na.rm=TRUE )
+item.ps &lt;- sort( item.p, index.return=TRUE)
+dat &lt;- dat[,  item.ps$ix ]
+# define score groups students
+scores &lt;- sort( unique( stud.p ) )
+SC &lt;- length(scores)
+# create table
+freq.correct &lt;- matrix( NA, SC, I )
+wgt &lt;- freq.correct
+# percent correct
+a1 &lt;- stats::aggregate( dat==1, list( stud.p ), mean, na.rm=TRUE )
+freq.correct &lt;- a1[,-1]
+# weights
+a1 &lt;- stats::aggregate( dat.resp, list( stud.p ), sum, na.rm=TRUE )
+wgt &lt;- a1[,-1]
+
+#***
+# (2) Fit ISOP model
+res.isop &lt;- sirt::fit.isop( freq.correct, wgt )
+# fitted frequency table
+res.isop$fX
+
+#***
+# (3) Fit ADISOP model
+# use monotonely smoothed frequency table from ISOP model
+res.adisop &lt;- sirt::fit.adisop( freq.correct=res.isop$fX, wgt )
+# fitted frequency table
+res.adisop$fX
+</code></pre>
+
+
+</div>

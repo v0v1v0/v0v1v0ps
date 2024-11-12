@@ -1,0 +1,219 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>progress</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Display progression of a long calculation at the R console and/or in a GUI</h2>
+
+<h3>Description</h3>
+
+<p>Display progression level of a long-running task in the console.
+Two mode can be used: either percent of achievement (55\
+items or steps done on a total (1 file on 10 done...). This is displayed
+either through a message, or through a text-based "progression bar" on the
+console, or a true progression bar widget in a GUI.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">progress(
+  value,
+  max.value = NULL,
+  progress.bar = FALSE,
+  char = "|",
+  init = (value == 0),
+  console = TRUE,
+  gui = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>value</code></td>
+<td>
+<p>Current value of the progression (use a value higher than
+<code>max.value</code> to dismiss the progression indication automatically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.value</code></td>
+<td>
+<p>Maximum value to be achieved.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress.bar</code></td>
+<td>
+<p>Should we display a progression bar on the console? If
+<code>FALSE</code>, a temporary message is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>char</code></td>
+<td>
+<p>The character to use to fill the progress bar in the console. not
+used for the alternate display, or for GUI display of progression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init</code></td>
+<td>
+<p>Do we have to initialize the progress bar? It is usually done the
+first time the function is used, and the default value <code>init = (value == 0)</code>
+is correct most of the time. You must specify <code>init = TRUE</code> in two cases:
+(1) if the first value to display is different from zero, and (2) if your
+code issues some text on screen during progression display. Hence, you must
+force redraw of the progression bar.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>console</code></td>
+<td>
+<p>Do we display progression on the console?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gui</code></td>
+<td>
+<p>Do we display progression in a dialog box, or any other GUI widget?
+See "details" and "examples" hereunder to know how to implement your own GUI
+progression indicator.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>progress()</code> proposes different styles of progression
+indicators than the standard <code>txtProgressBar()</code> in package 'utils'.
+</p>
+<p>The function uses backspace (\8) to erase characters at the console.
+</p>
+<p>With <code>gui = TRUE</code>, it looks for all functions defined in the <code>.progress</code> list
+located in the <code>SciViews:TempEnv</code> environment. Each function is executed in
+turn with following call: <code>the_gui_function(value, max.value)</code>. You are
+responsible to create <code>the_gui_function()</code> and to add it as an element in
+the <code>.progress</code> list. See also example (5) hereunder.
+</p>
+<p>If your GUI display of the progression offers the possibility to stop
+calculation (for instance, using a 'Cancel' button), you are responsible to
+pass this info to your code doing the long calculation and to stop it there.
+Example (5) shows how to do this.
+</p>
+
+
+<h3>Value</h3>
+
+<p>This function returns <code>NULL</code> invisibly. It is invoked for its side
+effects.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>batch()</code>, <code>txtProgressBar()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># 1) A simple progress indicator in percent
+for (i in 0:101) {
+  progress(i)
+  Sys.sleep(0.01)
+  if (i == 101) message("Done!")
+}
+
+## Not run: 
+# 2) A progress indicator with 'x on y'
+for (i in 0:31) {
+  progress(i, 30)
+  Sys.sleep(0.02)
+  if (i == 31) message("Done!")
+}
+
+# 3) A progress bar in percent
+for (i in 0:101) {
+  progress(i, progress.bar = TRUE)
+  Sys.sleep(0.01)
+  if (i == 101) message("Done!")
+}
+
+# 4) A progress indicator with 'x on y'
+for (i in 0:21) {
+  progress(i, 20, progress.bar = TRUE)
+  Sys.sleep(0.03)
+  if (i == 21) message("Done!")
+}
+
+## End(Not run)
+
+# 5) A progression dialog box with Tcl/Tk
+## Not run: 
+if (require(tcltk)) {
+  gui_progress &lt;- function(value, max.value) {
+    # Do we need to destroy the progression dialog box?
+    if (value &gt; max.value) {
+      try(tkdestroy(get_temp("gui_progress_window")), silent = TRUE)
+      delete_temp(c("gui_progress_state", "gui_progress_window",
+        "gui_progress_cancel"))
+      return(invisible(FALSE))
+    } else if (exists_temp("gui_progress_window") &amp;&amp;
+      !inherits(try(tkwm.deiconify(tt &lt;- get_temp("gui_progress_window")),
+        silent = TRUE), "try-error")) {
+      # The progression dialog box exists
+      # Focus on it and change progress value
+      tkfocus(tt)
+      state &lt;- get_temp("gui_progress_state")
+      tclvalue(state) &lt;- value
+    } else {
+      # The progression dialog box must be (re)created
+      # First, make sure there is no remaining "gui_progress_cancel"
+      delete_temp("gui_progress_cancel")
+      # Create a Tcl variable to hold current progression state
+      state &lt;- tclVar(value)
+      assign_temp("gui_progress_state", state)
+      # Create the progression dialog box
+      tt &lt;- tktoplevel()
+      assign_temp("gui_progress_window", tt)
+      tktitle(tt) &lt;- "Waiting..."
+      sc &lt;- tkscale(tt, orient = "h", state = "disabled", to = max.value,
+        label = "Progress:", length = 200, variable = state)
+      tkpack(sc)
+      but &lt;- tkbutton(tt, text = "Cancel", command = function() {
+        # Set a flag telling to stop running calculation
+        assign_temp("gui_progress_cancel", TRUE) # Content is not important!
+        tkdestroy(tt)
+      })
+      tkpack(but)
+    }
+    invisible(TRUE)
+  }
+  # Register it as function to use in progress()
+  change_temp(".progress", "gui_progress", gui_progress,
+    replace.existing = TRUE)
+  rm(gui_progress) # Don't need this any more
+  # Test it...
+  for (i in 0:101) {
+    progress(i) # Could also set console = FALSE for using the GUI only
+    Sys.sleep(0.05)
+    # The code to stop long calc when user presses "Cancel"
+    if (exists_temp("gui_progress_cancel")) {
+      progress(101, console = FALSE) # Make sure to clean up everything
+      break
+    }
+    if (i == 101) message("Done!")
+  }
+  # Unregister the GUI for progress
+  change_temp(".progress", "gui_progress", NULL)
+}
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,186 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_stats19</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Download, read and format STATS19 data in one function.</h2>
+
+<h3>Description</h3>
+
+<p>Download, read and format STATS19 data in one function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">get_stats19(
+  year = NULL,
+  type = "collision",
+  data_dir = get_data_directory(),
+  file_name = NULL,
+  format = TRUE,
+  ask = FALSE,
+  silent = FALSE,
+  output_format = "tibble",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>year</code></td>
+<td>
+<p>A year matching file names on the STATS19
+<a href="https://www.data.gov.uk/dataset/cb7ae6f0-4be6-4935-9277-47e5ce24a11f/road-safety-data">data release page</a>
+e.g. <code>2020</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>One of 'collision', 'casualty', 'Vehicle'; defaults to 'collision'.
+This text string is used to match the file names released by the DfT.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data_dir</code></td>
+<td>
+<p>Parent directory for all downloaded files. Defaults to <code>tempdir()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>file_name</code></td>
+<td>
+<p>The file name (DfT named) to download.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>format</code></td>
+<td>
+<p>Switch to return raw read from file, default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ask</code></td>
+<td>
+<p>Should you be asked whether or not to download the files? <code>TRUE</code> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Boolean. If <code>FALSE</code> (default value), display useful progress
+messages on the screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output_format</code></td>
+<td>
+<p>A string that specifies the desired output format. The
+default value is <code>"tibble"</code>. Other possible values are <code>"data.frame"</code>, <code>"sf"</code>
+and <code>"ppp"</code>, that, respectively, returns objects of class <code>data.frame</code>,
+<code>sf::sf</code> and <code>spatstat.geom::ppp</code>. Any other string is ignored and a tibble
+output is returned. See details and examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments be passed to <code>format_sf()</code> or
+<code>format_ppp()</code> functions. Read and run the examples.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function uses gets STATS19 data. Behind the scenes it uses
+<code>dl_stats19()</code> and <code style="white-space: pre;">⁠read_*⁠</code> functions, returning a
+<code>tibble</code> (default), <code>data.frame</code>, <code>sf</code> or <code>ppp</code> object, depending on the
+<code>output_format</code> parameter.
+The function returns data for a specific year (e.g. <code>year = 2022</code>)
+</p>
+<p>Note: for years before 2016 the function may return data from more years than are
+requested due to the nature of the files hosted at
+<a href="https://www.data.gov.uk/dataset/cb7ae6f0-4be6-4935-9277-47e5ce24a11f/road-safety-data">data.gov.uk</a>.
+</p>
+<p>As this function uses <code>dl_stats19</code> function, it can download many MB of data,
+so ensure you have a sufficient disk space.
+</p>
+<p>If <code>output_format = "data.frame"</code> or <code>output_format = "sf"</code> or <code>output_format = "ppp"</code> then the output data is transformed into a data.frame, sf or ppp
+object using the <code>as.data.frame()</code> or <code>format_sf()</code> or <code>format_ppp()</code>
+functions, as shown in the examples.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>dl_stats19()</code>
+</p>
+<p><code>read_collisions()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+if(curl::has_internet()) {
+x = get_stats19(2022, silent = TRUE, format = TRUE)
+class(x)
+# data.frame output
+x = get_stats19(2022, silent = TRUE, output_format = "data.frame")
+class(x)
+
+# Run tests only if endpoint is alive:
+if(nrow(x) &gt; 0) {
+
+# sf output
+x_sf = get_stats19(2022, silent = TRUE, output_format = "sf")
+
+# sf output with lonlat coordinates
+x_sf = get_stats19(2022, silent = TRUE, output_format = "sf", lonlat = TRUE)
+sf::st_crs(x_sf)
+
+if (requireNamespace("spatstat.geom", quietly = TRUE)) {
+# ppp output
+x_ppp = get_stats19(2022, silent = TRUE, output_format = "ppp")
+
+# We can use the window parameter of format_ppp function to filter only the
+# events occurred in a specific area. For example we can create a new bbox
+# of 5km around the city center of Leeds
+
+leeds_window = spatstat.geom::owin(
+xrange = c(425046.1, 435046.1),
+yrange = c(428577.2, 438577.2)
+)
+
+leeds_ppp = get_stats19(2022, silent = TRUE, output_format = "ppp", window = leeds_window)
+spatstat.geom::plot.ppp(leeds_ppp, use.marks = FALSE, clipwin = leeds_window)
+
+# or even more fancy examples where we subset all the events occurred in a
+# pre-defined polygon area
+
+# The following example requires osmdata package
+# greater_london_sf_polygon = osmdata::getbb(
+# "Greater London, UK",
+# format_out = "sf_polygon"
+# )
+# spatstat works only with planar coordinates
+# greater_london_sf_polygon = sf::st_transform(greater_london_sf_polygon, 27700)
+# then we extract the coordinates and create the window object.
+# greater_london_polygon = sf::st_coordinates(greater_london_sf_polygon)[, c(1, 2)]
+# greater_london_window = spatstat.geom::owin(poly = greater_london_polygon)
+
+# greater_london_ppp = get_stats19(2022, output_format = "ppp", window = greater_london_window)
+# spatstat.geom::plot.ppp(greater_london_ppp, use.marks = FALSE, clipwin = greater_london_window)
+}
+}
+}
+
+</code></pre>
+
+
+</div>

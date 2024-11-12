@@ -1,0 +1,246 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>DSF_Convolve</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Apply a Filter to a Data Stream</h2>
+
+<h3>Description</h3>
+
+<p>Applies a filter (i.e., a convolution with a filter kernel) to a data stream.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">DSF_Convolve(
+  dsd = NULL,
+  dim = NULL,
+  kernel = NULL,
+  pre = NULL,
+  post = NULL,
+  na.rm = FALSE,
+  replace = TRUE,
+  name = NULL
+)
+
+filter_MA(width)
+
+filter_Hamming(width)
+
+filter_diff(lag)
+
+filter_Sinc(fc, fs, width = NULL, bw = NULL)
+
+pow2(x)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dsd</code></td>
+<td>
+<p>A object of class DSD.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dim</code></td>
+<td>
+<p>columns to which the filter should be applied. Default is all columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kernel</code></td>
+<td>
+<p>filter kernel as a numeric vector of weights.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pre, post</code></td>
+<td>
+<p>functions to be applied before and after the convolution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>logical; should NAs be ignored?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replace</code></td>
+<td>
+<p>logical; should the column be replaced or a column with the convolved column added?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>character; the new column will be name with the old column name + <code style="white-space: pre;">⁠_⁠</code> + <code>name</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width</code></td>
+<td>
+<p>filter width.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lag</code></td>
+<td>
+<p>an integer indicating which time lag to use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fc</code></td>
+<td>
+<p>cutoff frequency.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fs</code></td>
+<td>
+<p>sampling frequency.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bw</code></td>
+<td>
+<p>transition bandwidth.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>values to be squared.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A filter kernel is a vector with kernel weights. A few filter are provided.
+</p>
+
+<ul>
+<li> <p><code>filter_MA(width)</code> creates a moving average.
+</p>
+</li>
+<li> <p><code>filter_diff(lag)</code> calculates lagged differences. Note that <code>na.rm = TRUE</code> will lead to artifacts and should not be used.
+</p>
+</li>
+<li> <p><code>filter_Hamming(width)</code> creates a Hamming window.
+</p>
+</li>
+<li> <p><code>filter_Sinc(fc, fs, width, bw)</code> creates a windowed-sinc filter. One of <code>width</code> (filter length) or
+<code>bw</code> (transition bandwidth can  be used to control the filter roll-off. The relationship is <code class="reqn">width = 4/bw</code>.
+See Chapter 16 in Smith (1997).
+</p>
+</li>
+</ul>
+<p><code>pre</code> and <code>post</code> are functions that are called before and after the convolution. For example, to calculate
+RMS, you can use <code>pre = pow2</code> and <code>post = sqrt</code>. <code>pow2()</code> is a convenience function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>DSF_Convolve</code> (subclass of DSF and DSD).
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Michael Hahsler
+</p>
+
+
+<h3>References</h3>
+
+<p>Steven W. Smith, The Scientist and Engineer's Guide to
+Digital Signal Processing, California Technical Pub; 1st edition (January 1, 1997).
+ISBN 0966017633, URL: https://www.dspguide.com/
+</p>
+
+
+<h3>See Also</h3>
+
+<p>stats::filter provides non-streaming convolution.
+</p>
+<p>Other DSF: 
+<code>DSF()</code>,
+<code>DSF_Downsample()</code>,
+<code>DSF_ExponentialMA()</code>,
+<code>DSF_FeatureSelection()</code>,
+<code>DSF_Func()</code>,
+<code>DSF_Scale()</code>,
+<code>DSF_dplyr()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(presidents)
+
+## Example 1: Create a data stream with three copies of president approval ratings.
+## We will use several convolutions.
+stream &lt;- data.frame(
+    approval_orig = presidents,
+    approval_MA = presidents,
+    approval_diff1 = presidents,
+    .time = time(presidents)) %&gt;%
+  DSD_Memory()
+
+plot(stream, dim = 1, n = 120, method = "ts")
+
+## apply a moving average filter to dimension 1 (using the column name) and diff to dimension 3
+filteredStream &lt;- stream %&gt;%
+  DSF_Convolve(kernel = filter_MA(5), dim = "approval_orig", na.rm = TRUE) %&gt;%
+  DSF_Convolve(kernel = filter_diff(1), dim = 3)
+filteredStream
+
+## resetting the filtered stream also resets the original stream
+reset_stream(filteredStream)
+ps &lt;- get_points(filteredStream, n = 120)
+head(ps)
+
+year &lt;- ps[[".time"]]
+approval &lt;- remove_info(ps)
+matplot(year, approval, type = "l", ylim = c(-20, 100))
+legend("topright", colnames(approval), col = 1:3, lty = 1:3, bty = "n")
+
+## Example 2: Create a stream with a constant sine wave and apply
+## a moving average, an RMS envelope and a differences
+stream &lt;- DSD_Memory(data.frame(y = sin(seq(0, 2 * pi - (2 * pi / 100) ,
+  length.out = 100))), loop = TRUE)
+plot(stream, n = 200, method = "ts")
+
+filteredStream &lt;- stream %&gt;%
+  DSF_Convolve(kernel = filter_MA(100), dim = 1,
+    replace = FALSE, name = "MA") %&gt;%
+  DSF_Convolve(kernel = filter_MA(100), pre = pow2, post = sqrt, dim = 1,
+    replace = FALSE, name = "RMS") %&gt;%
+  DSF_Convolve(kernel = filter_diff(1), dim = 1,
+    replace = FALSE, name = "diff1")
+filteredStream
+
+ps &lt;- get_points(filteredStream, n = 500)
+head(ps)
+
+matplot(ps, type = "l")
+legend("topright", colnames(ps), col = 1:4, lty = 1:4)
+
+## Note that MA and RMS use a window of length 200 and are missing at the
+##   beginning of the stream the window is full.
+
+## Filters: look at different filters
+filter_MA(5)
+filter_diff(1)
+plot(filter_Hamming(20), type = "h")
+plot(filter_Sinc(10, 100, width = 20), type = "h")
+</code></pre>
+
+
+</div>

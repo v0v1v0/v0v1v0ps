@@ -1,0 +1,337 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spGLMexact</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Univariate Bayesian spatial generalized linear model</h2>
+
+<h3>Description</h3>
+
+<p>Fits a Bayesian spatial generalized linear model with fixed
+values of spatial process parameters and some auxiliary model parameters. The
+output contains posterior samples of the fixed effects, spatial random
+effects and, if required, finds leave-one-out predictive densities.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spGLMexact(
+  formula,
+  data = parent.frame(),
+  family,
+  coords,
+  cor.fn,
+  priors,
+  spParams,
+  boundary = 0.5,
+  n.samples,
+  loopd = FALSE,
+  loopd.method = "exact",
+  CV.K = 10,
+  loopd.nMC = 500,
+  verbose = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>a symbolic description of the regression model to be fit.
+See example below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame containing the variables in the model.
+If not found in <code>data</code>, the variables are taken from
+<code>environment(formula)</code>, typically the environment from which
+<code>spGLMexact</code> is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Specifies the distribution of the response as a member of the
+exponential family. Supported options are <code>'poisson'</code>, <code>'binomial'</code> and
+<code>'binary'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>an <code class="reqn">n \times 2</code> matrix of the observation
+coordinates in <code class="reqn">\mathbb{R}^2</code> (e.g., easting and northing).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cor.fn</code></td>
+<td>
+<p>a quoted keyword that specifies the correlation function used
+to model the spatial dependence structure among the observations. Supported
+covariance model key words are: <code>'exponential'</code> and <code>'matern'</code>.
+See below for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>(optional) a list with each tag corresponding to a
+hyperparameter name and containing hyperprior details. Valid tags include
+<code>V.beta</code>, <code>nu.beta</code>, <code>nu.z</code> and <code>sigmaSq.xi</code>. Values of <code>nu.beta</code> and <code>nu.z</code>
+must be at least 2.1. If not supplied, uses defaults.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spParams</code></td>
+<td>
+<p>fixed values of spatial process parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boundary</code></td>
+<td>
+<p>Specifies the boundary adjustment parameter. Must be a real
+number between 0 and 1. Default is 0.5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>number of posterior samples to be generated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loopd</code></td>
+<td>
+<p>logical. If <code>loopd=TRUE</code>, returns leave-one-out predictive
+densities, using method as given by <code>loopd.method</code>. Default is
+<code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loopd.method</code></td>
+<td>
+<p>character. Ignored if <code>loopd=FALSE</code>. If <code>loopd=TRUE</code>,
+valid inputs are <code>'exact'</code>, <code>'CV'</code> and <code>'PSIS'</code>. The option <code>'exact'</code>
+corresponds to exact leave-one-out predictive densities which requires
+computation almost equivalent to fitting the model <code class="reqn">n</code> times. The
+options <code>'CV'</code> and <code>'PSIS'</code> are faster and they implement <code class="reqn">K</code>-fold
+cross validation and Pareto-smoothed importance sampling to find approximate
+leave-one-out predictive densities (Vehtari <em>et al.</em> 2017).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CV.K</code></td>
+<td>
+<p>An integer between 10 and 20. Considered only if
+<code>loopd.method='CV'</code>. Default is 10 (as recommended in Vehtari <em>et. al</em> 2017).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loopd.nMC</code></td>
+<td>
+<p>Number of Monte Carlo samples to be used to evaluate
+leave-one-out predictive densities when <code>loopd.method</code> is set to either
+'exact' or 'CV'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical. If <code>verbose = TRUE</code>, prints model description.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional argument.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>With this function, we fit a Bayesian hierarchical spatial
+generalized linear model by sampling exactly from the joint posterior
+distribution utilizing the generalized conjugate multivariate distribution
+theory (Bradley and Clinch 2024). Suppose <code class="reqn">\chi = (s_1, \ldots, s_n)</code>
+denotes the <code class="reqn">n</code> spatial locations the response <code class="reqn">y</code> is observed. Let
+<code class="reqn">y(s)</code> be the outcome at location <code class="reqn">s</code> endowed with a probability law
+from the natural exponential family, which we denote by
+</p>
+<p style="text-align: center;"><code class="reqn">
+y(s) \sim \mathrm{EF}(x(s)^\top \beta + z(s); b, \psi)
+</code>
+</p>
+
+<p>for some positive parameter <code class="reqn">b &gt; 0</code> and unit log partition function
+<code class="reqn">\psi</code>. We consider the following response models based on the input
+supplied to the argument <code>family</code>.
+</p>
+
+<dl>
+<dt><code>'poisson'</code></dt>
+<dd>
+<p>It considers point-referenced Poisson responses
+<code class="reqn">y(s) \sim \mathrm{Poisson}(e^{x(s)^\top \beta + z(s)})</code>. Here,
+<code class="reqn">b = 1</code> and <code class="reqn">\psi(t) = e^t</code>.</p>
+</dd>
+<dt><code>'binomial'</code></dt>
+<dd>
+<p>It considers point-referenced binomial counts
+<code class="reqn">y(s) \sim \mathrm{Binomial}(m(s), \pi(s))</code> where, <code class="reqn">m(s)</code> denotes
+the total number of trials and probability of success
+<code class="reqn">\pi(s) = \mathrm{ilogit}(x(s)^\top \beta + z(s))</code> at location <code class="reqn">s</code>.
+Here, <code class="reqn">b = m(s)</code> and <code class="reqn">\psi(t) = \log(1+e^t)</code>.</p>
+</dd>
+<dt><code>'binary'</code></dt>
+<dd>
+<p>It considers point-referenced binary data (0 or, 1) i.e.,
+<code class="reqn">y(s) \sim \mathrm{Bernoulli}(\pi(s))</code>, where probability of success
+<code class="reqn">\pi(s) = \mathrm{ilogit}(x(s)^\top \beta + z(s))</code> at location <code class="reqn">s</code>.
+Here, <code class="reqn">b = 1</code> and <code class="reqn">\psi(t) = \log(1 + e^t)</code>.</p>
+</dd>
+</dl>
+<p>The hierarchical model is given as
+</p>
+<p style="text-align: center;"><code class="reqn">
+\begin{aligned}
+y(s_i) &amp;\mid \beta, z, \xi \sim EF(x(s_i)^\top \beta + z(s_i) +
+\xi_i - \mu_i; b_i, \psi_y), i = 1, \ldots, n\\
+\xi &amp;\mid \beta, z, \sigma^2_\xi, \alpha_\epsilon \sim
+\mathrm{GCM_c}(\cdots),\\
+\beta &amp;\mid \sigma^2_\beta \sim N(0, \sigma^2_\beta V_\beta), \quad
+\sigma^2_\beta \sim \mathrm{IG}(\nu_\beta/2, \nu_\beta/2)\\
+z &amp;\mid \sigma^2_z \sim N(0, \sigma^2_z R(\chi; \phi, \nu)), \quad
+\sigma^2_z \sim \mathrm{IG}(\nu_z/2, \nu_z/2),
+\end{aligned}
+</code>
+</p>
+
+<p>where <code class="reqn">\mu = (\mu_1, \ldots, \mu_n)^\top</code> denotes the discrepancy
+parameter. We fix the spatial process parameters <code class="reqn">\phi</code> and <code class="reqn">\nu</code> and
+the hyperparameters <code class="reqn">V_\beta</code>, <code class="reqn">\nu_\beta</code>, <code class="reqn">\nu_z</code> and
+<code class="reqn">\sigma^2_\xi</code>. The term <code class="reqn">\xi</code> is known as the fine-scale variation
+term which is given a conditional generalized conjugate multivariate
+distribution as prior. For more details, see Pan <em>et al.</em> 2024. Default
+values for <code class="reqn">V_\beta</code>, <code class="reqn">\nu_\beta</code>, <code class="reqn">\nu_z</code>, <code class="reqn">\sigma^2_\xi</code>
+are diagonal with each diagonal element 100, 2.1, 2.1 and 0.1 respectively.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>spGLMexact</code>, which is a list with the
+following tags -
+</p>
+
+<dl>
+<dt>priors</dt>
+<dd>
+<p>details of the priors used, containing the values of the
+boundary adjustment parameter (<code>boundary</code>), the variance parameter of the
+fine-scale variation term (<code>simasq.xi</code>) and others.</p>
+</dd>
+<dt>samples</dt>
+<dd>
+<p>a list of length 3, containing posterior samples of fixed
+effects (<code>beta</code>), spatial effects (<code>z</code>) and the fine-scale
+variation term (<code>xi</code>).</p>
+</dd>
+<dt>loopd</dt>
+<dd>
+<p>If <code>loopd=TRUE</code>, contains leave-one-out predictive
+densities.</p>
+</dd>
+<dt>model.params</dt>
+<dd>
+<p>Values of the fixed parameters that includes
+<code>phi</code> (spatial decay), <code>nu</code> (spatial smoothness).</p>
+</dd>
+</dl>
+<p>The return object might include additional data that can be used for
+subsequent prediction and/or model fit evaluation.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Soumyakanti Pan <a href="mailto:span18@ucla.edu">span18@ucla.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Bradley JR, Clinch M (2024). "Generating Independent Replicates
+Directly from the Posterior Distribution for a Class of Spatial Hierarchical
+Models." <em>Journal of Computational and Graphical Statistics</em>, <strong>0</strong>(0), 1-17.
+<a href="https://doi.org/10.1080/10618600.2024.2365728">doi:10.1080/10618600.2024.2365728</a>.
+</p>
+<p>Pan S, Zhang L, Bradley JR, Banerjee S (2024). "Bayesian
+Inference for Spatial-temporal Non-Gaussian Data Using Predictive Stacking."
+<a href="https://doi.org/10.48550/arXiv.2406.04655">doi:10.48550/arXiv.2406.04655</a>.
+</p>
+<p>Vehtari A, Gelman A, Gabry J (2017). "Practical Bayesian Model
+Evaluation Using Leave-One-out Cross-Validation and WAIC."
+<em>Statistics and Computing</em>, <strong>27</strong>(5), 1413-1432. ISSN 0960-3174.
+<a href="https://doi.org/10.1007/s11222-016-9696-4">doi:10.1007/s11222-016-9696-4</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>spLMexact()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Example 1: Analyze spatial poisson count data
+data(simPoisson)
+dat &lt;- simPoisson[1:10, ]
+mod1 &lt;- spGLMexact(y ~ x1, data = dat, family = "poisson",
+                   coords = as.matrix(dat[, c("s1", "s2")]),
+                   cor.fn = "matern",
+                   spParams = list(phi = 4, nu = 0.4),
+                   n.samples = 100, verbose = TRUE)
+
+# summarize posterior samples
+post_beta &lt;- mod1$samples$beta
+print(t(apply(post_beta, 1, function(x) quantile(x, c(0.025, 0.5, 0.975)))))
+
+# Example 2: Analyze spatial binomial count data
+data(simBinom)
+dat &lt;- simBinom[1:10, ]
+mod2 &lt;- spGLMexact(cbind(y, n_trials) ~ x1, data = dat, family = "binomial",
+                   coords = as.matrix(dat[, c("s1", "s2")]),
+                   cor.fn = "matern",
+                   spParams = list(phi = 3, nu = 0.4),
+                   n.samples = 100, verbose = TRUE)
+
+# summarize posterior samples
+post_beta &lt;- mod2$samples$beta
+print(t(apply(post_beta, 1, function(x) quantile(x, c(0.025, 0.5, 0.975)))))
+
+# Example 3: Analyze spatial binary data
+data(simBinary)
+dat &lt;- simBinary[1:10, ]
+mod3 &lt;- spGLMexact(y ~ x1, data = dat, family = "binary",
+                   coords = as.matrix(dat[, c("s1", "s2")]),
+                   cor.fn = "matern",
+                   spParams = list(phi = 4, nu = 0.4),
+                   n.samples = 100, verbose = TRUE)
+
+# summarize posterior samples
+post_beta &lt;- mod3$samples$beta
+print(t(apply(post_beta, 1, function(x) quantile(x, c(0.025, 0.5, 0.975)))))
+</code></pre>
+
+
+</div>

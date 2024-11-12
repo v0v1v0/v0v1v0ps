@@ -1,0 +1,523 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>scest</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prediction of Synthetic Control</h2>
+
+<h3>Description</h3>
+
+<p>The command implements estimation procedures for Synthetic Control (SC) methods using least squares, lasso,
+ridge, or simplex-type constraints. For more information see
+<a href="https://nppackages.github.io/references/Cattaneo-Feng-Titiunik_2021_JASA.pdf">Cattaneo, Feng, and Titiunik (2021)</a>.
+</p>
+<p>Companion <a href="https://www.stata.com/">Stata</a> and <a href="https://www.python.org/">Python</a> packages are described
+in <a href="https://arxiv.org/abs/2202.05984">Cattaneo, Feng, Palomba, and Titiunik (2022)</a>.
+</p>
+<p>Companion commands are: scdata and scdataMulti for data preparation in the single and multiple treated unit(s) cases, respectively,
+scpi for inference procedures, scplot and scplotMulti for plots in the single and multiple treated unit(s) cases, respectively.
+</p>
+<p>Related Stata, R, and Python packages useful for inference in SC designs are described in the following website:
+</p>
+<p><a href="https://nppackages.github.io/scpi/"> https://nppackages.github.io/scpi/</a>
+</p>
+<p>For an introduction to synthetic control methods, see <a href="https://www.aeaweb.org/articles?id=10.1257/jel.20191450">Abadie (2021)</a> and references therein.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">scest(
+  data,
+  w.constr = NULL,
+  V = "separate",
+  V.mat = NULL,
+  solver = "ECOS",
+  plot = FALSE,
+  plot.name = NULL,
+  plot.path = NULL,
+  save.data = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a class 'scdata' object, obtained by calling <code>scdata</code>, or class 'scdataMulti' obtained via <code>scdataMulti</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.constr</code></td>
+<td>
+<p>a list specifying the constraint set the estimated weights of the donors must belong to.
+<code>w.constr</code> can contain up to four objects:
+</p>
+
+<ul>
+<li>
+<p> '<code>p</code>', a string indicating the norm to be constrained (<code>p</code> should be one of "no norm", "L1", and "L2")
+</p>
+</li>
+<li>
+<p> '<code>dir</code>', a string indicating whether the constraint on the norm is an equality ("==") or inequality ("&lt;=")
+</p>
+</li>
+<li>
+<p> '<code>Q</code>', a scalar defining the value of the constraint on the norm
+</p>
+</li>
+<li>
+<p> '<code>lb</code>', a scalar defining the lower bound on the weights. It can be either 0 or <code>-Inf</code>.
+</p>
+</li>
+<li>
+<p> '<code>name</code>', a character selecting one of the default proposals.
+See the <strong>Details</strong> section for more.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>specifies the type of weighting matrix to be used when minimizing the sum of squared residuals
+</p>
+<p style="text-align: center;"><code class="reqn">(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r})'\mathbf{V}(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r})</code>
+</p>
+
+<p>The default is the identity matrix, so equal weight is given to all observations. In the case of multiple treated observations
+(you used <code>scdataMulti</code> to prepare the data), the user can specify <code>V</code> as a string equal to either "separate" or "pooled".
+If <code>scdata()</code> was used to prepare the data, <code>V</code> is automatically set to "separate" as the two options are
+equivalent. See the <strong>Details</strong> section for more.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V.mat</code></td>
+<td>
+<p>A conformable weighting matrix <code class="reqn">\mathbf{V}</code> to be used in the minimization of the sum of squared residuals
+</p>
+<p style="text-align: center;"><code class="reqn">(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r})'\mathbf{V}(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r}).</code>
+</p>
+
+<p>See the <strong>Details</strong> section for more information on how to prepare this matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>solver</code></td>
+<td>
+<p>a string containing the name of the solver used by <code>CVXR</code> when computing the weights. You can check which solvers are available
+on your machine by running <code>CVXR::installed_solvers()</code>. More information on what different solvers do can be found
+at the following link https://cvxr.rbind.io/cvxr_examples/cvxr_using-other-solvers/. "OSQP" is the default solver when 'lasso'
+is the constraint type, whilst "ECOS" is the default in all other cases.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>a logical specifying whether <code>scplot</code> should be called and a plot saved in the current working
+directory. For more options see <code>scplot</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot.name</code></td>
+<td>
+<p>a string containing the name of the plot (the format is by default .png). For more options see <code>scplot</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot.path</code></td>
+<td>
+<p>a string containing the path at which the plot should be saved (default is output of <code>getwd()</code>.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save.data</code></td>
+<td>
+<p>a character specifying the name and the path of the saved dataframe containing the processed data used to produce the plot.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Information is provided for the simple case in which <code class="reqn">N_1=1</code> if not specified otherwise.
+</p>
+
+<ul>
+<li>
+<p><strong>Estimation of Weights.</strong> <code>w.constr</code> specifies the constraint set on the weights. First, the element
+<code>p</code> allows the user to choose between imposing a constraint on either the L1 (<code>p = "L1"</code>)
+or the L2 (<code>p = "L2"</code>) norm of the weights and imposing no constraint on the norm (<code>p = "no norm"</code>).
+Second, <code>Q</code> specifies the value of the constraint on the norm of the weights.
+Third, <code>lb</code> sets the lower bound of each component of the vector of weights.
+Fourth, <code>dir</code> sets the direction of the constraint on the norm in case <code>p = "L1"</code>
+or <code>p = "L2"</code>. If <code>dir = "=="</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_p = Q,\:\:\: w_j \geq lb,\:\: j =1,\ldots,J</code>
+</p>
+
+<p>If instead <code>dir = "&lt;="</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_p \leq Q,\:\:\: w_j \geq lb,\:\: j =1,\ldots,J</code>
+</p>
+
+<p>If instead <code>dir = "NULL"</code> no constraint on the norm of the weights is imposed.
+</p>
+<p>An alternative to specifying an ad-hoc constraint set on the weights would be
+choosing among some popular types of constraints. This can be done by including the element
+'<code>name</code>' in the list <code>w.constr</code>. The following are available options:
+</p>
+
+<ul>
+<li> <p>If <code>name == "simplex"</code> (the default), then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_1 = 1,\:\:\: w_j \geq 0,\:\: j =1,\ldots,J.</code>
+</p>
+
+</li>
+<li> <p>If <code>name == "lasso"</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_1 \leq Q,</code>
+</p>
+
+<p>where <code>Q</code> is by default equal to 1 but it can be provided as an element of the list (eg. <code>w.constr =
+list(name = "lasso", Q = 2)</code>).
+</p>
+</li>
+<li>
+<p>If <code>name == "ridge"</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_2 \leq Q,</code>
+</p>
+
+<p>where <code>Q</code> is a tuning parameter that is by default computed as
+</p>
+<p style="text-align: center;"><code class="reqn">(J+KM) \widehat{\sigma}_u^{2}/||\widehat{\mathbf{w}}_{OLS}||_{2}^{2}</code>
+</p>
+
+<p>where <code class="reqn">J</code> is the number of donors and <code class="reqn">KM</code> is the total number of covariates used for adjustment.
+The user can provide <code>Q</code> as an element of the list (eg. <code>w.constr =
+list(name = "ridge", Q = 1)</code>).
+</p>
+</li>
+<li>
+<p>If <code>name == "ols"</code>, then the problem is unconstrained and the vector of weights
+is estimated via ordinary least squares.
+</p>
+</li>
+<li>
+<p>If <code>name == "L1-L2"</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_1 = 1,\:\:\: ||\mathbf{w}||_2 \leq Q,</code>
+</p>
+
+<p>where <code class="reqn">Q</code> is a tuning parameter computed as in the "ridge" case.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Weighting Matrix.</strong>
+</p>
+
+<ul>
+<li>
+<p>if <code>V &lt;- "separate"</code>, then <code class="reqn">\mathbf{V} = \mathbf{I}</code> and the minimized objective function is
+</p>
+<p style="text-align: center;"><code class="reqn">\sum_{i=1}^{N_1} \sum_{l=1}^{M} \sum_{t=1}^{T_{0}}\left(a_{t, l}^{i}-\mathbf{b}_{t, l}^{{i \prime }} \mathbf{w}^{i}-\mathbf{c}_{t, l}^{{i \prime}} \mathbf{r}_{l}^{i}\right)^{2},</code>
+</p>
+
+<p>which optimizes the separate fit for each treated unit.
+</p>
+</li>
+<li>
+<p>if <code>V &lt;- "pooled"</code>, then <code class="reqn">\mathbf{V} = \frac{1}{I}\mathbf{1}\mathbf{1}'\otimes \mathbf{I}</code> and the minimized objective function is
+</p>
+<p style="text-align: center;"><code class="reqn">\sum_{l=1}^{M} \sum_{t=1}^{T_{0}}\left(\frac{1}{N_1^2} \sum_{i=1}^{N_1}\left(a_{t, l}^{i}-\mathbf{b}_{t, l}^{i \prime} \mathbf{w}^{i}-\mathbf{c}_{t, l}^{i\prime} \mathbf{r}_{l}^{i}\right)\right)^{2},</code>
+</p>
+
+<p>which optimizes the pooled fit for the average of the treated units.
+</p>
+</li>
+<li>
+<p>if the user wants to provide their own weighting matrix, then it must use the option <code>V.mat</code> to input a <code class="reqn">v\times v</code> positive-definite matrix, where <code class="reqn">v</code> is the
+number of rows of <code class="reqn">\mathbf{B}</code> (or <code class="reqn">\mathbf{C}</code>) after potential missing values have been removed. In case the user
+wants to provide their own <code>V</code>, we suggest to check the appropriate dimension <code class="reqn">v</code> by inspecting the output
+of either <code>scdata</code> or <code>scdataMulti</code> and check the dimensions of <code class="reqn">\mathbf{B}</code> (and <code class="reqn">\mathbf{C}</code>). Note that
+the weighting matrix could cause problems to the optimizer if not properly scaled. For example, if <code class="reqn">\mathbf{V}</code> is diagonal
+we suggest to divide each of its entries by <code class="reqn">\|\mathrm{diag}(\mathbf{V})\|_1</code>.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>The function returns an object of class 'scest' containing two lists. The first list is labeled 'data' and
+contains used data as returned by <code>scdata</code> and some other values.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>A</code></td>
+<td>
+<p>a matrix containing pre-treatment features of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>a matrix containing pre-treatment features of the control units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>C</code></td>
+<td>
+<p>a matrix containing covariates for adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P</code></td>
+<td>
+<p>a matrix whose rows are the vectors used to predict the out-of-sample series for the synthetic unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P.diff</code></td>
+<td>
+<p>for internal use only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.pre</code></td>
+<td>
+<p>a matrix containing the (raw) pre-treatment outcome of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.post</code></td>
+<td>
+<p>a matrix containing the (raw) post-treatment outcome of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.pre.agg</code></td>
+<td>
+<p>a matrix containing the aggregate pre-treatment outcome of the treated unit(s). This differs from
+Y.pre only in the case 'effect' in <code>scdataMulti()</code> is set to either 'unit' or 'time'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.post.agg</code></td>
+<td>
+<p>a matrix containing the aggregate post-treatment outcome of the treated unit(s). This differs from
+Y.post only in the case 'effect' in <code>scdataMulti()</code> is set to either 'unit' or 'time'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.donors</code></td>
+<td>
+<p>a matrix containing the pre-treatment outcome of the control units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specs</code></td>
+<td>
+<p>a list containing some specifics of the data:
+</p>
+
+<ul>
+<li>
+<p><code>J</code>, the number of control units
+</p>
+</li>
+<li>
+<p><code>K</code>, a numeric vector with the number of covariates used for adjustment for each feature
+</p>
+</li>
+<li>
+<p><code>M</code>, number of features
+</p>
+</li>
+<li>
+<p><code>KM</code>, the total number of covariates used for adjustment
+</p>
+</li>
+<li>
+<p><code>KMI</code>, the total number of covariates used for adjustment
+</p>
+</li>
+<li>
+<p><code>I</code>, number of treated units
+</p>
+</li>
+<li>
+<p><code>period.pre</code>, a numeric vector with the pre-treatment period
+</p>
+</li>
+<li>
+<p><code>period.post</code>, a numeric vector with the post-treatment period
+</p>
+</li>
+<li>
+<p><code>T0.features</code>, a numeric vector with the number of periods used in estimation for each feature
+</p>
+</li>
+<li>
+<p><code>T1.outcome</code>, the number of post-treatment periods
+</p>
+</li>
+<li>
+<p><code>constant</code>, for internal use only
+</p>
+</li>
+<li>
+<p><code>effect</code>, for internal use only
+</p>
+</li>
+<li>
+<p><code>anticipation</code>, number of periods of potential anticipation effects
+</p>
+</li>
+<li>
+<p><code>out.in.features</code>, for internal use only
+</p>
+</li>
+<li>
+<p><code>treated.units</code>, list containing the IDs of all treated units
+</p>
+</li>
+<li>
+<p><code>donors.list</code>, list containing the IDs of the donors of each treated unit
+</p>
+</li>
+<li>
+<p><code>class.type</code>, for internal use only</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<p>The second list is labeled 'est.results' and contains estimation results.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>w</code></td>
+<td>
+<p>a matrix containing the estimated weights of the donors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>a matrix containing the values of the covariates used for adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>a matrix containing <code class="reqn">\mathbf{w}</code> and <code class="reqn">\mathbf{r}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.pre.fit</code></td>
+<td>
+<p>a matrix containing the estimated pre-treatment outcome of the SC unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.post.fit</code></td>
+<td>
+<p>a matrix containing the estimated post-treatment outcome of the SC unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A.hat</code></td>
+<td>
+<p>a matrix containing the predicted values of the features of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>res</code></td>
+<td>
+<p>a matrix containing the residuals <code class="reqn">\mathbf{A}-\widehat{\mathbf{A}}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>a matrix containing the weighting matrix used in estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.constr</code></td>
+<td>
+<p>a list containing the specifics of the constraint set used on the weights.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Matias Cattaneo, Princeton University. <a href="mailto:cattaneo@princeton.edu">cattaneo@princeton.edu</a>.
+</p>
+<p>Yingjie Feng, Tsinghua University. <a href="mailto:fengyj@sem.tsinghua.edu.cn">fengyj@sem.tsinghua.edu.cn</a>.
+</p>
+<p>Filippo Palomba, Princeton University (maintainer). <a href="mailto:fpalomba@princeton.edu">fpalomba@princeton.edu</a>.
+</p>
+<p>Rocio Titiunik, Princeton University. <a href="mailto:titiunik@princeton.edu">titiunik@princeton.edu</a>.
+</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p><a href="https://www.aeaweb.org/articles?id=10.1257/jel.20191450">Abadie, A. (2021)</a>. Using synthetic controls: Feasibility, data requirements, and methodological aspects.
+<em>Journal of Economic Literature</em>, 59(2), 391-425.
+</p>
+</li>
+<li>
+<p><a href="https://nppackages.github.io/references/Cattaneo-Feng-Titiunik_2021_JASA.pdf">Cattaneo, M. D., Feng, Y., and Titiunik, R.
+(2021)</a>. Prediction intervals for synthetic control methods. <em>Journal of the American Statistical Association</em>, 116(536), 1865-1880.
+</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/2202.05984">Cattaneo, M. D., Feng, Y., Palomba F., and Titiunik, R. (2022).</a>
+scpi: Uncertainty Quantification for Synthetic Control Methods, <em>arXiv</em>:2202.05984.
+</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/2210.05026">Cattaneo, M. D., Feng, Y., Palomba F., and Titiunik, R. (2022).</a>
+Uncertainty Quantification in Synthetic Controls with Staggered Treatment Adoption, <em>arXiv</em>:2210.05026.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>scdataMulti</code>, <code>scdata</code>, <code>scpi</code>, <code>scplot</code>, <code>scplotMulti</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data &lt;- scpi_germany
+
+df &lt;- scdata(df = data, id.var = "country", time.var = "year",
+             outcome.var = "gdp", period.pre = (1960:1990),
+             period.post = (1991:2003), unit.tr = "West Germany",
+             unit.co = setdiff(unique(data$country), "West Germany"),
+             constant = TRUE, cointegrated.data = TRUE)
+
+result &lt;- scest(df, w.constr = list(name = "simplex", Q = 1))
+result &lt;- scest(df, w.constr = list(lb = 0, dir = "==", p = "L1", Q = 1))
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,238 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>kidney</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Kidney Renal Clear Cell Carcinoma [KIRC] RNA-Seq data
+</h2>
+
+<h3>Description</h3>
+
+<p>The KIRC RNA-seq dataset from The Cancer Genome Atlas containing 20531 genes and 72 paired columns of data with rows corresponding to genes and columns corresponding to replicates; replic vector specifies replicates and treatment vector specifies non-tumor and tumor group samples respectively within replicate.
+</p>
+<p>The maximum possible sample size that can be simulated with this dataset is 36 replicates in each of two treatment groups. However, it is recommended to use a sample size of 20 or lower for simulation studies to ensure each simulated dataset is sufficiently different from the other simulated datasets.
+</p>
+<p>Disclaimer: 
+The version of the KIRC dataset provided is:
+unc.edu_KIRC.IlluminaHiSeq_RNASeqV2.Level_3.1.5.0. 
+</p>
+<p>The Cancer Genome Atlas updates its datasets periodically. The latest version of the KIRC dataset can always be downloaded from:
+https://tcga-data.nci.nih.gov/tcga/. 
+</p>
+<p>Please appropriately reference the source below when using this dataset. The source code used to assemble this dataset is provided below.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">data(kidney)</code></pre>
+
+
+<h3>Format</h3>
+
+<p>List containing:
+</p>
+
+<ul>
+<li>
+<p> counts: matrix of RNA-seq data for 20531 sampled genes and 72 paired columns from individuals with Kidney Renal Clear Cell Carcinoma.
+</p>
+</li>
+<li>
+<p> replic: vector detailing which column in counts matrix belongs to each individual.
+</p>
+</li>
+<li>
+<p> treatment: vector detailing whether each column in counts matrix is a non-tumor or tumor sample.
+</p>
+</li>
+</ul>
+<h3>Source</h3>
+
+<p>https://tcga-data.nci.nih.gov/tcga/
+</p>
+<p>The Cancer Genome Atlas Research Network (2013). Comprehensive molecular characterization of clear cell renal cell carcinoma. Nature, 499(7456), 43-49.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(kidney)
+
+## Not run: 
+### Source code used to assemble KIRC dataset
+
+### load in SimSeq package for sorting counts matrix
+library(SimSeq)
+
+### htmlToText function used to scrape barcode data from uuid
+htmlToText &lt;- function(input, ...) {
+  ###---PACKAGES ---###
+  library(RCurl)
+  library(XML) 
+  
+  ###--- LOCAL FUNCTIONS ---###
+  # Determine how to grab html for a single input element
+  evaluate_input &lt;- function(input) {    
+    # if input is a .html file
+    if(file.exists(input)) {
+      char.vec &lt;- readLines(input, warn = FALSE)
+      return(paste(char.vec, collapse = ""))
+    }
+    
+    # if input is html text
+    if(grepl("&lt;/html&gt;", input, fixed = TRUE)) return(input)
+    
+    # if input is a URL, probably should use a regex here instead?
+    if(!grepl(" ", input)) {
+      # downolad SSL certificate in case of https problem
+      if(!file.exists("cacert.perm")) {
+        download.file(url = "http://curl.haxx.se/ca/cacert.pem", destfile = "cacert.perm")
+      }
+      return(getURL(input, followlocation = TRUE, cainfo = "cacert.perm"))
+    }
+    
+    # return NULL if none of the conditions above apply
+    return(NULL)
+  }
+  
+  # convert HTML to plain text
+  convert_html_to_text &lt;- function(html) {
+    doc &lt;- htmlParse(html, asText = TRUE)
+    text &lt;- xpathSApply(doc, paste0("//text()",
+                   "[not(ancestor::script)][not(ancestor::style)]",
+                   "[not(ancestor::noscript)][not(ancestor::form)]"), xmlValue)
+    return(text)
+  }
+  
+  # format text vector into one character string
+  collapse_text &lt;- function(txt) {
+    return(paste(txt, collapse = " "))
+  }
+  
+  ###--- MAIN ---###
+  # STEP 1: Evaluate input
+  html.list &lt;- lapply(input, evaluate_input)
+  
+  # STEP 2: Extract text from HTML
+  text.list &lt;- lapply(html.list, convert_html_to_text)
+  
+  # STEP 3: Return text
+  text.vector &lt;- sapply(text.list, collapse_text)
+  return(text.vector)
+}
+
+### Specify path name for folder containing raw counts for each sample
+mainDir &lt;- getwd()
+folder.path &lt;- "unc.edu_KIRC.IlluminaHiSeq_RNASeqV2.Level_3.1.5.0"
+
+### Determine list of files containing summarized raw counts
+file.list &lt;- dir(file.path(mainDir, folder.path))
+keep &lt;- grepl("genes.results", file.list)
+file.list &lt;- file.list[keep]
+
+### Create summarized count matrix.
+### Get n.row and n.col for summarized count matrix number of genes in first
+### sample and number of total samples from file.list
+
+file.temp &lt;- file.path(mainDir, folder.path, file.list[1])
+n.row &lt;- nrow(read.table(file = file.temp, header = TRUE))
+n.col &lt;- length(file.list)
+
+### initialize counts matrix
+counts &lt;- matrix(NA, nrow = n.row, ncol = n.col)
+
+### get gene id's
+gene.id &lt;- read.table(file.temp, header = TRUE, stringsAsFactors = FALSE)$gene_id
+
+### read in raw read counts from file.list
+for(i in 1:n.col){
+  file.temp &lt;- file.path(mainDir, folder.path, file.list[i])
+  counts[, i] &lt;- read.table(file.temp, header = TRUE)$raw_count
+}
+
+### Data was summarized using RSEM software which produces non_integer 
+### counts for ambiguous reads. Counts are rounded as a preprocessing
+### step.
+counts &lt;- round(counts)
+
+### Cast counts matrix as integer type
+counts &lt;- matrix(as.integer(counts), nrow = nrow(counts), ncol = ncol(counts))
+
+### Get uuid's for each sample
+uuid &lt;- substr(file.list, start = 9, stop = 44)
+
+### Create urls from uuid list
+urls &lt;- paste(rep("https://tcga-data.nci.nih.gov/uuid/uuidws/mapping/xml/uuid/",
+                  length(uuid)), uuid, sep = "")
+
+### Scrape barcodes from urls
+l &lt;- length(urls)
+barcodes &lt;- vector("character", l)
+for(i in 1:l){
+  barcodes[i] &lt;- htmlToText(urls[i])
+}
+
+
+barcodes &lt;- substr(barcodes, start = 1, stop = 28)
+
+### Get metadata on which samples were taken from each individual, 
+### tumor type of sample, etc. from barcodes for each sample
+metadata &lt;- data.frame(barcodes, stringsAsFactors = FALSE)
+
+### Study Participant
+metadata$participant &lt;- substr(barcodes, start = 9, stop = 12)
+
+### Sample type code. See:
+### https://tcga-data.nci.nih.gov/datareports/codeTablesReport.htm?codeTable=Sample%20type
+### for full list of codes and details on TCGA barcodes.
+### 01: Primary Solid Tumor
+### 02: Recurrent Solid Tumor
+### 05: Additional New Primary
+### 06: Metastatic Tumor
+### 11: Solid Tissue Normal
+metadata$type &lt;- substr(barcodes, start = 14, stop = 15)
+
+### Only keep Primary Solid Tumor and Solid Tissue Normal
+keep.metadata &lt;- metadata$type == "01" | metadata$type == "11"
+metadata &lt;- metadata[keep.metadata, ]
+counts &lt;- counts[, keep.metadata]
+
+### Code from 01 to Tumor and 11 to Non-Tumor for easy identifiability
+metadata$tumor &lt;- "Non-Tumor"
+metadata$tumor[metadata$type == "01"] &lt;- "Tumor"
+
+### tag participant, type, and tumor as factors
+metadata$participant &lt;- as.factor(metadata$participant)
+metadata$type &lt;-as.factor(metadata$type)
+metadata$tumor &lt;- as.factor(metadata$tumor)
+
+### Sort and subset down to paired data
+sorting &lt;- 
+  SortData(counts, treatment = metadata$tumor, 
+           replic = metadata$participant, sort.method = "paired")$sorting
+
+counts &lt;- counts[, sorting]
+metadata &lt;- metadata[sorting, ]
+metadata$participant &lt;- factor(metadata$participant)
+
+### Add in attributes of counts matrix
+dimnames(counts) &lt;- list(gene.id, metadata$barcodes)
+attr(counts, "uuid") &lt;- uuid
+
+kidney &lt;- vector("list", 3)
+kidney[[1]] &lt;- counts
+kidney[[2]] &lt;- metadata$participant
+kidney[[3]] &lt;- metadata$tumor
+names(kidney) &lt;- c("counts", "replic", "treatment")
+
+###Save file
+save(kidney, file = "kidney.rda")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

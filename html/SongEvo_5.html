@@ -1,0 +1,183 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>par.sens</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Parameter sensitivity</h2>
+
+<h3>Description</h3>
+
+<p>This function allows testing the sensitivity of SongEvo to different parameter values.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">par.sens(parm, par.range, iteration, steps, mate.comp, fixed_parms, all)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>parm</code></td>
+<td>
+<p>The parameter for which to test sensitivity over one or more values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>par.range</code></td>
+<td>
+<p>List of ranges of parameter values over which to test sensitivity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iteration</code></td>
+<td>
+<p>The number of iterations that the model will run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>steps</code></td>
+<td>
+<p>The number of steps (e.g. years) per iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mate.comp</code></td>
+<td>
+<p>Female preference for mates. Currently specified as “Yes” or “No”.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed_parms</code></td>
+<td>
+<p>Named boolean vector identifying which parameters to keep fixed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>all</code></td>
+<td>
+<p>Save data for all individuals? Options are TRUE or FALSE. 
+</p>
+<p>The function currently allows examination of only one parameter at a time and requires at least two iterations.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>array named sens.results. The sens.results array from par.sens(), which includes summary.results from SongEvo() for a range of parameter values.  summary.results from SongEvo() includes population summary values for each time step (dimension 1) in each iteration (dimension 2) of the model.  Population summary values are contained in five additional dimensions: population size for each time step of each iteration (“sample.n”), the population mean and variance of the song feature studied (“trait.pop.mean” and “trait.pop.variance”), with associated lower (“lci”) and upper (“uci”) confidence intervals.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SongEvo</code>, <code>par.opt</code>, <code>mod.val</code>, <code>h.test</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### See vignette for an example that uses all functions in SongEvo.
+
+#### Specify and call `par.sens()`
+
+# Here we test the sensitivity of the Acquire a Territory submodel to variation
+# in territory turnover rates, ranging from 0.8–1.2 times the published rate
+# (40–60% of territories turned over). The call for the par.sens function has a
+# format similar to SongEvo. The user specifies the parameter to test and the
+# range of values for that parameter. The function currently allows examination
+# of only one parameter at a time and requires at least two iterations.
+parm &lt;- "terr.turnover"
+par.range = seq(from=0.45, to=0.55, by=0.05)
+sens.results &lt;- NULL
+data("song.data")
+data("glo.parms")
+years=2005-1969
+iteration=5
+timestep=1
+n.territories &lt;- glo.parms$n.territories
+starting.trait &lt;- subset(song.data, Population=="Bear Valley" &amp; Year==1969)$Trill.FBW
+starting.trait2 &lt;- c(starting.trait, rnorm(n.territories-length(starting.trait),
+                                           mean=mean(starting.trait), sd=sd(starting.trait)))
+init.inds &lt;- data.frame(id = seq(1:n.territories), age = 2, trait = starting.trait2)
+init.inds$x1 &lt;-  round(runif(n.territories, min=-122.481858, max=-122.447270), digits=8)
+init.inds$y1 &lt;-  round(runif(n.territories, min=37.787768, max=37.805645), digits=8)
+
+# Now we call the par.sens function with our specifications.
+extra_parms &lt;- list(init.inds = init.inds, 
+                    timestep = 1, 
+                    n.territories = nrow(init.inds), 
+                    learning.method = "integrate", 
+                    integrate.dist = 0.1, 
+                    lifespan = NA, 
+                    terr.turnover = 0.5, 
+                    mate.comp = FALSE, 
+                    prin = FALSE,
+                    all = TRUE)
+global_parms_key &lt;- which(!names(glo.parms) %in% names(extra_parms))
+extra_parms[names(glo.parms[global_parms_key])]=glo.parms[global_parms_key]
+par.sens1 &lt;- par.sens(parm = parm, par.range = par.range, 
+                      iteration = iteration, steps = years, mate.comp = FALSE, 
+                      fixed_parms=extra_parms[names(extra_parms)!=parm], all = TRUE)
+
+
+  
+#### Examine par.sens results
+# Examine results objects, which include two arrays: 
+
+# The first array, `sens.results`, contains the SongEvo model results for each
+# parameter. It has the following dimensions:
+dimnames(par.sens1$sens.results)
+
+# The second array, `sens.results.diff` contains the quantile range of trait
+# values across iterations within a parameter value. It has the following
+# dimensions:
+dimnames(par.sens1$sens.results.diff)
+
+# To assess sensitivity of SongEvo to a range of parameter values, plot the
+# range in trait quantiles per year by the parameter value. We see that
+# territory turnover values of 0.4--0.6 provided means and quantile ranges of
+# trill bandwidths that are similar to those obtained with the published
+# estimate of 0.5, indicating that the Acquire a Territory submodel is robust to
+# realistic variation in those parameter values.
+
+# In the figure, solid gray and black lines show the quantile range of song
+# frequency per year over all iterations as parameterized with the published
+# territory turnover rate (0.5; thick black line) and a range of values from 0.4
+# to 0.6 (in steps of 0.05, light to dark gray). Orange lines show the mean and
+# 2.5th and 97.5th quantiles of all quantile ranges.
+
+# plot of range in trait quantiles by year by parameter value
+plot(1:years, par.sens1$sens.results.diff[1,], 
+     ylim=range(par.sens1$sens.results.diff, na.rm=TRUE), 
+     type="l", 
+     ylab="Quantile range (Hz)", xlab="Year", 
+     col="transparent", xaxt="n")
+axis(side=1, at=seq(0, 35, by=5), labels=seq(1970, 2005, by=5))
+  #Make a continuous color ramp from gray to black
+grbkPal &lt;- colorRampPalette(c('gray','black'))
+  
+  #Plot a line for each parameter value
+for(i in 1:length(par.range)){
+lines(1:years, par.sens1$sens.results.diff[i,], 
+      col=grbkPal(length(par.range))[i])
+}
+  #Plot values from published parameter values
+lines(1:years, par.sens1$sens.results.diff[2,], col="black", lwd=4)
+  #Calculate and plot mean and quantiles
+quant.mean &lt;- apply(par.sens1$sens.results.diff, 2, mean, na.rm=TRUE)
+lines(quant.mean, col="orange")
+#Plot 95% quantiles (which are similar to credible intervals)
+  #95% quantiles of population means (narrower)
+quant.means &lt;- apply(par.sens1$sens.results.diff, MARGIN=2, 
+                     quantile, probs=c(0.975, 0.025), R=600, na.rm=TRUE)
+lines(quant.means[1,], col="orange", lty=2)
+lines(quant.means[2,], col="orange", lty=2)
+
+</code></pre>
+
+
+</div>

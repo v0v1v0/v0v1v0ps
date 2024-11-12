@@ -1,0 +1,142 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hhh4_simulate_scores</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Proper Scoring Rules for Simulations from <code>hhh4</code> Models
+</h2>
+
+<h3>Description</h3>
+
+<p>Calculate proper scoring rules based on simulated predictive distributions.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'hhh4sims'
+scores(x, which = "rps", units = NULL, ..., drop = TRUE)
+## S3 method for class 'hhh4simslist'
+scores(x, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+
+<p>an object of class <code>"hhh4sims"</code> (as resulting from the
+<code>simulate</code>-method for
+<code>"hhh4"</code> models if <code>simplify = TRUE</code> was set),
+or an <code>"hhh4simslist"</code>, i.e.,
+a list of such simulations potentially obtained from different
+model fits (using the same simulation period).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>which</code></td>
+<td>
+
+<p>a character vector indicating which proper scoring rules to compute.
+By default, only the ranked probability score (<code>"rps"</code>) is
+calculated. Other options include <code>"logs"</code> and <code>"dss"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>units</code></td>
+<td>
+
+<p>if non-<code>NULL</code>, an integer or character vector indexing the
+columns of <code>x</code> for which to compute the scores.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>drop</code></td>
+<td>
+
+<p>a logical indicating if univariate dimensions should be dropped
+(the default).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>unused (argument of the generic).
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This implementation can only compute <em>univariate scores</em>, i.e.,
+independently for each time point.
+</p>
+<p>The logarithmic score is badly estimated if the domain is large and
+there are not enough samples to cover the underlying distribution in
+enough detail (the score becomes infinite when an observed value does
+not occur in the samples). An alternative is to use kernel density
+estimation as implemented in the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package <a href="https://CRAN.R-project.org/package=scoringRules"><span class="pkg">scoringRules</span></a>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("salmAllOnset")
+
+## fit a hhh4 model to the first 13 years
+salmModel &lt;- list(end = list(f = addSeason2formula(~1 + t)),
+                  ar = list(f = ~1), family = "NegBin1", subset = 2:678)
+salmFit &lt;- hhh4(salmAllOnset, salmModel)
+
+## simulate the next 20 weeks ahead (with very small 'nsim' for speed)
+salmSims &lt;- simulate(salmFit, nsim = 500, seed = 3, subset = 678 + seq_len(20),
+                     y.start = observed(salmAllOnset)[678,])
+if (requireNamespace("fanplot"))
+    plot(salmSims, "fan")
+
+
+### calculate scores at each time point
+
+## using empirical distribution of simulated counts as forecast distribution
+scores(salmSims, which = c("rps", "logs", "dss"))
+## observed count sometimes not covered by simulations -&gt; infinite log-score
+## =&gt; for a more detailed forecast, either considerably increase 'nsim', or:
+
+## 1. use continuous density() of simulated counts as forecast distribution
+fi &lt;- apply(salmSims, 1, function (x) approxfun(density(x)))
+logs_kde &lt;- mapply(function (f, y) -log(f(y)),
+                   f = fi, y = observed(attr(salmSims,"stsObserved")))
+cbind("empirical" = scores(salmSims, "logs"), "density" = logs_kde)
+## a similar KDE approach is implemented in scoringRules::logs_sample()
+
+## 2. average conditional predictive NegBin's of simulated trajectories,
+##    currently only implemented in HIDDA.forecasting::dhhh4sims()
+
+
+### produce a PIT histogram
+
+## using empirical distribution of simulated counts as forecast distribition
+pit(x = observed(attr(salmSims, "stsObserved")),
+    pdistr = apply(salmSims, 1:2, ecdf))
+## long-term forecast is badly calibrated (lower tail is unused, see fan above)
+## we also get a warning for the same reason as infinite log-scores
+</code></pre>
+
+
+</div>

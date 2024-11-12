@@ -1,0 +1,151 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>autoEstCont</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Automatically calculate the contamination fraction</h2>
+
+<h3>Description</h3>
+
+<p>The idea of this method is that genes that are highly expressed in the soup and are marker genes for some population can be used to estimate the background contamination.  Marker genes are identified using the tfidf method (see <code>quickMarkers</code>).  The contamination fraction is then calculated at the cluster level for each of these genes and clusters are then aggressively pruned to remove those that give implausible estimates.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">autoEstCont(
+  sc,
+  topMarkers = NULL,
+  tfidfMin = 1,
+  soupQuantile = 0.9,
+  maxMarkers = 100,
+  contaminationRange = c(0.01, 0.8),
+  rhoMaxFDR = 0.2,
+  priorRho = 0.05,
+  priorRhoStdDev = 0.1,
+  doPlot = TRUE,
+  forceAccept = FALSE,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sc</code></td>
+<td>
+<p>The SoupChannel object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>topMarkers</code></td>
+<td>
+<p>A data.frame giving marker genes.  Must be sorted by decreasing specificity of marker and include a column 'gene' that contains the gene name.  If set to NULL, markers are estimated using <code>quickMarkers</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tfidfMin</code></td>
+<td>
+<p>Minimum value of tfidf to accept for a marker gene.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>soupQuantile</code></td>
+<td>
+<p>Only use genes that are at or above this expression quantile in the soup.  This prevents inaccurate estimates due to using genes with poorly constrained contribution to the background.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxMarkers</code></td>
+<td>
+<p>If we have heaps of good markers, keep only the best <code>maxMarkers</code> of them.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contaminationRange</code></td>
+<td>
+<p>Vector of length 2 that constrains the contamination fraction to lie within this range.  Must be between 0 and 1.  The high end of this range is passed to <code>estimateNonExpressingCells</code> as <code>maximumContamination</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhoMaxFDR</code></td>
+<td>
+<p>False discovery rate passed to <code>estimateNonExpressingCells</code>, to test if rho is less than <code>maximumContamination</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorRho</code></td>
+<td>
+<p>Mode of gamma distribution prior on contamination fraction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorRhoStdDev</code></td>
+<td>
+<p>Standard deviation of gamma distribution prior on contamination fraction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>doPlot</code></td>
+<td>
+<p>Create a plot showing the density of estimates?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>forceAccept</code></td>
+<td>
+<p>Passed to <code>setContaminationFraction</code>.  Should we allow very high contamination fractions to be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Be verbose?</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This set of marker genes is filtered to include only those with tf-idf value greater than <code>tfidfMin</code>.  A higher tf-idf value implies a more specific marker.  Specifically a cut-off t implies that a marker gene has the property that geneFreqGlobal &lt; exp(-t/geneFreqInClust).  See <code>quickMarkers</code>.  It may be necessary to decrease this value for data sets with few good markers.
+</p>
+<p>This set of marker genes is filtered down to include only the genes that are highly expressed in the soup, controlled by the <code>soupQuantile</code> parameter.  Genes highly expressed in the soup provide a more precise estimate of the contamination fraction.
+</p>
+<p>The pruning of implausible clusters is based on a call to <code>estimateNonExpressingCells</code>.  The parameters <code>maximumContamination=max(contaminationRange)</code> and <code>rhoMaxFDR</code> are passed to this function.  The defaults set here are calibrated to aggressively prune anything that has even the weakest of evidence that it is genuinely expressed. 
+</p>
+<p>For each cluster/gene pair the posterior distribution of the contamination fraction is calculated (based on gamma prior, controlled by <code>priorRho</code> and <code>priorRhoStdDev</code>).  These posterior distributions are aggregated to produce a final estimate of the contamination fraction. The logic behind this is that estimates from clusters that truly estimate the contamination fraction will cluster around the true value, while erroneous estimates will be spread out across the range (0,1) without a 'preferred value'.  The most probable value of the contamination fraction is then taken as the final global contamination fraction.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A modified SoupChannel object where the global contamination rate has been set.  Information about the estimation is also stored in the slot <code>fit</code>
+</p>
+
+
+<h3>Note</h3>
+
+<p>This function assumes that the channel contains multiple distinct cell types with different marker genes.  If you try and run it on a channel with very homogenous cells (e.g. a cell line, flow-sorted cells), you will likely get a warning, an error, and/or an extremely high contamination estimate.  In such circumstances your best option is usually to manually set the contamination to something reasonable.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>quickMarkers
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#Use less specific markers
+scToy = autoEstCont(scToy,tfidfMin=0.8)
+#Allow large contamination fractions to be allocated
+scToy = autoEstCont(scToy,forceAccept=TRUE)
+#Be quiet
+scToy = autoEstCont(scToy,verbose=FALSE,doPlot=FALSE)
+</code></pre>
+
+
+</div>

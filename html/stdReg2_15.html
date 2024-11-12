@@ -1,0 +1,183 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>standardize_glm_dr</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get regression standardized doubly-robust estimates from a glm</h2>
+
+<h3>Description</h3>
+
+<p>Get regression standardized doubly-robust estimates from a glm
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">standardize_glm_dr(
+  formula_outcome,
+  formula_exposure,
+  data,
+  values,
+  ci_level = 0.95,
+  ci_type = "plain",
+  contrasts = NULL,
+  family_outcome = "gaussian",
+  family_exposure = "binomial",
+  reference = NULL,
+  transforms = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula_outcome</code></td>
+<td>
+<p>The formula which is used to fit the glm model for the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula_exposure</code></td>
+<td>
+<p>The formula which is used to fit the glm model for the exposure.
+If not <code>NULL</code>,
+a doubly robust estimator of the standardized estimator is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>values</code></td>
+<td>
+<p>A named list or data.frame specifying the variables and values
+at which marginal means of the outcome will be estimated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci_level</code></td>
+<td>
+<p>Coverage probability of confidence intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci_type</code></td>
+<td>
+<p>A string, indicating the type of confidence intervals.
+Either "plain", which gives untransformed intervals, or "log", which gives
+log-transformed intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>contrasts</code></td>
+<td>
+<p>A vector of contrasts in the following format:
+If set to <code>"difference"</code> or <code>"ratio"</code>, then <code class="reqn">\psi(x)-\psi(x_0)</code>
+or <code class="reqn">\psi(x) / \psi(x_0)</code> are constructed, where <code class="reqn">x_0</code> is a reference
+level specified by the <code>reference</code> argument. Has to be <code>NULL</code>
+if no references are specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family_outcome</code></td>
+<td>
+<p>The family argument which is used to fit the glm model for the outcome.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family_exposure</code></td>
+<td>
+<p>The family argument which is used to fit the glm model for the exposure.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reference</code></td>
+<td>
+<p>A vector of reference levels in the following format:
+If <code>contrasts</code> is not <code>NULL</code>, the desired reference level(s). This
+must be a vector or list the same length as <code>contrasts</code>, and if not named,
+it is assumed that the order is as specified in contrasts.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>transforms</code></td>
+<td>
+<p>A vector of transforms in the following format:
+If set to <code>"log"</code>, <code>"logit"</code>, or <code>"odds"</code>, the standardized
+mean <code class="reqn">\theta(x)</code> is transformed into <code class="reqn">\psi(x)=\log\{\theta(x)\}</code>,
+<code class="reqn">\psi(x)=\log[\theta(x)/\{1-\theta(x)\}]</code>, or
+<code class="reqn">\psi(x)=\theta(x)/\{1-\theta(x)\}</code>, respectively.
+If the vector is <code>NULL</code>, then <code class="reqn">\psi(x)=\theta(x)</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>standardize_glm_dr</code> performs regression standardization
+in generalized linear models, see e.g., documentation for <code>standardize_glm_dr</code>. Specifically,
+this version uses a doubly robust estimator for standardization, meaning inference is valid
+when either the outcome regression or the exposure model is correctly specified
+and there is no unmeasured confounding.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>std_glm</code>.
+This is basically a list with components estimates and covariance estimates in <code>res</code>.
+Results for transformations, contrasts, references are stored in <code>res_contrasts</code>.
+Obtain numeric results in a data frame with the tidy function.
+</p>
+
+
+<h3>References</h3>
+
+<p>Gabriel E.E., Sachs, M.C., Martinussen T., Waernbaum I.,
+Goetghebeur E., Vansteelandt S., Sjölander A. (2024),
+Inverse probability of treatment weighting with
+generalized linear outcome models for doubly robust estimation.
+<em>Statistics in Medicine</em>, <b>43</b>(3):534–547.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# doubly robust estimator
+# needs to correctly specify either the outcome model or the exposure model
+# for confounding
+# NOTE: only works with binary exposures
+data &lt;- AF::clslowbwt
+x &lt;- standardize_glm_dr(
+  formula_outcome = bwt ~ smoker * (race + age + lwt) + I(age^2) + I(lwt^2),
+  formula_exposure = smoker ~ race * age * lwt + I(age^2) + I(lwt^2),
+  family_outcome = "gaussian",
+  family_exposure = "binomial",
+  data = data,
+  values = list(smoker = c(0, 1)), contrasts = "difference", reference = 0
+)
+
+set.seed(6)
+n &lt;- 100
+Z &lt;- rnorm(n)
+X &lt;- rbinom(n, 1, prob = (1 + exp(Z))^(-1))
+Y &lt;- rbinom(n, 1, prob = (1 + exp(X + Z))^(-1))
+dd &lt;- data.frame(Z, X, Y)
+x &lt;- standardize_glm_dr(
+  formula_outcome = Y ~ X * Z, formula_exposure = X ~ Z,
+  family_outcome = "binomial",
+  data = dd,
+  values = list(X = 0:1), reference = 0,
+  contrasts = c("difference"), transforms = c("odds")
+)
+
+</code></pre>
+
+
+</div>

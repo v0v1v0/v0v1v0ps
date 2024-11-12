@@ -1,0 +1,416 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>testHSIC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Tests of Independence based on the Hilbert-Schmidt Independence Criterion (HSIC)</h2>
+
+<h3>Description</h3>
+
+ 
+<p><code>testHSIC</code> allows to test independence among all input-output pairs <code class="reqn">(Xi, Y)</code> after a preliminary sensitivity analysis based on <abbr><span class="acronym">HSIC</span></abbr> indices. <code>testHSIC</code> takes an object of class <code>sensiHSIC</code> (produced by a prior call to the function <code>sensiHSIC</code> that estimates <abbr><span class="acronym">HSIC</span></abbr> indices) and it returns the estimated p-values after testing independence among all input-output pairs. For each input-output pair, having access to the p-value helps the user decide whether the null hypothesis <code class="reqn">H0</code>: "<code class="reqn">Xi</code> and <code class="reqn">Y</code> are independent" must be accepted or rejected. If the kernels selected in <code>sensiHSIC</code> are all <b>characteristic</b>, <code class="reqn">H0</code> can be rewritten "<code class="reqn">HSIC(Xi, Y)=0</code>" and this paves the way to several test procedures.
+</p>
+<p>Depending on the sample size and the chosen test statistic (either a <b>U-statistic</b> or a <b>V-statistic</b>), there are up to four different methods to test <code class="reqn">H0</code>. The <b>asymptotic test</b> is recommended when the sample size <code class="reqn">n</code> is around a few hundreds (or more). When <code class="reqn">n</code> is smaller, a <b>permutation-based test</b> must be considered instead. As a general rule, permutation-based tests can always be applied but a much heavier computational load is to be expected. However, if <abbr><span class="acronym">HSIC</span></abbr> indices were initially estimated with V-statistics, the <b>Gamma test</b> is a parametric method that offers an enticing tradeoff.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">testHSIC(sensi, test.method = "Asymptotic", B = 3000,
+         seq.options = list(criterion = "screening", alpha = 0.05,
+                            Bstart = 200, Bfinal = 5000, Bbatch = 100, 
+                            Bconv = 200, graph = TRUE) )
+
+## S3 method for class 'testHSIC'
+print(x, ...)
+
+## S3 method for class 'testHSIC'
+plot(x, ylim = c(0, 1), err, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>sensi</code></td>
+<td>
+<p>An object of class <code>"sensiHSIC"</code> which is produced by a prior call to the function <code>sensiHSIC</code>. In particular, <code>sensi</code> must contain objects named <code>"KX"</code> (3D-array filled with all input Gram matrices), <code>"KY"</code> (output Gram matrix), <code>"HSICXY"</code> (estimated <abbr><span class="acronym">HSIC</span></abbr> indices) and <code>"estimator.type"</code> (either <code>"U-stat"</code> or <code>"V-stat"</code>). In addition, if <code>sensi</code> results from a conditional sensitivity analysis, <code>sensi</code> must also contain objects named <code>"cond"</code> (list of options describing the conditioning event) and <code>"weights"</code> (normalized conditioning weights).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test.method</code></td>
+<td>
+<p>A string specifying the numerical procedure used to estimate the p-values of the HSIC-based independence tests. Available procedure include <code>"Asymptotic"</code> (asymptotic test), <code>"Permutation"</code> (permutation-based test), <code>"Seq_Permutation"</code> (sequential permutation-based test) and <code>"Gamma"</code> (Gamma test). 
+</p>
+
+<ul>
+<li>
+<p> If <code>sensi</code> contains V-statistics, the asymptotic test (resp. the Gamma test) is recommended for large (resp. small) sample sizes. Otherwise, permutation-based tests can be used as well.
+</p>
+</li>
+<li>
+<p> If <code>sensi</code> contains U-statistics, the Gamma test must not be employed. The asymptotic test is recommended for large sample sizes. Otherwise, permutation-based tests can be used as well. 
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>Number of random permutations carried out on the output samples before the non-parametric estimation of p-values. Only relevant if <code>test.method="Permutation"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seq.options</code></td>
+<td>
+<p>A list of options guiding the sequential procedure. 
+Only relevant if <code>test.method="Seq_Permutation"</code>.
+</p>
+
+<ul>
+<li> <p><code>criterion</code> is a string specifying the stopping criterion. Available criteria include <code>"screening"</code> (permutations stop as soons as the estimated p-values have sufficiently converged so that they can be compared to the reference threshold <code>alpha</code>), <code>"ranking"</code> (permutations stop as soon as the estimated p-values have sufficiently converged so that they can be ranked) and <code>"both"</code> (permutations stop as soon as the two previous criteria are fulfilled).
+</p>
+</li>
+<li> <p><code>alpha</code> is a scalar value (between <code class="reqn">0</code> and <code class="reqn">1</code>) specifying the type I error (probability of wrongly accepting <code class="reqn">H0</code>). Only relevant if <code>criterion</code> is <code>"screening"</code> or <code>"both"</code>.
+</p>
+</li>
+<li> <p><code>Bstart</code> is the initial number of random permutations before the first criterion check.
+</p>
+</li>
+<li> <p><code>Bfinal</code> is the maximum number of random permutations.
+</p>
+</li>
+<li> <p><code>Bbatch</code> is the number of permutations at each new iteration of the sequential procedure.
+</p>
+</li>
+<li> <p><code>Bconv</code> is the number of permutations that is used to determine whether convergence has already occured or not. For <code>criterion="screening"</code>, convergence is assumed to be reached if the positions of the estimated p-values with respect to <code>alpha</code> no longer evolve after the <code>Bconv</code> latest permutations. For <code>criterion="ranking"</code>, convergence is assumed to be reached if the rankings of the estimated p-values no longer evolve after the <code>Bconv</code> latest permutations.
+</p>
+</li>
+<li> <p><code>graph</code> is a boolean indicating whether the estimated p-values have to be plotted against the number of permutations.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An object of class <code>"testHSIC"</code> storing the parameters and results of independence testing.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ylim</code></td>
+<td>
+<p>A vector of two values specifying the y-coordinate plotting limits.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>err</code></td>
+<td>
+<p>A scalar value (between <code class="reqn">0</code> and <code class="reqn">1</code>) specifying the reference type I error. This value is used to plot a vertical line.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional options.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+
+<h4>Why and how to properly choose kernels?</h4>
+
+<p>For a given input-output pair of variables, the Hilbert-Schmidt independence criterion <abbr><span class="acronym">(HSIC)</span></abbr> is a dissimilarity measure between the joint bivariate distribution and the product of marginal distributions. Dissimilarity between those two distributions is measured through the squared norm of the distance between their respective embeddings in a reproducing kernel Hilbert space (<abbr><span class="acronym">RKHS</span></abbr>) that directly depends on the selected input kernel <code class="reqn">Ki</code> and the selected output kernel <code class="reqn">KY</code>.
+</p>
+<p>It must always be kept in mind that this criterion allows to detect independence within the pair <code class="reqn">(Xi, Y)</code> provided that the two kernels are <b>characteristic</b>.  
+</p>
+
+<ul>
+<li>
+<p> If both kernels are characteristic, <code class="reqn">H0</code>: "<code class="reqn">Xi</code> and <code class="reqn">Y</code> are independent" is equivalent to <code class="reqn">H0</code>: "<code class="reqn">HSIC(Xi, Y)=0</code>" and any estimator of <code class="reqn">HSIC(Xi, Y)</code> emerges as a relevant test statistic.
+</p>
+</li>
+<li>
+<p> If they are not, testing <code class="reqn">H0</code>: "<code class="reqn">HSIC(Xi, Y)=0</code>" is no longer sufficient for testing  <code class="reqn">H0</code>: "<code class="reqn">Xi</code> and <code class="reqn">Y</code> are independent".
+</p>
+</li>
+</ul>
+<p>The reader is referred to Fukumizu et al. (2004) for the mathematical definition of a characteristic kernel and to Sriperumbur et al. (2010) for an overview of the major related results. 
+</p>
+<p>Responsability for kernel selection is left to the user while calling the function <code>sensiHSIC</code>. Let us simply recall that:
+</p>
+
+<ul>
+<li>
+<p> The Gaussian kernel, the exponential kernel, the Matern <code class="reqn">3/2</code> kernel and the Matern <code class="reqn">5/2</code> kernel (all defined on <code class="reqn">R^2</code>) are <b>characteristic</b>. They remain <b>characteristic</b> when they are restricted to a compact domain <code class="reqn">D</code> within <code class="reqn">R^2</code>.
+</p>
+</li>
+<li>
+<p> The transformed versions of the four abovementioned kernels (all defined on <code class="reqn">[0,1]^2</code>) are <b>characteristic</b>.
+</p>
+</li>
+<li>
+<p> All Sobolev kernels (defined on <code class="reqn">[0,1]^2</code>) are <b>characteristic</b>.
+</p>
+</li>
+<li>
+<p> The categorical kernel (defined on any discrete probability space) is <b>characteristic</b>.
+</p>
+</li>
+</ul>
+<h4>Which test method is most appropriate?</h4>
+
+<p>The test statistic for the pair <code class="reqn">(Xi, Y)</code> is either the <b>U-statistic</b> or the <b>V-statistic</b> associated to <code class="reqn">HSIC(Xi, Y)</code>.
+</p>
+<p>If a <b>V-statistic</b> was used in <code>sensiHSIC</code>, four different test methods can be considered.
+</p>
+
+<ul>
+<li>
+<p> The <b>asymptotic test</b> can be used if the sample size <code class="reqn">n</code> is large enough (at least a hundred of samples). The asymptotic distribution of the test statistic is approximated by a Gamma distribution whose parameters are estimated with the method of moments. See Gretton et al. (2007) for more details about how to estimate the first two moments of the asymptotic Gamma distribution.
+</p>
+</li>
+<li>
+<p> The <b>permutation-based test</b> is more expensive in terms of computational cost but it can be used whatever the sample size <code class="reqn">n</code> is. The initial output samples (stored in the object of class <code>sensiHSIC</code>) are randomly permuted <code class="reqn">B</code> times and the test statistic is recomputed as many times. This allows to simulate <code class="reqn">B</code> observations of the test statistic under <code class="reqn">H0</code> and to estimate the p-value in a non-parametric way. See Meynaoui (2019) for more details on how to correctly estimate the p-value in order to preserve the expected level of the test.
+</p>
+</li>
+<li>
+<p> The <b>sequential permutation-based test</b> is a goal-oriented variant of the previous test. The main idea is to reduce the computational cost by stopping permutations as soon as the estimation of the p-value has sufficiently converged so that it can be compared to a reference threshold or be given a final ranking. See El Amri and Marrel (2022) for more details on how to implement this sequential approach for the three stopping criteria (namely <code>"ranking"</code>, <code>"screening"</code> or <code>"both"</code>).
+</p>
+</li>
+<li>
+<p> The <b>Gamma test</b> is a parametric alternative to permutation-based tests when <code class="reqn">n</code> is not large enough to resort to the asymptotic test. The permutation-based test reveals the test statistic under <code class="reqn">H0</code> follows a unimodal distribution having significant positive skewness. Thus, it seems quite natural to estimate the p-value with a Gamma distribution, especially in view of the fact that the asymptotic distribution is properly approximated by this parametric family. See El Amri and Marrel (2021) for more details on how to estimate the parameters of the Gamma distribution with the method of moments. In particular, the first two moments of the test statistic under <code class="reqn">H0</code> are computed thanks to the formulas that were initially provided in Kazi-Aoual et al. (1995).
+</p>
+</li>
+</ul>
+<p>If a <b>U-statistic</b> was used in <code>sensiHSIC</code>, the estimated value of <code class="reqn">HSIC(Xi,Y)</code> may be negative. 
+</p>
+
+<ul>
+<li>
+<p> The <b>asymptotic test</b> can no longer be conducted with a Gamma distribution (whose support is limited to <code class="reqn">[0,+\infty[</code>). It is replaced by a Pearson III  distribution (which is a left-shifted Gamma distribution).
+</p>
+</li>
+<li>
+<p> The <b>permutation-based test</b> and the <b>sequential permutation-based test</b> can be applied directly.
+</p>
+</li>
+<li>
+<p> The <b>Gamma test</b> has no longer any theoretical justification.
+</p>
+</li>
+</ul>
+<h4>What about target and conditional <abbr><span class="acronym">HSIC</span></abbr> indices?</h4>
+
+<p>In Marrel and Chabridon (2021), <abbr><span class="acronym">HSIC</span></abbr> indices were adapted to <b>target sensitivity analysis</b> (thus becoming <abbr><span class="acronym">T-HSIC</span></abbr> indices) and to <b>conditional sensitivity analysis</b> (thus becoming C-HSIC indices). Tests of independence can still be useful after estimating <abbr><span class="acronym">T-HSIC</span></abbr> indices or <abbr><span class="acronym">C-HSIC</span></abbr> indices.
+</p>
+
+<ul>
+<li>
+<p> For <abbr><span class="acronym">T-HSIC</span></abbr> indices, the null hypothesis is <code class="reqn">H0</code>: "<code class="reqn">Xi</code> and <code class="reqn">w(Y)</code> are independent" where <code class="reqn">w</code> is the weight function selected in <code>target</code> and passed to the function <code class="reqn">sensiHSIC</code>. Everything works just as for basic <abbr><span class="acronym">HSIC</span></abbr> indices (apart from the fact that <code class="reqn">w</code> is applied on the original output variable <code class="reqn">Y</code>). Available test methods include <code>"Asymptotic"</code>, <code>"Permutation"</code>, <code>"Seq_Permutation"</code> and <code>"Gamma"</code> (for V-statistics only).
+</p>
+</li>
+<li>
+<p> For <abbr><span class="acronym">C-HSIC</span></abbr> indices, the null hypothesis is <code class="reqn">H0</code>: "<code class="reqn">Xi</code> and <code class="reqn">Y</code> are independent if the event described in <code>cond</code> occurs". In this specific context, testing conditional independence is only relevant if the weight function is an indicator function. For this reason, if conditional independence has to be tested, the user must select <code>type="indicTh"</code> in <code>cond</code> while calling the function <code>sensiHSIC</code>. Let us recall that only V-statistic estimators can be used for <abbr><span class="acronym">C-HSIC</span></abbr> indices. As a result, available test methods include <code>"Asymptotic"</code>, <code>"Permutation"</code>, <code>"Seq_Permutation"</code> and <code>"Gamma"</code>.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p><code>testHSIC</code> returns a list of class <code>"testHSIC"</code>. It contains <code>test.method</code>, <code>B</code> (for the permutation-based test), <code>seq.options</code> (for the sequential permutation-based test) and the following objects:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>The matched call.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pval</code></td>
+<td>
+<p>The estimated p-values after testing independence for all input-output pairs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop</code></td>
+<td>
+<p>A vector of two strings.
+</p>
+
+<ul>
+<li>
+<p> The first string indicates if the chosen test method is asymptotic or non-asymptotic.
+</p>
+</li>
+<li>
+<p> The second string indicates if the chosen test method is parametric or non-parametric.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Only if <code>test.method</code> is <code>"Asymptotic"</code> or <code>"Gamma"</code>. <br>
+A string indicating the parametric family used to estimate p-values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param</code></td>
+<td>
+<p>Only if <code>test.method</code> is <code>"Asymptotic"</code> or <code>"Gamma"</code>. <br> 
+A <code class="reqn">2</code>-column (resp. <code class="reqn">3</code>-column) matrix containing the parameters of the Gamma (resp. Pearson III) distributions used to estimate p-values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Hperm</code></td>
+<td>
+<p>Only if <code>test.method="Permutation"</code>. <br>
+A <code class="reqn">B</code>-column matrix containing simulated values of the test statistics after randomly permuting the output samples. Each column in <code>Hperm</code> corresponds to one random permutation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>paths</code></td>
+<td>
+<p>Only if <code>test.method="Seq_Permutation"</code>. <br>
+A matrix containing all estimated p-values over the sequential test procedure. The <code class="reqn">i</code>-th row provides all estimates of the <code class="reqn">i</code>-th p-value as the number of permutations increases. If one row ends with a sequence of missing values <code>NA</code>, it means permutations were stopped earlier for this input variable. This can only happen if <code>test.method=screening</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Sebastien Da Veiga, Amandine Marrel, Anouar Meynaoui, Reda El Amri and Gabriel Sarazin.
+</p>
+
+
+<h3>References</h3>
+
+<p>El Amri, M. R. and Marrel, A. (2022), <em>Optimized <abbr><span class="acronym">HSIC</span></abbr>-based tests for sensitivity analysis: application to thermalhydraulic simulation of accidental scenario on nuclear reactor</em>, Quality and Reliability Engineering International, 38(3), 1386-1403.
+</p>
+<p>El Amri, M. R. and Marrel, A. (2021), <em>More powerful <abbr><span class="acronym">HSIC</span></abbr>-based independence tests, extension to space-filling designs and functional data</em>.
+<a href="https://cea.hal.science/cea-03406956/">https://cea.hal.science/cea-03406956/</a>
+</p>
+<p>Fukumizu, K., Bach, F. R. and Jordan, M. I. (2004), <em>Dimensionality reduction for supervised learning with reproducing kernel Hilbert spaces</em>, Journal of Machine Learning Research, 5(Jan), 73-99.
+</p>
+<p>Gretton, A., Fukumizu, K., Teo, C., Song, L., Scholkopf, B. and Smola, A. (2007), <em>A kernel statistical test of independence</em>, Advances in Neural Information Processing Systems, 20.
+</p>
+<p>Kazi-Aoual, F., Hitier, S., Sabatier, R. and Lebreton, J. D. (1995), <em>Refined approximations to permutation tests for multivariate inference</em>, Computational Statistics &amp; Data Analysis, 20(6), 643-656.
+</p>
+<p>Marrel, A. and Chabridon, V. (2021), <em>Statistical developments for target and conditional sensitivity analysis: application on safety studies for nuclear reactor</em>, Reliability Engineering &amp; System Safety, 214, 107711.
+</p>
+<p>Meynaoui, A. (2019), <em>New developments around dependence measures for sensitivity analysis: application to severe accident studies for generation IV reactors</em> (Doctoral dissertation, INSA de Toulouse).
+</p>
+<p>Sriperumbudur, B., Fukumizu, K. and Lanckriet, G. (2010), <em>On the relation between universality, characteristic kernels and <abbr><span class="acronym">RKHS</span></abbr> embedding of measures</em>, Proceedings of the 13th International Conference on Artificial Intelligence and Statistics (pp. 773-780). JMLR Workshop and Conference Proceedings.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sensiHSIC, weightTSA</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">  
+
+# Test case: the Ishigami function.
+
+n &lt;- 20   # very few input-output samples
+p &lt;- 3    # nb of input variables
+
+########################################
+### PRELIMINARY SENSITIVITY ANALYSIS ###
+########################################
+
+X &lt;- matrix(runif(n*p), n, p)
+sensi &lt;- sensiHSIC(model=ishigami.fun, X)
+print(sensi)
+plot(sensi)
+title("GSA for the Ishigami function")
+
+#############################
+### TESTS OF INDEPENDENCE ###
+#############################
+
+test.asymp &lt;- testHSIC(sensi)
+
+test.perm &lt;- testHSIC(sensi, test.method="Permutation")
+
+test.seq.screening &lt;- testHSIC(sensi, test.method="Seq_Permutation")
+
+test.seq.ranking &lt;- testHSIC(sensi, test.method="Seq_Permutation", 
+                             seq.options=list(criterion="ranking"))
+
+test.seq.both &lt;- testHSIC(sensi, test.method="Seq_Permutation", 
+                          seq.options=list(criterion="both"))
+
+test.gamma &lt;- testHSIC(sensi, test.method="Gamma")
+
+# comparison of p-values
+
+res &lt;- rbind( t(as.matrix(test.asymp$pval)), t(as.matrix(test.perm$pval)), 
+              t(as.matrix(test.seq.screening$pval)), t(as.matrix(test.seq.ranking$pval)),
+              t(as.matrix(test.seq.both$pval)), t(as.matrix(test.gamma$pval)) )
+
+rownames(res) &lt;- c("asymp", "perm", "seq_perm_screening", 
+                   "seq_perm_ranking", "seq_perm_both", "gamma")
+res
+
+# Conclusion: n is too small for the asymptotic test.
+# Take n=200 and all four test methods will provide very close p-values.
+
+#####################
+### VISUALIZATION ###
+#####################
+
+# simulated values of HSIC indices under H0 (random permutations)
+Hperm &lt;- t(unname(test.perm$Hperm))
+
+for(i in 1:p){
+  
+  # histogram of the test statistic under H0 (random permutations)
+  
+  title &lt;- paste0("Histogram of S", i, " = HSIC(X", i, ",Y)")
+  
+  hist(Hperm[,i], probability=TRUE,
+       nclass=70, main=title, xlab="", ylab="", col="cyan")
+  
+  # asymptotic Gamma distribution
+  
+  shape.asymp &lt;- test.asymp$param[i, "shape"]
+  scale.asymp &lt;- test.asymp$param[i, "scale"]
+  
+  xx &lt;- seq(0, max(Hperm[,i]), length.out=200)
+  dens.asymp &lt;- dgamma(xx, shape=shape.asymp, scale=scale.asymp)
+  
+  lines(xx, dens.asymp, lwd=2, col="darkorchid")
+  
+  # finite-sample Gamma distribution
+  
+  shape.perm &lt;- test.gamma$param[i, "shape"]
+  scale.perm &lt;- test.gamma$param[i, "scale"]
+  
+  dens.perm &lt;- dgamma(xx, shape=shape.perm, scale=scale.perm)
+  
+  lines(xx, dens.perm, lwd=2, col="blue")
+  
+  all.cap &lt;- c("Asymptotic Gamma distribution", "Finite-sample Gamma distribution")
+  all.col &lt;- c("darkorchid", "blue")
+  
+  legend("topright", legend=all.cap, col=all.col, lwd=2, y.intersp=1.3)
+
+}
+ 
+</code></pre>
+
+
+</div>

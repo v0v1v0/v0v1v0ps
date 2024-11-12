@@ -1,0 +1,225 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>softImpute</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>impute missing values for a matrix via nuclear-norm regularization.
+</h2>
+
+<h3>Description</h3>
+
+<p>fit a low-rank matrix approximation to a matrix with
+missing values via nuclear-norm regularization. The algorithm works
+like EM, filling in the missing values with the current guess, and
+then solving the optimization problem on the complete matrix using a
+soft-thresholded SVD. Special sparse-matrix classes available for very
+large matrices.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">softImpute(x, rank.max = 2, lambda = 0, type = c("als", "svd"), thresh = 1e-05,
+           maxit = 100, trace.it = FALSE, warm.start = NULL, final.svd = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>An m by n matrix with NAs. For large matrices can be of class
+<code>"Incomplete"</code>, in which case the missing values are
+represented as pseudo zeros leading to dramatic storage
+reduction. <code>x</code> can have been centered and scaled via
+<code>biScale</code>, and this information is carried along with the solution.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rank.max</code></td>
+<td>
+
+<p>This restricts the rank of the solution. If sufficiently large, and with
+<code>type="svd"</code>, the solution solves the nuclear-norm convex
+matrix-completion problem. In this case the number of nonzero singular
+values returned will be less than or equal to <code>rank.max</code>. If smaller
+ranks are used, the solution is not guaranteed to solve the problem,
+although still results in good local minima. <code>rank.max</code> should be
+no bigger than <code>min(dim(x)-1</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+
+<p>nuclear-norm regularization parameter. If <code>lambda=0</code>, the algorithm
+reverts to "hardImpute", for which convergence is typically slower, and
+to local minimum. Ideally <code>lambda</code> should be chosen so that the solution
+reached has rank slightly less than <code>rank.max</code>. See also
+<code>lambda0()</code> for computing the smallest <code>lambda</code> with a zero solution.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>two algorithms are implements, <code>type="svd"</code> or
+the default  <code>type="als"</code>. The "svd" algorithm repeatedly computes
+the svd of the completed matrix, and soft thresholds its singular
+values. Each new soft-thresholded svd is used to re-impute the missing
+entries. For large matrices of class <code>"Incomplete"</code>, the svd is
+achieved by an efficient form of alternating orthogonal ridge
+regression. The "als" algorithm uses this same alternating ridge
+regression, but updates the imputation at each step, leading to quite
+substantial speedups in some cases. The "als" approach does not
+currently have the same theoretical  convergence guarantees as the
+"svd" approach.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thresh</code></td>
+<td>
+
+<p>convergence threshold, measured as the relative change in the Frobenius
+norm between two successive estimates.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxit</code></td>
+<td>
+
+<p>maximum number of iterations.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace.it</code></td>
+<td>
+
+<p>with <code>trace.it=TRUE</code>, convergence progress is reported.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>warm.start</code></td>
+<td>
+
+<p>an svd object can be supplied as a warm start. This is particularly
+useful when constructing a path of solutions with decreasing values of
+<code>lambda</code> and increasing <code>rank.max</code>. The previous solution can
+be provided directly as a warm start for the next.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>final.svd</code></td>
+<td>
+
+<p>only applicable to <code>type="als"</code>. The alternating ridge-regressions
+do not lead to exact zeros. With the default <code>final.svd=TRUE</code>, at
+the final iteration, a one step unregularized iteration is performed,
+followed by soft-thresholding of the singular values, leading to hard zeros.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SoftImpute solves the following problem for a matrix <code class="reqn">X</code> with
+missing entries:
+</p>
+<p style="text-align: center;"><code class="reqn">\min||X-M||_o^2 +\lambda||M||_*.</code>
+</p>
+
+<p>Here <code class="reqn">||\cdot||_o</code> is the Frobenius norm, restricted to the entries
+corresponding to the
+non-missing entries of <code class="reqn">X</code>, and  <code class="reqn">||M||_*</code> is the nuclear norm
+of <code class="reqn">M</code> (sum of singular values).  
+For full details of the "svd" algorithm are described in the reference
+below.  The "als" algorithm will be described in a forthcoming
+article. Both methods employ special sparse-matrix tricks for large
+matrices with many missing values. This package creates a new
+sparse-matrix class <code>"SparseplusLowRank"</code> for matrices of the form
+</p>
+<p style="text-align: center;"><code class="reqn">x+ab',</code>
+</p>
+<p> where <code class="reqn">x</code> is sparse and <code class="reqn">a</code> and <code class="reqn">b</code> are tall
+skinny matrices, hence <code class="reqn">ab'</code> is low rank. Methods for efficient left
+and right matrix multiplication are provided for this class. For large
+matrices, the function <code>Incomplete()</code> can be used to build the
+appropriate
+sparse input matrix from market-format data.
+</p>
+
+
+<h3>Value</h3>
+
+<p> An svd object is returned, with components "u", "d", and "v".
+If the solution has zeros in "d", the solution is truncated to rank one
+more than the number of zeros (so the zero is visible). If the input
+matrix had been centered and scaled by <code>biScale</code>, the scaling
+details are assigned as attributes inherited from the input matrix.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Trevor Hastie, Rahul Mazumder<br>
+Maintainer: Trevor Hastie  <a href="mailto:hastie@stanford.edu">hastie@stanford.edu</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Rahul Mazumder, Trevor Hastie and Rob Tibshirani (2010)
+<em>Spectral Regularization Algorithms for Learning Large Incomplete
+Matrices</em>,
+<a href="https://web.stanford.edu/~hastie/Papers/mazumder10a.pdf">https://web.stanford.edu/~hastie/Papers/mazumder10a.pdf</a><br><em> Journal of Machine Learning Research 11 (2010) 2287-2322</em>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>biScale</code>, <code>svd.als</code>,<code>Incomplete</code>,
+<code>lambda0</code>, <code>impute</code>, <code>complete</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(101)
+n=200
+p=100
+J=50
+np=n*p
+missfrac=0.3
+x=matrix(rnorm(n*J),n,J)%*%matrix(rnorm(J*p),J,p)+matrix(rnorm(np),n,p)/5
+ix=seq(np)
+imiss=sample(ix,np*missfrac,replace=FALSE)
+xna=x
+xna[imiss]=NA
+###uses regular matrix method for matrices with NAs
+fit1=softImpute(xna,rank=50,lambda=30)
+###uses sparse matrix method for matrices of class "Incomplete"
+xnaC=as(xna,"Incomplete")
+fit2=softImpute(xnaC,rank=50,lambda=30)
+###uses "svd" algorithm
+fit3=softImpute(xnaC,rank=50,lambda=30,type="svd")
+ximp=complete(xna,fit1)
+### first scale xna
+xnas=biScale(xna)
+fit4=softImpute(xnas,rank=50,lambda=10)
+ximp=complete(xna,fit4)
+impute(fit4,i=c(1,3,7),j=c(2,5,10))
+impute(fit4,i=c(1,3,7),j=c(2,5,10),unscale=FALSE)#ignore scaling and centering
+  </code></pre>
+
+
+</div>

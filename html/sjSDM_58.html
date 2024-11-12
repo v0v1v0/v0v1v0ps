@@ -1,0 +1,551 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sjSDM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fitting scalable joint Species Distribution Models (sjSDM)</h2>
+
+<h3>Description</h3>
+
+<p><code>sjSDM</code> is used to fit joint Species Distribution models (jSDMs) using the central processing unit (CPU) or the graphical processing unit (GPU).
+The default is a multivariate probit model based on a Monte-Carlo approximation of the joint likelihood.
+<code>sjSDM</code> can be used to fit linear but also deep neural networks and supports the well known formula syntax.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sjSDM(
+  Y = NULL,
+  env = NULL,
+  biotic = bioticStruct(),
+  spatial = NULL,
+  family = stats::binomial("probit"),
+  iter = 100L,
+  step_size = NULL,
+  learning_rate = 0.01,
+  se = FALSE,
+  sampling = 100L,
+  parallel = 0L,
+  control = sjSDMControl(),
+  device = "cpu",
+  dtype = "float32",
+  seed = 758341678,
+  verbose = TRUE
+)
+
+sjSDM.tune(object)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>matrix of species occurrences/responses in range</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>matrix of environmental predictors, object of type <code>linear</code> or <code>DNN</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>biotic</code></td>
+<td>
+<p>defines biotic (species-species associations) structure, object of type <code>bioticStruct</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spatial</code></td>
+<td>
+<p>defines spatial structure, object of type <code>linear</code> or <code>DNN</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>error distribution with link function, see details for supported distributions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iter</code></td>
+<td>
+<p>number of fitting iterations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step_size</code></td>
+<td>
+<p>batch size for stochastic gradient descent, if <code>NULL</code> then step_size is set to: <code>step_size = 0.1*nrow(X)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learning_rate</code></td>
+<td>
+<p>learning rate for Adamax optimizer</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>calculate standard errors for environmental coefficients</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sampling</code></td>
+<td>
+<p>number of sampling steps for Monte Carlo integration</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>number of cpu cores for the data loader, only necessary for large datasets</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>control parameters for optimizer, see <code>sjSDMControl</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>device</code></td>
+<td>
+<p>which device to be used, "cpu" or "gpu"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dtype</code></td>
+<td>
+<p>which data type, most GPUs support only 32 bit floats.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>seed for random operations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code>, indicating whether progress should be printed or not</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>object of type <code>sjSDM_cv</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<script id="MathJax-script" async src="../../mathjaxr/doc/mathjax/es5/tex-chtml-full.js"></script><p>The function fits per default a multivariate probit model via Monte-Carlo integration (see Chen et al., 2018) of the joint likelihood for all species.
+</p>
+
+
+<h4>Model description</h4>
+
+<p>The most common jSDM structure describes the site (\(i = 1, ..., I\))  by species (\(j = 1, ..., J\)) matrix \(Y_{ij}\) as a function of
+environmental covariates \(X_{in}\)(\(n=1,...,N\) covariates), and the species-species covariance matrix
+\(\Sigma\) accounts for correlations in \(e_{ij}\):
+</p>
+\[g(Z_{ij}) = \beta_{j0} + \Sigma^{N}_{n=1}X_{in}\beta_{nj} + e_{ij}\]
+<p>with \(g(.)\) as link function. For the multivariate probit model, the link function is:
+</p>
+\[Y_{ij}=1(Z_{ij} &gt; 0)\]
+<p>The probability to observe the occurrence vector \(\bf{Y_i}\) is:
+</p>
+\[Pr(\bf{Y}_i|\bf{X}_i\beta, \Sigma) = \int_{A_{iJ}}...\int_{A_{i1}} \phi_J(\bf{Y}_i^{\ast};\bf{X}_i\beta, \Sigma)  dY_{i1}^{\ast}... dY_{iJ}^{\ast}\]
+<p>in the interval \(A_{ij}\) with \((-\inf, 0]\) if \(Y_{ij}=0\) and \( [0, +\inf) \)  if \(Y_{ij}=1\).
+</p>
+<p>and \(\phi\) being the density function of the multivariate normal distribution.
+</p>
+<p>The probability of \(\bf{Y_i}\) requires to integrate over \(\bf{Y_i^{\ast}}\) which has no closed analytical expression for more than two species
+which makes the evaluation of the likelihood computationally costly and needs a numerical approximation.
+The previous equation can be expressed more generally as:
+</p>
+\[ \mathcal{L}(\beta, \Sigma; \bf{Y}_i, \bf{X}_i) = \int_{\Omega} \prod_{j=1}^J Pr(Y_{ij}|\bf{X}_i\beta+\zeta) Pr(\zeta|\Sigma) d\zeta  \]
+<p><code>sjSDM</code> approximates this integral by \(M\) Monte-Carlo samples from the multivariate normal species-species covariance.
+After integrating out the covariance term, the remaining part of the likelihood can be calculated as in an univariate case and the average
+of the \(M\) samples are used to get an approximation of the integral:
+</p>
+\[ \mathcal{L}(\beta, \Sigma; \bf{Y}_i, \bf{X}_i) \approx \frac{1}{M} \Sigma_{m=1}^M \prod_{j=1}^J Pr(Y_{ij}|\bf{X}_i\beta+\zeta_m)\]
+<p>with \( \zeta_m \sim MVN(0, \Sigma)\).
+</p>
+<p><code>sjSDM</code> uses 'PyTorch' to run optionally the model on the graphical processing unit (GPU). Python dependencies needs to be
+installed before being able to use the <code>sjSDM</code> function. We provide a function which installs automatically python and the python dependencies.
+See <code>install_sjSDM</code>, <code>vignette("Dependencies", package = "sjSDM")</code>
+</p>
+<p>See Pichler and Hartig, 2020 for benchmark results.
+</p>
+
+
+
+<h4>Supported distributions</h4>
+
+<p>Currently supported distributions and link functions, which are :
+</p>
+
+<ul>
+<li> <p><code>binomial</code>: <code>"probit"</code> or <code>"logit"</code>
+</p>
+</li>
+<li> <p><code>poisson</code>: <code>"log"</code>
+</p>
+</li>
+<li> <p><code>"nbinom"</code>: <code>"log"</code>
+</p>
+</li>
+<li> <p><code>gaussian</code>: <code>"identity"</code>
+</p>
+</li>
+</ul>
+<h4>Space</h4>
+
+<p>We can extend the model to account for spatial auto-correlation between the sites by:
+</p>
+\[g(Z_{ij}) = \beta_{j0} + \Sigma^{N}_{n=1}X_{in}\beta_{nj} + \Sigma^{M}_{m=1}S_{im}\alpha_{mj} + e_{ij}\]
+<p>There are two ways to generate spatial predictors \(S\):
+</p>
+
+<ul>
+<li>
+<p> trend surface model - using spatial coordinates in a polynomial:
+</p>
+<p><code>linear(data=Coords, ~0+poly(X, Y, degree = 2))</code>
+</p>
+</li>
+<li>
+<p> eigenvector spatial filtering - using spatial eigenvectors.
+Spatial eigenvectors can be generated by the <code>generateSpatialEV</code> function:
+</p>
+<p><code>SPV = generateSpatialEV(Coords)</code>
+</p>
+<p>Then we use, for example, the first 20 spatial eigenvectors:
+</p>
+<p><code>linear(data=SPV[ ,1:20], ~0+.)</code>
+</p>
+</li>
+</ul>
+<p>It is important to set the intercept to 0 in the spatial term (e.g. via <code>~0+.</code>) because the intercept is already set in the environmental object.
+</p>
+
+
+
+<h4>Installation</h4>
+
+<p><code>install_sjSDM</code> should be theoretically able to install conda and 'PyTorch' automatically. If <code>sjSDM</code> still does not work after reloading RStudio, you can try to solve this on your following our trouble shooting guide <code>installation_help</code>.
+If the problem remains, please create an issue on <a href="https://github.com/TheoreticalEcology/s-jSDM/issues">issue tracker</a> with a copy of the <code>install_diagnostic</code> output as a quote.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>An S3 class of type 'sjSDM' including the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>Model call</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>Formula object for environmental covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>names</code></td>
+<td>
+<p>Names of environmental covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>species</code></td>
+<td>
+<p>Names of species (can be <code>NULL</code> if columns of Y are not named).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>get_model</code></td>
+<td>
+<p>Method which builds and returns the underlying 'python' model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logLik</code></td>
+<td>
+<p>negative log-Likelihood of the model and the regularization loss.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The actual model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>settings</code></td>
+<td>
+<p>List of model settings, see arguments of <code>sjSDM</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Response family.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>Runtime.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>List of Y, X (and spatial) model matrices.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sessionInfo</code></td>
+<td>
+<p>Output of <code>sessionInfo</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>List of model coefficients (environmental (and spatial)).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>Lower triangular weight matrix for the covariance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>history</code></td>
+<td>
+<p>History of iteration losses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se</code></td>
+<td>
+<p>Matrix of standard errors, if <code>se = FALSE</code> the field 'se' is <code>NULL</code>.</p>
+</td>
+</tr>
+</table>
+<p>Implemented S3 methods include <code>summary.sjSDM</code>, <code>plot.sjSDM</code>, <code>print.sjSDM</code>, <code>predict.sjSDM</code>, and <code>coef.sjSDM</code>. For other methods, see section 'See Also'.
+</p>
+<p><code>sjSDM.tune</code> returns an S3 object of class 'sjSDM', see above for information about values.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Maximilian Pichler
+</p>
+
+
+<h3>References</h3>
+
+<p>Chen, D., Xue, Y., &amp; Gomes, C. P. (2018). End-to-end learning for the deep multivariate probit model. arXiv preprint arXiv:1803.08591.
+</p>
+<p>Pichler, M., &amp; Hartig, F. (2021). A new joint species distribution model for faster and more accurate inference of species associations from big community data. Methods in Ecology and Evolution, 12(11), 2159-2173.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>getCor</code>,  <code>getCov</code>, <code>update.sjSDM</code>, <code>sjSDM_cv</code>, <code>DNN</code>, <code>plot.sjSDM</code>, <code>print.sjSDM</code>, <code>predict.sjSDM</code>, <code>coef.sjSDM</code>, <code>summary.sjSDM</code>, <code>simulate.sjSDM</code>, <code>getSe</code>, <code>anova.sjSDM</code>, <code>importance</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+  
+# Basic workflow:
+## simulate community:
+com = simulate_SDM(env = 3L, species = 7L, sites = 100L)
+
+## fit model:
+model = sjSDM(Y = com$response,env = com$env_weights, iter = 50L,
+              verbose = FALSE) 
+# increase iter for your own data 
+
+# Default distribution is binomial("probit"). Alternatively, you can use
+# binomial(logit), poisson("log"), "nbinom" (with log, still somewhat 
+# experimental) and gaussian("identity")
+
+coef(model)
+summary(model)
+getCov(model)
+
+## plot results
+species=c("sp1","sp2","sp3","sp4","sp5","sp6","sp7")
+group=c("mammal","bird","fish","fish","mammal","amphibian","amphibian")
+group = data.frame(species=species,group=group)
+plot(model,group=group)
+
+## calculate post-hoc p-values:
+p = getSe(model)
+summary(p)
+
+## or turn on the option in the sjSDM function:
+model = sjSDM(Y = com$response, env = com$env_weights, se = TRUE, 
+              family = binomial("probit"), 
+              iter = 2L,
+              verbose = FALSE)
+summary(model)
+
+## fit model with interactions:
+model = sjSDM(Y = com$response,
+              env = linear(data = com$env_weights, formula = ~X1:X2 + X3), 
+              se = TRUE,
+              iter = 2L,
+              verbose = FALSE) # increase iter for your own data 
+summary(model)
+
+## without intercept:
+model = update(model, env_formula = ~0+X1:X2 + X3,
+               verbose = FALSE)
+
+summary(model)
+
+## predict with model:
+preds = predict(model, newdata = com$env_weights)
+
+## calculate R-squared:
+R2 = Rsquared(model)
+print(R2)
+
+# With spatial terms:
+## linear spatial model
+XY = matrix(rnorm(200), 100, 2)
+model = sjSDM(Y = com$response, env = linear(com$env_weights), 
+              spatial = linear(XY, ~0+X1:X2),
+              iter = 50L,
+              verbose = FALSE) # increase iter for your own data 
+summary(model)
+predict(model, newdata = com$env_weights, SP = XY)
+R2 = Rsquared(model)
+print(R2)
+
+## Using spatial eigenvectors as predictors to account 
+## for spatial autocorrelation is a common approach:
+SPV = generateSpatialEV(XY)
+model = sjSDM(Y = com$response, env = linear(com$env_weights), 
+              spatial = linear(SPV, ~0+., lambda = 0.1),
+              iter = 50L,
+              verbose = FALSE) # increase iter for your own data 
+summary(model)
+predict(model, newdata = com$env_weights, SP = SPV)
+
+## Visualize internal meta-community structure
+an = anova(model,
+           verbose = FALSE)
+
+internal = internalStructure(an)
+plot(internal)
+
+## Visualize community assemlby effects 
+
+plotAssemblyEffects(internal)
+
+### see ?anova.sjSDM for mroe details
+
+
+## non-linear(deep neural network) model
+model = sjSDM(Y = com$response, env = linear(com$env_weights), 
+              spatial = DNN(SPV,hidden = c(5L, 5L), ~0+.),
+              iter = 2L,# increase iter for your own data 
+              verbose = FALSE) 
+summary(model)
+predict(model, newdata = com$env_weights, SP = SPV)
+
+
+# Regularization
+## lambda is the regularization strength
+## alpha weights the lasso or ridge penalty:
+## - alpha = 0 --&gt; pure lasso
+## - alpha = 1.0 --&gt; pure ridge
+model = sjSDM(Y = com$response, 
+              # mix of lasso and ridge
+              env = linear(com$env_weights, lambda = 0.01, alpha = 0.5), 
+              # we can do the same for the species-species associations
+              biotic = bioticStruct(lambda = 0.01, alpha = 0.5),
+              iter = 2L,# increase iter for your own data 
+              verbose = FALSE) 
+summary(model)
+coef(model)
+getCov(model)
+
+
+
+# Anova 
+com = simulate_SDM(env = 3L, species = 15L, sites = 200L, correlation = TRUE)
+
+XY = matrix(rnorm(400), 200, 2)
+SPV = generateSpatialEV(XY)
+model = sjSDM(Y = com$response, env = linear(com$env_weights), 
+              spatial = linear(SPV, ~0+.), 
+              verbose = FALSE,
+              iter = 50L) # increase iter for your own data 
+result = anova(model, verbose = FALSE)
+print(result)
+plot(result)
+
+## visualize internal meta-community structure
+internal = internalStructure(an)
+plot(internal)
+
+
+
+# Deep neural networks
+## we can fit also a deep neural network instead of a linear model:
+model = sjSDM(Y = com$response,
+              env = DNN(com$env_weights, hidden = c(10L, 10L, 10L)),
+              verbose = FALSE,
+              iter = 2L) # increase iter for your own data 
+summary(model)
+getCov(model)
+pred = predict(model, newdata = com$env_weights)
+
+## extract weights
+weights = getWeights(model)
+
+## we can also assign weights:
+setWeights(model, weights)
+
+## with regularization:
+model = sjSDM(Y = com$response, 
+              # mix of lasso and ridge
+              env = DNN(com$env_weights, lambda = 0.01, alpha = 0.5), 
+              # we can do the same for the species-species associations
+              biotic = bioticStruct(lambda = 0.01, alpha = 0.5),
+              verbose = FALSE,
+              iter = 2L) # increase iter for your own data 
+getCov(model)
+getWeights(model)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

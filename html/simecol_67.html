@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>iteration</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Discrete Simulation</h2>
+
+<h3>Description</h3>
+
+<p>Solver function to simulate discrete ecological (or other) dynamic
+models. It is normally called indirectly from <code>sim</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">  iteration(y, times=FALSE, func=FALSE, parms=FALSE, animate = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y </code></td>
+<td>
+<p>the initial values for the system.  If <code>y</code> has a
+name attribute, the names will be used to label the output matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>times </code></td>
+<td>
+<p>times at which explicit estimates for <code>y</code> are
+desired.  The first value in <code>times</code> must be the initial time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>func </code></td>
+<td>
+<p>a user-supplied function that computes the values of the
+<em>next time step</em> (not the derivatives !!!) 
+in the system (the <em>model defininition</em>) at time t.
+The user-supplied function  <code>func</code> must be called as:
+<code>yprime = func(t, y, parms)</code>.  <code>t</code> is the current time point
+in the integration, <code>y</code> is the current estimate of the variables
+in the ode system, and <code>parms</code> is a vector of parameters (which
+may have a names attribute, desirable in a large system).
+</p>
+<p>The return value of func should be a list, whose first element is a
+vector containing the derivatives of <code>y</code> with respect to
+<code>time</code>, and whose second element is a vector (possibly with a
+<code>names</code> attribute) of global values that are required at
+each point in <code>times</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parms </code></td>
+<td>
+<p>vector or list holding the parameters used in <code>func</code> 
+that should be modifiable without rewriting the function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>animate</code></td>
+<td>
+<p>Animation during the simulation (if available for the specified
+class.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>optional arguments passed to the <code>plot</code> function if
+<code>animate=TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The solver method <code>iteration</code> is used to simulate discrete event
+models.  Normally, this function is run indirectly from
+<code>sim</code>.
+</p>
+<p>In contrast to differential equation solvers, the <code>main</code> function
+of the model must not return the first derivative but instead and
+explicitly the new state at the specified times.
+</p>
+<p>The actual value of time is available in the <code>main</code> function as
+<code>time</code> and the current increment as <code>parms["DELTAT"]</code> or
+<code>parms$DELTAT</code>. It is element of a vector if <code>parms</code> is a
+vector and it is a list if <code>parms</code> is a list.
+</p>
+<p>If iteration is used for difference equations (see example
+<code>dlogist</code> below), it is mandatory to multiply the incremental
+part with <code>DELTAT</code> to ensure that variable time steps are
+correctly respected and that the first row of the simulation outputs
+contains the states at <code class="reqn">t_0</code>.
+</p>
+<p>The default <code>iteration</code> method of class <code>simObj</code> supports
+the <code>observer</code> mechanism. This means that a function stored in
+slot <code>observer</code> is called during each iteration step with the
+return value of <code>main</code> as its first argument. You can use this to
+control the amount of data stored during each iteration step
+(e.g. whole population or only mean values for individual based
+models), to do run-time animation or to write log files.
+</p>
+<p>As an alternative for models of class <code>odeModel</code>, the
+<code>iteration</code> method of package <span class="pkg">deSolve</span> may be used as a
+user-defined solver function. This is slightly faster and the output
+supports the extended plotting functions, but then no observers are
+possible and no implicit <code>DELTAT</code> variable.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of the model outputs (states ...) for each timestep.</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sim</code>, 
+<code>observer</code>,
+<code>parms</code>,
+<code>lsoda</code>, <code>rk4</code>,
+<code>euler</code>, <code>iteration</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(conway)
+
+
+## plot after simulation:
+plot(sim(conway), delay=100)
+
+## plot during simulation
+sim(conway, animate=TRUE, delay=100)
+
+
+## discrete version of logistic growth equation
+## Note: function main returns the *new value*, not the derivative
+
+dlogist &lt;- new("odeModel",
+  main = function (time, init, parms, ...) {
+    x &lt;- init
+    with(as.list(parms), {
+      x &lt;- x + r * x * (1 - x / K) * DELTAT
+      #   ^^^ add to old value       ^^^^^^ special parameter with time step
+      list(c(x))
+    })
+  },
+  parms  = c(r=0.1, K=10),
+  times  = seq(0, 100, 1),
+  init   = c(population=0.1),
+  solver = "iteration" #!!!
+)
+
+plot(sim(dlogist))
+
+## alternative with function that returns the derivative
+## discrete steps are realized with the euler method
+
+dlogist &lt;- new("odeModel",
+  main = function (time, init, parms, ...) {
+    x &lt;- init
+    with(as.list(parms), {
+      x &lt;- r * x * (1 - x / K)
+      list(c(x))
+    })
+  },
+  parms  = c(r=0.1, K=10),
+  times  = seq(0, 100, 1),
+  init   = c(population=0.1),
+  solver = "euler"
+)
+
+plot(sim(dlogist))
+
+## second alternative: use of the "iteration" solver from
+## package deSolve, that supports extended plotting functions
+
+dlogist &lt;- new("odeModel",
+  main = function (time, init, parms, ...) {
+    x &lt;- init[1]
+    with(as.list(parms), {
+      x &lt;- x + r * x * (1 - x / K)
+      #   ^^^ add to old value
+      list(c(x))
+    })
+  },
+  parms  = c(r=0.1, K=10),
+  times  = seq(0, 100, 1),
+  init   = c(population=0.1),
+  solver =  function(y, times, func, parms, ...)
+              ode(y, times, func, parms, ..., method="iteration")
+)
+
+plot(sim(dlogist))
+
+
+</code></pre>
+
+
+</div>

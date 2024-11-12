@@ -1,0 +1,112 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>f_dev</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate negative log-likelihood (deviance) for one antigen:isotype pair</h2>
+
+<h3>Description</h3>
+
+<p>more description to be added here
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">f_dev(lambda, csdata, lnpars, cond)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p><code>numeric()</code> incidence parameter, in events per person-year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>csdata</code></td>
+<td>
+<p>cross-sectional sample data containing variables <code>value</code> and <code>age</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lnpars</code></td>
+<td>
+<p>longitudinal antibody decay model parameters <code>alpha</code>, <code>y1</code>, and <code>d</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cond</code></td>
+<td>
+<p>measurement noise parameters <code>nu</code>, <code>eps</code>, <code>y.low</code>, and <code>y.high</code></p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a <code>numeric()</code> vector of negative log-likelihoods,
+corresponding to the elements of input <code>lambda</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(dplyr)
+library(tibble)
+
+# load in longitudinal parameters
+curve_params = load_curve_params("https://osf.io/download/rtw5k")
+xs_data &lt;- "https://osf.io/download//n6cp3/" %&gt;%
+load_pop_data() %&gt;%
+clean_pop_data()
+
+#Load noise params
+noise_params &lt;- tibble(
+  antigen_iso = c("HlyE_IgG", "HlyE_IgA"),
+  nu = c(0.5, 0.5),                          # Biologic noise (nu)
+  eps = c(0, 0),                             # M noise (eps)
+  y.low = c(1, 1),                           # low cutoff (llod)
+  y.high = c(5e6, 5e6))                      # high cutoff (y.high)
+
+cur_antibody = "HlyE_IgA"
+
+cur_data =
+  xs_data %&gt;%
+  dplyr::filter(
+   .data$catchment == "dhaka",
+   .data$antigen_iso == cur_antibody)
+
+cur_curve_params =
+  curve_params %&gt;%
+  dplyr::filter(.data$antigen_iso == cur_antibody)
+
+cur_noise_params =
+  noise_params %&gt;%
+  dplyr::filter(.data$antigen_iso == cur_antibody)
+
+if(!is.element('d', names(cur_curve_params)))
+{
+  cur_curve_params =
+    cur_curve_params %&gt;%
+    dplyr::mutate(
+      alpha = .data$alpha * 365.25,
+      d = .data$r - 1)
+}
+
+lambda = seq(.1, .2, by = .01)
+nll &lt;- f_dev(
+    lambda = lambda,
+    csdata = cur_data,
+    lnpars = cur_curve_params,
+    cond = cur_noise_params
+  )
+
+</code></pre>
+
+
+</div>

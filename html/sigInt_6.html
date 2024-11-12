@@ -1,0 +1,508 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sigint</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimating the parameters of the canonical discrete crisis bargaining game.</h2>
+
+<h3>Description</h3>
+
+<p>This function fits the Lewis and Schultz (2003) model to data using either 
+the pseudo-likelihood (PL) or nested-pseudo likelihood (NPL) method from 
+Crisman-Cox and Gibilisco (2018). Throughout, we refer to the data as
+containing <code class="reqn">D</code> games, where each game is  observed one or more times.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sigint(
+  formulas,
+  data,
+  subset,
+  na.action,
+  fixed.par = list(),
+  method = c("npl", "pl"),
+  npl.maxit = 25,
+  npl.tol = 1e-07,
+  npl.trace = FALSE,
+  start.beta,
+  maxlik.method = "NR",
+  phat,
+  phat.formulas,
+  pl.vcov = FALSE,
+  phat.vcov,
+  seed = 12345,
+  maxlik.options = list()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formulas</code></td>
+<td>
+<p>a <code>Formula</code> object four variables on the left-hand side and 
+seven (7) separate right-hand sides. See "Details" and examples below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a data frame containing the variables used to fit the model.
+Each row of the data frame describes an individual game
+<code class="reqn">d = 1, 2, ..., D</code>. Each row <code class="reqn">d</code>  should be a summary of all of the
+within-game observations for game <code class="reqn">d</code>. See "Details" for more
+information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset</code></td>
+<td>
+<p>an optional logical expression to specify a subset of 
+observations to be used in fitting the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+<p>how do deal with missing data (<code>NA</code>s).  Defaults to the 
+<code>na.action</code> setting of <code>options</code> (typically <code>na.omit</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed.par</code></td>
+<td>
+<p>a list with up to seven (7) named elements for normalizing payoffs to non-zero values.
+Names must match a payoff name as listed in "Details."
+Each named element should contain a single number that is the fixed (not estimated) value of that payoff.
+For example, to fix each side's victory-without-fighting payoff to 1
+use <code>fixed.par=list(VA=1, VB=1)</code> and set their portions of the <code>formulas</code> to zero.
+To normalize a payoff to zero, you only need to specify it has a zero in the <code>formulas</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>whether to use the nested-pseudo-likelihood (<code>"npl"</code>, default) or
+the pseudo-likelihood method for fitting the model. See "Details" for more 
+information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>npl.maxit</code></td>
+<td>
+<p>maximum number of outer-loop iterations to be used when fitting the NPL.
+See "Details" for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>npl.tol</code></td>
+<td>
+<p>Convergence criteria for the NPL. When the estimates change by
+less than this amount, convergence is considered successful.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>npl.trace</code></td>
+<td>
+<p>logical. Should the NPL's progress be printed to screen?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start.beta</code></td>
+<td>
+<p>starting values for the model coefficients as a single 
+vector. If missing, random values are drawn from a normal distribution with mean
+zero and standard deviation 0.05.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxlik.method</code></td>
+<td>
+<p>method used by  <code>maxLik</code>  to fit the
+model. Default is Newton-Raphson (<code>"NR"</code>). See  <code>maxLik</code> 
+for additional details. At this time only <code>"NR"</code>, <code>"BFGS"</code>, and <code>"Nelder-Mead"</code> are available.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phat</code></td>
+<td>
+<p>a list containing two vectors: <code>PRhat</code> and <code>PFhat</code>.
+These are the first-stage estimates that <code class="reqn">B</code> resists a threat and that <code class="reqn">A</code> 
+follows through on a threat, respectively.
+If missing, they will be estimated by a  <code>randomForest</code>  with default options.
+See "Details" for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phat.formulas</code></td>
+<td>
+<p>if <code>phat</code> are  missing, you can supply formulas to 
+estimate them. Should be a Formulas object containing no left-hand side and
+1-2 right hand sides.  If  one right-hand side is given, the same 
+covariates are used to estimate both <code>PRhat</code> and <code>PFhat</code>.  
+Otherwise, the first RHS is used to generate <code>PRhat</code>, while the second RHS 
+generates <code>PFhat</code>.
+If no formulas are provided and <code>phat</code> is 
+missing, all the covariates used in formulas argument and used here. See 
+"Details" for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pl.vcov</code></td>
+<td>
+<p>number of bootstrap iterations to generate <code>phat.vcov</code>. 
+If less than <code>0</code> or <code>FALSE</code> (default), the pseudo-likelihood 
+covariance is not estimated.  Only used if <code>method = "pl"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phat.vcov</code></td>
+<td>
+<p>a covariance matrix for the estimates <code>PRhat</code> and <code>PFhat</code>.
+If missing and <code>pl.vcov = TRUE</code> and <code>phat</code> is missing, it will be 
+estimated by bootstrapping the random forest used to fit <code>phat</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>integer.
+Used to set the seed for the random forest and for drawing the the starting values.
+The PL can be sensitive to starting value, so this makes results reproducible.
+The NPL is less sensitive, but we always recommend checking the first order conditions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxlik.options</code></td>
+<td>
+<p>a list of options to be passed to 
+<code>maxLik</code>  for fitting the model.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The model corresponds to an extensive-form, 
+discrete-crisis-bargaining game from Lewis and Schultz (2003): 
+</p>
+<pre> 
+  .       A 
+  .      / \ 
+  .     /   \ 
+  .    /     \
+  .   S_A     B 
+  .    0     / \
+  .         /   \
+  .        /     \
+  .      V_A      A 
+  .      C_B     / \ 
+  .             /   \
+  .            /     \
+  .     W_A + e_A    a + e_a 
+  .     W_B + e_B    V_B</pre> 
+<p>If <code class="reqn">A</code> chooses not to challenge <code class="reqn">B</code>,
+then the game ends at the leftmost node (<code class="reqn">SQ</code>) and payoffs are
+<code class="reqn">S_A</code> and 0 to players <code class="reqn">A</code> and <code class="reqn">B</code>, respectively. If <code class="reqn">A</code>
+challenges <code class="reqn">B</code>, <code class="reqn">B</code> can concede or resist.  If <code class="reqn">B</code> concedes,
+the game ends at <code class="reqn">CD</code> with payoffs <code class="reqn">V_A</code> and <code class="reqn">C_B</code>.  However,
+if <code class="reqn">B</code> resists, <code class="reqn">A</code> decides to stand firm, which ends the game at
+<code class="reqn">SF</code> with payoffs <code class="reqn">W_A + \epsilon_A</code> and <code class="reqn">W_B + \epsilon_B</code>.
+Finally, if <code class="reqn">A</code> decides to back down in the face of <code class="reqn">B</code>'s
+resistance, then the game ends at the rightmost node <code class="reqn">BD</code>, with payoffs
+<code class="reqn">a + \epsilon_a</code> and <code class="reqn">V_B</code>.
+</p>
+<p>The seven right-hand formulas that are specified in the formula argument 
+correspond to the regressors to be placed in <code class="reqn">S_A, V_A, C_B, W_A, W_B, 
+  a</code>, and <code class="reqn">V_B</code>, respectively. The model is unidentified if any regressor
+(including a constant term) is included in all the formulas for each player
+(Lewis and Schultz 2003). Often the easiest way to meet this requirement is
+set one formula per player  to 0. When an identification problem is
+detected, an error is issued. For example, the syntax for the formula
+argument could be:
+</p>
+<p><code>formulas = sq + cd + sf + bd ~ x1 + 0 | x2 | x2 | x1 + x2 | x1 | 1 | 0)</code>
+</p>
+<p>Where: </p>
+
+<ul>
+<li> <p><code>sq + cd + sf + bd</code> are the tallies of how many
+times each outcome is observed for each observation.  When the game is only
+observed once, that observation will be a 1 and three 0s.  When the game is
+observed multiple times, these variables should count the number of times 
+each outcome is observed.  They need to be in the order of <code class="reqn">SQ</code>, 
+<code class="reqn">CD</code>, <code class="reqn">SF</code>, <code class="reqn">BD</code>.
+</p>
+</li>
+<li> <p><code class="reqn">S_A</code> is a function of the variable <code>x1</code> and no constant term.
+</p>
+</li>
+<li> <p><code class="reqn">V_A</code> is a function of the variable <code>x2</code> and a constant term.
+</p>
+</li>
+<li> <p><code class="reqn">C_B</code> is a function of the variable <code>x2</code> and a constant term.
+</p>
+</li>
+<li> <p><code class="reqn">W_A</code> is a function  of the variables <code>x1</code>, <code>x2</code> and a constant term.
+</p>
+</li>
+<li> <p><code class="reqn">W_B</code> is a function of the variable  <code>x1</code> and a constant term.
+</p>
+</li>
+<li> <p><code class="reqn">a</code> is a constant term.
+</p>
+</li>
+<li> <p><code class="reqn">V_B</code> is fixed to 0 (or a non-zero value set by <code>fixed.par</code>. </p>
+</li>
+</ul>
+<p>Each row of the data frame should be a summary of the covariates and outcomes associated with that particular game.
+When each game is observed only once, then this will resemble an ordinary dyad-time data frame.
+However, if there are multiple observations per game, then each row should be a summary of all the data associated
+with that game.
+For example, if there are <code class="reqn">D</code> games in the data, where each is observed <code class="reqn">T_d</code> times, then the data frame
+should have <code class="reqn">D</code> rows.
+The four columns making up the dependent variable will denote the frequencies of each outcome for game <code class="reqn">d</code>,
+such that <code>sq</code><code class="reqn">_d</code> + <code>cd</code><code class="reqn">_d</code> + <code>sf</code><code class="reqn">_d</code> + <code>bd</code><code class="reqn">_d = T_d</code>.
+The covariates in row <code class="reqn">d</code> should be summary statistics for the exogenous variables (e.g., mean, median, mode, first observation).
+</p>
+<p>The model is first fit using a pseudo-likelihood estimator.  This approach 
+requires first stage estimation of the probability that <code class="reqn">B</code> resists and
+the probability that <code class="reqn">A</code> fights conditional on <code class="reqn">B</code> choosing to 
+resist. These first stage estimates should be flexible and we recommend
+that users fit a flexible semi-parametric or non-parametric model to
+produce them. If these estimates are produced by the analyst prior to using
+this function, then they can be provided by providing a list to the
+<code>phat</code> argument. This list should contain two named elements </p>
+
+<ul>
+<li> <p><code>PRhat</code> is the probability that <code class="reqn">B</code> resists.  This should be
+a vector of probabilities with one estimated probability for each
+observation. </p>
+</li>
+<li> <p><code>PFhat</code> is the probability that <code class="reqn">A</code> stands firm
+conditional on <code class="reqn">B</code> resisting.  This should be a vector of probabilities
+with one estimated probability for each observation. </p>
+</li>
+</ul>
+<p>If the user leaves the <code>phat</code> argument empty, then these first-stage 
+estimates are produced internally using the 
+<code>randomForest</code> function.
+Users wanting to use the
+random forest, can supply a formula for it using the argument 
+<code>phat.formulas</code>.
+This argument can take a formula with nothing on the 
+left-hand side and 1-2 right-hand sides.
+If two right-hand sides are 
+provided then the first is used to generate <code>PRhat</code>, and the second is
+used for <code>PFhat</code>.
+If only one right-hand side is provided, it is used
+for both. Some examples: </p>
+
+<ul>
+<li> <p><code>phat.formulas = ~ x1 + x2</code> 
+predict <code>PRhat</code> and <code>PFhat</code> using <code>x1</code> and <code>x2</code>.
+</p>
+</li>
+<li> <p><code>phat.formulas = ~ x1 + x2 | x1 + x2</code> predict <code>PRhat</code> and 
+<code>PFhat</code> using <code>x1</code> and <code>x2</code>
+</p>
+</li>
+<li> <p><code>phat.formulas = ~ x1 + x2 | x1 </code> predict <code>PRhat</code>  using <code>x1</code> and <code>x2</code>, but
+predict <code>PFhat</code> using only <code>x1</code>. </p>
+</li>
+</ul>
+<p>If both <code>phat</code> and <code>phat.formula</code> are missing, then a random forest is fit using all the 
+exogenous variables listed in the formulas argument
+</p>
+<p>If <code>method = "npl"</code>, then estimation continues.  
+For each iteration of the NPL, the estimates of <code>PRhat</code> and <code>PFhat</code> are updated
+by one best-response iteration using the current parameter estimates.
+The model is then refit using these updated choice probabilities.
+This process continues until the maximum absolute change in
+parameters and choice probabilities is less than <code>npl.tol</code> (default, <code>1e-7</code>), or
+the number of outer iterations exceeds <code>npl.maxit</code> (default, <code>25</code>).
+In the latter case, a warning is produced.
+</p>
+<p>If pseudo-likelihood (<code>method="pl"</code>) is used, then 
+<code>pl.vcov</code> is checked.
+There are four possibilities here: 
+</p>
+
+<ul>
+<li> <p><code>pl.vcov = FALSE</code> (default), then no covariance matrix or
+standard errors are returned, only the point estimates. 
+</p>
+</li>
+<li> <p><code>pl.vcov &gt; 0</code> and <code>phat.vcov</code> is supplied, 
+then <code>phat.vcov</code> is used to estimate the PL's covariance matrix. 
+</p>
+</li>
+<li>  <p><code>pl.vcov &gt; 0</code>, <code>phat.vcov</code> is missing, and <code>phat</code> 
+is missing, then the random forest used to estimate <code>PRhat</code> and
+<code>PFhat</code> is bootstrapped (simple, nonparametric bootstrap)  <code>pl.vcov</code> times.
+</p>
+</li>
+<li> <p><code>pl.vcov &gt; 0</code>, <code>phat.vcov</code> is missing, and <code>phat</code> is not
+missing, then an error is returned. 
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>An object of class <code>sigfit</code>, containing:</p>
+ 
+<dl>
+<dt><code>coefficients</code></dt>
+<dd>
+<p>A vector of estimated model parameters.</p>
+</dd>  
+<dt><code>vcov</code></dt>
+<dd>
+<p>Estimated variance-covariance matrix. When <code>pl.vcov = FALSE</code>, this slot is omitted.</p>
+</dd> 
+<dt><code>utilities</code></dt>
+<dd>
+<p>Each actor's utilities at the estimated values.</p>
+</dd>  
+<dt><code>fixed.par</code></dt>
+<dd>
+<p>The fixed utilities if specified in the call.</p>
+</dd>  
+<dt><code>logLik</code></dt>
+<dd>
+<p>Final log-likelihood value of the model.</p>
+</dd>
+<dt><code>gradient</code></dt>
+<dd>
+<p>First derivative values at the estimated parameters.</p>
+</dd>
+<dt><code>Phat</code></dt>
+<dd>
+<p>List of two elements 
+</p>
+ 
+<ul>
+<li> <p><code>PRhat</code> The first stage estimates of the probability that 
+<code class="reqn">B</code> resists (<code>method = "pl"</code>) or the final estimates that
+<code class="reqn">B</code> resists (if <code>method = "npl"</code>) 
+</p>
+</li>
+<li> <p><code>PFhat</code> The first stage estimates of the probability that 
+<code class="reqn">A</code> stands firms given that <code class="reqn">A</code> challenged (<code>method = "pl"</code>) or 
+the final estimates that <code class="reqn">A</code> stands firms given that <code class="reqn">A</code> challenged
+(if <code>method = "npl"</code>)
+</p>
+</li>
+</ul>
+<p>Note that <code>PRhat</code> will only be an equilibrium if <code>method = "npl"</code> and the NPL convergences
+</p>
+</dd>
+<dt><code>user.phat</code></dt>
+<dd>
+<p>Logical. Did the user provide phat?</p>
+</dd> 
+<dt><code>start.beta</code></dt>
+<dd>
+<p>The vector of starting values used in the PL optimization.</p>
+</dd>
+<dt><code>call</code></dt>
+<dd>
+<p>The call used to produce the object.</p>
+</dd>
+<dt><code>model</code></dt>
+<dd>
+<p>The data frame used to fit the model.</p>
+</dd>
+<dt><code>method</code></dt>
+<dd>
+<p>The method (<code>"pl"</code> or <code>"npl"</code>) used to fit the model.</p>
+</dd>
+<dt><code>maxlik.method</code></dt>
+<dd>
+<p>The optimization used by <code>maxLik</code> to fit the model.</p>
+</dd>
+<dt><code>maxlik.code</code></dt>
+<dd>
+<p>The convergence code returned by <code>maxLik</code>.</p>
+</dd>
+<dt><code>maxlik.message</code></dt>
+<dd>
+<p>The convergence message returned by <code>maxLik</code>.</p>
+</dd>
+</dl>
+<p>Additionally, when <code>method = "npl"</code>, the following are also included in the <code>sigfit</code> object.</p>
+
+<dl>
+<dt><code>npl.iter</code></dt>
+<dd>
+<p>Number of best response iterations used in fitting the NPL.</p>
+</dd>
+<dt><code>npl.eval</code></dt>
+<dd>
+<p>Maximum difference between the parameters at the last two NPL iterations. If the NPL method converged, this should be less than <code>npl.tol</code> specified in the function call.</p>
+</dd>
+<dt><code>eq.constraint</code></dt>
+<dd>
+<p>Maximum equilibrium constraint violation.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Casey Crisman-Cox and Michael Gibilisco. 2019. "Estimating 
+Signaling Games in International Relations: Problems and Solutions."
+<em>Political Science Research and Methods</em>. Online First.
+</p>
+<p>Jeffrey B. Lewis and Kenneth A. Schultz.  2003.  "Revealing
+Preferences: Empirical Estimation of a Crisis Bargaining Game with
+Incomplete Information."  <em>Political Analysis</em> 11:345–367.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("sanctionsData")
+f1 &lt;- sq+cd+sf+bd ~ sqrt(senderecondep) + senderdemocracy + contig + ally -1|#SA
+                    anticipatedsendercosts|#VA
+                    sqrt(targetecondep) + anticipatedtargetcosts + contig + ally|#CB
+                    sqrt(senderecondep) + senderdemocracy + lncaprat | #barWA
+                    targetdemocracy + lncaprat| #barWB
+                    senderdemocracy| #bara
+                    -1#VB
+
+## Using Nested-Pseudo Likelihood  with default first stage     
+## Not run:             
+fit1 &lt;- sigint(f1, data=sanctionsData, npl.trace=TRUE)
+summary(fit1)
+
+## End(Not run)
+
+
+## Using Pseudo Likelihood with user supplied first stage
+Phat &lt;- list(PRhat=sanctionsData$PRnpl, PFhat=sanctionsData$PFnpl)
+fit2 &lt;- sigint(f1, data=sanctionsData, method="pl", phat=Phat)
+summary(fit2)
+
+## Using Pseudo Likelihood with user made first stage and user covariance
+## SIGMA is a bootstrapped first-stage covariance matrix (not provided)
+## Not run: 
+fit3 &lt;- sigint(f1, data=sanctionsData, method="pl", phat=Phat, phat.vcov=SIGMA, pl.vcov=TRUE)
+summary(fit3)
+
+## End(Not run)
+
+## Using Pseudo Likelihood with default first stage and 
+## bootstrapped standard errors for the first stage covariance
+## Not run: 
+fit4 &lt;- sigint(f1, data=sanctionsData, method="pl", pl.vcov=25) 
+summary(fit4)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

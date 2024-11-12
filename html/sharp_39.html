@@ -1,0 +1,621 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>GraphicalModel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Stability selection graphical model</h2>
+
+<h3>Description</h3>
+
+<p>Performs stability selection for graphical models. The underlying graphical
+model (e.g. graphical LASSO) is run with different combinations of parameters
+controlling the sparsity (e.g. penalty parameter) and thresholds in selection
+proportions. These two hyper-parameters are jointly calibrated by
+maximisation of the stability score.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">GraphicalModel(
+  xdata,
+  pk = NULL,
+  Lambda = NULL,
+  lambda_other_blocks = 0.1,
+  pi_list = seq(0.01, 0.99, by = 0.01),
+  K = 100,
+  tau = 0.5,
+  seed = 1,
+  n_cat = NULL,
+  implementation = PenalisedGraphical,
+  start = "warm",
+  scale = TRUE,
+  resampling = "subsampling",
+  cpss = FALSE,
+  PFER_method = "MB",
+  PFER_thr = Inf,
+  FDP_thr = Inf,
+  Lambda_cardinal = 50,
+  lambda_max = NULL,
+  lambda_path_factor = 0.001,
+  max_density = 0.5,
+  optimisation = c("grid_search", "nloptr"),
+  n_cores = 1,
+  output_data = FALSE,
+  verbose = TRUE,
+  beep = NULL,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>xdata</code></td>
+<td>
+<p>data matrix with observations as rows and variables as columns.
+For multi-block stability selection, the variables in data have to be
+ordered by group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pk</code></td>
+<td>
+<p>optional vector encoding the grouping structure. Only used for
+multi-block stability selection where <code>pk</code> indicates the number of
+variables in each group. If <code>pk=NULL</code>, single-block stability
+selection is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Lambda</code></td>
+<td>
+<p>matrix of parameters controlling the level of sparsity in the
+underlying feature selection algorithm specified in <code>implementation</code>.
+If <code>Lambda=NULL</code> and <code>implementation=PenalisedGraphical</code>,
+<code>LambdaGridGraphical</code> is used to define a relevant grid.
+<code>Lambda</code> can be provided as a vector or a matrix with
+<code>length(pk)</code> columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_other_blocks</code></td>
+<td>
+<p>optional vector of parameters controlling the
+level of sparsity in neighbour blocks for the multi-block procedure. To use
+jointly a specific set of parameters for each block,
+<code>lambda_other_blocks</code> must be set to <code>NULL</code> (not recommended).
+Only used for multi-block stability selection, i.e. if <code>length(pk)&gt;1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pi_list</code></td>
+<td>
+<p>vector of thresholds in selection proportions. If
+<code>n_cat=NULL</code> or <code>n_cat=2</code>, these values must be <code>&gt;0</code> and
+<code>&lt;1</code>. If <code>n_cat=3</code>, these values must be <code>&gt;0.5</code> and
+<code>&lt;1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>number of resampling iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>subsample size. Only used if <code>resampling="subsampling"</code> and
+<code>cpss=FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>value of the seed to initialise the random number generator and
+ensure reproducibility of the results (see <code>set.seed</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_cat</code></td>
+<td>
+<p>computation options for the stability score. Default is
+<code>NULL</code> to use the score based on a z test. Other possible values are 2
+or 3 to use the score based on the negative log-likelihood.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>implementation</code></td>
+<td>
+<p>function to use for graphical modelling. If
+<code>implementation=PenalisedGraphical</code>, the algorithm implemented in
+<code>glassoFast</code> is used for regularised estimation of
+a conditional independence graph. Alternatively, a user-defined function
+can be provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>character string indicating if the algorithm should be
+initialised at the estimated (inverse) covariance with previous penalty
+parameters (<code>start="warm"</code>) or not (<code>start="cold"</code>). Using
+<code>start="warm"</code> can speed-up the computations, but could lead to
+convergence issues (in particular with small <code>Lambda_cardinal</code>). Only
+used for <code>implementation=PenalisedGraphical</code> (see argument
+<code>"start"</code> in <code>glassoFast</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scale</code></td>
+<td>
+<p>logical indicating if the correlation (<code>scale=TRUE</code>) or
+covariance (<code>scale=FALSE</code>) matrix should be used as input of
+<code>glassoFast</code> if
+<code>implementation=PenalisedGraphical</code>. Otherwise, this argument must be
+used in the function provided in <code>implementation</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resampling</code></td>
+<td>
+<p>resampling approach. Possible values are:
+<code>"subsampling"</code> for sampling without replacement of a proportion
+<code>tau</code> of the observations, or <code>"bootstrap"</code> for sampling with
+replacement generating a resampled dataset with as many observations as in
+the full sample. Alternatively, this argument can be a function to use for
+resampling. This function must use arguments named <code>data</code> and
+<code>tau</code> and return the IDs of observations to be included in the
+resampled dataset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cpss</code></td>
+<td>
+<p>logical indicating if complementary pair stability selection
+should be done. For this, the algorithm is applied on two non-overlapping
+subsets of half of the observations. A feature is considered as selected if
+it is selected for both subsamples. With this method, the data is split
+<code>K/2</code> times (<code>K</code> models are fitted). Only used if
+<code>PFER_method="MB"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PFER_method</code></td>
+<td>
+<p>method used to compute the upper-bound of the expected
+number of False Positives (or Per Family Error Rate, PFER). If
+<code>PFER_method="MB"</code>, the method proposed by Meinshausen and Bühlmann
+(2010) is used. If <code>PFER_method="SS"</code>, the method proposed by Shah and
+Samworth (2013) under the assumption of unimodality is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PFER_thr</code></td>
+<td>
+<p>threshold in PFER for constrained calibration by error
+control. If <code>PFER_thr=Inf</code> and <code>FDP_thr=Inf</code>, unconstrained
+calibration is used (the default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FDP_thr</code></td>
+<td>
+<p>threshold in the expected proportion of falsely selected
+features (or False Discovery Proportion) for constrained calibration by
+error control. If <code>PFER_thr=Inf</code> and <code>FDP_thr=Inf</code>, unconstrained
+calibration is used (the default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Lambda_cardinal</code></td>
+<td>
+<p>number of values in the grid of parameters controlling
+the level of sparsity in the underlying algorithm. Only used if
+<code>Lambda=NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_max</code></td>
+<td>
+<p>optional maximum value for the grid in penalty parameters.
+If <code>lambda_max=NULL</code>, the maximum value is set to the maximum
+covariance in absolute value. Only used if
+<code>implementation=PenalisedGraphical</code> and <code>Lambda=NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_path_factor</code></td>
+<td>
+<p>multiplicative factor used to define the minimum
+value in the grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_density</code></td>
+<td>
+<p>threshold on the density. The grid is defined such that
+the density of the estimated graph does not exceed max_density.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>optimisation</code></td>
+<td>
+<p>character string indicating the type of optimisation
+method. With <code>optimisation="grid_search"</code> (the default), all values in
+<code>Lambda</code> are visited. Alternatively, optimisation algorithms
+implemented in <code>nloptr</code> can be used with
+<code>optimisation="nloptr"</code>. By default, we use
+<code>"algorithm"="NLOPT_GN_DIRECT_L"</code>, <code>"xtol_abs"=0.1</code>,
+<code>"ftol_abs"=0.1</code> and <code>"maxeval"=Lambda_cardinal</code>. These values
+can be changed by providing the argument <code>opts</code> (see
+<code>nloptr</code>). For stability selection using penalised
+regression, <code>optimisation="grid_search"</code> may be faster as it allows
+for warm start.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_cores</code></td>
+<td>
+<p>number of cores to use for parallel computing (see argument
+<code>workers</code> in <code>multisession</code>). Using
+<code>n_cores&gt;1</code> is only supported with <code>optimisation="grid_search"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output_data</code></td>
+<td>
+<p>logical indicating if the input datasets <code>xdata</code> and
+<code>ydata</code> should be included in the output.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical indicating if a loading bar and messages should be
+printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beep</code></td>
+<td>
+<p>sound indicating the end of the run. Possible values are:
+<code>NULL</code> (no sound) or an integer between 1 and 11 (see argument
+<code>sound</code> in <code>beep</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed to the functions provided in
+<code>implementation</code> or <code>resampling</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>In stability selection, a feature selection algorithm is fitted on
+<code>K</code> subsamples (or bootstrap samples) of the data with different
+parameters controlling the sparsity (<code>Lambda</code>). For a given (set of)
+sparsity parameter(s), the proportion out of the <code>K</code> models in which
+each feature is selected is calculated. Features with selection proportions
+above a threshold pi are considered stably selected. The stability
+selection model is controlled by the sparsity parameter(s) for the
+underlying algorithm, and the threshold in selection proportion:
+</p>
+<p><code class="reqn">V_{\lambda, \pi} = \{ j: p_{\lambda}(j) \ge \pi \} </code>
+</p>
+<p>These parameters can be calibrated by maximisation of a stability score
+(see <code>ConsensusScore</code> if <code>n_cat=NULL</code> or
+<code>StabilityScore</code> otherwise) calculated under the null
+hypothesis of equiprobability of selection.
+</p>
+<p>It is strongly recommended to examine the calibration plot carefully to
+check that the grids of parameters <code>Lambda</code> and <code>pi_list</code> do not
+restrict the calibration to a region that would not include the global
+maximum (see <code>CalibrationPlot</code>). In particular, the grid
+<code>Lambda</code> may need to be extended when the maximum stability is
+observed on the left or right edges of the calibration heatmap. In some
+instances, multiple peaks of stability score can be observed. Simulation
+studies suggest that the peak corresponding to the largest number of
+selected features tend to give better selection performances. This is not
+necessarily the highest peak (which is automatically retained by the
+functions in this package). The user can decide to manually choose another
+peak.
+</p>
+<p>To control the expected number of False Positives (Per Family Error Rate)
+in the results, a threshold <code>PFER_thr</code> can be specified. The
+optimisation problem is then constrained to sets of parameters that
+generate models with an upper-bound in PFER below <code>PFER_thr</code> (see
+Meinshausen and Bühlmann (2010) and Shah and Samworth (2013)).
+</p>
+<p>Possible resampling procedures include defining (i) <code>K</code> subsamples of
+a proportion <code>tau</code> of the observations, (ii) <code>K</code> bootstrap samples
+with the full sample size (obtained with replacement), and (iii) <code>K/2</code>
+splits of the data in half for complementary pair stability selection (see
+arguments <code>resampling</code> and <code>cpss</code>). In complementary pair
+stability selection, a feature is considered selected at a given resampling
+iteration if it is selected in the two complementary subsamples.
+</p>
+<p>To ensure reproducibility of the results, the starting number of the random
+number generator is set to <code>seed</code>.
+</p>
+<p>For parallelisation, stability selection with different sets of parameters
+can be run on <code>n_cores</code> cores. Using <code>n_cores &gt; 1</code> creates a
+<code>multisession</code>. Alternatively,
+the function can be run manually with different <code>seed</code>s and all other
+parameters equal. The results can then be combined using
+<code>Combine</code>.
+</p>
+<p>The generated network can be converted into
+<code>igraph</code> object using
+<code>Graph</code>. The R package
+<code>visNetwork</code> can be used for
+interactive network visualisation (see examples in <code>Graph</code>).
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>graphical_model</code>. A list with: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>S</code></td>
+<td>
+<p>a
+matrix of the best stability scores for different (sets of) parameters
+controlling the level of sparsity in the underlying algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Lambda</code></td>
+<td>
+<p>a matrix of parameters controlling the level of sparsity in
+the underlying algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Q</code></td>
+<td>
+<p>a matrix of the average number of
+selected features by the underlying algorithm with different parameters
+controlling the level of sparsity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Q_s</code></td>
+<td>
+<p>a matrix of the calibrated
+number of stably selected features with different parameters controlling
+the level of sparsity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P</code></td>
+<td>
+<p>a matrix of calibrated thresholds in
+selection proportions for different parameters controlling the level of
+sparsity in the underlying algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PFER</code></td>
+<td>
+<p>a matrix of upper-bounds
+in PFER of calibrated stability selection models with different parameters
+controlling the level of sparsity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FDP</code></td>
+<td>
+<p>a matrix of upper-bounds in
+FDP of calibrated stability selection models with different parameters
+controlling the level of sparsity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>S_2d</code></td>
+<td>
+<p>a matrix of stability
+scores obtained with different combinations of parameters. Columns
+correspond to different thresholds in selection proportions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PFER_2d</code></td>
+<td>
+<p>a matrix of upper-bounds in FDP obtained with different
+combinations of parameters. Columns correspond to different thresholds in
+selection proportions. Only returned if <code>length(pk)=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FDP_2d</code></td>
+<td>
+<p>a matrix of upper-bounds in PFER obtained with different
+combinations of parameters. Columns correspond to different thresholds in
+selection proportions. Only returned if <code>length(pk)=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>selprop</code></td>
+<td>
+<p>an array of selection proportions. Rows and columns
+correspond to nodes in the graph. Indices along the third dimension
+correspond to different parameters controlling the level of sparsity in the
+underlying algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sign</code></td>
+<td>
+<p>a matrix of signs of Pearson's
+correlations estimated from <code>xdata</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a list with
+<code>type="graphical_model"</code> and values used for arguments
+<code>implementation</code>, <code>start</code>, <code>resampling</code>, <code>cpss</code> and
+<code>PFER_method</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>params</code></td>
+<td>
+<p>a list with values used for arguments
+<code>K</code>, <code>pi_list</code>, <code>tau</code>, <code>n_cat</code>, <code>pk</code>, <code>n</code>
+(number of observations in <code>xdata</code>), <code>PFER_thr</code>, <code>FDP_thr</code>,
+<code>seed</code>, <code>lambda_other_blocks</code>, and <code>Sequential_template</code>.</p>
+</td>
+</tr>
+</table>
+<p>The rows of <code>S</code>, <code>Lambda</code>, <code>Q</code>, <code>Q_s</code>, <code>P</code>,
+<code>PFER</code>, <code>FDP</code>, <code>S_2d</code>, <code>PFER_2d</code> and <code>FDP_2d</code>, and
+indices along the third dimension of <code>selprop</code> are ordered in the same
+way and correspond to parameter values stored in <code>Lambda</code>. For
+multi-block inference, the columns of <code>S</code>, <code>Lambda</code>, <code>Q</code>,
+<code>Q_s</code>, <code>P</code>, <code>PFER</code> and <code>FDP</code>, and indices along the
+third dimension of <code>S_2d</code> correspond to the different blocks.
+</p>
+
+
+<h3>References</h3>
+
+<p>Bodinier B, Filippi S, Nøst TH, Chiquet J, Chadeau-Hyam M (2023).
+“Automated calibration for stability selection in penalised regression and graphical models.”
+<em>Journal of the Royal Statistical Society Series C: Applied Statistics</em>, qlad058.
+ISSN 0035-9254, <a href="https://doi.org/10.1093/jrsssc/qlad058">doi:10.1093/jrsssc/qlad058</a>, https://academic.oup.com/jrsssc/advance-article-pdf/doi/10.1093/jrsssc/qlad058/50878777/qlad058.pdf.
+</p>
+<p>Shah RD, Samworth RJ (2013).
+“Variable selection with error control: another look at stability selection.”
+<em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <b>75</b>(1), 55-80.
+<a href="https://doi.org/10.1111/j.1467-9868.2011.01034.x">doi:10.1111/j.1467-9868.2011.01034.x</a>.
+</p>
+<p>Meinshausen N, Bühlmann P (2010).
+“Stability selection.”
+<em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <b>72</b>(4), 417-473.
+<a href="https://doi.org/10.1111/j.1467-9868.2010.00740.x">doi:10.1111/j.1467-9868.2010.00740.x</a>.
+</p>
+<p>Friedman J, Hastie T, Tibshirani R (2008).
+“Sparse inverse covariance estimation with the graphical lasso.”
+<em>Biostatistics</em>, <b>9</b>(3), 432–441.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>PenalisedGraphical</code>, <code>GraphicalAlgo</code>,
+<code>LambdaGridGraphical</code>, <code>Resample</code>,
+<code>StabilityScore</code> <code>Graph</code>, <code>Adjacency</code>,
+</p>
+<p>Other stability functions: 
+<code>BiSelection()</code>,
+<code>Clustering()</code>,
+<code>StructuralModel()</code>,
+<code>VariableSelection()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+oldpar &lt;- par(no.readonly = TRUE)
+par(mar = rep(7, 4))
+
+## Single-block stability selection
+
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateGraphical(n = 100, pk = 20, nu_within = 0.1)
+
+# Stability selection
+stab &lt;- GraphicalModel(xdata = simul$data)
+print(stab)
+
+# Calibration heatmap
+CalibrationPlot(stab)
+
+# Visualisation of the results
+summary(stab)
+plot(stab)
+
+# Extraction of adjacency matrix or igraph object
+Adjacency(stab)
+Graph(stab)
+
+
+## Multi-block stability selection
+
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateGraphical(pk = c(10, 10))
+
+# Stability selection
+stab &lt;- GraphicalModel(xdata = simul$data, pk = c(10, 10), Lambda_cardinal = 10)
+print(stab)
+
+# Calibration heatmap
+# par(mfrow = c(1, 3))
+CalibrationPlot(stab) # Producing three plots
+
+# Visualisation of the results
+summary(stab)
+plot(stab)
+
+# Multi-parameter stability selection (not recommended)
+Lambda &lt;- matrix(c(0.8, 0.6, 0.3, 0.5, 0.4, 0.3, 0.7, 0.5, 0.1), ncol = 3)
+stab &lt;- GraphicalModel(
+  xdata = simul$data, pk = c(10, 10),
+  Lambda = Lambda, lambda_other_blocks = NULL
+)
+stab$Lambda
+
+
+## Example with user-defined function: shrinkage estimation and selection
+
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateGraphical(n = 100, pk = 20, nu_within = 0.1)
+
+if (requireNamespace("corpcor", quietly = TRUE)) {
+  # Writing user-defined algorithm in a portable function
+  ShrinkageSelection &lt;- function(xdata, Lambda, ...) {
+    mypcor &lt;- corpcor::pcor.shrink(xdata, verbose = FALSE)
+    adjacency &lt;- array(NA, dim = c(nrow(mypcor), ncol(mypcor), nrow(Lambda)))
+    for (k in seq_len(nrow(Lambda))) {
+      A &lt;- ifelse(abs(mypcor) &gt;= Lambda[k, 1], yes = 1, no = 0)
+      diag(A) &lt;- 0
+      adjacency[, , k] &lt;- A
+    }
+    return(list(adjacency = adjacency))
+  }
+
+  # Running the algorithm without stability
+  myglasso &lt;- GraphicalAlgo(
+    xdata = simul$data,
+    Lambda = matrix(c(0.05, 0.1), ncol = 1), implementation = ShrinkageSelection
+  )
+
+  # Stability selection using shrinkage estimation and selection
+  stab &lt;- GraphicalModel(
+    xdata = simul$data, Lambda = matrix(c(0.01, 0.05, 0.1), ncol = 1),
+    implementation = ShrinkageSelection
+  )
+  CalibrationPlot(stab)
+  stable_adjacency &lt;- Adjacency(stab)
+}
+
+par(oldpar)
+
+</code></pre>
+
+
+</div>

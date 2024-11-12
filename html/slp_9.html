@@ -1,0 +1,196 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>slp.gam</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate a Basis Matrix for Discrete Prolate Spheroidal (Slepian) Sequences</h2>
+
+<h3>Description</h3>
+
+<p>Generate the basis matrix for a particular <code>N, W</code> Slepian sequence
+family member, with the additional property that the smoother passes constants
+without distortion. Can be quite slow execution due to the latter property.
+</p>
+<p>Based on <code>ns</code> for implementation with <code>gam</code>.
+</p>
+<p>Parallel implementation for <code>mgcv</code> included in package as
+<code>slp.mgcv</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">slp(x, W = NA, K = NA, deltat = 1, naive = FALSE, intercept = FALSE, 
+    customSVD = TRUE, forceC = FALSE, returnS = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>the predictor variable.  Missing values are allowed. Assumed to be contiguous;
+if not, then converted to a contiguous series to determine appropriate <code>N</code>,
+<code>K</code> and <code>W</code>, then the basis vectors are back-converted at the termination
+of the routine. Should be in units of <code>deltat</code>. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>the time bandwidth. Computed as the frequency domain analogue of the maximum period of
+interest for a time series-regression problem using “smooth functions of time”. For example,
+a period choice of 2 months converts to 60 days and <code>W = 1/60</code> cycles per day. Alternatively,
+if the interest is in a period of <code>7</code> cycles per year, then <code>W = 7 / 365.2425 = 0.0192</code>
+cycles per day.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>the number of basis vectors requested. If not provided, then <code>W</code> must be, and
+<code>K</code> is set to approximately <code>floor(2 * N * W - 1)</code>. This parameter is approximately equivalent
+to <code>df</code> for <code>ns</code> with fixed dimension. Note: if you specify <code>K</code> higher
+than <code>2 * N * W + 1</code> performance will suffer significantly. The actual number of basis vectors
+returned is <code>K-1</code> for the case of <code>intercept = FALSE</code>, and <code>K</code> for <code>intercept = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>deltat</code></td>
+<td>
+<p>the time step for the input <code>x</code>. Restricted to <code>1</code> and <code>6</code> days
+for ease of logic checking, as these are the most traditional choices. Assumes that 
+<code>W</code>  is in the same units, and has no real impact beyond this, so it is trivial to 
+make <code>deltat</code> symbolically equal an arbitrary choice and convert <code>W</code> to match.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>naive</code></td>
+<td>
+<p>a flag for returning the naive (default) Slepian basis vectors <code>v</code> (<code>TRUE</code>) rather than
+the mean-passing SLP2 or SLP3 variants (<code>FALSE</code>). </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>a flag for choosing between a SLP2 or SLP3 basis. Type-2 bases capture (absorb) 
+means of target series, while Type-3 bases ignore (pass) means. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>customSVD</code></td>
+<td>
+<p>a flag for using the built-in <code>svd</code> (case <code>FALSE</code>) or a 
+modified version of <code>DGESDD</code> LAPACK 3.5.0. The modified version provides significant
+speed improvements as it skips a number of unnecessary steps for the particular edge
+case needed by <code>slp</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>forceC</code></td>
+<td>
+<p>a flag for forced computation of the basis vectors. Several combinations of commonly
+used <code>N, W, K</code> parameters have been pre-computed and included with the package. If this 
+parameter is set to <code>TRUE</code>, the routine will compute the basis vectors regardless of whether
+they are available in pre-computed form. See <code>checkSaved{checkSaved}</code> for further details. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnS</code></td>
+<td>
+<p>a flag for returning the projection matrix <code>S</code> rather than the basis vectors that form the same.
+Intended to be used outside of model-fitting environments. </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>slp</code> is based around the routine <code>.dpss</code>, which generates a family of Discrete
+Prolate Spheroidal (Slepian) Sequences. These vectors are orthonormal, have alternating
+even/odd parity, and form the optimally concentrated basis set for the subspace of 
+<code>R^N</code> corresponding to the bandwidth <code>W</code>. Full details are given
+in Slepian (1978).  These basis functions have natural boundary conditions, and lack any form of 
+knot structure. This version is returned for <code>naive = TRUE</code>.
+</p>
+<p>The <code>dpss</code> basis vectors can be adapted to provide the additional
+useful property of capturing or passing constants perfectly. That is, the smoother matrix
+<code>S</code> formed from the returned rectangular matrix will either reproduce constants
+at near round-off precision, i.e., <code>S %*% rep(1, N) = rep(1, N)</code>, 
+for <code>naive = FALSE</code> with <code>intercept = TRUE</code>, or will pass constants, 
+i.e., <code>S %*% rep(1, N) = rep(0, N)</code>, for <code>naive = FALSE</code> with <code>intercept = FALSE</code>. 
+</p>
+<p>The primary use is in modeling formula to directly specify a Slepian time-based smoothing
+term in a model: see the examples.
+</p>
+<p>For large <code>N</code> this routine can be <b>very</b> slow. If you are computing models with
+large <code>N</code>, we highly recommend pre-computing the basis object, then using it
+in your models without recomputation. The third example below demonstrates this approach.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A matrix of dimension <code>length(x) * K</code> or <code>length(x) * (K-1)</code> where 
+either <code>K</code> was supplied, or <code>W</code> was supplied and <code>K</code> converted. Note that the
+basis vectors are computed on a contiguous grid based on <code>x</code>, and then
+back-converted to the time structure of <code>x</code>.
+</p>
+<p>Attributes are returned that correspond to the arguments to <code>ns</code>,
+and explicitly give <code>K</code>, <code>W</code>, etc.
+</p>
+
+
+<h3>References</h3>
+
+<p>Thomson, D.J (1982)
+Spectrum estimation and harmonic analysis. <em>Proceedings of the IEEE</em>.
+Volume <b>70</b>, number 9, pp. 1055-1096.
+</p>
+<p>Slepian, David (1978)
+Prolate Spheroidal Wave Functions, Fourier Analysis, and Uncertainty V: the Discrete Case.
+<em>Bell System Technical Journal</em>. Volume <b>57</b>, pp. 1371-1429.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>ns</code> 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">    # Examples using pkg:gam
+    library("gam")
+    library("slp")
+    N &lt;- 730
+    W &lt;- 14 / N
+    K &lt;- 28         # will actually use 27 df when intercept = FALSE
+    x &lt;- rnorm(n = N, sd = 1)
+    y &lt;- x + rnorm(n = N, sd = 2) + 5.0
+    t &lt;- seq(1, N)    
+
+    # note: all three examples share identical results
+
+    # example with in-call computation, using K (df)
+    fit1 &lt;- gam(y ~ x + slp(t, K = K, forceC = TRUE), family = gaussian) 
+
+    # example with in-call computation, using W
+    fit2 &lt;- gam(y ~ x + slp(t, W = W, forceC = TRUE), family = gaussian)
+
+    # example with out-of-call computation, using K
+    timeBasis &lt;- slp(t, K = K, forceC = TRUE)
+    fit3 &lt;- gam(y ~ x + timeBasis, family = gaussian)
+
+    # the same computations can be done using pre-computed basis vectors
+    # for significant speed-ups, especially for large N - see `checkSaved'
+    # for more details
+    fit4 &lt;- gam(y ~ x + slp(t, W = W, forceC = FALSE))
+</code></pre>
+
+
+</div>

@@ -1,0 +1,178 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>gridSearch</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Grid Search</h2>
+
+<h3>Description</h3>
+
+<p>Given a set of possible hyperparameter values, the function trains models
+with all the possible combinations of hyperparameters.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">gridSearch(
+  model,
+  hypers,
+  metric,
+  test = NULL,
+  env = NULL,
+  save_models = TRUE,
+  interactive = TRUE,
+  progress = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>SDMmodel or SDMmodelCV object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hypers</code></td>
+<td>
+<p>named list containing the values of the hyperparameters that
+should be tuned, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>character. The metric used to evaluate the models, possible
+values are: "auc", "tss" and "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test</code></td>
+<td>
+<p>SWD object. Testing dataset used to evaluate the
+model, not used with aicc and SDMmodelCV objects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>env</code></td>
+<td>
+<p>rast containing the environmental variables, used
+only with "aicc".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_models</code></td>
+<td>
+<p>logical. If <code>FALSE</code> the models are not saved and the
+output contains only a data frame with the metric values for each
+hyperparameter combination. Set it to <code>FALSE</code> when there are many
+combinations to avoid R crashing for memory overload.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interactive</code></td>
+<td>
+<p>logical. If <code>FALSE</code> the interactive chart is not created.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>logical. If <code>TRUE</code> shows a progress bar.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>To know which hyperparameters can be tuned you can use the output
+of the function getTunableArgs. Hyperparameters not included in the
+<code>hypers</code> argument take the value that they have in the passed model.
+</p>
+<p>An interactive chart showing in real-time the steps performed by the
+algorithm is displayed in the Viewer pane.
+</p>
+
+
+<h3>Value</h3>
+
+<p>SDMtune object.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sergio Vignali
+</p>
+
+
+<h3>See Also</h3>
+
+<p>randomSearch and optimizeModel.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Acquire environmental variables
+files &lt;- list.files(path = file.path(system.file(package = "dismo"), "ex"),
+                    pattern = "grd",
+                    full.names = TRUE)
+
+predictors &lt;- terra::rast(files)
+
+# Prepare presence and background locations
+p_coords &lt;- virtualSp$presence
+bg_coords &lt;- virtualSp$background
+
+# Create SWD object
+data &lt;- prepareSWD(species = "Virtual species",
+                   p = p_coords,
+                   a = bg_coords,
+                   env = predictors,
+                   categorical = "biome")
+
+# Split presence locations in training (80%) and testing (20%) datasets
+datasets &lt;- trainValTest(data,
+                         test = 0.2,
+                         only_presence = TRUE)
+train &lt;- datasets[[1]]
+test &lt;- datasets[[2]]
+
+# Train a model
+model &lt;- train(method = "Maxnet",
+               data = train,
+               fc = "l")
+
+# Define the hyperparameters to test
+h &lt;- list(reg = 1:2,
+          fc = c("lqp", "lqph"))
+
+# Run the function using the AUC as metric
+output &lt;- gridSearch(model,
+                     hypers = h,
+                     metric = "auc",
+                     test = test)
+output@results
+output@models
+
+# Order results by highest test AUC
+output@results[order(-output@results$test_AUC), ]
+
+# Run the function using the AICc as metric and without saving the trained
+# models, helpful when numerous hyperparameters are tested to avoid memory
+# problems
+output &lt;- gridSearch(model,
+                     hypers = h,
+                     metric = "aicc",
+                     env = predictors,
+                     save_models = FALSE)
+output@results
+</code></pre>
+
+
+</div>

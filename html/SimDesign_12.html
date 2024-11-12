@@ -1,0 +1,182 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bootPredict</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute prediction estimates for the replication size using bootstrap MSE estimates</h2>
+
+<h3>Description</h3>
+
+<p>This function computes bootstrap mean-square error estimates to approximate the sampling behavior
+of the meta-statistics in SimDesign's <code>summarise</code> functions. A single design condition is
+supplied, and a simulation with <code>max(Rstar)</code> replications is performed whereby the
+generate-analyse results are collected. After obtaining these replication values, the
+replications are further drawn from (with replacement) using the differing sizes in <code>Rstar</code>
+to approximate the bootstrap MSE behavior given different replication sizes. Finally, given these
+bootstrap estimates linear regression models are fitted using the predictor term
+<code>one_sqrtR = 1 / sqrt(Rstar)</code> to allow extrapolation to replication sizes not observed in
+<code>Rstar</code>. For more information about the method and subsequent bootstrap MSE plots,
+refer to Koehler, Brown, and Haneuse (2009).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bootPredict(
+  condition,
+  generate,
+  analyse,
+  summarise,
+  fixed_objects = NULL,
+  ...,
+  Rstar = seq(100, 500, by = 100),
+  boot_draws = 1000
+)
+
+boot_predict(...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>condition</code></td>
+<td>
+<p>a <code>data.frame</code> consisting of one row from the original <code>design</code>
+input object used within <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>generate</code></td>
+<td>
+<p>see <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>analyse</code></td>
+<td>
+<p>see <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>summarise</code></td>
+<td>
+<p>see <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed_objects</code></td>
+<td>
+<p>see <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments to be passed to <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Rstar</code></td>
+<td>
+<p>a vector containing the size of the bootstrap subsets to obtain. Default
+investigates the vector [100, 200, 300, 400, 500] to compute the respective MSE terms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot_draws</code></td>
+<td>
+<p>number of bootstrap replications to draw. Default is 1000</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>returns a list of linear model objects (via <code>lm</code>) for each
+meta-statistics returned by the <code>summarise()</code> function
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Phil Chalmers <a href="mailto:rphilip.chalmers@gmail.com">rphilip.chalmers@gmail.com</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Chalmers, R. P., &amp; Adkins, M. C.  (2020). Writing Effective and Reliable Monte Carlo Simulations
+with the SimDesign Package. <code>The Quantitative Methods for Psychology, 16</code>(4), 248-280.
+<a href="https://doi.org/10.20982/tqmp.16.4.p248">doi:10.20982/tqmp.16.4.p248</a>
+</p>
+<p>Koehler, E., Brown, E., &amp; Haneuse, S. J.-P. A. (2009). On the Assessment of Monte Carlo Error in
+Simulation-Based Statistical Analyses. <em>The American Statistician, 63</em>, 155-162.
+</p>
+<p>Sigal, M. J., &amp; Chalmers, R. P. (2016). Play it again: Teaching statistics with Monte
+Carlo simulation. <code>Journal of Statistics Education, 24</code>(3), 136-156.
+<a href="https://doi.org/10.1080/10691898.2016.1246953">doi:10.1080/10691898.2016.1246953</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(4321)
+Design &lt;- createDesign(sigma = c(1, 2))
+
+#-------------------------------------------------------------------
+
+Generate &lt;- function(condition, fixed_objects) {
+    dat &lt;- rnorm(100, 0, condition$sigma)
+    dat
+}
+
+Analyse &lt;- function(condition, dat, fixed_objects) {
+    CIs &lt;- t.test(dat)$conf.int
+    names(CIs) &lt;- c('lower', 'upper')
+    ret &lt;- c(mean = mean(dat), CIs)
+    ret
+}
+
+Summarise &lt;- function(condition, results, fixed_objects) {
+    ret &lt;- c(mu_bias = bias(results[,"mean"], 0),
+             mu_coverage = ECR(results[,c("lower", "upper")], parameter = 0))
+    ret
+}
+
+## Not run: 
+# boot_predict supports only one condition at a time
+out &lt;- bootPredict(condition=Design[1L, , drop=FALSE],
+    generate=Generate, analyse=Analyse, summarise=Summarise)
+out # list of fitted linear model(s)
+
+# extract first meta-statistic
+mu_bias &lt;- out$mu_bias
+
+dat &lt;- model.frame(mu_bias)
+print(dat)
+
+# original R metric plot
+R &lt;- 1 / dat$one_sqrtR^2
+plot(R, dat$MSE, type = 'b', ylab = 'MSE', main = "Replications by MSE")
+
+plot(MSE ~ one_sqrtR, dat, main = "Bootstrap prediction plot", xlim = c(0, max(one_sqrtR)),
+     ylim = c(0, max(MSE)), ylab = 'MSE', xlab = expression(1/sqrt(R)))
+beta &lt;- coef(mu_bias)
+abline(a = 0, b = beta, lty = 2, col='red')
+
+# what is the replication value when x-axis = .02? What's its associated expected MSE?
+1 / .02^2 # number of replications
+predict(mu_bias, data.frame(one_sqrtR = .02)) # y-axis value
+
+# approximately how many replications to obtain MSE = .001?
+(beta / .001)^2
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,239 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>distanceFromEachPoint</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate distances and directions between many points and many grid cells</h2>
+
+<h3>Description</h3>
+
+<p>This is a modification of <code>terra::distance()</code> for the case of many points.
+This version can often be faster for a single point because it does not return a <code>RasterLayer</code>.
+This is different than <code>terra::distance()</code> because it does not take the
+minimum distance from the set of points to all cells.
+Rather this returns the every pair-wise point distance.
+As a result, this can be used for doing inverse distance weightings, seed rain,
+cumulative effects of distance-based processes etc.
+If memory limitation is an issue, <code>maxDistance</code> will keep memory use down,
+but with the consequences that there will be a maximum distance returned.
+This function has the potential to use a lot of memory if there are a lot of
+<code>from</code> and <code>to</code> points.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">distanceFromEachPoint(
+  from,
+  to = NULL,
+  landscape,
+  angles = NA_real_,
+  maxDistance = NA_real_,
+  cumulativeFn = NULL,
+  distFn = function(dist) 1/(1 + dist),
+  cl,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>from</code></td>
+<td>
+<p>Numeric matrix with 2 or 3 or more columns. They must include x and y,
+representing x and y coordinates of "from" cell. If there is a column
+named "id", it will be "id" from <code>to</code>, i.e,. specific pair distances.
+All other columns will be included in the return value of the function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>to</code></td>
+<td>
+<p>Numeric matrix with 2  or 3 columns (or optionally more, all of which
+will be returned),
+x and y, representing x and y coordinates of "to" cells, and
+optional "id" which will be matched with "id" from <code>from</code>. Default is all cells.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>landscape</code></td>
+<td>
+<p><code>RasterLayer</code>. optional. This is only used if <code>to</code> is NULL, in which case
+all cells are considered <code>to</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>angles</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, then the function will return angles in radians,
+as well as distances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxDistance</code></td>
+<td>
+<p>Numeric in units of number of cells. The algorithm will build
+the whole surface (from <code>from</code> to <code>to</code>), but will
+remove all distances that are above this distance.
+Using this will keep memory use down.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cumulativeFn</code></td>
+<td>
+<p>A function that can be used to incrementally accumulate
+values in each <code>to</code> location, as the function iterates
+through each <code>from</code>. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distFn</code></td>
+<td>
+<p>A function. This can be a function of <code>landscape</code>,
+<code>fromCell</code> (single integer value of a from pixel),
+<code>toCells</code> (integer vector value of all the to pixel indices),
+and <code>dist</code>.
+If <code>cumulativeFn</code> is supplied, this will be used to convert
+the distances to some other set of units that will be accumulated
+by the <code>cumulativeFn</code>. See Details and examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>A cluster object. Optional. This would generally be created using
+<code>parallel::makeCluster()</code> or equivalent. This is an alternative way, instead
+of <code>beginCluster()</code>, to use parallelism for this function, allowing for
+more control over cluster use.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Any additional objects needed for <code>distFn</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is cluster aware if the <code>raster</code> package is available.
+If there is a cluster running, it will use it.
+To start a cluster use <code>raster::beginCluster()</code>, with <code>N</code> being
+the number of cores to use. See examples in <code>SpaDES.core::experiment</code>.
+</p>
+<p>If the user requires an id (indicating the <code>from</code> cell for each <code>to</code> cell)
+to be returned with the function, the user must add an identifier to the
+<code>from</code> matrix, such as <code>"id"</code>.
+Otherwise, the function will only return the coordinates and distances.
+</p>
+<p><code>distanceFromEachPoint</code> calls <code>.pointDistance</code>, which is not intended to be called
+directly by the user.
+</p>
+<p>This function has the potential to return a very large object, as it is doing pairwise
+distances (and optionally directions) between from and to.
+If there are memory limitations because there are many
+<code>from</code> and many <code>to</code> points, then <code>cumulativeFn</code> and <code>distFn</code> can be used.
+These two functions together will be used iteratively through the <code>from</code> points. The
+<code>distFn</code> should be a transformation of distances to be used by the
+<code>cumulativeFn</code> function. For example, if <code>distFn</code> is <code>1 / (1+x)</code>,
+the default, and <code>cumulativeFn</code> is <code>+</code>, then it will do a sum of
+inverse distance weights.
+See examples.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A sorted matrix on <code>id</code> with same number of rows as <code>to</code>,
+but with one extra column, <code>"dists"</code>, indicating the distance
+between <code>from</code> and <code>to</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>rings()</code>, <code>cir()</code>, <code>terra::distance()</code>,
+which can all be made to do the same thing, under specific combinations of arguments.
+But each has different primary use cases. Each is also faster under different conditions.
+For instance, if <code>maxDistance</code> is relatively small compared to the number of cells
+in the <code>landscape</code>, then <code>cir()</code> will likely be faster. If a minimum
+distance from all cells in the <code>landscape</code> to any cell in <code>from</code>, then
+<code>distanceFromPoints</code> will be fastest. This function scales best when there are
+many <code>to</code> points or all cells are used <code>to = NULL</code> (which is default).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(terra)
+
+origDTThreads &lt;- data.table::setDTthreads(2L)
+origNcpus &lt;- options(Ncpus = 2L)
+
+n &lt;- 2
+distRas &lt;- rast(ext(0, 40, 0, 40), res = 1)
+coords &lt;- cbind(x = round(runif(n, xmin(distRas), xmax(distRas))) + 0.5,
+                y = round(runif(n, xmin(distRas), xmax(distRas))) + 0.5)
+
+# inverse distance weights
+dists1 &lt;- distanceFromEachPoint(coords, landscape = distRas)
+indices &lt;- cellFromXY(distRas, dists1[, c("x", "y")])
+invDist &lt;- tapply(dists1[, "dists"], indices, function(x) sum(1 / (1 + x))) # idw function
+distRas[] &lt;- as.vector(invDist)
+if (interactive()) {
+  # clearPlot()
+  terra::plot(distRas)
+}
+
+# With iterative summing via cumulativeFn to keep memory use low, with same result
+dists1 &lt;- distanceFromEachPoint(coords[, c("x", "y"), drop = FALSE],
+                                landscape = distRas, cumulativeFn = `+`)
+idwRaster &lt;- rast(distRas)
+idwRaster[] &lt;- dists1[, "dists"]
+if (interactive()) terra::plot(idwRaster)
+
+all(idwRaster[] == distRas[]) # TRUE
+
+# A more complex example of cumulative inverse distance sums, weighted by the value
+#  of the origin cell
+ras &lt;- rast(ext(0, 34, 0, 34), res = 1, val = 0)
+rp &lt;- randomPolygons(ras, numTypes = 10) ^ 2
+n &lt;- 15
+cells &lt;- sample(ncell(ras), n)
+coords &lt;- xyFromCell(ras, cells)
+distFn &lt;- function(landscape, fromCell, dist) landscape[fromCell] / (1 + dist)
+
+#beginCluster(3) # can do parallel
+dists1 &lt;- distanceFromEachPoint(coords[, c("x", "y"), drop = FALSE],
+                                landscape = rp, distFn = distFn, cumulativeFn = `+`)
+#endCluster() # if beginCluster was run
+
+idwRaster &lt;- rast(ras)
+idwRaster[] &lt;- dists1[, "dists"]
+if (interactive()) {
+  # clearPlot()
+  terra::plot(rp)
+  sp1 &lt;- vect(coords)
+  terra::plot(sp1, add = TRUE)
+  terra::plot(idwRaster)
+  terra::plot(sp1, add = TRUE)
+}
+
+# On linux; can use numeric passed to cl; will use mclapply with mc.cores = cl
+if (identical(Sys.info()["sysname"], "Linux")) {
+  dists1 &lt;- distanceFromEachPoint(coords[, c("x", "y"), drop = FALSE],
+                                  landscape = rp, distFn = distFn,
+                                  cumulativeFn = `+`, cl = 2)
+}
+
+# clean up
+data.table::setDTthreads(origDTThreads)
+options(Ncpus = origNcpus)
+</code></pre>
+
+
+</div>

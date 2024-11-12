@@ -1,0 +1,144 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>user_predict</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Get personalised recommendations from a SAR model</h2>
+
+<h3>Description</h3>
+
+<p>Get personalised recommendations from a SAR model
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">user_predict(
+  object,
+  userdata = NULL,
+  k = 10,
+  include_seed_items = FALSE,
+  backfill = FALSE,
+  reftime
+)
+
+set_sar_threads(n_threads)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A SAR model object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>userdata</code></td>
+<td>
+<p>A vector of user IDs, or a data frame containing user IDs and/or transactions. See below for the various ways to supply user information for predicting, and how they affect the results.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>The number of recommendations to obtain.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_seed_items</code></td>
+<td>
+<p>Whether items a user has already seen should be considered for recommendations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>backfill</code></td>
+<td>
+<p>Whether to backfill recommendations with popular items.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reftime</code></td>
+<td>
+<p>The reference time for discounting timestamps. If not supplied, defaults to the latest date in the training data and any new transactions supplied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_threads</code></td>
+<td>
+<p>For <code>set_sar_threads</code>, the number of threads to use. Defaults to half the number of logical cores.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The SAR model can produce personalised recommendations for a user, given a history of their transactions. This history can be based on either the original training data, or new events, based on the contents of <code>userdata</code> argument:
+</p>
+
+<ol>
+<li>
+<p> A character vector of user IDs. In this case, personalised recommendations will be computed based on the transactions in the training data, <em>ignoring</em> any transaction event IDs or weights.
+</p>
+</li>
+<li>
+<p> A data frame containing transaction item IDs, event types and/or weights, plus timestamps. In this case, all the transactions are assumed to be for a single (new) user. If the event types/weights are absent, all transactions are assigned equal weight.
+</p>
+</li>
+<li>
+<p> A data frame containing user IDs and transaction details as in (2). In this case, the recommendations are based on both the training data for the given user(s), plus the new transaction details.
+</p>
+</li>
+</ol>
+<p>In SAR, the first step in obtaining personalised recommendations is to compute a user-to-item affinity matrix <code class="reqn">A</code>. This is essentially a weighted crosstabulation with one row per unique user ID and one column per item ID. The cells in the crosstab are given by the formula
+</p>
+<p style="text-align: center;"><code class="reqn">sum(wt * 2^(-(t0 - time) / half_life))</code>
+</p>
+
+<p>where <code>wt</code> is obtained from the <code>weight</code> and <code>event</code> columns in the data.
+</p>
+<p>The product of this matrix with the item similarity matrix <code class="reqn">S</code> then gives a matrix of recommendation scores. The recommendation scores are sorted, any items that the user has previously seen are optionally removed, and the top-N items are returned as the recommendations.
+</p>
+<p>The latter step is the most computationally expensive part of the algorithm. SAR can execute this in multithreaded fashion, with the default number of threads being half the number of (logical) cores. Use the <code>set_sar_threads</code> function to set the number of threads to use.
+</p>
+
+
+<h3>Value</h3>
+
+<p>For <code>user_predict</code>, a data frame containing one row per user ID supplied (or if no IDs are supplied, exactly one row).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><a href="https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md#making-recommendations">Making recommendations</a> at the <a href="https://github.com/Microsoft/Product-Recommendations">Product Recommendations API repo</a> on GitHub
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(ms_usage)
+mod &lt;- sar(ms_usage)
+
+# item recommendations given a vector of user IDs
+users &lt;- unique(ms_usage$user)[1:5]
+user_predict(mod, userdata=users)
+
+# item recommendations given a set of user IDs and transactions (assumed to be new)
+user_df &lt;- subset(ms_usage, user %in% users)
+user_predict(mod, userdata=user_df)
+
+# item recomendations for a set of item IDs
+items &lt;- unique(ms_usage$item)[1:5]
+item_predict(mod, items=items)
+
+# setting the number of threads to use when computing recommendations
+set_sar_threads(2)
+
+</code></pre>
+
+
+</div>

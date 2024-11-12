@@ -1,0 +1,170 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bootspat_str</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spatially structured sample</h2>
+
+<h3>Description</h3>
+
+<p>Randomizes a raster stack with fixed richness.
+Randomizations are based on frequencies (given or calculated from x)
+and, optionally, a probability raster stack.
+Both, frequencies and probability raster stack, control the probability that a
+given species is sampled in each cell raster. Frequency controls the probability
+of each species being sampled compared to all others. Probability raster stack
+controls the probability that each species is sampled in a given raster cell.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bootspat_str(
+  x,
+  rprob = NULL,
+  rich = NULL,
+  fr_prob = NULL,
+  cores = 1,
+  filename = "",
+  memory = NULL,
+  overwrite = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>SpatRaster. A presence-absence SpatRaster.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rprob</code></td>
+<td>
+<p>SpatRaster. Stack of probability values. Structures the spatial
+pattern of each randomized species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rich</code></td>
+<td>
+<p>SpatRaster. Richness pattern structuring the sample size of
+each cell randomization. Calculated if not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fr_prob</code></td>
+<td>
+<p>Either frequency of pixels or probability that a species is
+observed across the whole layer.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>positive integer. If <code>cores &gt; 1</code>, a 'parallel' package cluster with that many cores is created and used. You can also supply a cluster object. Ignored for functions that are implemented by terra in C++ (see under fun)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>filename</code></td>
+<td>
+<p>character. Output filename</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>memory</code></td>
+<td>
+<p>logical. Checks if there is enough available RAM memory. Calculated if NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overwrite</code></td>
+<td>
+<p>logical. If <code>TRUE</code>, <code>filename</code> is overwritten</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters for terra::app</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>SpatRaster object
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Neander Marcel Heming
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>bootspat_naive</code>, <code>bootspat_ff</code>,
+<code>SESraster</code>, <code>algorithm_metrics</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># load random species distributions
+library(SESraster)
+library(terra)
+r &lt;- load_ext_data()
+plot(r)
+
+# applying the function
+rand.str &lt;- bootspat_str(r)
+plot(rand.str)
+
+# With null probability raster
+rprobnull &lt;- terra::app(r,
+                       function(x){
+                       ifelse(is.na(x), NA, 1)
+                       })
+rand.str2 &lt;- bootspat_str(r, rprob = rprobnull)
+
+
+library(SESraster)
+library(terra)
+# creating random species distributions
+f &lt;- system.file("ex/elev.tif", package="terra")
+r &lt;- rast(f)
+set.seed(510)
+r10 &lt;- rast(lapply(1:18,
+                function(i, r, mn, mx){
+                  app(r, function(x, t){
+                    sapply(x, function(x, t){
+                       x&lt;max(t) &amp; x&gt;min(t)
+                    }, t=t)
+                  }, t=sample(seq(mn, mx), 2))
+                }, r=r, mn=minmax(r)[1]+10, mx=minmax(r)[2]-10))
+
+names(r10) &lt;- paste("sp", 1:nlyr(r10))
+plot(r10)
+
+rprobnull &lt;- terra::app(r10,
+                       function(x){
+                       ifelse(is.na(x), NA, 1)
+                       })
+
+# bootstrapping once
+randr10 &lt;- bootspat_str(r10, rprobnull)
+plot(randr10)
+plot(c(sum(r10), sum(randr10)), main=c("observed", "randomized"))
+cbind(observed=sapply(r10, function(x)freq(x)[2,3]),
+      randomized=sapply(randr10, function(x)freq(x)[2,3]))
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,238 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cv.smtl</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>cv.smtl: cross-validation function</h2>
+
+<h3>Description</h3>
+
+<p>cv.smtl: cross-validation function
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cv.smtl(
+  y,
+  X,
+  study = NA,
+  grid = NA,
+  nfolds = NA,
+  commonSupp = FALSE,
+  multiTask = TRUE,
+  lambda_1 = TRUE,
+  lambda_2 = FALSE,
+  lambda_z = TRUE,
+  maxIter = 2500,
+  LocSrch_skip = 1,
+  LocSrch_maxIter = 10,
+  messageInd = FALSE,
+  independent.regs = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A numeric outcome vector or matrix (for multi-label problems)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>A design (feature) matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>study</code></td>
+<td>
+<p>An integer vector specifying the task ID</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p>A dataframe with column names "s", "lambda_1", "lambda_2" and "lambda_z" (if commonSupp = FALSE) with tuning values</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nfolds</code></td>
+<td>
+<p>An integer specifying number of CV folds</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>commonSupp</code></td>
+<td>
+<p>A boolean specifying whether the task models should have the same support</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>multiTask</code></td>
+<td>
+<p>A boolean only used if study/task indices are provided: used to distinguish between a Multi-Task Learning Tuning (TRUE) or Domain Generalization Tuning (FALSE)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_1</code></td>
+<td>
+<p>An optional boolean: if a grid is not provided, then set to TRUE if you want an automatic grid to be generated with non-zero values for this hyperparameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_2</code></td>
+<td>
+<p>An optional boolean: if a grid is not provided, then set to TRUE if you want an automatic grid to be generated with non-zero values for this hyperparameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_z</code></td>
+<td>
+<p>An optional boolean: if a grid is not provided, then set to TRUE if you want an automatic grid to be generated with non-zero values for this hyperparameter</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxIter</code></td>
+<td>
+<p>An integer specifying the maximum number of coordinate descent iterations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LocSrch_skip</code></td>
+<td>
+<p>An integer specifying whether to use local search at every tuning value (set to 1), every other value (set to 2), every third (set to 3),...</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LocSrch_maxIter</code></td>
+<td>
+<p>An integer specifying the maximum number of local search iterations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>messageInd</code></td>
+<td>
+<p>A boolean (verbose) of whether to print messages</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>independent.regs</code></td>
+<td>
+<p>A boolean of whether models are completely indpendent (only set to TRUE for benchmarks)</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#####################################################################################
+##### simulate data
+#####################################################################################
+set.seed(1) # fix the seed to get a reproducible result
+K &lt;- 4 # number of datasets 
+p &lt;- 100 # covariate dimension
+s &lt;- 5 # support size
+q &lt;- 7 # size of subset of covariates that can be non-zero for any task
+n_k &lt;- 50 # task sample size
+N &lt;- n_k * p # full dataset samplesize
+X &lt;- matrix( rnorm(N * p), nrow = N, ncol=p) # full design matrix
+B &lt;- matrix(1 + rnorm(K * (p+1) ), nrow = p + 1, ncol = K) # betas before making sparse
+Z &lt;- matrix(0, nrow = p, ncol = K) # matrix of supports
+y &lt;- vector(length = N) # outcome vector
+
+# randomly sample support to make betas sparse
+for(j in 1:K)     Z[1:q, j] &lt;- sample( c( rep(1,s), rep(0, q - s) ), q, replace = FALSE )
+B[-1,] &lt;- B[-1,] * Z # make betas sparse and ensure all models have an intercept
+
+task &lt;- rep(1:K, each = n_k) # vector of task labels (indices)
+
+# iterate through and make each task specific dataset
+for(j in 1:K){
+    indx &lt;- which(task == j) # indices of task
+    e &lt;- rnorm(n_k)
+    y[indx] &lt;- B[1, j] + X[indx,] %*% B[-1,j] + e
+    }
+    
+colnames(B) &lt;- paste0("beta_", 1:K)
+rownames(B) &lt;- paste0("X_", 1:(p+1))
+    
+print("Betas")
+print(round(B[1:8,],2))
+    
+    ###########################
+    # custom tuning grid
+    ###########################
+    grid &lt;- data.frame(s = c(4, 4, 5, 5), 
+                  lambda_1 = c(0.01, 0.1, 0.01, 0.1), 
+                  lambda_2 = rep(0, 4), 
+                  lambda_z = c(0.01, 0.1, 0.01, 0.1))
+    
+    #################################################
+    # cross validation with custom tuning grid
+    ##################################################
+## Not run: 
+
+if (identical(Sys.getenv("AUTO_JULIA_INSTALL"), "true")) { ## The examples are quite time consuming
+## Do initiation for and automatic installation if necessary
+
+    tn &lt;- cv.smtl(y = y, 
+                  X = X, 
+                  study = task, 
+                  commonSupp = FALSE,
+                  grid = grid,
+                  nfolds = 5,
+                  multiTask = FALSE) 
+                  
+     # model fitting
+     mod &lt;- sMTL::smtl(y = y, 
+                   X = X, 
+                   study = task, 
+                   s = tn$best.1se$s, 
+                   commonSupp = TRUE,
+                   lambda_1 = tn$best.1se$lambda_1,
+                   lambda_z = tn$best.1se$lambda_z)
+    
+    ######################################################
+    # cross validation with automatically generated grid
+    #######################################################
+    tn &lt;- cv.smtl(y = y, 
+                  X = X, 
+                  study = task, 
+                  commonSupp = FALSE,
+                  lambda_1 = TRUE,
+                  lambda_w = FALSE,
+                  lambda_z = TRUE,
+                  nfolds = 5,
+                  multiTask = FALSE) 
+    
+     # model fitting
+     mod &lt;- sMTL::smtl(y = y, 
+                   X = X, 
+                   study = task, 
+                   s = tn$best.1se$s, 
+                   commonSupp = TRUE,
+                   lambda_1 = tn$best.1se$lambda_1,
+                   lambda_z = tn$best.1se$lambda_z)
+                   
+     print(round(mod$beta[1:8,],2))
+                   }
+                   
+## End(Not run)
+                   
+    
+</code></pre>
+
+
+</div>

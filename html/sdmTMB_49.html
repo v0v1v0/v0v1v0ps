@@ -1,0 +1,411 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.sdmTMB</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Predict from an sdmTMB model</h2>
+
+<h3>Description</h3>
+
+<p>Make predictions from an <span class="pkg">sdmTMB</span> model; can predict on the original or
+new data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sdmTMB'
+predict(
+  object,
+  newdata = NULL,
+  type = c("link", "response"),
+  se_fit = FALSE,
+  re_form = NULL,
+  re_form_iid = NULL,
+  nsim = 0,
+  sims_var = "est",
+  model = c(NA, 1, 2),
+  offset = NULL,
+  mcmc_samples = NULL,
+  return_tmb_object = FALSE,
+  return_tmb_report = FALSE,
+  return_tmb_data = FALSE,
+  tmbstan_model = deprecated(),
+  sims = deprecated(),
+  area = deprecated(),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>A model fitted with <code>sdmTMB()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p>A data frame to make predictions on. This should be a data
+frame with the same predictor columns as in the fitted data and a time
+column (if this is a spatiotemporal model) with the same name as in the
+fitted data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>Should the <code>est</code> column be in link (default) or response space?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se_fit</code></td>
+<td>
+<p>Should standard errors on predictions at the new locations
+given by <code>newdata</code> be calculated? Warning: the current implementation can
+be slow for large data sets or high-resolution projections unless
+<code>re_form = NA</code> (omitting random fields). A faster option to approximate
+point-wise uncertainty is to use the <code>nsim</code> argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>re_form</code></td>
+<td>
+<p><code>NULL</code> to specify including all spatial/spatiotemporal random
+effects in predictions. <code>~0</code> or <code>NA</code> for population-level predictions.
+Likely to be used in conjunction with <code>se_fit = TRUE</code>. This does not affect
+<code>get_index()</code> calculations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>re_form_iid</code></td>
+<td>
+<p><code>NULL</code> to specify including all random intercepts in the
+predictions. <code>~0</code> or <code>NA</code> for population-level predictions. No other
+options (e.g., some but not all random intercepts) are implemented yet.
+Only affects predictions with <code>newdata</code>. This <em>does</em> affects <code>get_index()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+<p>If <code style="white-space: pre;">⁠&gt; 0⁠</code>, simulate from the joint precision
+matrix with <code>nsim</code> draws. Returns a matrix of <code>nrow(data)</code> by <code>nsim</code>
+representing the estimates of the linear predictor (i.e., in link space).
+Can be useful for deriving uncertainty on predictions
+(e.g., <code>apply(x, 1, sd)</code>) or propagating uncertainty. This is currently
+the fastest way to characterize uncertainty on predictions in space with
+sdmTMB.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sims_var</code></td>
+<td>
+<p>Experimental: Which TMB reported variable from the model
+should be extracted from the joint precision matrix simulation draws?
+Defaults to link-space predictions. Options include: <code>"omega_s"</code>,
+<code>"zeta_s"</code>, <code>"epsilon_st"</code>, and <code>"est_rf"</code> (as described below).
+Other options will be passed verbatim.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Type of prediction if a delta/hurdle model <em>and</em> <code>nsim &gt; 0</code> or
+<code>mcmc_samples</code> is supplied: <code>NA</code> returns the combined prediction from both
+components on the link scale for the positive component; <code>1</code> or <code>2</code> return
+the first or second model component only on the link or response scale
+depending on the argument <code>type</code>. For regular prediction from delta models,
+both sets of predictions are returned.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>offset</code></td>
+<td>
+<p>A numeric vector of optional offset values. If left at default
+<code>NULL</code>, the offset is implicitly left at 0.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mcmc_samples</code></td>
+<td>
+<p>See <code>extract_mcmc()</code> in the
+<a href="https://github.com/pbs-assess/sdmTMBextra">sdmTMBextra</a> package for
+more details and the
+<a href="https://pbs-assess.github.io/sdmTMB/articles/web_only/bayesian.html">Bayesian vignette</a>.
+If specified, the predict function will return a matrix of a similar form
+as if <code>nsim &gt; 0</code> but representing Bayesian posterior samples from the Stan
+model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_tmb_object</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, will include the TMB object in a
+list format output. Necessary for the <code>get_index()</code> or <code>get_cog()</code>
+functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_tmb_report</code></td>
+<td>
+<p>Logical: return the output from the TMB
+report? For regular prediction, this is all the reported variables
+at the MLE parameter values. For <code>nsim &gt; 0</code> or when <code>mcmc_samples</code>
+is supplied, this is a list where each element is a sample and the
+contents of each element is the output of the report for that sample.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_tmb_data</code></td>
+<td>
+<p>Logical: return formatted data for TMB? Used
+internally.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tmbstan_model</code></td>
+<td>
+<p>Deprecated. See <code>mcmc_samples</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sims</code></td>
+<td>
+<p><strong>Deprecated</strong>. Please use <code>nsim</code> instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>area</code></td>
+<td>
+<p><strong>Deprecated</strong>. Please use <code>area</code> in <code>get_index()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Not implemented.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>If <code>return_tmb_object = FALSE</code> (and <code>nsim = 0</code> and <code>mcmc_samples = NULL</code>):
+</p>
+<p>A data frame:
+</p>
+
+<ul>
+<li> <p><code>est</code>: Estimate in link space (everything is in link space)
+</p>
+</li>
+<li> <p><code>est_non_rf</code>: Estimate from everything that isn't a random field
+</p>
+</li>
+<li> <p><code>est_rf</code>: Estimate from all random fields combined
+</p>
+</li>
+<li> <p><code>omega_s</code>: Spatial (intercept) random field that is constant through time
+</p>
+</li>
+<li> <p><code>zeta_s</code>: Spatial slope random field
+</p>
+</li>
+<li> <p><code>epsilon_st</code>: Spatiotemporal (intercept) random fields, could be
+off (zero), IID, AR1, or random walk
+</p>
+</li>
+</ul>
+<p>If <code>return_tmb_object = TRUE</code> (and <code>nsim = 0</code> and <code>mcmc_samples = NULL</code>):
+</p>
+<p>A list:
+</p>
+
+<ul>
+<li> <p><code>data</code>: The data frame described above
+</p>
+</li>
+<li> <p><code>report</code>: The TMB report on parameter values
+</p>
+</li>
+<li> <p><code>obj</code>: The TMB object returned from the prediction run
+</p>
+</li>
+<li> <p><code>fit_obj</code>: The original TMB model object
+</p>
+</li>
+</ul>
+<p>In this case, you likely only need the <code>data</code> element as an end user.
+The other elements are included for other functions.
+</p>
+<p>If <code>nsim &gt; 0</code> or <code>mcmc_samples</code> is not <code>NULL</code>:
+</p>
+<p>A matrix:
+</p>
+
+<ul>
+<li>
+<p> Columns represent samples
+</p>
+</li>
+<li>
+<p> Rows represent predictions with one row per row of <code>newdata</code>
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+d &lt;- pcod_2011
+mesh &lt;- make_mesh(d, c("X", "Y"), cutoff = 30) # a coarse mesh for example speed
+m &lt;- sdmTMB(
+ data = d, formula = density ~ 0 + as.factor(year) + depth_scaled + depth_scaled2,
+ time = "year", mesh = mesh, family = tweedie(link = "log")
+)
+
+# Predictions at original data locations -------------------------------
+
+predictions &lt;- predict(m)
+head(predictions)
+
+predictions$resids &lt;- residuals(m) # randomized quantile residuals
+
+library(ggplot2)
+ggplot(predictions, aes(X, Y, col = resids)) + scale_colour_gradient2() +
+  geom_point() + facet_wrap(~year)
+hist(predictions$resids)
+qqnorm(predictions$resids);abline(a = 0, b = 1)
+
+# Predictions onto new data --------------------------------------------
+
+qcs_grid_2011 &lt;- replicate_df(qcs_grid, "year", unique(pcod_2011$year))
+predictions &lt;- predict(m, newdata = qcs_grid_2011)
+
+
+# A short function for plotting our predictions:
+plot_map &lt;- function(dat, column = est) {
+  ggplot(dat, aes(X, Y, fill = {{ column }})) +
+    geom_raster() +
+    facet_wrap(~year) +
+    coord_fixed()
+}
+
+plot_map(predictions, exp(est)) +
+  scale_fill_viridis_c(trans = "sqrt") +
+  ggtitle("Prediction (fixed effects + all random effects)")
+
+plot_map(predictions, exp(est_non_rf)) +
+  ggtitle("Prediction (fixed effects and any time-varying effects)") +
+  scale_fill_viridis_c(trans = "sqrt")
+
+plot_map(predictions, est_rf) +
+  ggtitle("All random field estimates") +
+  scale_fill_gradient2()
+
+plot_map(predictions, omega_s) +
+  ggtitle("Spatial random effects only") +
+  scale_fill_gradient2()
+
+plot_map(predictions, epsilon_st) +
+  ggtitle("Spatiotemporal random effects only") +
+  scale_fill_gradient2()
+
+# Visualizing a marginal effect ----------------------------------------
+
+# See the visreg package or the ggeffects::ggeffect() or
+# ggeffects::ggpredict() functions
+# To do this manually:
+
+nd &lt;- data.frame(depth_scaled =
+  seq(min(d$depth_scaled), max(d$depth_scaled), length.out = 100))
+nd$depth_scaled2 &lt;- nd$depth_scaled^2
+
+# Because this is a spatiotemporal model, you'll need at least one time
+# element. If time isn't also a fixed effect then it doesn't matter what you pick:
+nd$year &lt;- 2011L # L: integer to match original data
+p &lt;- predict(m, newdata = nd, se_fit = TRUE, re_form = NA)
+ggplot(p, aes(depth_scaled, exp(est),
+  ymin = exp(est - 1.96 * est_se), ymax = exp(est + 1.96 * est_se))) +
+  geom_line() + geom_ribbon(alpha = 0.4)
+
+# Plotting marginal effect of a spline ---------------------------------
+
+m_gam &lt;- sdmTMB(
+ data = d, formula = density ~ 0 + as.factor(year) + s(depth_scaled, k = 5),
+ time = "year", mesh = mesh, family = tweedie(link = "log")
+)
+if (require("visreg", quietly = TRUE)) {
+  visreg::visreg(m_gam, "depth_scaled")
+}
+
+# or manually:
+nd &lt;- data.frame(depth_scaled =
+  seq(min(d$depth_scaled), max(d$depth_scaled), length.out = 100))
+nd$year &lt;- 2011L
+p &lt;- predict(m_gam, newdata = nd, se_fit = TRUE, re_form = NA)
+ggplot(p, aes(depth_scaled, exp(est),
+  ymin = exp(est - 1.96 * est_se), ymax = exp(est + 1.96 * est_se))) +
+  geom_line() + geom_ribbon(alpha = 0.4)
+
+# Forecasting ----------------------------------------------------------
+mesh &lt;- make_mesh(d, c("X", "Y"), cutoff = 15)
+
+unique(d$year)
+m &lt;- sdmTMB(
+  data = d, formula = density ~ 1,
+  spatiotemporal = "AR1", # using an AR1 to have something to forecast with
+  extra_time = 2019L, # `L` for integer to match our data
+  spatial = "off",
+  time = "year", mesh = mesh, family = tweedie(link = "log")
+)
+
+# Add a year to our grid:
+grid2019 &lt;- qcs_grid_2011[qcs_grid_2011$year == max(qcs_grid_2011$year), ]
+grid2019$year &lt;- 2019L # `L` because `year` is an integer in the data
+qcsgrid_forecast &lt;- rbind(qcs_grid_2011, grid2019)
+
+predictions &lt;- predict(m, newdata = qcsgrid_forecast)
+plot_map(predictions, exp(est)) +
+  scale_fill_viridis_c(trans = "log10")
+plot_map(predictions, epsilon_st) +
+  scale_fill_gradient2()
+
+# Estimating local trends ----------------------------------------------
+
+d &lt;- pcod
+d$year_scaled &lt;- as.numeric(scale(d$year))
+mesh &lt;- make_mesh(pcod, c("X", "Y"), cutoff = 25)
+m &lt;- sdmTMB(data = d, formula = density ~ depth_scaled + depth_scaled2,
+  mesh = mesh, family = tweedie(link = "log"),
+  spatial_varying = ~ 0 + year_scaled, time = "year", spatiotemporal = "off")
+nd &lt;- replicate_df(qcs_grid, "year", unique(pcod$year))
+nd$year_scaled &lt;- (nd$year - mean(d$year)) / sd(d$year)
+p &lt;- predict(m, newdata = nd)
+
+plot_map(subset(p, year == 2003), zeta_s_year_scaled) + # pick any year
+  ggtitle("Spatial slopes") +
+  scale_fill_gradient2()
+
+plot_map(p, est_rf) +
+  ggtitle("Random field estimates") +
+  scale_fill_gradient2()
+
+plot_map(p, exp(est_non_rf)) +
+  ggtitle("Prediction (fixed effects only)") +
+  scale_fill_viridis_c(trans = "sqrt")
+
+plot_map(p, exp(est)) +
+  ggtitle("Prediction (fixed effects + all random effects)") +
+  scale_fill_viridis_c(trans = "sqrt")
+
+
+</code></pre>
+
+
+</div>

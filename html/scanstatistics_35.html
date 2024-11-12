@@ -1,0 +1,273 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>scan_eb_zip</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate the expectation-based ZIP scan statistic.</h2>
+
+<h3>Description</h3>
+
+<p>Calculates the expectation-based scan statistic. See details below.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">scan_eb_zip(
+  counts,
+  zones,
+  baselines = NULL,
+  probs = NULL,
+  population = NULL,
+  n_mcsim = 0,
+  gumbel = FALSE,
+  max_only = FALSE,
+  rel_tol = 0.001
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>counts</code></td>
+<td>
+<p>Either:
+</p>
+
+<ul>
+<li>
+<p> A matrix of observed counts. Rows indicate time and are ordered
+from least recent (row 1) to most recent (row 
+<code>nrow(counts)</code>). Columns indicate locations, numbered from 1 
+and up. If <code>counts</code> is a matrix, the optional matrix 
+arguments <code>baselines</code> and <code>probs</code> should also be 
+specified.
+</p>
+</li>
+<li>
+<p> A data frame with columns "time", "location", "count", "baseline",
+"prob". The baselines are the expected values of the counts, and 
+"prob" are the structural zero probabilities of the counts. If
+"baseline" and "prob" are not found as columns, their values are
+estimated in a <em>very</em> heuristic fashion (not recommended).
+If population numbers are available, they can be included in a 
+column "population" to help with the estimation.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zones</code></td>
+<td>
+<p>A list of integer vectors. Each vector corresponds to a single
+zone; its elements are the numbers of the locations in that zone.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baselines</code></td>
+<td>
+<p>Optional. A matrix of the same dimensions as <code>counts</code>. 
+Holds the Poisson mean parameter of the ZIP distribution for each observed 
+count. These parameters are typically estimated from past data using e.g. 
+ZIP regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probs</code></td>
+<td>
+<p>Optional. A matrix of the same dimensions as <code>counts</code>. 
+Holds the structural zero probability of the ZIP distribution for each 
+observed count. These parameters are typically estimated from past data 
+using e.g. ZIP regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>population</code></td>
+<td>
+<p>Optional. A matrix or vector of populations for each 
+location. Only needed if <code>baselines</code> and <code>probs</code> are to be 
+estimated and you want to account for the different populations in each 
+location (and time). If a matrix, should be of the same dimensions as 
+<code>counts</code>. If a vector, should be of the same length as the number of 
+columns in <code>counts</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_mcsim</code></td>
+<td>
+<p>A non-negative integer; the number of replicate scan
+statistics to generate in order to calculate a <code class="reqn">P</code>-value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gumbel</code></td>
+<td>
+<p>Logical: should a Gumbel P-value be calculated? Default is
+<code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_only</code></td>
+<td>
+<p>Boolean. If <code>FALSE</code> (default) the log-likelihood ratio
+statistic for each zone and duration is returned. If <code>TRUE</code>, only the
+largest such statistic (i.e. the scan statistic) is returned, along with
+the corresponding zone and duration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rel_tol</code></td>
+<td>
+<p>A positive scalar. If the relative change in the incomplete
+information likelihood is less than this value, then the EM algorithm is
+deemed to have converged.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For the expectation-based zero-inflated Poisson scan statistic
+(Allévius &amp; Höhle 2017), the null hypothesis of no anomaly holds that 
+the count observed at each location <code class="reqn">i</code> and duration <code class="reqn">t</code> (the 
+number of time periods before present) has a zero-inflated Poisson 
+distribution with expected value parameter <code class="reqn">\mu_{it}</code> and structural 
+zero probability <code class="reqn">p_{it}</code>:
+</p>
+<p style="text-align: center;"><code class="reqn">
+     H_0 : Y_{it} \sim \textrm{ZIP}(\mu_{it}, p_{it}).
+   </code>
+</p>
+
+<p>This holds for all locations <code class="reqn">i = 1, \ldots, m</code> and all durations
+<code class="reqn">t = 1, \ldots,T</code>, with <code class="reqn">T</code> being the maximum duration considered.
+Under the alternative hypothesis, there is a space-time window <code class="reqn">W</code>
+consisting of a spatial zone <code class="reqn">Z \subset \{1, \ldots, m\}</code> and a time
+window <code class="reqn">D \subseteq \{1, \ldots, T\}</code> such that the counts in that
+window have their Poisson expected value parameters inflated by a factor
+<code class="reqn">q_W &gt; 1</code> compared to the null hypothesis:
+</p>
+<p style="text-align: center;"><code class="reqn">
+   H_1 : Y_{it} \sim \textrm{ZIP}(q_W \mu_{it}, p_{it}), ~~(i,t) \in W.
+   </code>
+</p>
+
+<p>For locations and durations outside of this window, counts are assumed to
+be distributed as under the null hypothesis. The sets <code class="reqn">Z</code> considered
+are those specified in the argument <code>zones</code>, while the maximum
+duration <code class="reqn">T</code> is taken as the maximum value in the column
+<code>duration</code> of the input <code>table</code>.
+</p>
+<p>For each space-time window <code class="reqn">W</code> considered, (the log of) a likelihood
+ratio is computed using the distributions under the alternative and null
+hypotheses, and the expectation-based Poisson scan statistic is calculated
+as the maximum of these quantities over all space-time windows. The
+expectation-maximization (EM) algorithm is used to obtain maximum
+likelihood estimates.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list which, in addition to the information about the type of scan
+statistic, has the following components:
+</p>
+
+<dl>
+<dt>MLC</dt>
+<dd>
+<p>A list containing the number of the zone of the most likely
+cluster (MLC), the locations in that zone, the duration of the 
+MLC, the calculated score, the relative risk, and the number of 
+iterations until convergence for the EM algorithm. In order, the 
+elements of this list are named  <code>zone_number, locations, 
+           duration, score, relative_risk, n_iter</code>.</p>
+</dd>
+<dt>observed</dt>
+<dd>
+<p>A data frame containing, for each combination of zone 
+and duration investigated, the zone number, duration, score, 
+relative risk, number of EM iterations. The table is sorted by 
+score with the top-scoring location on top. If 
+<code>max_only = TRUE</code>, only contains a single row corresponding 
+to the MLC.</p>
+</dd>
+<dt>replicates</dt>
+<dd>
+<p>A data frame of the Monte Carlo replicates of the scan 
+statistic (if any), and the corresponding zones and durations.</p>
+</dd>
+<dt>MC_pvalue</dt>
+<dd>
+<p>The Monte Carlo <code class="reqn">P</code>-value.</p>
+</dd>
+<dt>Gumbel_pvalue</dt>
+<dd>
+<p>A <code class="reqn">P</code>-value obtained by fitting a Gumbel 
+distribution to the replicate scan statistics.</p>
+</dd>
+<dt>n_zones</dt>
+<dd>
+<p>The number of zones scanned.</p>
+</dd>
+<dt>n_locations</dt>
+<dd>
+<p>The number of locations.</p>
+</dd>
+<dt>max_duration</dt>
+<dd>
+<p>The maximum duration considered.</p>
+</dd>
+<dt>n_mcsim</dt>
+<dd>
+<p>The number of Monte Carlo replicates made.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Allévius, B. and Höhle, M, <em>An expectation-based space-time scan 
+statistic for ZIP-distributed data</em>, (Technical report),
+<a href="https://goo.gl/yYJ42A">Link to PDF</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (require("gamlss.dist")) {
+  set.seed(1)
+  # Create location coordinates, calculate nearest neighbors, and create zones
+  n_locs &lt;- 50
+  max_duration &lt;- 5
+  n_total &lt;- n_locs * max_duration
+  geo &lt;- matrix(rnorm(n_locs * 2), n_locs, 2)
+  knn_mat &lt;- coords_to_knn(geo, 15)
+  zones &lt;- knn_zones(knn_mat)
+  
+  # Simulate data
+  baselines &lt;- matrix(rexp(n_total, 1/5), max_duration, n_locs)
+  probs &lt;- matrix(runif(n_total) / 4, max_duration, n_locs)
+  counts &lt;- matrix(gamlss.dist::rZIP(n_total, baselines, probs), 
+                   max_duration, n_locs)
+  
+  # Inject outbreak/event/anomaly
+  ob_dur &lt;- 3
+  ob_cols &lt;- zones[[10]]
+  ob_rows &lt;- max_duration + 1 - seq_len(ob_dur)
+  counts[ob_rows, ob_cols] &lt;- gamlss.dist::rZIP(
+    ob_dur * length(ob_cols), 2 * baselines[ob_rows, ob_cols],
+    probs[ob_rows, ob_cols])
+  res &lt;- scan_eb_zip(counts = counts,
+                     zones = zones,
+                     baselines = baselines,
+                     probs = probs,
+                     n_mcsim = 9,
+                     max_only = FALSE,
+                     rel_tol = 1e-3)
+}
+</code></pre>
+
+
+</div>

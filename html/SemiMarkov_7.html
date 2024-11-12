@@ -1,0 +1,505 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>semiMarkov</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Parametric estimation in multi-state semi-Markov models
+</h2>
+
+<h3>Description</h3>
+
+<p>This function computes the parametric maximum likelihood estimation in multi-state semi-Markov models in continuous-time. The effect of time varying or fixed covariates can be studied using a proportional intensities model for the hazard of the sojourn time.
+
+
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">semiMarkov(data, cov = NULL, states, mtrans, cov_tra = NULL, 
+          cens = NULL, dist_init=NULL, proba_init = NULL, coef_init = NULL, 
+          alpha_ci = 0.95, Wald_par = NULL, eqfun = NULL, 
+          ineqLB = NULL,ineqUB = NULL, control = list() )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>data frame of the form <code>data.frame(id,state.h,state.j,time)</code>, where
+</p>
+
+<ul>
+<li> <p><code>id</code>: the individual identification number
+</p>
+</li>
+<li> <p><code>state.h</code>: state left by the process
+</p>
+</li>
+<li> <p><code>state.j</code>: state entered by the process
+</p>
+</li>
+<li> <p><code>time</code>: waiting time in state <code>state.h</code>
+</p>
+</li>
+</ul>
+<p>This data.frame containts one row per transition (possibly several rows per patient).
+
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov</code></td>
+<td>
+
+<p>Optional data frame containing covariates values.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>states</code></td>
+<td>
+
+<p>A numeric vector giving names of the states (names are values used in <code>state.h</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mtrans</code></td>
+<td>
+
+<p>A quadratic matrix of characters describing the possible transitions and the distributions of waiting time. 
+The rows represent the left states, and the columns represent the entered states.   
+If an instantaneous transition is not allowed from state <code>h</code> to state <code>j</code>, then <code>mtrans</code> should have <code class="reqn">(h,j)</code> entry <code>FALSE</code>, otherwise it should be <code>"E"</code> (or <code>"Exp"</code> or <code>"Exponential"</code>) for Exponential distribution, <code>"W"</code> (or <code>"Weibull"</code>) for Weibull distribution or <code>"EW"</code> (or <code>"EWeibull"</code> or <code>"Exponentiated Weibull"</code>) for Exponentiated Weibull distribution. If <code>TRUE</code> is used instead of the name of the distribution, then a Weibull distribution is considered. By definition of a semi-Markov model, the transitions into the same state are not possible. The diagonal elements of <code>mtrans</code> must be set to <code>FALSE</code> otherwise the function will stop. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov_tra</code></td>
+<td>
+
+<p>Optional list of vectors: a vector is associated with covariate included in the model. For a given covariate, the vector contains the transitions <code>"hj"</code> for which the covariate have an effect (only the transitions specified in <code>mtrans</code> are allowed). The effect of covariates can then be considered only on specific transitions. By default, the effects of covariates on all the possible transitions are studied.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cens</code></td>
+<td>
+
+<p>A character giving the code for censored observations in the column <code>state.j</code> of the data. Default is <code>NULL</code> which means that the censoring is defined as a transition fron state <code class="reqn">h</code> to state <code class="reqn">h</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist_init</code></td>
+<td>
+
+<p>Optional numeric vector giving the initial values of the distribution parameters. Default is 1 for each distribution parameter. The length of the vector depend on the chosen distribution, number of transitions and states.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>proba_init</code></td>
+<td>
+
+<p>Optional numeric vector giving the initial values of the transition probabilities. The sum of the probabilities in the same row must be equal to 1. According to semi-Markov model, the probability to stay in the same state must be equal to 0. The default values for the transition probabilities are estimated from the data. If <code>data = NULL</code>, the argument <code>proba_init</code> is obligatory.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef_init</code></td>
+<td>
+
+<p>Optional numeric vector giving the initial values of the regression coefficients associated with the covariates. Default is 0 for each regression coefficient which means that the covariate has no effect.
+</p>
+</td>
+</tr>
+</table>
+<table>
+<tr style="vertical-align: top;">
+<td><code>alpha_ci</code></td>
+<td>
+
+<p>Confidence level to be considered for the confidence intervals. The default value is 0.95. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Wald_par</code></td>
+<td>
+
+<p>Optional numeric vector giving the values to be tested (null hypothesis) by the Wald test for each parameter. The Wald statistics are evaluated only for the parameters 
+of distributions and regression coefficients. The length of this vector must then be equal to the number of those parameters. The order of the values must be as in the 
+parameters table given by objects <code>semiMarkov</code> or <code>param.init</code> (excluding the parameters associated to the transition probabilities). The default values for 
+the elements of <code>Wald_par</code> vector are 1 for the distribution parameters and 0 for the regression coefficients.
+
+
+
+
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eqfun</code></td>
+<td>
+
+<p>Optional list given equality constraints between parameters. These constraints are passed using the equality constraint function that can be defined in the <code>solnp</code> optimization function. See below for details.
+
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ineqLB</code></td>
+<td>
+
+<p>Optional list given values of lower bound for parameters. These values are used in the inequality constraint that can be defined in the <code>solnp</code> optimization function. See below for details.         
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ineqUB</code></td>
+<td>
+ 
+<p>Optional list given values of upper bound for parameters. These values are used in the inequality constraint that can be defined in the <code>solnp</code> optimization function. See below for details.         
+
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+
+<p>The control list of optimization parameters for <code>solnp</code> optimization function.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function fits parametric multi-state semi-Markov model described in Listwon and Saint-Pierre (2013) to longitudinal data. Additional details about the methodology behind the <code>SemiMarkov</code> package can be found in Limnios and Oprisan (2001), Foucher <em>et al.</em> (2006) and Perez-Ocon and Ruiz-Castro (1999).
+</p>
+
+
+<p>Consider an homogeneous semi-Markov process with a finite state space. In a parametric framework, distributions of the waiting time belong to parametric families. The distribution of the waiting time can be chosen between the exponential, the Weibull and the exponentiated Weibull distributions. The exponential distribution with scale parameter <code class="reqn">\sigma&gt;0</code> has a density defined as follows
+</p>
+<p style="text-align: center;"><code class="reqn">f(x) =(1/\sigma) exp(-x/\sigma).</code>
+</p>
+
+<p>The Weibull distribution with scale parameter <code class="reqn">\sigma&gt;0</code> and shape parameter <code class="reqn">\nu&gt;0</code> has a density given by (same as one defined in <code>dweibull</code>)
+</p>
+<p style="text-align: center;"><code class="reqn">g(x) = (\nu/\sigma)(x/\sigma)^{\nu-1} exp(-(x/\sigma)^\nu).</code>
+</p>
+
+<p>The exponentiated Weibull distribution (or generalized Weibull) with scale parameter <code class="reqn">\sigma&gt;0</code>, shape parameter <code class="reqn">\nu&gt;0</code> and family parameter equal to <code class="reqn">\theta&gt;0</code> has a density given by (same as one defined in function <code>dgweibull</code> from the R package <code>rmutil</code>)
+</p>
+<p style="text-align: center;"><code class="reqn">h(x) = \theta(\nu/\sigma)(x/\sigma)^{\nu-1} exp(-(x/\sigma)^\nu) (1-exp(-(x/\sigma)^\nu))^{\theta-1}.</code>
+</p>
+
+
+
+
+
+
+
+
+<p>These three distributions are nested. The exponentiated Weibull density with <code class="reqn">\theta=1</code> gives a Weibull distribution and the Weibull density with <code class="reqn">\nu=1</code> gives the exponential density. 
+</p>
+<p>Note that the effects of both constant and time-varying covariates on the hazards of sojourn time can be studied using a proportional intensities model. The effects of covariates can then be interpreted in terms of relative risk.
+</p>
+<p>The model parameters are the distribution parameters, the transition probabilities of the Markov chain and the regression coefficients associated with covariates. The number of parameters depends on the chosen model: the distributions of the sojourn times, the number of states and the transitions between states specified with the matrix <code>mtrans</code>, the number of covariates (<code>cov</code>) and their effects or not on transitions (<code>cov_tra</code>).
+
+</p>
+<p>The default initial values for the distribution parameters are fixed to 1. As the three possible distributions are nested for parameters equal to 1 (See details of the <code>semiMarkov</code> function), the initial distribution corresponds to an exponential with parameter equal to 1 (whatever the chosen distribution). The default initial values for the regression coefficients are fixed to 0 meaning that the covariates have no effect on the hazard rates of the sojourn times. These initial values may be changed using the arguments <code>dist_init</code> and <code>coef_init</code>.
+</p>
+<p>By default, the initial probabilities are calculated by simple proportions. The probability associated to the transition from <code class="reqn">h</code> to <code class="reqn">j</code> is estimed by the number of observed transitions from state <code class="reqn">h</code> to state <code class="reqn">j</code> divided by the total number of transitions from state <code>h</code> observed in the data. The results are displayed in matrix <code>matrix.P</code>. The number of parameters for transition probabilities is smaller than the number of possible transitions as the probabilities in the same row sum up to one. Considering this point and that the probability to stay in the same state is zero, the user can changed the initial values using the argument <code>proba_init</code>.
+</p>
+<p>The Yinyu Ye optimization solver to nonlinear problem is applied to maximize the log-likelihood using the function <code>solnp</code> created by A. Ghalanos and S. Theussl. In order to modify the optimization parameters refer to the package <code>Rsolnp</code> documentation.
+</p>
+<p>Some optimization difficulties can arrise when there is not enough information in the data to estimate each transition rate. The users can change the optimization parameters and the initial values. It may be appropriate to reduce the number of states in the model, the number of allowed transitions, or the number of covariate effects, to ensure convergence.
+</p>
+<p>Some additionals constraints can be introduced using <code>eqfun</code>, <code>ineqLB</code> and <code>ineqUB</code>. These constraints on distribution parameters, transition probabilities 
+and regression coefficients can be defined using lists of vectors. 
+The argument <code>eqfun</code> gives the possibility to add constraints of type <code class="reqn">par1 = a*par2</code> (<code class="reqn">a</code> is a constant). This equality constraint must be expressed with a vector 
+of 3 elements where the first element is the identifier of the parameters type (<code>"dist"</code> for distribution parameters, <code>"proba"</code> for the transition probabilities and 
+<code>"coef"</code> for the regression coefficients), the second and the third elements are the index of <code class="reqn">par1</code> and <code class="reqn">par2</code>, respectively. The index values of 
+distribution parameters, transition probabilities and regression coefficients can be found in the table provided by an object <code>semiMarkov</code>. The last element of the vector 
+corresponds to the constant <code class="reqn">a</code>. The arguments <code>ineqLB</code> and <code>ineqUB</code> allow to add constraints of type <code class="reqn">par \geq a</code> and <code class="reqn">par \leq a</code>, respectively. 
+These arguments are lists of vectors of length 3 where the first element is the type of the parameter (<code>"dist"</code>, <code>"proba"</code> or <code>"coef"</code>), the second element 
+is the index of parameter <code class="reqn">par</code> and the last one is the constant <code class="reqn">a</code>.
+If a chosen constraint corresponds to a transition probability, it should be considered that the last probabilities in a row of the transition matrix are not estimated but 
+obtained directly since the sum of transition probabilities in the same row is equal to 1. Thus, no additional constraints related to these parameters are permitted. Moreover, 
+note that the argument <code>eqfun</code> does not allowed to define relationships between parameters of different types (for instance, a transition probability can not be equal to 
+a regression coefficient). The optional constraints on parameters should be used prudently since they may induce problems in the convergence of the optimization method. In particular, 
+the Wald statistic and the standard deviation may not be computed for some parameters due to negative values in the hessian matrix. Note that the default constraints induce by the model 
+definition are treated in priority.
+</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+
+<p>The original call to <code>semiMarkov</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minus2loglik</code></td>
+<td>
+
+<p>Minus twice the maximized log-likelihood.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>solution</code></td>
+<td>
+
+<p>Etimations of the distribution parameters, probabilities of the embedded Markov chain and regression coefficients (if any considered) for each transition specified in the matrix <code>mtrans</code>. This is a data frame with three columns: the label of the parameter, the transition associated with and the estimated value.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt.message</code></td>
+<td>
+
+<p>The message giving the information on the optimization result returned by the <code>constrOptim.nl</code> function. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt.iter</code></td>
+<td>
+
+<p>Number of outer iterations of the optimization method.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nstates</code></td>
+<td>
+
+<p>The length of vector <code>states</code> interpreted as the number of possible states for the process.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>table.state</code></td>
+<td>
+
+<p>A table, with starting states as rows and arrival states as columns, which provides the number of observed transitions between two states. This argument can be used to quickly summarize multi-state data.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ncens</code></td>
+<td>
+
+<p>Number of individuals subjected to censoring.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Transition_matrix</code></td>
+<td>
+
+<p>A matrix containing the informations on the model definition : the possible transitions and the distribution of waiting times for each transition (Exponential, Weibull or Exponentiated Weibull).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param.init</code></td>
+<td>
+
+<p>Recall the initial values of the parameters. The third column of this object can be used in <code>hazard</code> function.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>table.dist</code></td>
+<td>
+
+<p>Statistics for the estimations of distribution parameters of waiting time distributions. For the exponential distribution one data frame for the parameter <code>sigma</code> is returned, for the Weibull distribution two data frames for <code>sigma</code> and <code>nu</code> are returned, and for the Exponentiated Weibull distribution three data frames for <code>sigma</code>, <code>nu</code> and <code>theta</code> are returned. The columns of each data frame are the possible transitions, the estimations, the standard deviations, the lower and upper bounds of confidence intervals, the Wald test null hypothesis, the Wald test statistics and the p-values of the Wald test when testing hypothesis <code>sigma=1</code>, <code>nu=1</code> or <code>theta=1</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>table.proba</code></td>
+<td>
+ 
+<p>A data frame giving the estimations of the transition probabilities of the Markov chain and their standard deviations. By definition, the probability associated to the last possible transition of each row of the matrix <code>mtrans</code> is equal to <code class="reqn">1-pr</code>, where <code class="reqn">pr</code> is the sum of all other probabilities from the row.
+</p>
+</td>
+</tr>
+</table>
+<table>
+<tr style="vertical-align: top;">
+<td><code>table.coef</code></td>
+<td>
+
+<p>If some covariates are included in the model it returns a data frame with the statistics for the estimated values of the regression coefficients. The columns of the data frame are the transitions associated with the coefficients, the estimations, the standard deviations, the lower and upper bounds of confidence intervals, the Wald test null hypothesis, the Wald test statistics and the p-values of the Wald test when testing hypothesis <code>coef=0</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>table.param</code></td>
+<td>
+
+<p>Data frame with the statistics for all the model parameters, that is <code>table.dist</code>, <code>table.proba</code> and <code>table.coef</code> in a single data frame.
+</p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>Printing a <code>semiMarkov</code> object by typing the object's name at the command line implicitly invokes <code>print.semiMarkov</code>.
+
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Agnieszka Listwon-Krol, Philippe Saint-Pierre
+</p>
+
+
+<h3>References</h3>
+
+<p>Krol, A., Saint-Pierre P. (2015). <em>SemiMarkov : An R Package for Parametric Estimation in Multi-State Semi-Markov Models</em>. 66(6), 1-16.
+</p>
+<p>Ghalanos, A. and Theussl S. (2012). Rsolnp: General Non-linear Optimization Using Augmented Lagrange Multiplier Method. R package version 1.14.
+</p>
+<p>Limnios, N., Oprisan, G. (2001). <em>Semi-Markov processes and reliability</em>. Statistics for Industry and Technology. Birkhauser Boston.
+</p>
+<p>Foucher, Y., Mathieu, E., Saint-Pierre, P., Durand, J.F., Daures, J.P. (2006). A semi-Markov
+model based on Generalized Weibull distribution with an illustration for HIV disease.
+<em>Biometrical Journal</em>, 47(6), 825-833.
+</p>
+<p>Perez-Ocon, R., Ruiz-Castro, J. E. (1999). Semi-markov models and applications,
+chapter 14, pages 229-238. <em>Kluwer Academic Publishers</em>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>param.init, hazard, summary.semiMarkov, print.semiMarkov
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+
+## Asthma control data
+data(asthma)
+
+## Definition of the model:  states, names, possible transtions and waiting time 
+## distributions
+states_1 &lt;- c("1","2","3")
+mtrans_1 &lt;- matrix(FALSE, nrow = 3, ncol = 3)
+mtrans_1[1, 2:3] &lt;- c("E","E")
+mtrans_1[2, c(1,3)] &lt;- c("E","E")
+mtrans_1[3, c(1,2)] &lt;- c("W","E")
+
+## semi-Markov model without covariates
+fit1 &lt;- semiMarkov(data = asthma, states = states_1, mtrans = mtrans_1)
+
+## semi-Markov model with one covariate 
+## "BMI" affects all transitions
+BMI &lt;- as.data.frame(asthma$BMI)
+fit2 &lt;- semiMarkov(data = asthma, cov = BMI, states = states_1, mtrans = mtrans_1)
+## semi-Markov model with one covariate 
+## "BMI" affects the transitions "1-&gt;3" and "3-&gt;1"
+fit3 &lt;- semiMarkov(data = asthma, cov = BMI, states = states_1, mtrans = mtrans_1,
+                   cov_tra = list(c("13","31")))
+
+## semi-Markov model with two covariates 
+## "BMI" affects the transitions "1-&gt;3" and "3-&gt;1"
+## "Sex" affects the transition "3-&gt;1"
+SEX &lt;- as.data.frame(asthma$Sex)
+fit4 &lt;- semiMarkov(data = asthma, cov = as.data.frame(cbind(BMI,SEX)),
+                   states = states_1, mtrans = mtrans_1,
+                   cov_tra = list(c("13","31"),c("31")))
+                   
+## semi-Markov model using specific initial values      
+## same model as "fit1" but using different initial values
+## "fit5" and "fit6" are equivalent
+
+init &lt;- param.init(data = asthma, states = states_1, mtrans = mtrans_1,
+        dist_init=c(rep(1.5,6),c(1.8)), proba_init=c(0.2,0.8,0.3,0.7,0.35,0.65))
+fit5 &lt;- semiMarkov(data = asthma, states = states_1, mtrans = mtrans_1,
+                   dist_init=init$dist.init[,3], proba_init=init$proba.init[,3])
+fit6 &lt;- semiMarkov(data = asthma, states = states_1, mtrans = mtrans_1,
+                   dist_init=c(rep(1.5,6),c(1.8)), 
+                   proba_init=c(0.2,0.8,0.3,0.7,0.35,0.65))                   
+
+
+## The Wald test null hypothesis is modified
+## Wald statistics when testing nullity of distribution parameters
+## and regression coefficients equal to -1
+fit7 &lt;- semiMarkov(data = asthma, cov = BMI, states = states_1, mtrans = mtrans_1,
+                   Wald_par = c(rep(0,7),rep(-1,6)))
+            
+## semi-Markov model with additional constraints 
+## distribution parameters sigma for transition "1-&gt;3" = sigma for transition "2-&gt;1" 
+fit8 &lt;- semiMarkov(data = asthma, cov = BMI, states = states_1, mtrans = mtrans_1,
+                   eqfun = list(c("dist",2,3,1)))
+
+## semi-Markov model with additional constraints 
+## regression coefficients beta for transition "1-&gt;2" = beta for transition "2-&gt;1" 
+##                                                    = beta for transition "2-&gt;3"  
+fit9 &lt;- semiMarkov(data = asthma, cov = BMI, states = states_1, mtrans = mtrans_1,
+                   eqfun = list(c("coef",1,3,1),c("coef",1,4,1)))
+
+## semi-Markov model with additional constraints 
+## regression coeficient beta for transition "1-&gt;2" belongs to [-0.2,0.2]
+## and regression coeficient beta for transition "2-&gt;3" belongs to [-0.05,0.05]
+fit10 &lt;- semiMarkov(data = asthma, cov = BMI, states = states_1, mtrans = mtrans_1,
+                    ineqLB = list(c("coef",1,-0.2),c("coef",4,-0.05)),
+                    ineqUB = list(c("coef",1,0.2),c("coef",4,0.05)))
+
+
+
+</code></pre>
+
+
+</div>

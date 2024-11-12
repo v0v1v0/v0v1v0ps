@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>compute_sentiment</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute textual sentiment across features and lexicons</h2>
+
+<h3>Description</h3>
+
+<p>Given a corpus of texts, computes sentiment per document or sentence using the valence shifting
+augmented bag-of-words approach, based on the lexicons provided and a choice of aggregation across words.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">compute_sentiment(
+  x,
+  lexicons,
+  how = "proportional",
+  tokens = NULL,
+  do.sentence = FALSE,
+  nCore = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>either a <code>sento_corpus</code> object created with <code>sento_corpus</code>, a <span class="pkg">quanteda</span>
+<code>corpus</code> object, a <span class="pkg">tm</span> <code>SimpleCorpus</code> object, a <span class="pkg">tm</span>
+<code>VCorpus</code> object, or a <code>character</code> vector. Only a <code>sento_corpus</code> object incorporates
+a date dimension. In case of a <code>corpus</code> object, the <code>numeric</code> columns from the
+<code>docvars</code> are considered as features over which sentiment will be computed. In
+case of a <code>character</code> vector, sentiment is only computed across lexicons.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lexicons</code></td>
+<td>
+<p>a <code>sento_lexicons</code> object created using <code>sento_lexicons</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>how</code></td>
+<td>
+<p>a single <code>character</code> vector defining how to perform aggregation within
+documents or sentences. For available options, see <code>get_hows()$words</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tokens</code></td>
+<td>
+<p>a <code>list</code> of tokenized documents, or if <code>do.sentence = TRUE</code> a <code>list</code> of
+<code>list</code>s of tokenized sentences. This allows to specify your own tokenization scheme. Can indirectly result from
+the <span class="pkg">quanteda</span>'s <code>tokens</code> function, the <span class="pkg">tokenizers</span> package, or other (see examples).
+Make sure the tokens are constructed from (the texts from) the <code>x</code> argument, are unigrams, and preferably
+set to lowercase, otherwise, results may be spurious and errors could occur. By default set to <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.sentence</code></td>
+<td>
+<p>a <code>logical</code> to indicate whether the sentiment computation should be done on
+sentence-level rather than document-level. By default <code>do.sentence = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCore</code></td>
+<td>
+<p>a positive <code>numeric</code> that will be passed on to the <code>numThreads</code> argument of the
+<code>setThreadOptions</code> function, to parallelize the sentiment computation across texts. A
+value of 1 (default) implies no parallelization. Parallelization will improve speed of the sentiment
+computation only for a sufficiently large corpus.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For a separate calculation of positive (resp. negative) sentiment, provide distinct positive (resp.
+negative) lexicons (see the <code>do.split</code> option in the <code>sento_lexicons</code> function). All <code>NA</code>s
+are converted to 0, under the assumption that this is equivalent to no sentiment. Per default <code>tokens = NULL</code>,
+meaning the corpus is internally tokenized as unigrams, with punctuation and numbers but not stopwords removed.
+All tokens are converted to lowercase, in line with what the <code>sento_lexicons</code> function does for the
+lexicons and valence shifters. Word counts are based on that same tokenization.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>x</code> is a <code>sento_corpus</code> object: a <code>sentiment</code> object, i.e., a <code>data.table</code> containing
+the sentiment scores <code>data.table</code> with an <code>"id"</code>, a <code>"date"</code> and a <code>"word_count"</code> column,
+and all lexicon-feature sentiment scores columns. The tokenized sentences are not provided but can be
+obtained as <code>stringi::stri_split_boundaries(texts, type = "sentence")</code>. A <code>sentiment</code> object can
+be aggregated (into time series) with the <code>aggregate.sentiment</code> function.
+</p>
+<p>If <code>x</code> is a <span class="pkg">quanteda</span> <code>corpus</code> object: a sentiment scores
+<code>data.table</code> with an <code>"id"</code> and a <code>"word_count"</code> column, and all lexicon-feature
+sentiment scores columns.
+</p>
+<p>If <code>x</code> is a <span class="pkg">tm</span> <code>SimpleCorpus</code> object, a <span class="pkg">tm</span> <code>VCorpus</code> object, or a <code>character</code>
+vector: a sentiment scores <code>data.table</code> with an auto-created <code>"id"</code> column, a <code>"word_count"</code>
+column, and all lexicon sentiment scores columns.
+</p>
+<p>When <code>do.sentence = TRUE</code>, an additional <code>"sentence_id"</code> column along the
+<code>"id"</code> column is added.
+</p>
+
+
+<h3>Calculation</h3>
+
+<p>If the <code>lexicons</code> argument has no <code>"valence"</code> element, the sentiment computed corresponds to simple unigram
+matching with the lexicons [<em>unigrams</em> approach]. If valence shifters are included in <code>lexicons</code> with a
+corresponding <code>"y"</code> column, the polarity of a word detected from a lexicon gets multiplied with the associated
+value of a valence shifter if it appears right before the detected word (examples: not good or can't defend) [<em>bigrams</em>
+approach]. If the valence table contains a <code>"t"</code> column, valence shifters are searched for in a cluster centered around
+a detected polarity word [<em>clusters</em> approach]. The latter approach is a simplified version of the one utilized by the
+<span class="pkg">sentimentr</span> package. A cluster amounts to four words before and two words after a polarity word. A cluster never overlaps
+with a preceding one. Roughly speaking, the polarity of a cluster is calculated as <code class="reqn">n(1 + 0.80d)S + \sum s</code>. The polarity
+score of the detected word is <code class="reqn">S</code>, <code class="reqn">s</code> represents polarities of eventual other sentiment words, and <code class="reqn">d</code> is
+the difference between the number of amplifiers (<code>t = 2</code>) and the number of deamplifiers (<code>t = 3</code>). If there
+is an odd number of negators (<code>t = 1</code>), <code class="reqn">n = -1</code> and amplifiers are counted as deamplifiers, else <code class="reqn">n = 1</code>.
+</p>
+<p>The sentence-level sentiment calculation approaches each sentence as if it is a document. Depending on the input either
+the unigrams, bigrams or clusters approach is used. We enhanced latter approach following more closely the default
+<span class="pkg">sentimentr</span> settings. They use a cluster of five words before and two words after a polarized word. The cluster
+is limited to the words after a previous comma and before a next comma. Adversative conjunctions (<code>t = 4</code>) are
+accounted for here. The cluster is reweighted based on the value <code class="reqn">1 + 0.25adv</code>, where <code class="reqn">adv</code> is the difference
+between the number of adversative conjunctions found before and after the polarized word.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Samuel Borms, Jeroen Van Pelt, Andres Algaba
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("usnews", package = "sentometrics")
+txt &lt;- system.file("texts", "txt", package = "tm")
+reuters &lt;- system.file("texts", "crude", package = "tm")
+data("list_lexicons", package = "sentometrics")
+data("list_valence_shifters", package = "sentometrics")
+
+l1 &lt;- sento_lexicons(list_lexicons[c("LM_en", "HENRY_en")])
+l2 &lt;- sento_lexicons(list_lexicons[c("LM_en", "HENRY_en")],
+                     list_valence_shifters[["en"]])
+l3 &lt;- sento_lexicons(list_lexicons[c("LM_en", "HENRY_en")],
+                     list_valence_shifters[["en"]][, c("x", "t")])
+
+# from a sento_corpus object - unigrams approach
+corpus &lt;- sento_corpus(corpusdf = usnews)
+corpusSample &lt;- quanteda::corpus_sample(corpus, size = 200)
+sent1 &lt;- compute_sentiment(corpusSample, l1, how = "proportionalPol")
+
+# from a character vector - bigrams approach
+sent2 &lt;- compute_sentiment(usnews[["texts"]][1:200], l2, how = "counts")
+
+# from a corpus object - clusters approach
+corpusQ &lt;- quanteda::corpus(usnews, text_field = "texts")
+corpusQSample &lt;- quanteda::corpus_sample(corpusQ, size = 200)
+sent3 &lt;- compute_sentiment(corpusQSample, l3, how = "counts")
+
+# from an already tokenized corpus - using the 'tokens' argument
+toks &lt;- as.list(quanteda::tokens(corpusQSample, what = "fastestword"))
+sent4 &lt;- compute_sentiment(corpusQSample, l1[1], how = "counts", tokens = toks)
+
+# from a SimpleCorpus object - unigrams approach
+scorp &lt;- tm::SimpleCorpus(tm::DirSource(txt))
+sent5 &lt;- compute_sentiment(scorp, l1, how = "proportional")
+
+# from a VCorpus object - unigrams approach
+## in contrast to what as.sento_corpus(vcorp) would do, the
+## sentiment calculator handles multiple character vectors within
+## a single corpus element as separate documents
+vcorp &lt;- tm::VCorpus(tm::DirSource(reuters))
+sent6 &lt;- compute_sentiment(vcorp, l1)
+
+# from a sento_corpus object - unigrams approach with tf-idf weighting
+sent7 &lt;- compute_sentiment(corpusSample, l1, how = "TFIDF")
+
+# sentence-by-sentence computation
+sent8 &lt;- compute_sentiment(corpusSample, l1, how = "proportionalSquareRoot",
+                           do.sentence = TRUE)
+
+# from a (fake) multilingual corpus
+usnews[["language"]] &lt;- "en" # add language column
+usnews$language[1:100] &lt;- "fr"
+lEn &lt;- sento_lexicons(list("FEEL_en" = list_lexicons$FEEL_en_tr,
+                           "HENRY" = list_lexicons$HENRY_en),
+                      list_valence_shifters$en)
+lFr &lt;- sento_lexicons(list("FEEL_fr" = list_lexicons$FEEL_fr),
+                      list_valence_shifters$fr)
+lexicons &lt;- list(en = lEn, fr = lFr)
+corpusLang &lt;- sento_corpus(corpusdf = usnews[1:250, ])
+sent9 &lt;- compute_sentiment(corpusLang, lexicons, how = "proportional")
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,213 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>generate.simpr_spec</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate simulated data from specification</h2>
+
+<h3>Description</h3>
+
+<p>Use specification from
+<code>specify</code> or
+<code>define</code> to produce simulated data.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'simpr_spec'
+generate(
+  x,
+  .reps,
+  ...,
+  .sim_name = "sim",
+  .quiet = TRUE,
+  .warn_on_error = TRUE,
+  .stop_on_error = FALSE,
+  .debug = FALSE,
+  .progress = FALSE,
+  .options = furrr_options(seed = TRUE)
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a <code>simpr_spec</code> object generated
+by <code>define</code> or
+<code>specify</code>,
+containing the specifications of the
+simulation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.reps</code></td>
+<td>
+<p>number of replications to run (a
+whole number greater than 0)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>filtering criteria for which rows
+to simulate, passed to
+<code>filter</code>.  This is useful
+for reproducing just a few selected rows of a
+simulation without needing to redo the entire
+simulation, see <code>vignette("Reproducing
+simulations")</code>,</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.sim_name</code></td>
+<td>
+<p>name of the list-column to be
+created, containing simulation results.
+Default is <code>"sim"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.quiet</code></td>
+<td>
+<p>Should simulation errors be
+broadcast to the user as they occur?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.warn_on_error</code></td>
+<td>
+<p>Should there be a warning
+when simulation errors occur? See
+<code>vignette("Managing simulation
+errors")</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.stop_on_error</code></td>
+<td>
+<p>Should the simulation
+stop immediately when simulation errors
+occur?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.debug</code></td>
+<td>
+<p>Run simulation in debug mode,
+allowing objects, etc. to be explored for
+each generated variable specification.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.progress</code></td>
+<td>
+<p>A logical, for whether or not
+to print a progress bar for multiprocess,
+multisession, and multicore plans.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.options</code></td>
+<td>
+<p>The <code>future</code> specific
+options to use with the workers when using
+futures. This must be the result from a call
+to
+<code>furrr_options(seed
+= TRUE)</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is the third step in the simulation
+process: after specifying the population model
+and defining the metaparameters, if any,
+<code>generate</code> is the workhorse function that
+actually generates the simulated datasets, one
+for each replication and combination of
+metaparameters. You likely want to use the
+output of <code>generate</code> to fit model(s) with
+<code>fit</code>.
+</p>
+<p>Errors you get using this function usually have
+to do with how you specified the simulation in
+<code>specify</code> and
+<code>define</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a <code>simpr_sims</code> object,
+which is a tibble with a row for each
+repetition (a total of <code>rep</code>
+repetitions) for each combination of
+metaparameters and some extra metadata used
+by <code>fit</code>.  The
+columns are <code>rep</code> for the repetition
+number, the names of the metaparameters, and
+a list-column (named by the argument
+<code>sim_name</code>) containing the dataset for
+each repetition and metaparameter
+combination. <code>simpr_sims</code> objects can be
+manipulated elementwise by <code>dplyr</code> and
+<code>tidyr</code> verbs: the command is applied to
+each element of the simulation list-column.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>specify</code> and
+<code>define</code> for examples of how
+these functions affect the output of
+<code>generate</code>. See
+<code>vignette("Optimization")</code> and the
+<code>furrr</code> website for more information on
+working with futures:
+<a href="https://furrr.futureverse.org/">https://furrr.futureverse.org/</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">meta_list_out = specify(a = ~ MASS::mvrnorm(n, rep(0, 2), Sigma = S)) %&gt;%
+  define(n = c(10, 20, 30),
+       S = list(independent = diag(2), correlated = diag(2) + 2)) %&gt;%
+  generate(1)
+
+ ## View overall structure of the result and a single simulation output
+ meta_list_out
+
+ ## Changing .reps will change the number of replications and thus the number of
+ ## rows in the output
+ meta_list_2 = specify(a = ~ MASS::mvrnorm(n, rep(0, 2), Sigma = S)) %&gt;%
+  define(n = c(10, 20, 30),
+       S = list(independent = diag(2), correlated = diag(2) + 2)) %&gt;%
+  generate(2)
+
+ meta_list_2
+
+ ## Fitting, tidying functions can be included in this step by running those functions and then
+ ## generate.  This can save computation time when doing large
+ ## simulations, especially with parallel processing
+ meta_list_generate_after = specify(a = ~ MASS::mvrnorm(n, rep(0, 2), Sigma = S)) %&gt;%
+  define(n = c(10, 20, 30),
+       S = list(independent = diag(2), correlated = diag(2) + 2)) %&gt;%
+  fit(lm = ~ lm(a_2 ~ a_1, data = .)) %&gt;%
+  tidy_fits %&gt;%
+  generate(1)
+
+  meta_list_generate_after
+
+</code></pre>
+
+
+</div>

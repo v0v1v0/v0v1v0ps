@@ -1,0 +1,156 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.srlars</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Predictions for srlars Object</h2>
+
+<h3>Description</h3>
+
+<p><code>predict.srlars</code> returns the predictions for a srlars object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'srlars'
+predict(object, newx, group_index = NULL, dynamic = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>An object of class srlars</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newx</code></td>
+<td>
+<p>New data for predictions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_index</code></td>
+<td>
+<p>Groups included in the ensemble. Default setting includes all the groups.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamic</code></td>
+<td>
+<p>Argument to determine whether dynamic predictions are used based on deviating cells. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments for compatibility.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The predictions for the srlars object.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Anthony-Alexander Christidis, <a href="mailto:anthony.christidis@stat.ubc.ca">anthony.christidis@stat.ubc.ca</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>srlars</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Required library
+library(mvnfast)
+
+# Simulation parameters
+n &lt;- 50
+p &lt;- 500
+rho.within &lt;- 0.8
+rho.between &lt;- 0.2
+p.active &lt;- 100
+group.size &lt;- 25
+snr &lt;- 3
+contamination.prop &lt;- 0.2
+
+# Setting the seed
+set.seed(0)
+
+# Block correlation structure
+sigma.mat &lt;- matrix(0, p, p)
+sigma.mat[1:p.active, 1:p.active] &lt;- rho.between
+for(group in 0:(p.active/group.size - 1))
+  sigma.mat[(group*group.size+1):(group*group.size+group.size),
+  (group*group.size+1):(group*group.size+group.size)] &lt;- rho.within
+diag(sigma.mat) &lt;- 1
+
+# Simulation of beta vector
+true.beta &lt;- c(runif(p.active, 0, 5)*(-1)^rbinom(p.active, 1, 0.7), rep(0, p - p.active))
+
+# Setting the SD of the variance
+sigma &lt;- as.numeric(sqrt(t(true.beta) %*% sigma.mat %*% true.beta)/sqrt(snr))
+
+# Simulation of uncontaminated data
+x &lt;- mvnfast::rmvn(n, mu = rep(0, p), sigma = sigma.mat)
+y &lt;- x %*% true.beta + rnorm(n, 0, sigma)
+
+# Contamination of data
+contamination_indices &lt;- 1:floor(n*contamination.prop)
+k_lev &lt;- 2
+k_slo &lt;- 100
+x_train &lt;- x
+y_train &lt;- y
+beta_cont &lt;- true.beta
+beta_cont[true.beta!=0] &lt;- beta_cont[true.beta!=0]*(1 + k_slo)
+beta_cont[true.beta==0] &lt;- k_slo*max(abs(true.beta))
+for(cont_id in contamination_indices){
+
+  a &lt;- runif(p, min = -1, max = 1)
+  a &lt;- a - as.numeric((1/p)*t(a) %*% rep(1, p))
+  x_train[cont_id,] &lt;- mvnfast::rmvn(1, rep(0, p), 0.1^2*diag(p)) +
+    k_lev * a / as.numeric(sqrt(t(a) %*% solve(sigma.mat) %*% a))
+  y_train[cont_id] &lt;- t(x_train[cont_id,]) %*% beta_cont
+}
+
+# Ensemble models
+ensemble_fit &lt;- srlars(x_train, y_train,
+                       n_models = 5,
+                       model_saturation = c("fixed", "p-value")[1],
+                       alpha = 0.05, model_size = n - 1,
+                       robust = TRUE,
+                       compute_coef = TRUE,
+                       en_alpha = 1/4)
+
+# Ensemble coefficients
+ensemble_coefs &lt;- coef(ensemble_fit, group_index = 1:ensemble_fit$n_models)
+sens_ensemble &lt;- sum(which((ensemble_coefs[-1]!=0)) &lt;= p.active)/p.active
+spec_ensemble &lt;- sum(which((ensemble_coefs[-1]!=0)) &lt;= p.active)/sum(ensemble_coefs[-1]!=0)
+
+# Simulation of test data
+m &lt;- 2e3
+x_test &lt;- mvnfast::rmvn(m, mu = rep(0, p), sigma = sigma.mat)
+y_test &lt;- x_test %*% true.beta + rnorm(m, 0, sigma)
+
+# Prediction of test samples
+ensemble_preds &lt;- predict(ensemble_fit, newx = x_test,
+                          group_index = 1:ensemble_fit$n_models,
+                          dynamic = FALSE)
+mspe_ensemble &lt;- mean((y_test - ensemble_preds)^2)/sigma^2
+
+</code></pre>
+
+
+</div>

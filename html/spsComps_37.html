@@ -1,0 +1,175 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spsValidate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Validate expressions</h2>
+
+<h3>Description</h3>
+
+<p>this function is used on server side to usually validate input
+dataframe or some expression. The usage is similar to shiny::validate but is
+not limited to shiny render functions and
+provides better user notification and server-end logging (dual-end logging).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spsValidate(
+  expr,
+  vd_name = "my validation",
+  pass_msg = glue("validation: '{vd_name}' passed"),
+  shiny = TRUE,
+  verbose = spsOption("verbose"),
+  prefix = ""
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>expr</code></td>
+<td>
+<p>the expression to validate data or other things. Use
+<code>stop("your message")</code> or generate some errors inside to fail the validation.
+If there is no error, it will return <code>TRUE</code> and display <code>pass_msg</code> on both
+console and shiny app if <code>verbose = TRUE</code> or global SPS option verbose is <code>TRUE</code>.
+</p>
+<p>If the expression fails, it will block the code following this function within
+the same reactive domain to continue, similar to <code>shinyCatch()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vd_name</code></td>
+<td>
+<p>validate title</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pass_msg</code></td>
+<td>
+<p>string, if pass, what message do you want to show</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shiny</code></td>
+<td>
+<p>bool, show message on console but hide from users?
+see <code>shinyCatch()</code> for more details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>bool, show pass message? Default follows global verbose
+setting, use spsUtil::spsOption to set up the value <code>spsOption("verbose, TRUE")</code>
+to turn on and <code>spsOption("verbose, FALSE")</code> to turn off and <code>spsOption("verbose")</code>
+to check current setting, see examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prefix</code></td>
+<td>
+<p>see <code>prefix</code> in <code>shinyCatch()</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+<ul><li>
+<p> Since spsComps 0.3.1 to have the message displayed on shiny UI, you don't need
+to attach the dependencies manually by adding <code>spsDepend("spsValidate")</code> or
+<code>spsDepend("toastr")</code> (old name) on UI. This becomes optional, only in the case
+that automatic attachment is not working.
+</p>
+</li></ul>
+<h3>Value</h3>
+
+<p>If expression fails, block the code following this validation function
+and no final return, else <code>TRUE</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if(interactive()){
+    ui &lt;- fluidPage(
+        spsDepend("spsValidate"), # optional
+        column(
+            4,
+            h3("click below to make the plot"),
+            p("this button will succeed, verbose on"),
+            actionButton("vd1", "make plot 1"),
+            plotOutput("p1")
+        ),
+        column(
+            4,
+            h3("click below to make the plot"),
+            p("this button will succeed, verbose off"),
+            actionButton("vd2", "make plot 2"),
+            plotOutput("p2")
+        ),
+        column(
+            4,
+            h3("click below to make the plot"),
+            p("this button will fail, no plot will be made"),
+            actionButton("vd3", "make plot 3"),
+            plotOutput("p3")
+        ),
+        column(
+            4,
+            h3("click below to make the plot"),
+            p("this button will fail, but the message is hidden from users"),
+            actionButton("vd4", "make plot 4"),
+            plotOutput("p4")
+        )
+    )
+    server &lt;- function(input, output, session) {
+        mydata &lt;- datasets::iris
+        observeEvent(input$vd1, {
+            spsOption("verbose", TRUE) # use global sps verbose setting
+            spsValidate({
+                is.data.frame(mydata)
+            }, vd_name = "Is dataframe")
+            output$p1 &lt;- renderPlot(plot(iris$Sepal.Length, iris$Sepal.Width))
+        })
+        observeEvent(input$vd2, {
+            spsValidate({
+                is.data.frame(mydata)
+            },
+            vd_name = "Is dataframe",
+            verbose = FALSE) # use in-function verbose setting
+            output$p2 &lt;- renderPlot(plot(iris$Sepal.Length, iris$Sepal.Width))
+        })
+        observeEvent(input$vd3, {
+            spsValidate({
+                is.data.frame(mydata)
+                if(nrow(mydata) &lt;= 200) stop("Input needs more than 200 rows")
+            })
+            print("other things blocked")
+            output$p3 &lt;- renderPlot(plot(iris$Sepal.Length, iris$Sepal.Width))
+        })
+        observeEvent(input$vd4, {
+            spsValidate({
+                is.data.frame(mydata)
+                if(nrow(mydata) &lt;= 200) stop("Input needs more than 200 rows")
+            }, shiny = FALSE)
+            print("other things blocked")
+            output$p4 &lt;- renderPlot(plot(iris$Sepal.Length, iris$Sepal.Width))
+        })
+    }
+    shinyApp(ui, server)
+}
+# outside shiny example
+mydata2 &lt;- list(a = 1, b = 2)
+spsValidate({(mydata2)}, "Not empty")
+try(spsValidate(stopifnot(is.data.frame(mydata2)), "is dataframe?"), silent = TRUE)
+</code></pre>
+
+
+</div>

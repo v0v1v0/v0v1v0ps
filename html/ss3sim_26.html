@@ -1,0 +1,186 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>change_tv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Methods to include time-varying parameters in an SS3 operating model</h2>
+
+<h3>Description</h3>
+
+<p><code>change_tv</code> takes SS3 <code>.ctl</code>, <code>.par</code>, and <code>.dat</code> files
+and implements time-varying parameters using environmental variables.
+<code>change_tv</code> is specifically set up to work with an operating model
+<code>.ctl</code> file.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">change_tv(change_tv_list, ctl_file_in = "control.ss_new",
+  ctl_file_out = "om.ctl", dat_file_in = "ss3.dat",
+  dat_file_out = "ss3.dat")
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>change_tv_list</code></td>
+<td>
+<p>*A list of named vectors. Names correspond to parameters
+in the operating model that currently do not use environmental deviations and
+the vectors correspond to deviations. See the section "Specifying the
+<code>change_tv_list</code>" below for help on specifying this argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ctl_file_in</code></td>
+<td>
+<p>A string providing the path to the input SS <code>.ctl</code> file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ctl_file_out</code></td>
+<td>
+<p>A string providing the path to the output SS control file. If the value is <code>NULL</code>, the file will not be written to the disk.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dat_file_in</code></td>
+<td>
+<p>A string providing the path to the input SS <code>.dat</code> file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dat_file_out</code></td>
+<td>
+<p>A string providing the path to the output SS <code>.dat</code> file.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Although there are three ways to implement time-varying parameters within
+SS3, <span class="pkg">ss3sim</span> and <code>change_tv</code> only use the environmental variable
+option. Within SS3, time-varying parameters work on an annual time-step.
+Thus, for models with multiple seasons, the time-varying parameters will
+remain constant for the entire year.
+</p>
+<p>The <code>ctl_file_in</code> argument needs to be a <code>.ss_new</code> file because
+the documentation in <code>.ss_new</code> files are automated and standardized.
+This function takes advantage of the standard documentation the
+<code>.ss_new</code> files to determine which lines to manipulate and where to
+add code in the <code>.ctl</code>, <code>.par</code>, and <code>.dat</code> files, code that
+is necessary to implement time-varying parameters.
+</p>
+<p><span class="pkg">ss3sim</span> uses annual recruitment deviations and may not work with a
+model that ties recruitment deviations to environmental covariates. If you
+need to compare the environment to annual recruitment deviations, the
+preferred option is to transform the environmental variable into an age 0
+pre-recruit survey. See page 55 of the SS3 version 3.24f manual for more
+information.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function creates modified versions of the  <code>.ctl</code> and
+<code>.dat</code> files if ctl_file_out and dat_file_out are not NULL. The function
+also returns a list of the modified <code>.ctl</code> and <code>.dat</code> R objects
+invisibly.
+</p>
+
+
+<h3>Which arguments to specifiy in case files</h3>
+
+<p>All function argument descriptions that start with an asterisk (*) will be passed
+through the case files to <code>run_ss3sim</code>. If one of these arguments
+is not specified in a case file, then a value of <code>NULL</code> will be passed,
+which may or may not be an appropriate value. Other arguments will be ignored
+if specified.
+</p>
+
+
+<h3>Specifying the <code>change_tv_list</code>
+</h3>
+
+<p>Parameters will change to vary with time according to the vectors of
+deviations passed to <code>change_tv_list</code>. Vectors of deviations, also
+referred to as environmental data, must have a length equal to <code>
+endyr-startyr+1</code>, where <code>endyr</code> and <code>startyr</code> are specified the
+<code>.dat</code> file. Specify years without deviations as zero.
+</p>
+<p>Parameter names must be unique and match the full parameter name in the
+<code>.ctl</code> file. Names for stock recruit parameters must contain "devs",
+"R0", or "steep", and only one stock recruit parameter can be time-varying
+per model.
+</p>
+<p>This feature will include an *additive* functional linkage between
+environmental data and the parameter where the link parameter is fixed at a
+value of one and the par value is specified in the <code>.par</code> file:
+<code class="reqn">par'[y] = par + link * env[y]</code>.
+</p>
+<p>For catchability (<code class="reqn">q</code>) the *additive* functional linkage is implemented
+on the log scale: <code class="reqn">ln(q'[y]) = ln(q) + link * env[y]</code>
+</p>
+
+
+<h3>Passing arguments to <code>change_tv</code> through <code>run_ss3sim</code>
+</h3>
+
+<p>(1) create a case file with an arbitrary letter
+not used elsewhere (anything but D, E, F, or R) and (2) include the line
+<code>function_type; change_tv</code> in your case file. For example, you might
+want to use M for natural mortality, S for selectivity, or G for growth.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Kotaro Ono, Carey McGilliard, Kelli Johnson, and Kathryn Doering
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other change functions: <code>change_data</code>,
+<code>change_em_binning</code>, <code>change_e</code>,
+<code>change_f_par</code>, <code>change_f</code>,
+<code>change_o</code>, <code>change_retro</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Create a temporary folder for the output and set the working directory:
+temp_path &lt;- file.path(tempdir(), "ss3sim-tv-example")
+dir.create(temp_path, showWarnings = FALSE)
+wd &lt;- getwd()
+setwd(temp_path)
+on.exit(setwd(wd), add = TRUE)
+
+d &lt;- system.file("extdata", package = "ss3sim")
+om &lt;- file.path(d, "models", "cod-om")
+dir.create("cod-om")
+file.copy(om, ".", recursive = TRUE)
+setwd("cod-om")
+
+change_tv(change_tv_list =
+            list("NatM_p_1_Fem_GP_1" = c(rep(0, 20), rep(.1, 80)),
+                 "SR_BH_steep"=rnorm(100, 0, 0.05)),
+          ctl_file_in  = "codOM.ctl",
+          ctl_file_out = "example.ctl",
+          dat_file_in  = "codOM.dat",
+          dat_file_out = "example.dat")
+
+# Clean up:
+unlink("cod-om", recursive = TRUE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

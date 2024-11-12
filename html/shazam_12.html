@@ -1,0 +1,555 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>collapseClones</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Constructs effective clonal sequences for all clones</h2>
+
+<h3>Description</h3>
+
+<p><code>collapseClones</code> creates effective input and germline sequences for each clonal 
+group and appends columns containing the consensus sequences to the input 
+<code>data.frame</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">collapseClones(
+  db,
+  cloneColumn = "clone_id",
+  sequenceColumn = "sequence_alignment",
+  germlineColumn = "germline_alignment_d_mask",
+  muFreqColumn = NULL,
+  regionDefinition = NULL,
+  method = c("mostCommon", "thresholdedFreq", "catchAll", "mostMutated", "leastMutated"),
+  minimumFrequency = NULL,
+  includeAmbiguous = FALSE,
+  breakTiesStochastic = FALSE,
+  breakTiesByColumns = NULL,
+  expandedDb = FALSE,
+  nproc = 1,
+  juncLengthColumn = "junction_length",
+  fields = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>db</code></td>
+<td>
+<p><code>data.frame</code> containing sequence data. Required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cloneColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing clonal 
+identifiers. Required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sequenceColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing input 
+sequences. Required. The length of each input sequence should 
+match that of its corresponding germline sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>germlineColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing germline 
+sequences. Required. The length of each germline sequence 
+should match that of its corresponding input sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>muFreqColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing mutation
+frequency. Optional. Applicable to the <code>"mostMutated"</code>
+and <code>"leastMutated"</code> methods. If not supplied, mutation
+frequency is computed by calling <code>observedMutations</code>.
+Default is <code>NULL</code>. See Cautions for note on usage.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>regionDefinition</code></td>
+<td>
+<p>RegionDefinition object defining the regions
+and boundaries of the Ig sequences. Optional. Default is 
+<code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>method for calculating input consensus sequence. Required. 
+One of <code>"thresholdedFreq"</code>, <code>"mostCommon"</code>, 
+<code>"catchAll"</code>, <code>"mostMutated"</code>, or 
+<code>"leastMutated"</code>. See "Methods" for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minimumFrequency</code></td>
+<td>
+<p>frequency threshold for calculating input consensus sequence.
+Applicable to and required for the <code>"thresholdedFreq"</code> 
+method. A canonical choice is 0.6. Default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>includeAmbiguous</code></td>
+<td>
+<p>whether to use ambiguous characters to represent positions 
+at which there are multiple characters with frequencies that 
+are at least <code>minimumFrequency</code> or that are maximal 
+(i.e. ties). Applicable to and required for the 
+<code>"thresholdedFreq"</code> and <code>"mostCommon"</code> methods. 
+Default is <code>FALSE</code>. See "Choosing ambiguous characters" 
+for rules on choosing ambiguous characters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>breakTiesStochastic</code></td>
+<td>
+<p>In case of ties, whether to randomly pick a sequence from 
+sequences that fulfill the criteria as consensus. Applicable 
+to and required for all methods except for <code>"catchAll"</code>. 
+Default is <code>FALSE</code>. See "Methods" for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>breakTiesByColumns</code></td>
+<td>
+<p>A list of the form 
+<code>list(c(col_1, col_2, ...), c(fun_1, fun_2, ...))</code>, 
+where <code>col_i</code> is a <code>character</code> name of a column 
+in <code>db</code>, and <code>fun_i</code> is a function to be applied 
+on that column. Currently, only <code>max</code> and <code>min</code> 
+are supported. Note that the two <code>c()</code>'s in <code>list()</code> 
+are essential (i.e. if there is only 1 column, the list should 
+be of the form <code>list(c(col_1), c(func_1))</code>. Applicable 
+to and optional for the <code>"mostMutated"</code> and 
+<code>"leastMutated"</code> methods. If supplied, <code>fun_i</code>'s 
+are applied on <code>col_i</code>'s to help break ties. Default 
+is <code>NULL</code>. See "Methods" for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expandedDb</code></td>
+<td>
+<p><code>logical</code> indicating whether or not to return the 
+expanded <code>db</code>, containing all the sequences (as opposed
+to returning just one sequence per clone).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nproc</code></td>
+<td>
+<p>Number of cores to distribute the operation over. If the 
+<code>cluster</code> has already been set earlier, then pass the 
+<code>cluster</code>. This will ensure that it is not reset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>juncLengthColumn</code></td>
+<td>
+<p><code>character</code> name of the column containing the junction length.
+Needed when <code>regionDefinition</code> includes CDR3 and FWR4.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fields</code></td>
+<td>
+<p>additional fields used for grouping. Use sample_id, to
+avoid combining sequences with the same clone_id 
+that belong to different sample_id.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A modified <code>db</code> with the following additional columns: 
+</p>
+
+<ul>
+<li> <p><code>clonal_sequence</code>:  effective sequence for the clone.
+</p>
+</li>
+<li> <p><code>clonal_germline</code>:  germline sequence for the clone.
+</p>
+</li>
+<li> <p><code>clonal_sequence_mufreq</code>:  mutation frequency of 
+<code>clonal_sequence</code>; only added for the <code>"mostMutated"</code>
+and <code>"leastMutated"</code> methods.
+</p>
+</li>
+</ul>
+<p><code>clonal_sequence</code> is generated with the method of choice indicated 
+by <code>method</code>, and <code>clonal_germline</code> is generated with the 
+<code>"mostCommon"</code> method, along with, where applicable, user-defined 
+parameters such as <code>minimumFrequency</code>, <code>includeAmbiguous</code>, 
+<code>breakTiesStochastic</code>, and <code>breakTiesByColumns</code>.
+</p>
+
+
+<h3>Consensus lengths</h3>
+
+<p>For each clone, <code>clonal_sequence</code> and 
+<code>clonal_germline</code> have the same length. 
+</p>
+
+<ul>
+<li>
+<p> For the <code>"thresholdedFreq"</code>, <code>"mostCommon"</code>, and 
+<code>"catchAll"</code> methods:
+</p>
+<p>The length of the consensus sequences is determined by the longest possible
+consensus sequence (baesd on <code>inputSeq</code> and <code>germlineSeq</code>) and 
+<code>regionDefinition@seqLength</code> (if supplied), whichever is shorter.
+</p>
+<p>Given a set of sequences of potentially varying lengths, the longest possible 
+length of their consensus sequence is taken to be the longest length along 
+which there is information contained at every nucleotide position across 
+majority of the sequences. Majority is defined to be greater than 
+<code>floor(n/2)</code>, where <code>n</code> is the number of sequences. If the longest 
+possible consensus length is 0, there will be a warning and an empty string 
+(<code>""</code>) will be returned. 
+</p>
+<p>If a length limit is defined by supplying a <code>regionDefinition</code> via 
+<code>regionDefinition@seqLength</code>, the consensus length will be further 
+restricted to the shorter of the longest possible length and 
+<code>regionDefinition@seqLength</code>.
+</p>
+</li>
+<li>
+<p> For the <code>"mostMutated"</code> and <code>"leastMutated"</code> methods:
+</p>
+<p>The length of the consensus sequences depends on that of the most/least 
+mutated input sequence, and, if supplied, the length limit defined by 
+<code>regionDefinition@seqLength</code>, whichever is shorter. If the germline 
+consensus computed using the <code>"mostCommon"</code> method is longer than 
+the most/least mutated input sequence, the germline consensus is trimmed 
+to be of the same length as the input consensus.
+</p>
+</li>
+</ul>
+<h3>Methods</h3>
+
+<p>The descriptions below use "sequences" as a generalization of input 
+sequences and germline sequences. 
+</p>
+
+<ul>
+<li> <p><code>method="thresholdedFreq"</code>
+</p>
+<p>A threshold must be supplied to the argument <code>minimumFrequency</code>. At 
+each position along the length of the consensus sequence, the frequency 
+of each nucleotide/character across sequences is tabulated. The 
+nucleotide/character whose frequency is at least (i.e. <code>&gt;=</code>) 
+<code>minimumFrequency</code> becomes the consensus; if there is none, the
+consensus nucleotide will be <code>"N"</code>.
+</p>
+<p>When there are ties (frequencies of multiple nucleotides/characters 
+are at least <code>minimumFrequency</code>), this method can be deterministic 
+or stochastic, depending on additional parameters.
+</p>
+
+<ul>
+<li>
+<p> With <code>includeAmbiguous=TRUE</code>, ties are resolved 
+deterministically by representing ties using ambiguous 
+characters. See "Choosing ambiguous characters" for how 
+ambiguous characters are chosen.
+</p>
+</li>
+<li>
+<p> With <code>breakTiesStochastic=TRUE</code>, ties are resolved 
+stochastically by randomly picking a character amongst the 
+ties.
+</p>
+</li>
+<li>
+<p> When both <code>TRUE</code>, <code>includeAmbiguous</code> takes 
+precedence over <code>breakTiesStochastic</code>.
+</p>
+</li>
+<li>
+<p> When both <code>FALSE</code>, the first character from the ties is 
+taken to be the consensus following the order of <code>"A"</code>, 
+<code>"T"</code>, <code>"G"</code>, <code>"C"</code>, <code>"N"</code>, <code>"."</code>, 
+and <code>"-"</code>.
+</p>
+</li>
+</ul>
+<p>Below are some examples looking at a single position based on 5 
+sequences with <code>minimumFrequency=0.6</code>, 
+<code>includeAmbiguous=FALSE</code>, and <code>breakTiesStochastic=FALSE</code>:
+</p>
+
+<ul>
+<li>
+<p> If the sequences have <code>"A"</code>, <code>"A"</code>, <code>"A"</code>, 
+<code>"T"</code>, <code>"C"</code>, the consensus will be <code>"A"</code>, 
+because <code>"A"</code> has frequency 0.6, which is at least 
+<code>minimumFrequency</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"A"</code>, <code>"A"</code>, <code>"T"</code>, 
+<code>"T"</code>, <code>"C"</code>, the consensus will be <code>"N"</code>, 
+because none of <code>"A"</code>, <code>"T"</code>, or <code>"C"</code> has 
+frequency that is at least <code>minimumFrequency</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>method="mostCommon"</code>
+</p>
+<p>The most frequent nucleotide/character across sequences at each 
+position along the length of the consensus sequence makes up the consensus.
+</p>
+<p>When there are ties (multiple nucleotides/characters with equally 
+maximal frequencies), this method can be deterministic or stochastic, 
+depending on additional parameters. The same rules for breaking ties 
+for <code>method="thresholdedFreq"</code> apply.
+</p>
+<p>Below are some examples looking at a single position based on 5 
+sequences with <code>includeAmbiguous=FALSE</code>, and 
+<code>breakTiesStochastic=FALSE</code>:
+</p>
+
+<ul>
+<li>
+<p> If the sequences have <code>"A"</code>, <code>"A"</code>, <code>"T"</code>, 
+<code>"A"</code>, <code>"C"</code>, the consensus will be <code>"A"</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"T"</code>, <code>"T"</code>, <code>"C"</code>, 
+<code>"C"</code>, <code>"G"</code>, the consensus will be <code>"T"</code>, 
+because <code>"T"</code> is before <code>"C"</code> in the order of 
+<code>"A"</code>, <code>"T"</code>, <code>"G"</code>, <code>"C"</code>, <code>"N"</code>, 
+<code>"."</code>, and <code>"-"</code>. 
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>method="catchAll"</code>
+</p>
+<p>This method returns a consensus sequence capturing most of the 
+information contained in the sequences. Ambiguous characters are 
+used where applicable. See "Choosing ambiguous characters" for how 
+ambiguous characters are chosen. This method is deterministic and 
+does not involve breaking ties.
+</p>
+<p>Below are some examples for <code>method="catchAll"</code> looking at a 
+single position based on 5 sequences:
+</p>
+
+<ul>
+<li>
+<p> If the sequences have <code>"N"</code>, <code>"N"</code>, <code>"N"</code>, 
+<code>"N"</code>, <code>"N"</code>, the consensus will be <code>"N"</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"N"</code>, <code>"A"</code>, <code>"A"</code>, 
+<code>"A"</code>, <code>"A"</code>, the consensus will be <code>"A"</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"N"</code>, <code>"A"</code>, <code>"G"</code>, 
+<code>"A"</code>, <code>"A"</code>, the consensus will be <code>"R"</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"-"</code>, <code>"-"</code>, <code>"."</code>, 
+<code>"."</code>, <code>"."</code>, the consensus will be <code>"-"</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"-"</code>, <code>"-"</code>, <code>"-"</code>, 
+<code>"-"</code>, <code>"-"</code>, the consensus will be <code>"-"</code>.
+</p>
+</li>
+<li>
+<p> If the sequences have <code>"."</code>, <code>"."</code>, <code>"."</code>, 
+<code>"."</code>, <code>"."</code>, the consensus will be <code>"."</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>method="mostMutated"</code> and <code>method="leastMutated"</code>
+</p>
+<p>These methods return the most/least mutated sequence as the consensus 
+sequence. 
+</p>
+<p>When there are ties (multple sequences have the maximal/minimal mutation
+frequency), this method can be deterministic or stochastic, depending on 
+additional parameters.
+</p>
+
+<ul>
+<li>
+<p> With <code>breakTiesStochastic=TRUE</code>, ties are resolved 
+stochastically by randomly picking a sequence out of 
+sequences with the maximal/minimal mutation frequency.
+</p>
+</li>
+<li>
+<p> When <code>breakTiesByColumns</code> is supplied, ties are resolved
+deterministically. Column by column, a function is applied on 
+the column and sequences with column value matching the 
+functional value are retained, until ties are resolved or 
+columns run out. In the latter case, the first remaining 
+sequence is taken as the consensus.
+</p>
+</li>
+<li>
+<p> When <code>breakTiesStochastic=TRUE</code> and 
+<code>breakTiesByColumns</code> is also supplied, 
+<code>breakTiesStochastic</code> takes precedence over 
+<code>breakTiesByColumns</code>.
+</p>
+</li>
+<li>
+<p> When <code>breakTiesStochastic=FALSE</code> and 
+<code>breakTiesByColumns</code> is not supplied (i.e. <code>NULL</code>), 
+the sequence that appears first amongst the ties is taken 
+as the consensus.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3>Choosing ambiguous characters</h3>
+
+<p>Ambiguous characters may be present in the returned consensuses when using the
+<code>"catchAll"</code> method and when using the <code>"thresholdedFreq"</code> or 
+<code>"mostCommon"</code> methods with <code>includeAmbiguous=TRUE</code>. 
+</p>
+<p>The rules on choosing ambiguous characters are as follows:
+</p>
+
+<ul>
+<li>
+<p> If a position contains only <code>"N"</code> across sequences, the consensus 
+at that position is <code>"N"</code>.
+</p>
+</li>
+<li>
+<p> If a position contains one or more of <code>"A"</code>, <code>"T"</code>, 
+<code>"G"</code>, or <code>"C"</code>, the consensus will be an IUPAC character 
+representing all of the characters present, regardless of whether 
+<code>"N"</code>, <code>"-"</code>, or <code>"."</code> is present.
+</p>
+</li>
+<li>
+<p> If a position contains only <code>"-"</code> and <code>"."</code> across sequences, 
+the consensus at that position is taken to be <code>"-"</code>. 
+</p>
+</li>
+<li>
+<p> If a position contains only one of <code>"-"</code> or <code>"."</code> across 
+sequences, the consensus at that position is taken to be the character 
+present. 
+</p>
+</li>
+</ul>
+<h3>Cautions</h3>
+
+
+<ul>
+<li>
+<p>   Note that this function does not perform multiple sequence alignment. 
+As a prerequisite, it is assumed that the sequences in 
+<code>sequenceColumn</code> and <code>germlineColumn</code> have been aligned 
+somehow. In the case of immunoglobulin repertoire analysis, this 
+usually means that the sequences are IMGT-gapped.
+</p>
+</li>
+<li>
+<p>   When using the <code>"mostMutated"</code> and <code>"leastMutated"</code> methods, 
+if you supply both <code>muFreqColumn</code> and <code>regionDefinition</code>,
+it is your responsibility to ensure that the mutation frequency in
+<code>muFreqColumn</code> was calculated with sequence lengths restricted 
+to the <strong>same</strong> <code>regionDefinition</code> you are supplying. 
+Otherwise, the "most/least mutated" sequence you obtain might not 
+be the most/least mutated given the <code>regionDefinition</code> supplied, 
+because your mutation frequency was based on a 
+<code>regionDefinition</code> different from the one supplied.
+</p>
+</li>
+<li>
+<p>   If you intend to run <code>collapseClones</code> before 
+building a 5-mer targeting model, you <strong>must</strong> choose 
+parameters such that your collapsed clonal consensuses do 
+<strong>not</strong> include ambiguous characters. This is because the 
+targeting model functions do NOT support ambiguous characters 
+in their inputs.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p>See IMGT_SCHEMES for a set of predefined RegionDefinition objects.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Subset example data
+data(ExampleDb, package="alakazam")
+db &lt;- subset(ExampleDb, c_call %in% c("IGHA", "IGHG") &amp; sample_id == "+7d" &amp;
+                        clone_id %in% c("3100", "3141", "3184"))
+
+# thresholdedFreq method, resolving ties deterministically without using ambiguous characters
+clones &lt;- collapseClones(db, cloneColumn="clone_id", sequenceColumn="sequence_alignment", 
+                         germlineColumn="germline_alignment_d_mask",
+                         method="thresholdedFreq", minimumFrequency=0.6,
+                         includeAmbiguous=FALSE, breakTiesStochastic=FALSE)
+
+# mostCommon method, resolving ties deterministically using ambiguous characters
+clones &lt;- collapseClones(db, cloneColumn="clone_id", sequenceColumn="sequence_alignment", 
+                         germlineColumn="germline_alignment_d_mask",
+                         method="mostCommon", 
+                         includeAmbiguous=TRUE, breakTiesStochastic=FALSE)
+
+# Make a copy of db that has a mutation frequency column
+db2 &lt;- observedMutations(db, frequency=TRUE, combine=TRUE)
+
+# mostMutated method, resolving ties stochastically
+clones &lt;- collapseClones(db2, cloneColumn="clone_id", sequenceColumn="sequence_alignment", 
+                         germlineColumn="germline_alignment_d_mask",
+                         method="mostMutated", muFreqColumn="mu_freq", 
+                         breakTiesStochastic=TRUE, breakTiesByColumns=NULL)
+                         
+# mostMutated method, resolving ties deterministically using additional columns
+clones &lt;- collapseClones(db2, cloneColumn="clone_id", sequenceColumn="sequence_alignment", 
+                         germlineColumn="germline_alignment_d_mask",
+                         method="mostMutated", muFreqColumn="mu_freq", 
+                         breakTiesStochastic=FALSE, 
+                         breakTiesByColumns=list(c("duplicate_count"), c(max)))
+
+# Build consensus for V segment only
+# Capture all nucleotide variations using ambiguous characters 
+clones &lt;- collapseClones(db, cloneColumn="clone_id", sequenceColumn="sequence_alignment", 
+                         germlineColumn="germline_alignment_d_mask",
+                         method="catchAll", regionDefinition=IMGT_V)
+
+# Return the same number of rows as the input
+clones &lt;- collapseClones(db, cloneColumn="clone_id", sequenceColumn="sequence_alignment", 
+                         germlineColumn="germline_alignment_d_mask",
+                         method="mostCommon", expandedDb=TRUE)
+
+</code></pre>
+
+
+</div>

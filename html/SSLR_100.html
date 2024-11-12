@@ -1,0 +1,207 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>setredG</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SETRED generic method</h2>
+
+<h3>Description</h3>
+
+<p>SETRED is a variant of the self-training classification method
+(<code>selfTraining</code>) with a different addition mechanism.
+The SETRED classifier is initially trained with a
+reduced set of labeled examples. Then it is iteratively retrained with its own most
+confident predictions over the unlabeled examples. SETRED uses an amending scheme
+to avoid the introduction of noisy examples into the enlarged labeled set. For each
+iteration, the mislabeled examples are identified using the local information provided
+by the neighborhood graph.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">setredG(
+  y,
+  D,
+  gen.learner,
+  gen.pred,
+  theta = 0.1,
+  max.iter = 50,
+  perc.full = 0.7
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A vector with the labels of training instances. In this vector the
+unlabeled instances are specified with the value <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>A distance matrix between all the training instances. This matrix is used to
+construct the neighborhood graph.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gen.learner</code></td>
+<td>
+<p>A function for training a supervised base classifier.
+This function needs two parameters, indexes and cls, where indexes indicates
+the instances to use and cls specifies the classes of those instances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gen.pred</code></td>
+<td>
+<p>A function for predicting the probabilities per classes.
+This function must be two parameters, model and indexes, where the model
+is a classifier trained with <code>gen.learner</code> function and
+indexes indicates the instances to predict.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+<p>Rejection threshold to test the critical region. Default is 0.1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.iter</code></td>
+<td>
+<p>Maximum number of iterations to execute the self-labeling process.
+Default is 50.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>perc.full</code></td>
+<td>
+<p>A number between 0 and 1. If the percentage
+of new labeled examples reaches this value the self-training process is stopped.
+Default is 0.7.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SetredG can be helpful in those cases where the method selected as
+base classifier needs a <code>learner</code> and <code>pred</code> functions with other
+specifications. For more information about the general setred method,
+please see <code>setred</code> function. Essentially, <code>setred</code>
+function is a wrapper of <code>setredG</code> function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list object of class "setredG" containing:
+</p>
+
+<dl>
+<dt>model</dt>
+<dd>
+<p>The final base classifier trained using the enlarged labeled set.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of the training instances used to
+train the <code>model</code>. These indexes include the initial labeled instances
+and the newly labeled instances.
+Those indexes are relative to the <code>y</code> argument.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(SSLR)
+library(caret)
+
+## Load Wine data set
+data(wine)
+
+cls &lt;- which(colnames(wine) == "Wine")
+x &lt;- wine[, - cls] # instances without classes
+y &lt;- wine[, cls] # the classes
+x &lt;- scale(x) # scale the attributes
+
+## Prepare data
+set.seed(20)
+# Use 50% of instances for training
+tra.idx &lt;- sample(x = length(y), size = ceiling(length(y) * 0.5))
+xtrain &lt;- x[tra.idx,] # training instances
+ytrain &lt;- y[tra.idx] # classes of training instances
+# Use 70% of train instances as unlabeled set
+tra.na.idx &lt;- sample(x = length(tra.idx), size = ceiling(length(tra.idx) * 0.7))
+ytrain[tra.na.idx] &lt;- NA # remove class information of unlabeled instances
+
+# Use the other 50% of instances for inductive testing
+tst.idx &lt;- setdiff(1:length(y), tra.idx)
+xitest &lt;- x[tst.idx,] # testing instances
+yitest &lt;- y[tst.idx] # classes of testing instances
+
+# Compute distances between training instances
+D &lt;- as.matrix(proxy::dist(x = xtrain, method = "euclidean", by_rows = TRUE))
+
+## Example: Training from a set of instances with 1-NN (knn3) as base classifier.
+# Compute distances between training instances
+D &lt;- as.matrix(proxy::dist(x = xtrain, method = "euclidean", by_rows = TRUE))
+
+## Example: Training from a set of instances with 1-NN (knn3) as base classifier.
+gen.learner &lt;- function(indexes, cls)
+  caret::knn3(x = xtrain[indexes,], y = cls, k = 1)
+gen.pred &lt;- function(model, indexes)
+  predict(model, xtrain[indexes,])
+
+trControl_SETRED1 &lt;- list(D = D, gen.learner = gen.learner,
+                             gen.pred = gen.pred)
+md1 &lt;- train_generic(ytrain, method = "setredG", trControl = trControl_SETRED1)
+
+'md1 &lt;- setredG(y = ytrain, D, gen.learner, gen.pred)'
+
+cls1 &lt;- predict(md1$model, xitest, type = "class")
+table(cls1, yitest)
+
+confusionMatrix(cls1, yitest)$overall[1]
+
+
+## Example: Training from a distance matrix with 1-NN (oneNN) as base classifier
+gen.learner &lt;- function(indexes, cls) {
+  m &lt;- SSLR::oneNN(y = cls)
+  attr(m, "tra.idxs") &lt;- indexes
+  m
+}
+
+gen.pred &lt;- function(model, indexes) {
+  tra.idxs &lt;- attr(model, "tra.idxs")
+  d &lt;- D[indexes, tra.idxs]
+  prob &lt;- predict(model, d, distance.weighting = "none")
+  prob
+}
+
+trControl_SETRED2 &lt;- list(D = D, gen.learner = gen.learner,
+                          gen.pred = gen.pred)
+md2 &lt;- train_generic(ytrain, method = "setredG", trControl = trControl_SETRED2)
+
+
+ditest &lt;- proxy::dist(x = xitest, y = xtrain[md2$instances.index,],
+                      method = "euclidean", by_rows = TRUE)
+
+cls2 &lt;- predict(md2$model, ditest, type = "class")
+table(cls2, yitest)
+
+confusionMatrix(cls2, yitest)$overall[1]
+
+
+
+
+
+</code></pre>
+
+
+</div>

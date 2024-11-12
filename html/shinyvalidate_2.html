@@ -1,0 +1,451 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>InputValidator</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Shiny validation object</h2>
+
+<h3>Description</h3>
+
+<p>An R6 class for adding realtime input validation to Shiny apps.
+</p>
+<p><code>InputValidator</code> objects are designed to be created as local variables in
+Shiny server functions and Shiny module server functions. The Shiny app
+author can register zero, one, or multiple validation rules for each input
+field in their UI, using the <code>InputValidator$add_rule()</code> method.
+</p>
+<p>Once an <code>InputValidator</code> object is created and populated with rules, it can
+be used in a few ways:
+</p>
+
+<ol>
+<li>
+<p> The <code>InputValidator$enable()</code> method can be called to display real-time
+feedback to users about what inputs are failing validation, and why.
+</p>
+</li>
+<li>
+<p> The <code>InputValidator$is_valid()</code> method returns <code>TRUE</code> if and only if all
+of the validation rules are passing; this can be checked before
+executing actions that depend on the inputs being valid.
+</p>
+</li>
+<li>
+<p> The <code>InputValidator$validate()</code> method is a lower-level feature that
+directly returns information about what fields failed validation, and
+why.
+</p>
+</li>
+</ol>
+<p>It's possible to have multiple <code>InputValidator</code> objects for each Shiny app.
+One scenario where this makes sense is if an app contains multiple forms
+that are completely unrelated to each other; each form would have its own
+<code>InputValidator</code> instance with a distinct set of rules.
+</p>
+
+
+<h3>Methods</h3>
+
+
+
+<h4>Public methods</h4>
+
+
+<ul>
+<li> <p><a href="#method-InputValidator-new"><code>InputValidator$new()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-parent"><code>InputValidator$parent()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-condition"><code>InputValidator$condition()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-add_validator"><code>InputValidator$add_validator()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-add_rule"><code>InputValidator$add_rule()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-enable"><code>InputValidator$enable()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-disable"><code>InputValidator$disable()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-fields"><code>InputValidator$fields()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-is_valid"><code>InputValidator$is_valid()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-validate"><code>InputValidator$validate()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-InputValidator-_validate_impl"><code>InputValidator$_validate_impl()</code></a>
+</p>
+</li>
+</ul>
+<hr>
+<a id="method-InputValidator-new"></a>
+
+
+
+<h4>Method <code>new()</code>
+</h4>
+
+<p>Create a new validator object.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$new(
+  priority = 1000,
+  session = shiny::getDefaultReactiveDomain()
+)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>priority</code></dt>
+<dd>
+<p>When a validator object is enabled, it creates an
+internal <code>shiny::observe()</code> to keep validation feedback in the UI
+up-to-date. This parameter controls the priority of that observer. It's
+highly recommended to keep this value higher than the priorities of any
+observers that do actual work, so users see validation updates quickly.</p>
+</dd>
+<dt><code>session</code></dt>
+<dd>
+<p>The Shiny <code>session</code> object. (You should probably just use
+the default.)</p>
+</dd>
+</dl>
+</div>
+
+
+<hr>
+<a id="method-InputValidator-parent"></a>
+
+
+
+<h4>Method <code>parent()</code>
+</h4>
+
+<p>For internal use only.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$parent(validator)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>validator</code></dt>
+<dd>
+<p>An <code>InputValidator</code> object.</p>
+</dd>
+</dl>
+</div>
+
+
+<hr>
+<a id="method-InputValidator-condition"></a>
+
+
+
+<h4>Method <code>condition()</code>
+</h4>
+
+<p>Gets or sets a condition that overrides all of the rules in
+this validator. Before performing validation, this validator will
+execute the <code>cond</code> function. If <code>cond</code> returns <code>TRUE</code>, then
+validation continues as normal; if <code>FALSE</code>, then the validation rules
+will be skipped and treated as if they are all passing.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$condition(cond)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>cond</code></dt>
+<dd>
+<p>If this argument is missing, then the method returns the
+currently set condition function. If not missing, then <code>cond</code> must
+be either a zero-argument function that returns <code>TRUE</code> or <code>FALSE</code>; a
+single-sided formula that results in <code>TRUE</code> or <code>FALSE</code>; or <code>NULL</code>
+(which is equivalent to <code>~ TRUE</code>).</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>If <code>cond</code> is missing, then either <code>NULL</code> or a zero-argument
+function; if <code>cond</code> is provided, then nothing of consequence is
+returned.
+</p>
+
+
+<hr>
+<a id="method-InputValidator-add_validator"></a>
+
+
+
+<h4>Method <code>add_validator()</code>
+</h4>
+
+<p>Add another <code>InputValidator</code> object to this one, as a
+"child". Any time this validator object is asked for its validity, it
+will only return <code>TRUE</code> if all of its child validators are also valid;
+and when this validator object is enabled (or disabled), then all of
+its child validators are enabled (or disabled) as well.
+</p>
+<p>This is intended to help with validating Shiny modules. Each module can
+create its own <code>InputValidator</code> object and populate it with rules, then
+return that object to the caller.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$add_validator(validator, label = deparse(substitute(validator)))</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>validator</code></dt>
+<dd>
+<p>An <code>InputValidator</code> object.</p>
+</dd>
+<dt><code>label</code></dt>
+<dd>
+<p>An optional label for the <code>InputValidator</code> object. By
+default, a label will be automatically generated.</p>
+</dd>
+</dl>
+</div>
+
+
+<hr>
+<a id="method-InputValidator-add_rule"></a>
+
+
+
+<h4>Method <code>add_rule()</code>
+</h4>
+
+<p>Add an input validation rule. Each input validation rule
+applies to a single input. You can add multiple validation rules for a
+single input by calling <code>add_rule()</code> multiple times; the first
+validation rule for an input that fails will be used, and will prevent
+subsequent rules for that input from executing.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$add_rule(
+  inputId,
+  rule,
+  ...,
+  session. = shiny::getDefaultReactiveDomain()
+)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>inputId</code></dt>
+<dd>
+<p>A single-element character vector indicating the ID of the
+input that this rule applies to. (Note that this name should <em>not</em> be
+qualified by a module namespace; e.g. pass <code>"x"</code> and not
+<code>session$ns("x")</code>.)</p>
+</dd>
+<dt><code>rule</code></dt>
+<dd>
+<p>A function that takes (at least) one argument: the input's
+value. The function should return <code>NULL</code> if it passes validation, and
+if not, a single-element character vector or HTML tag containing an
+error message to display to the user near the input. You can
+alternatively provide a single-sided formula instead of a function,
+using <code>.</code> as the variable name for the input value being validated.</p>
+</dd>
+<dt><code>...</code></dt>
+<dd>
+<p>Optional: Additional arguments to pass to the <code>rule</code> function
+whenever it is invoked.</p>
+</dd>
+<dt><code>session.</code></dt>
+<dd>
+<p>The session object to which the input belongs. (There's
+almost never a reason to change this from the default.)</p>
+</dd>
+</dl>
+</div>
+
+
+<hr>
+<a id="method-InputValidator-enable"></a>
+
+
+
+<h4>Method <code>enable()</code>
+</h4>
+
+<p>Begin displaying input validation feedback in the user
+interface. Once enabled, this validator object will automatically keep
+the feedback up-to-date. (It's safe to call the <code>enable()</code> method
+on an already-enabled validator.) If this validator object has been
+added to another validator object using <code>InputValidator$add_validator</code>,
+calls to <code>enable()</code> on this validator will be ignored.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$enable()</pre></div>
+
+
+<hr>
+<a id="method-InputValidator-disable"></a>
+
+
+
+<h4>Method <code>disable()</code>
+</h4>
+
+<p>Clear existing input validation feedback in the user
+interface for all inputs represented in this validator's ruleset, and
+stop providing feedback going forward. Once disabled, <code>enable()</code> can be
+called to resume input validation.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$disable()</pre></div>
+
+
+<hr>
+<a id="method-InputValidator-fields"></a>
+
+
+
+<h4>Method <code>fields()</code>
+</h4>
+
+<p>Returns <code>TRUE</code> if all input validation rules currently pass,
+<code>FALSE</code> if not.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$fields()</pre></div>
+
+
+<hr>
+<a id="method-InputValidator-is_valid"></a>
+
+
+
+<h4>Method <code>is_valid()</code>
+</h4>
+
+<p>Returns <code>TRUE</code> if all input validation rules currently pass,
+<code>FALSE</code> if not.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$is_valid()</pre></div>
+
+
+<hr>
+<a id="method-InputValidator-validate"></a>
+
+
+
+<h4>Method <code>validate()</code>
+</h4>
+
+<p>Run validation rules and gather results. For advanced usage
+only; most apps should use the <code>is_valid()</code> and <code>enable()</code> methods
+instead. The return value of this method is a named list, where the
+names are (fully namespace qualified) input IDs, and the values are
+either <code>NULL</code> (if the input value is passing) or a single-element
+character vector describing a validation problem.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$validate()</pre></div>
+
+
+<hr>
+<a id="method-InputValidator-_validate_impl"></a>
+
+
+
+<h4>Method <code>_validate_impl()</code>
+</h4>
+
+<p>For internal use only.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>InputValidator$_validate_impl(indent)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>indent</code></dt>
+<dd>
+<p>For internal use only.</p>
+</dd>
+</dl>
+</div>
+
+
+
+
+</div>

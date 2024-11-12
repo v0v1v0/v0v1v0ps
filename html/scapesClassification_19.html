@@ -1,0 +1,236 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>reclass.nbs</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Reclassify neighbors</h2>
+
+<h3>Description</h3>
+
+<p>Evaluate if members of two classes are contiguous and, if they are, one of
+them is reclassified.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">reclass.nbs(
+  attTbl,
+  ngbList,
+  rNumb = FALSE,
+  classVector,
+  nbs_of,
+  class,
+  reclass,
+  reclass_all = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>attTbl</code></td>
+<td>
+<p>data.frame, the attribute table returned by the function
+<code>attTbl</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngbList</code></td>
+<td>
+<p>list, the list of neighborhoods returned by the function
+<code>ngbList</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rNumb</code></td>
+<td>
+<p>logic, the neighborhoods of the argument <code>ngbList</code> are
+identified by cell numbers (<code>rNumb=FALSE</code>) or by row numbers
+(<code>rNumb=TRUE</code>) (see <code>ngbList</code>). It is advised to use row
+numbers for large rasters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>classVector</code></td>
+<td>
+<p>numeric vector, defines the cells in the attribute table
+that have already been classified. See <code>conditions</code> for more
+information about class vectors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nbs_of</code></td>
+<td>
+<p>numeric or numeric vector, indicates the class(es) of focal and
+anchor cells.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>class</code></td>
+<td>
+<p>numeric or numeric vector, cells of classes <code>class</code>
+adjacent to cells belonging to one of the classes of <code>nbs_of</code> are
+reclassified as indicated by the argument <code>reclass</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reclass</code></td>
+<td>
+<p>numeric, the classification number to assign to all cells that
+meet the function conditions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reclass_all</code></td>
+<td>
+<p>logic, all cells of class <code>class</code> are also
+reclassified if they are connected to a reclassified cell.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+ <ul>
+<li>
+<p> The function evaluates if a cell of class
+<code>class</code> is adjacent to a cell of class <code>nbs_of</code> and, if it is, it
+is reclassifies as indicated by the argument <code>reclass</code>.
+</p>
+</li>
+<li>
+<p> If the argument <code>reclass_all = TRUE</code>, all cells of class
+<code>class</code> are also reclassified if they are connected to a reclassified
+cell.</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>Update <code>classVector</code> with the new cells that were classified by
+the function. See <code>conditions</code> for more information about class
+vectors.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>attTbl()</code>, <code>ngbList()</code>, <code>cond.reclass()</code>, <code>classify.all()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r)
+
+################################################################################
+# RECLASS.NBS
+################################################################################
+
+# Compute an inital class vector with `cond.4.all`
+cv &lt;- cond.4.all(attTbl = at, cond = "dummy_var &gt; 5", class = 1)
+
+# Update the class vector with a second class
+cv &lt;- cond.4.all(attTbl = at, cond = "dummy_var &gt;= 2", class = 2,
+                 classVector = cv)
+
+
+# Reclassify cells of class 2 adjacent to cells of class 1
+
+# reclass_all = FALSE
+rc1 &lt;- reclass.nbs(attTbl = at, ngbList = nbs,
+
+                   # CLASS VECTOR `cv`
+                   classVector = cv,
+
+                   # CELLS OF CLASS...
+                   class = 2,
+
+                   # ...ADJACENT TO CELLS OF ANOTHER CLASS...
+                   nbs_of = 1,
+
+                   # ...WILL BE RECLASSIFIED...
+                   reclass = 3,
+
+                   # NO MORE RECLASSIFICATIONS
+                   reclass_all = FALSE)
+
+# reclass_all = TRUE
+rc2 &lt;- reclass.nbs(attTbl = at, ngbList = nbs,
+
+                   # CLASS VECTOR `cv`
+                   classVector = cv,
+
+                   # CELLS OF CLASS...
+                   class = 2,
+
+                   # ...ADJACENT TO CELLS OF ANOTHER CLASS...
+                   nbs_of = 1,
+
+                   # ...WILL BE RECLASSIFIED...
+                   reclass = 3,
+
+                   # ...AND SO ALL CELLS OF CLASS 1 CONNECTED TO A RECLASSIFIED CELL
+                   reclass_all = TRUE)
+
+# Convert class vectors to rasters
+r_cv  &lt;- cv.2.rast(r, at$Cell,classVector = cv, plot = FALSE)
+r_rc1 &lt;- cv.2.rast(r, at$Cell,classVector = rc1, plot = FALSE)
+r_rc2 &lt;- cv.2.rast(r, at$Cell,classVector = rc2, plot = FALSE)
+
+################################################################################
+# PLOTS
+################################################################################
+oldpar &lt;- par(mfrow = c(2,2))
+m = c(0.1, 3.5, 3.2, 3.5)
+
+
+# 1)
+plot(r_cv, type="classes", axes=FALSE, legend = FALSE, asp = NA, mar=m,
+     colNA="#818792", col=c("#1088a0", "#78b2c4"))
+text(r)
+mtext(side=3, line=2, adj=0, cex=1, font=2, "COND.4.ALL")
+mtext(side=3, line=1, adj=0, cex=0.9, "Step1: 'dummy_var &gt; 5', class: 1")
+mtext(side=3, line=0, adj=0, cex=0.9, "Step2: 'dummy_var &gt; 3', class: 2")
+legend("bottomright", ncol = 1, bg = "white", y.intersp= 1.2,
+       legend = c("Class 1", "Class 2", "Unclassified cells"),
+      fill = c("#1088a0", "#78b2c4", "#818792"))
+
+# 2)
+plot(r_rc1, type="classes", axes=FALSE, legend = FALSE, asp = NA, mar=m,
+     colNA="#818792", col=c("#1088a0", "#78b2c4", "#cfad89"))
+text(r)
+mtext(side=3, line=2, adj=0, cex=1, font=2, "RECLASS.NBS")
+mtext(side=3, line=1, adj=0, cex=0.9, "Reclass: class 2 adjacent to class 1")
+mtext(side=3, line=0, adj=0, cex=0.9, "reclass_all = FALSE")
+legend("bottomright", ncol = 1, bg = "white", y.intersp= 1.2,
+       legend = c("Reclassified cells"), fill = c("#cfad89"))
+
+# 3)
+plot(r_rc2, type="classes", axes=FALSE, legend = FALSE, asp = NA, mar=m,
+     colNA="#818792", col=c("#1088a0", "#78b2c4", "#cfad89"))
+text(r)
+mtext(side=3, line=2, adj=0, cex=1, font=2, "RECLASS.NBS")
+mtext(side=3, line=1, adj=0, cex=0.9, "Reclass: class 2 adjacent to class 1")
+mtext(side=3, line=0, adj=0, cex=0.9, "reclass_all = TRUE")
+legend("bottomright", ncol = 1, bg = "white", y.intersp= 1.2,
+       legend = c("Reclassified cells"), fill = c("#cfad89"))
+par(oldpar)
+</code></pre>
+
+
+</div>

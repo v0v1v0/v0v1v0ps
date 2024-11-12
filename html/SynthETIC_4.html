@@ -1,0 +1,133 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>claim_closure</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Claim Closure</h2>
+
+<h3>Description</h3>
+
+<p>Simulates and returns the closure/settlement delays of each of the claims
+occurring in each of the periods, assuming a Weibull distribution.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">claim_closure(frequency_vector, claim_size_list, rfun, paramfun, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>frequency_vector</code></td>
+<td>
+<p>a vector of claim frequencies for all the periods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>claim_size_list</code></td>
+<td>
+<p>list of claim sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rfun</code></td>
+<td>
+<p>optional alternative random sampling function; if not specified,
+assumes Weibull.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>paramfun</code></td>
+<td>
+<p>parameters for the random sampling function, as a function of
+<code>claim_size</code> and <code>occurrence_period</code>; see Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments/parameters to be passed onto <code>paramfun</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Claim settlement delay represents the delay from claim notification
+to closure. The epoch of closure is the sum of occurrence time, notification
+delay and settlement delay.
+</p>
+<p>By default, it is assumed that the settlement delay follows a Weibull
+distribution. The default Weibull parameters have been set up such that
+the mean settlement delay (in quarters, but automatically converted to the
+relevant <code>time_unit</code> as defined in <code>set_parameters</code>) is
+porportional to
+</p>
+<p style="text-align: center;"><code class="reqn">min(25, max(1, 6 + 4 log[claim_size/(0.10 * ref_claim)]))</code>
+</p>
+<p> (where
+<code>ref_claim</code> is a packagewise-global variable that user is required to define
+by <code>set_parameters</code>) up to a scaling factor "<code class="reqn">a</code>", which is
+dependent on <code>occurrence_perid</code>. Specifically,
+</p>
+<p style="text-align: center;"><code class="reqn">a = min(0.85, 0.65 + 0.02 * (occurrence_period - 21))</code>
+</p>
+<p> if
+<code>claim_size</code> &lt; (0.10 * ref_claim) and <code>occurrence_period</code> <code class="reqn">\ge</code>
+21, and </p>
+<p style="text-align: center;"><code class="reqn">a = max(0.85, 1 - 0.0075 * occurrence_period)</code>
+</p>
+<p> otherwise.
+The CoV of the settlement delay is constant at 60%, independent of the size
+and occurrence period of the claim.
+</p>
+<p>Note that this function can create out-of-bound settlement dates. In these
+cases, the simulated epoch of occurrence of the transaction is maintained
+throughout the simulation of details of the claim concerned. Adjustments will
+only be made for the tabulation of results in <code>claim_output</code> and
+payment inflation.
+</p>
+<p>Of course, like any other <code>SynthETIC</code> modules, the user may wish to
+sample from a different distribution <code>rfun</code> and/or a different set of
+parameters. The <code>paramfun</code> should return the distribution parameters in a
+<strong>vector</strong>, e.g. for gamma distribution <code>paramfun</code> should return a value in
+the format of <code>c(shape = , scale = )</code>, for exponential distribution this
+should return <code>c(rate = )</code>. See Examples. If a <code>rfun</code> is specified without
+a <code>paramfun</code>, <code>SynthETIC</code> will try to proceed without parameterisation (i.e.
+directly calling <code>rfun</code> with claim size and occurrence period), and if it
+fails, then return an error message.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of settlement delays such that the <code class="reqn">i</code>th component of
+the list gives the settlement delays for all claims that occurred in period
+<code class="reqn">i</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">n_vector &lt;- c(90, 79, 102, 78, 86, 88, 116, 84, 93, 104)
+
+# Try a constant Weibull distribution
+# (i.e. independent of claim size and occurrence period)
+setldel_param &lt;- function(claim_size, occurrence_period) {
+  mean &lt;- 10; cv &lt;- 0.70
+  shape &lt;- get_Weibull_parameters(mean, cv)[1, ]
+  scale &lt;- get_Weibull_parameters(mean, cv)[2, ]
+  c(shape = shape, scale = scale)
+}
+
+setldel &lt;- claim_closure(n_vector, claim_size(n_vector),
+                         paramfun = setldel_param)
+setldel[[1]] # show settlement delay of claims originating from period 1
+</code></pre>
+
+
+</div>

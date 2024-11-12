@@ -1,0 +1,423 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SMLE</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Joint feature screening via sparse maximum likelihood estimation for GLMs</h2>
+
+<h3>Description</h3>
+
+<p>Input a <code class="reqn">n</code> by <code class="reqn">1</code> response <code class="reqn">Y</code> and a <code class="reqn">n</code> by <code class="reqn">p</code> feature matrix <code class="reqn">X</code>;
+the function uses SMLE to retain only a set of <code class="reqn">k&lt;n</code> features that seem
+to be most related to the response variable. It thus serves as a pre-processing step for an
+elaborative analysis. In SMLE, the joint effects between features are naturally
+accounted for; this makes the screening more reliable. The function uses the
+efficient iterative hard thresholding (IHT) algorithm with step parameter
+adaptively tuned for fast convergence. Users can choose to further conduct
+an elaborative selection after SMLE-screening. See <code>smle_select()</code> for more details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SMLE(formula = NULL, ...)
+
+## Default S3 method:
+SMLE(
+  formula = NULL,
+  X = NULL,
+  Y = NULL,
+  data = NULL,
+  k = NULL,
+  family = c("gaussian", "binomial", "poisson"),
+  keyset = NULL,
+  intercept = TRUE,
+  categorical = TRUE,
+  group = TRUE,
+  codingtype = NULL,
+  coef_initial = NULL,
+  max_iter = 500,
+  tol = 10^(-3),
+  selection = F,
+  standardize = TRUE,
+  fast = FALSE,
+  U = 1,
+  U_rate = 0.5,
+  penalize_mod = TRUE,
+  ...
+)
+
+## S3 method for class 'formula'
+SMLE(formula, data, k = NULL, keyset = NULL, categorical = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>An object of class <code>'formula'</code> (or one that can be coerced to that class): a symbolic description of the model to be fitted. It should be <code>NULL</code> when <code>X</code> and <code>Y</code> are used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments to be passed to <code>smle_select()</code> if <code>selection = TRUE</code>. 
+See <code>smle_select()</code> documentation for more details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>The <code class="reqn">n</code> by <code class="reqn">p</code> feature matrix <code class="reqn">X</code> with each column denoting a feature
+(covariate) and each row denoting an observation vector. The input should be
+a <code>'matrix'</code> object for numerical data, and <code>'data.frame'</code> for categorical
+data (or a mixture of numerical and categorical data). The algorithm will
+treat covariates having class <code>'factor'</code> as categorical data and extend the data
+frame dimension by the dummy columns needed for coding the categorical features.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>The response vector <code class="reqn">Y</code> of dimension <code class="reqn">n</code> by <code class="reqn">1</code>. Quantitative for
+<code>family = "gaussian"</code>, non-negative counts for <code>family = "poisson"</code>,
+binary (0-1) for <code>family = "binomial"</code>. Input <code class="reqn">Y</code> should be <code>'numeric'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>An optional data frame, list or environment (or object coercible by <code>as.data.frame()</code> to a <code>'data.frame'</code>) containing the features in the model. It is required if <code>'formula'</code> is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>Total number of features (including <code>keyset</code>) to be retained 
+after screening. Default is the largest integer not 
+exceeding <code class="reqn">0.5</code>log<code class="reqn">(n) n^{1/3}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>Model assumption between <code class="reqn">Y</code> and <code class="reqn">X</code>; 
+either a character string representing one of the built-in families, or else a glm() family object. 
+The default model is Gaussian linear.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keyset</code></td>
+<td>
+<p>A numeric vector with column indices for the key features that 
+do not participate in feature screening and are forced to remain in the model.
+The column indices for the key features should be from <code>data</code> if <code>'formula'</code> is used
+or in <code>X</code> if <code>X</code> and <code>Y</code> are provided. The class of <code>keyset</code> 
+can be <code>'numeric'</code>,<code>'integer'</code> or <code>'character'</code>. Default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>A logical flag to indicate whether to an intercept be used in
+the model. An intercept will not participate in screening.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>categorical</code></td>
+<td>
+<p>A logical flag for whether the input feature matrix includes 
+categorical features( either <code>'factor'</code> or <code>'character'</code>). <code>FALSE</code> 
+treats all features as numerical and not check for whether there are categorical features; 
+<code>TRUE</code> treats the data as having some categorical features and the algorithm 
+determines which columns contain the categorical features. If all features are 
+known to be numerical, it will be faster to run SMLE with this argument set to 
+<code>FALSE</code>. we will need to find which columns are the categorical features.
+Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p>Logical flag for whether to treat the dummy covariates of a
+categorical feature as a group. (Only for categorical data, see Details).
+Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>codingtype</code></td>
+<td>
+<p>Coding types for categorical features; default is <code>"DV"</code>.
+<code>codingtype = "all"</code> convert each level to a 0-1 vector.
+<code>codingtype = "DV"</code> conducts deviation coding for each level in
+comparison with the grand mean.
+<code>codingtype = "standard"</code> conducts standard dummy coding for each level
+in comparison with the reference level (first level).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef_initial</code></td>
+<td>
+<p>A <code class="reqn">p</code>-dimensional vector for the initial coefficient 
+value of the IHT algorithm.  The default is to use Lasso with the sparsity 
+closest to <code class="reqn">n-1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>Maximum number of iteration steps. Default is 500.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>A tolerance level to stop the iterations, when the squared sum of
+differences between two successive coefficient updates is below it.
+Default is <code class="reqn">10^{-3}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>selection</code></td>
+<td>
+<p>A logical flag to indicate whether an elaborate selection
+is to be conducted by <code>smle_select()</code> after screening.
+If <code>TRUE</code>, the function will return a <code>'selection'</code> object, 
+see <code>smle_select()</code> documentation. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>standardize</code></td>
+<td>
+<p>A logical flag for feature standardization, prior to
+performing feature screening. The resulting coefficients are
+always returned on the original scale. 
+If features are in the same units already, you might not wish to
+standardize. Default is <code>standardize = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fast</code></td>
+<td>
+<p>Set to <code>TRUE</code> to enable early stop for SMLE-screening. It may help
+to boost the screening efficiency with a little sacrifice of accuracy.
+Default is <code>FALSE</code>, see Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>U</code></td>
+<td>
+<p>A numerical multiplier of initial tuning step parameter in 
+IHT algorithm. Default is 1. For binomial model, a larger initial value is recommended; a
+smaller one is recommended for poisson model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>U_rate</code></td>
+<td>
+<p>Decreasing rate in tuning step parameter <code class="reqn">1/u</code> in IHT
+algorithm. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalize_mod</code></td>
+<td>
+<p>A logical flag to indicate whether adjustment is used in
+ranking groups of features. This argument is applicable only when
+<code>categorical = TRUE</code> with <code>group = TRUE</code>. When <code>penalize_mod = TRUE</code>, 
+a factor of <code class="reqn">\sqrt J</code> is divided from the <code class="reqn">L_2</code> effect of a group with <code class="reqn">J</code> members. 
+Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>With the input <code class="reqn">Y</code> and <code class="reqn">X</code>, <code>SMLE()</code> conducts joint feature screening by running
+iterative hard thresholding algorithm (IHT), where the default initial value is set to
+be the Lasso estimate with the sparsity closest to the sample size minus one.
+</p>
+<p>In <code>SMLE()</code>, the initial value for step size parameter <code class="reqn">1/u</code> is 
+determined as follows. When <code>coef_initial = 0</code>, we set <code class="reqn">1/u = U / \sqrt{p}</code>.
+When <code>coef_initial != 0</code>, we generate a sub-matrix <code class="reqn">X_0</code> using the columns of <code class="reqn">X</code> 
+corresponding to the non-zero positions of <code>coef_initial</code> and set
+<code class="reqn">1/u = U/\sqrt{p}||X||^2_{\infty}</code> and recursively decrease the value of step size by 
+<code>U_rate</code> to guarantee the likelihood increment. This strategy is called <code class="reqn">u</code>-search.
+</p>
+<p><code>SMLE()</code> terminates IHT iterations when either <code>tol</code> or <code>max_iter</code> is
+satisfied. When <code>fast = TRUE</code>, the algorithm also stops when the non-zero
+members of the coefficient estimates remain the same for 10 successive
+iterations or the log-likelihood difference between coefficient estimates is less
+than <code class="reqn">0.01</code> times the log-likelihood increase of the first step, or 
+<code>tol</code><code class="reqn">\sqrt k</code> is satisfied.
+</p>
+<p>In <code>SMLE()</code>, categorical features are coded by dummy covariates with the
+method specified in <code>codingtype</code>. Users can use <code>group</code> to specify
+whether to treat those dummy covariates as a single group feature or as
+individual features.
+When <code>group = TRUE</code> with <code>penalize_mod = TRUE</code>, the effect for a group
+of <code class="reqn">J</code> dummy covariates is computed by
+</p>
+<p style="text-align: center;"><code class="reqn"> \beta_i = \sqrt{(\beta_1)^2+...+(\beta_J)^2}/\sqrt J,</code>
+</p>
+
+<p>which will be treated as a single feature in IHT iterations. When <code>group = FALSE</code>, 
+a group of <code class="reqn">J</code> dummy covariates will be treated as <code class="reqn">J</code> individual features in the IHT iterations; in this case, 
+a categorical feature is retained after screening when at least one of the corresponding dummy covariates is retained.
+</p>
+<p>Since feature screening is usually a preprocessing step, users may wish to
+further conduct an elaborative feature selection after screening. This can
+be done by setting <code>selection = TRUE</code> in <code>SMLE()</code> or applying any existing
+selection method on the output of <code>SMLE()</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>call</code></td>
+<td>
+<p>The call that produced this object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ID_retained</code></td>
+<td>
+<p>A vector indicating the features retained after SMLE-screening.
+The output includes both features retained by <code>SMLE()</code> and the features specified in <code>keyset</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coef_retained</code></td>
+<td>
+<p>The vector of coefficients estimated by IHT for the retained features. When the 
+retained set contains a categorical feature, the value returns a group effect if
+<code>group = TRUE</code>, or returns the strongest dummy covariate effect if <code>group = FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path_retained</code></td>
+<td>
+<p>IHT iteration path with columns recording the coefficient updates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_retained</code></td>
+<td>
+<p>Number of retained features after screening.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>The estimated intercept value by IHT, if <code>intercept = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>steps</code></td>
+<td>
+<p>Number of IHT iterations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>likelihood_iter</code></td>
+<td>
+<p>A list of log-likelihood updates over the IHT iterations. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Usearch</code></td>
+<td>
+<p>A vector giving the number of attempts to find a proper <code class="reqn">1/u</code> at each iteration step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modified_data</code></td>
+<td>
+<p>A list containing data objects generated by SMLE. 
+</p>
+<p><code>CM</code>: Design matrix of class <code>'matrix'</code> for numeric features (or <code>'data.frame'</code> with categorical features).
+</p>
+<p><code>DM</code>: A matrix with dummy variable features added. (only if there are categorical features).
+</p>
+<p><code>dum_col</code>: Number of levels for all categorical features.
+</p>
+<p><code>CI</code>: Indices of categorical features in <code>CM</code>.
+</p>
+<p><code>DFI</code>: Indices of categorical features in <code>IM</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iteration_data</code></td>
+<td>
+<p>A list containing data objects that track the coefficients over iterations.
+</p>
+<p><code>IM</code>: Iteration path matrix with columns recording IHT coefficient updates.
+</p>
+<p><code>beta0</code>: Inital value of regression coefficient for IHT.
+</p>
+<p><code>feature_name</code>: A list contains the names of selected features.
+</p>
+<p><code>FD</code>: A matrix that contains feature indices retained at each iteration step.
+</p>
+</td>
+</tr>
+</table>
+<p><code>X</code>, <code>Y</code>, <code>data</code>, <code>family</code>, <code>categorical</code> and <code>codingtype</code> are return of arguments passed in the function call.
+</p>
+
+
+<h3>References</h3>
+
+<p>UCLA Statistical Consulting Group. <em>coding systems for categorical
+variables in regression analysis</em>. <a href="https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/">https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/</a>.
+Retrieved May 28, 2020.
+</p>
+<p>Xu, C. and Chen, J. (2014). The Sparse MLE for Ultrahigh-Dimensional Feature
+Screening, <em>Journal of the American Statistical Association</em>, <b>109</b>(507), 1257-1269.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Example 1:
+set.seed(1)
+Data &lt;- Gen_Data( n= 200, p = 5000, family = "gaussian", correlation = "ID")
+fit &lt;- SMLE( Y = Data$Y , X = Data$X, k = 9,family = "gaussian")
+summary(fit)
+Data$subset_true %in% fit$ID_retained # Sure screening check.
+plot(fit)
+
+# Example 2:
+set.seed(1)
+Data_sim2 &lt;- Gen_Data(n = 420, p = 1000, family = "gaussian", num_ctgidx = 5, 
+                      pos_ctgidx = c(1,3,5,7,9), effect_truecoef= c(1,2,3,-4,-5),
+                      pos_truecoef = c(1,3,5,7,8), level_ctgidx = c(3,3,3,4,5))
+train_X &lt;- Data_sim2$X[1:400,]; test_X &lt;- Data_sim2$X[401:420,]
+train_Y &lt;- Data_sim2$Y[1:400]; test_Y &lt;- Data_sim2$Y[401:420]
+fit &lt;- SMLE(Y = train_Y, X = train_X, family = "gaussian", group = TRUE, k = 15)
+predict(fit, newdata = test_X)
+test_Y
+
+# Example 3:
+library(datasets)
+data("attitude")
+set.seed(1)
+noise &lt;- matrix(rnorm(30*100, mean = mean(attitude$rating) , sd = 1), ncol = 100)
+colnames(noise) &lt;- paste("Noise", seq(100), sep = ".")
+df &lt;- data.frame(cbind(attitude, noise))
+fit &lt;- SMLE(rating ~., data = df)
+fit
+
+
+
+</code></pre>
+
+
+</div>

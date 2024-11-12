@@ -1,0 +1,130 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>doublesigmoidalFitFunction</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Double sigmoidal fit function.</h2>
+
+<h3>Description</h3>
+
+<p>The function fits a double sigmoidal curve to given data by using likelihood maximization (LM) algorithm and provides the parameters (maximum, final asymptote intensity, slope1Param, midpoint1Param, slope2Param, and midpoint distance) describing the double-sigmoidal fit as output. It also contains information about the goodness of fits such as AIC, BIC, residual sum of squares, and log likelihood.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">doublesigmoidalFitFunction(
+  dataInput,
+  tryCounter,
+  startList = list(finalAsymptoteIntensityRatio = 0, maximum = 1, slope1Param = 1,
+    midPoint1Param = 0.33, slope2Param = 1, midPointDistanceParam = 0.29),
+  lowerBounds = c(finalAsymptoteIntensityRatio = 0, maximum = 0.3, slope1Param = 0.01,
+    midPoint1Param = -0.52, slope2Param = 0.01, midPointDistanceParam = 0.04),
+  upperBounds = c(finalAsymptoteIntensityRatio = 1, maximum = 1.5, slope1Param = 180,
+    midPoint1Param = 1.15, slope2Param = 180, midPointDistanceParam = 0.63),
+  min_Factor = 1/2^20,
+  n_iterations = 1000
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dataInput</code></td>
+<td>
+<p>A data frame or a list contatining the dataframe. The data frame should be composed of at least two columns. One represents time, and the other represents intensity. The data should be normalized with the normalize data function sicegar::normalizeData() before imported into this function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tryCounter</code></td>
+<td>
+<p>A counter that shows the number of times the data was fit via maximum likelihood function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startList</code></td>
+<td>
+<p>The initial set of parameters vector that algorithm tries for the first fit attempt for the relevant parameters. The vector composes of six elements; 'finalAsymptoteIntensityRatio', 'maximum', 'slope1Param', 'midPoint1Param' , 'slope2Param', and 'midPointDistanceParam'. Detailed explanations of those parameters can be found in vignettes. Defaults are  finalAsymptoteIntensityRatio = 0, maximum = 1, slope1Param = 1, midPoint1Param = 0.33, slope2Param = 1, and midPointDistanceParam=0.29. The numbers are in normalized time intensity scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lowerBounds</code></td>
+<td>
+<p>The lower bounds for the randomly generated start parameters.  The vector composes of six elements; 'finalAsymptoteIntensityRatio', 'maximum', 'slope1Param', 'midPoint1Param' , 'slope2Param', and 'midPointDistanceParam'. Detailed explanations of those parameters can be found in vignettes. Defaults are finalAsymptoteIntensityRatio = 0, maximum = 0.3, slope1Param = .01, midPoint1Param = -0.52, slope2Param = .01, and midPointDistanceParam = 0.04. The numbers are in normalized time intensity scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upperBounds</code></td>
+<td>
+<p>The upper bounds for the randomly generated start parameters.  The vector composes of six elements; 'finalAsymptoteIntensityRatio', 'maximum', 'slope1Param', 'midPoint1Param' , 'slope2Param', and 'midPointDistanceParam'. Detailed explanations of those parameters can be found in vignettes. Defaults are finalAsymptoteIntensityRatio = 1, maximum = 1.5, slope1Param = 180, midPoint1Param = 1.15, slope2Param = 180, and midPointDistanceParam = 0.63. The numbers are in normalized time intensity scale.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_Factor</code></td>
+<td>
+<p>Defines the minimum step size used by the fitting algorithm. Default is 1/2^20.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_iterations</code></td>
+<td>
+<p>Define maximum number of iterations used by the fitting algorithm. Default is 1000</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns the fitted parameters and goodness of fit metrics.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">time=seq(3, 24, 0.1)
+
+#simulate intensity data and add noise
+noise_parameter &lt;- 0.2
+intensity_noise &lt;- stats::runif(n = length(time), min = 0, max = 1) * noise_parameter
+intensity &lt;- doublesigmoidalFitFormula(time,
+                                     finalAsymptoteIntensityRatio = .3,
+                                     maximum = 4,
+                                     slope1Param = 1,
+                                     midPoint1Param = 7,
+                                     slope2Param = 1,
+                                     midPointDistanceParam = 8)
+intensity &lt;- intensity + intensity_noise
+
+dataInput &lt;- data.frame(intensity = intensity, time = time)
+normalizedInput &lt;- normalizeData(dataInput)
+parameterVector &lt;- doublesigmoidalFitFunction(normalizedInput, tryCounter = 2)
+
+
+#Check the results
+if(parameterVector$isThisaFit){
+    intensityTheoretical &lt;-
+         doublesigmoidalFitFormula(
+             time,
+             finalAsymptoteIntensityRatio = parameterVector$finalAsymptoteIntensityRatio_Estimate,
+             maximum = parameterVector$maximum_Estimate,
+             slope1Param = parameterVector$slope1Param_Estimate,
+             midPoint1Param = parameterVector$midPoint1Param_Estimate,
+             slope2Param = parameterVector$slope2Param_Estimate,
+             midPointDistanceParam = parameterVector$midPointDistanceParam_Estimate)
+
+ comparisonData &lt;- cbind(dataInput, intensityTheoretical)
+
+ require(ggplot2)
+ ggplot(comparisonData) +
+   geom_point(aes(x = time, y = intensity)) +
+   geom_line(aes(x = time, y = intensityTheoretical)) +
+   expand_limits(x = 0, y = 0)}
+
+if(!parameterVector$isThisaFit) {print(parameterVector)}
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,195 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getStudiesSTSTDTC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extract a list of SEND studies with study start date within a specified
+interval - or just add actual study start date for each study</h2>
+
+<h3>Description</h3>
+
+<p>Returns a data table with the list of study ids from TS where the value of
+TSVAL for the TSPARMCD 'STSTDTC' is within a a given date interval.<br>
+If the <code>fromDTC</code> and<code>toDTC</code> are empty (null, na or empty string)
+</p>
+
+<ul><li>
+<p> all rows for the TSPARMCD 'STSTDTC' are returned.
+</p>
+</li></ul>
+<h3>Usage</h3>
+
+<pre><code class="language-R">getStudiesSTSTDTC(
+  dbToken,
+  studyList = NULL,
+  fromDTC = NULL,
+  toDTC = NULL,
+  inclUncertain = FALSE,
+  noFilterReportUncertain = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dbToken</code></td>
+<td>
+<p>Mandatory.<br>
+Token for the open database connection (see <code>initEnvironment</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>studyList</code></td>
+<td>
+<p>Optional.<br>
+A data.table with the list of studies to process. If empty, all studies in
+the data base are processed <br>
+The table must include at least a column named 'STUDYID'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fromDTC</code></td>
+<td>
+<p>Optional (either or both of <code>fromDTC</code> and <code>toDTC</code>
+must be filled).<br>
+The start of the date interval to extract - must be in ISO8601 date format.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>toDTC</code></td>
+<td>
+<p>Optional (either or both of <code>fromDTC</code> and <code>toDTC</code> must be filled).<br>
+The end of the date interval to extract - must be in ISO8601 date format.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inclUncertain</code></td>
+<td>
+<p>Mandatory, boolean.<br>
+Indicates whether study ids with STSTDTC which are are missing or wrong
+shall be included or not in the output data table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noFilterReportUncertain</code></td>
+<td>
+<p>Mandatory, boolean<br>
+Only relevant if the <code>fromDTC</code> and<code>toDTC</code> are empty.<br>
+Indicates if the reason should be included if the STSTDTC cannot be
+confidently decided for an animal.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Extracts the set of study ids from TS where the value of TSVAL for the
+TSPARMCD 'STSTDTC' falls within a specified start/end date interval in IS8601
+format (input parameters <code>fromDTC</code>/<code>toDTC</code>).<br></p>
+<p>Both complete and incomplete input start/end dates can be handled.
+</p>
+
+<ul>
+<li>
+<p> If only a year is specified - the date set to the first of January that
+year.
+</p>
+</li>
+<li>
+<p> If only a year and month is specified - the date set to the first day
+in that month.
+</p>
+</li>
+<li>
+<p> If a time part is included in a specified input start/end date, it is
+ignored.
+</p>
+</li>
+</ul>
+<p>If both a start and end input date are specified - all the STUDYID values
+from TS where TSVAL for TSPARMCD 'STSTDTC' is with the interval of the
+specified start/end date interval are extracted and returned - including the
+values equal to the start/end dates. are included.<br></p>
+<p>If only a start input date is specified - all the STUDYID values from TS
+where TSVAL for TSPARMCD 'STSTDTC' is equal to or later than the input date
+are extracted and returned.<br></p>
+<p>If only an end date is specified - all the STUDYID values from TS where TSVAL
+for TSPARMCD 'STSTDTC' is equal to or earlier than the are date are extracted
+and returned.<br></p>
+<p>If a data table with a list of studies is specified in <code>studyList</code>, only
+the subset of studies included in that set is processed.<br></p>
+<p>If input <code>inclUncertain</code> is TRUE, uncertain studies are included in the
+output set. These uncertain situations are identified and reported (in column
+UNCERTAIN_MSG):
+</p>
+
+<ul>
+<li>
+<p> TS contains now row for TSPARMCD='STSTDTC'
+</p>
+</li>
+<li>
+<p> TSVAL contains an invalid ISO8601 date format for TSPARMCD='STSTDTC'
+</p>
+</li>
+</ul>
+<p>The same checks are performed and reported in column NOT_VALID_MSG if
+<code>fromDTC</code> and <code>toDTC</code> are empty and
+<code>noFilterReportUncertain=TRUE</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function return a data.table with columns:
+</p>
+
+<ul>
+<li>
+<p> STUDYID       (character)
+</p>
+</li>
+<li>
+<p> Additional columns contained in the <code>studyList</code> table (if such an input
+table is given)
+</p>
+</li>
+<li>
+<p> STSTDTC       (character - ISO8601 format)
+</p>
+</li>
+<li>
+<p> UNCERTAIN_MSG (character)<br>
+Only included when parameter <code>inclUncertain=TRUE</code>.<br>
+Contains indication of whether STSTDTC is missing of has wrong
+format.<br>
+Is NA for rows where SDESIGN is valid.<br>
+A non-empty UNCERTAIN_MSG value generated by this function is merged with
+non-empty UNCERTAIN_MSG values which may exist in the optional input set of
+studies specified in <code>studyList</code> - separated by '|'.
+</p>
+</li>
+<li>
+<p> NOT_VALID_MSG (character)<br>
+Included when parameter <code>noFilterReportUncertain=TRUE</code>.<br>
+In case the STSTDTC cannot be confidently decided, the column contains an
+indication of the reason.<br>
+Is NA for rows where STSTDTC can be confidently decided.<br>
+A non-empty NOT_VALID_MSG value generated by this function is merged with
+non-empty NOT_VALID_MSG values which may exist in the input set of studies
+specified in <code>studyList</code> - separated by '|'.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+GetStudyListSTSTDTC(myDbToken, allSTudies, '2018','2020')
+
+## End(Not run)
+</code></pre>
+
+
+</div>

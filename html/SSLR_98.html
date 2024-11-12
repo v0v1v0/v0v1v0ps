@@ -1,0 +1,209 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>selfTrainingG</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Self-training generic method</h2>
+
+<h3>Description</h3>
+
+<p>Self-training is a simple and effective semi-supervised
+learning classification method. The self-training classifier is initially
+trained with a reduced set of labeled examples. Then it is iteratively retrained
+with its own most confident predictions over the unlabeled examples.
+Self-training follows a wrapper methodology using one base supervised
+classifier to establish the possible class of unlabeled instances.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">selfTrainingG(
+  y,
+  gen.learner,
+  gen.pred,
+  max.iter = 50,
+  perc.full = 0.7,
+  thr.conf = 0.5
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A vector with the labels of training instances. In this vector the
+unlabeled instances are specified with the value <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gen.learner</code></td>
+<td>
+<p>A function for training a supervised base classifier.
+This function needs two parameters, indexes and cls, where indexes indicates
+the instances to use and cls specifies the classes of those instances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gen.pred</code></td>
+<td>
+<p>A function for predicting the probabilities per classes.
+This function must be two parameters, model and indexes, where the model
+is a classifier trained with <code>gen.learner</code> function and
+indexes indicates the instances to predict.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.iter</code></td>
+<td>
+<p>Maximum number of iterations to execute the self-labeling process.
+Default is 50.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>perc.full</code></td>
+<td>
+<p>A number between 0 and 1. If the percentage
+of new labeled examples reaches this value the self-training process is stopped.
+Default is 0.7.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thr.conf</code></td>
+<td>
+<p>A number between 0 and 1 that indicates the confidence theshold.
+At each iteration, only the newly labelled examples with a confidence greater than
+this value (<code>thr.conf</code>) are added to the training set.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SelfTrainingG can be helpful in those cases where the method selected as
+base classifier needs <code>learner</code> and <code>pred</code> functions with other
+specifications. For more information about the general self-training method,
+please see the <code>selfTraining</code> function. Essentially, the <code>selfTraining</code>
+function is a wrapper of the <code>selfTrainingG</code> function.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list object of class "selfTrainingG" containing:
+</p>
+
+<dl>
+<dt>model</dt>
+<dd>
+<p>The final base classifier trained using the enlarged labeled set.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of the training instances used to
+train the <code>model</code>. These indexes include the initial labeled instances
+and the newly labeled instances.
+Those indexes are relative to the <code>y</code> argument.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(SSLR)
+
+## Load Wine data set
+data(wine)
+cls &lt;- which(colnames(wine) == "Wine")
+x &lt;- wine[, - cls] # instances without classes
+y &lt;- wine[, cls] # the classes
+x &lt;- scale(x)
+
+
+set.seed(20)
+
+# Use 50% of instances for training
+tra.idx &lt;- sample(x = length(y), size = ceiling(length(y) * 0.5))
+xtrain &lt;- x[tra.idx,]
+ytrain &lt;- y[tra.idx]
+
+# Use 70% of train instances as unlabeled set
+tra.na.idx &lt;- sample(x = length(tra.idx), size = ceiling(length(tra.idx) * 0.7))
+ytrain[tra.na.idx] &lt;- NA
+
+
+# Use the other 50% of instances for inductive testing
+tst.idx &lt;- setdiff(1:length(y), tra.idx)
+xitest &lt;- x[tst.idx,] # testing instances
+yitest &lt;- y[tst.idx] # classes of instances in xitest
+# Use the unlabeled examples for transductive testing
+xttest &lt;- x[tra.idx[tra.na.idx],] # transductive testing instances
+yttest &lt;- y[tra.idx[tra.na.idx]] # classes of instances in xttest
+
+library(caret)
+
+#PREPARE DATA
+data &lt;- cbind(xtrain, Class = ytrain)
+
+
+dtrain &lt;- as.matrix(proxy::dist(x = xtrain, method = "euclidean", by_rows = TRUE))
+ditest &lt;- as.matrix(proxy::dist(x = xitest, y = xtrain, method = "euclidean", by_rows = TRUE))
+
+ddata &lt;- cbind(dtrain, Class = ytrain)
+ddata &lt;- as.data.frame(ddata)
+
+ktrain &lt;- as.matrix(exp(-0.048 * dtrain ^ 2))
+kdata &lt;- cbind(ktrain, Class = ytrain)
+kdata &lt;- as.data.frame(kdata)
+
+ktrain &lt;- as.matrix(exp(-0.048 * dtrain ^ 2))
+kitest &lt;- as.matrix(exp(-0.048 * ditest ^ 2))
+
+
+
+## Example: Training from a set of instances with 1-NN (knn3) as base classifier.
+gen.learner &lt;- function(indexes, cls)
+  caret::knn3(x = xtrain[indexes,], y = cls, k = 1)
+gen.pred &lt;- function(model, indexes)
+  predict(model, xtrain[indexes,])
+
+
+trControl_selfTrainingG1 &lt;- list(gen.learner = gen.learner, gen.pred = gen.pred)
+md1 &lt;- train_generic(ytrain, method = "selfTrainingG", trControl = trControl_selfTrainingG1)
+
+p1 &lt;- predict(md1$model, xitest, type = "class")
+table(p1, yitest)
+
+confusionMatrix(p1, yitest)$overall[1]
+
+
+## Example: Training from a distance matrix with 1-NN (oneNN) as base classifier.
+dtrain &lt;- as.matrix(proxy::dist(x = xtrain, method = "euclidean", by_rows = TRUE))
+gen.learner &lt;- function(indexes, cls) {
+  m &lt;- SSLR::oneNN(y = cls)
+  attr(m, "tra.idxs") &lt;- indexes
+  m
+}
+
+gen.pred &lt;- function(model, indexes) {
+  tra.idxs &lt;- attr(model, "tra.idxs")
+  d &lt;- dtrain[indexes, tra.idxs]
+  prob &lt;- predict(model, d, distance.weighting = "none")
+  prob
+}
+
+
+trControl_selfTrainingG2 &lt;- list(gen.learner = gen.learner, gen.pred = gen.pred)
+md2 &lt;- train_generic(ytrain, method = "selfTrainingG", trControl = trControl_selfTrainingG2)
+
+ditest &lt;- proxy::dist(x = xitest, y = xtrain[md2$instances.index,],
+                      method = "euclidean", by_rows = TRUE)
+p2 &lt;- predict(md2$model, ditest, type = "class")
+table(p2, yitest)
+
+confusionMatrix(p2, yitest)$overall[1]
+</code></pre>
+
+
+</div>

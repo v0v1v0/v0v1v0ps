@@ -1,0 +1,136 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>syn.passive</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Passive synthesis</h2>
+
+<h3>Description</h3>
+
+<p>Derives a new variable according to a specified 
+function of synthesised data.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">syn.passive(data, func)</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a data frame with synthesised data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>func</code></td>
+<td>
+<p>a <code>formula</code> specifying transformations on data. 
+It is specified as a string starting with <code>~</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Any function of the synthesised data can be specified. Note that several operators such as 
+<code>+</code>, <code>-</code>, <code>*</code> and <code>^</code> have different meanings in <code>formula</code> syntax. 
+Use the identity function <code>I()</code> if they should be interpreted as arithmetic operators, 
+e.g. <code>"~I(age^2)"</code>.
+Function <code>syn()</code> checks whether the passive assignment is correct in the original data 
+and fails with a warning if this is not true. The variables synthesised passively can be
+used to predict later variables in the synthesis except when they are numeric variables 
+with missing data. A warning is produced in this last case.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with two components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>res</code></td>
+<td>
+<p>a vector of length <code>k</code> including the result of applying 
+the <code>formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>a name of the method used for synthesis (<code>"passive"</code>).</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Gillian Raab, 2021 based on Stef van Buuren, Karin Groothuis-Oudshoorn, 2000</p>
+
+
+<h3>References</h3>
+
+<p>Van Buuren, S. and Groothuis-Oudshoorn, K. (2011).
+<code>mice</code>: Multivariate Imputation by Chained Equations
+in <code>R</code>. <em>Journal of Statistical Software</em>,
+<b>45</b>(3), 1-67. <a href="https://doi.org/10.18637/jss.v045.i03">doi:10.18637/jss.v045.i03</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>syn</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### the examples shows how inconsistencies in the SD2011 data are picked up 
+### by syn.passive()
+ods &lt;- SD2011[, c("height", "weight", "bmi", "age", "agegr")]
+ods$hsq &lt;- ods$height^2
+ods$sex &lt;- SD2011$sex
+meth &lt;- c("cart", "cart", "~I(weight / height^2 * 10000)",  
+          "cart", "~I(cut(age, c(15, 24, 34, 44, 59, 64, 120)))", 
+          "~I(height^2)", "logreg")
+
+## Not run: 
+### fails for bmi 
+s1 &lt;- syn(ods, method = meth, seed = 6756, models = TRUE)
+
+### fails for agegr
+ods$bmi &lt;- ods$weight / ods$height^2 * 10000  
+s2 &lt;- syn(ods, method = meth, seed = 6756, models = TRUE) 
+
+### fails because of wrong order 
+ods$agegr &lt;- cut(ods$age, c(15, 24, 34, 44, 59, 64, 120))
+s3 &lt;- syn(ods, method = meth, visit.sequence = 7:1, 
+          seed = 6756, models = TRUE)  
+
+## End(Not run)
+
+### runs without errors
+ods$bmi   &lt;- ods$weight / ods$height^2 * 10000  
+ods$agegr &lt;- cut(ods$age, c(15, 24, 34, 44, 59, 64, 120))
+s4 &lt;- syn(ods, method = meth, seed = 6756, models = TRUE) 
+### bmi and hsq do not predict sex because of missing values
+s4$models$sex 
+
+### hsq with no missing values used to predict sex  
+ods2 &lt;- ods[!is.na(ods$height),]
+s5 &lt;- syn(ods2, method = meth, seed = 6756, models = TRUE) 
+s5$models$sex
+
+### agegr with missing values used to predict sex because not numeric
+ods3 &lt;- ods
+ods3$age[1:4] &lt;- NA
+ods3$agegr &lt;- cut(ods3$age, c(15, 24, 34, 44, 59, 64, 120))
+s6 &lt;- syn(ods3, method = meth, seed = 6756, models = TRUE) 
+s6$models$sex  
+</code></pre>
+
+
+</div>

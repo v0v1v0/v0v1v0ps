@@ -1,0 +1,255 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>getSubjSpeciesStrain</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Extract the set of animals of the specified species and strain - or just add
+the species and strain for each animal.</h2>
+
+<h3>Description</h3>
+
+<p>Returns a data table with the set of animals included in the
+<code>animalList</code> matching the species and strain specified in the
+<code>speciesFilter</code> and <code>strainFilter</code>.<br>
+If the <code>speciesFilter</code> and <code>strainFilter</code> are empty (null, na or
+empty string) - all rows from <code>animalList</code> are returned with additional
+populated SPECIES and STRAIN columns.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">getSubjSpeciesStrain(
+  dbToken,
+  animalList,
+  speciesFilter = NULL,
+  strainFilter = NULL,
+  inclUncertain = FALSE,
+  exclusively = FALSE,
+  noFilterReportUncertain = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dbToken</code></td>
+<td>
+<p>Mandatory<br>
+Token for the open database connection (see <code>initEnvironment</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>animalList</code></td>
+<td>
+<p>Mandatory, data.table.<br>
+A table with the list of animals to process.<br>
+The table must include at least columns named 'STUDYID' and 'USUBJID'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>speciesFilter</code></td>
+<td>
+<p>Optional, character.<br>
+The species value(s) to use as criterion for filtering of the input data
+table.<br>
+It can be a single string, a vector or a list of multiple strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strainFilter</code></td>
+<td>
+<p>Optional, character.<br>
+The strain value(s) to use as criterion for filtering of the input data
+table.<br>
+It is only valid to specify value(s) if one or more values have been
+specified for parameter <code>speciesFilter</code><br>
+It can be a single string, a vector or a list of multiple strings.
+When multiple values are specified for <code>speciesFilter</code>, each strain
+value must be prefixed by species and ':' , e.g.
+<code>c('RAT:WISTAR','DOG: BEAGLE')</code>.<br>
+There may be included any number of blanks after ':'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inclUncertain</code></td>
+<td>
+<p>Mandatory, boolean.<br>
+Indicates whether animals for which the species or strain cannot be
+confidently identified shall be included or not in the output data table.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exclusively</code></td>
+<td>
+<p>Mandatory, boolean.
+</p>
+
+<ul>
+<li>
+<p> TRUE: Include animals only for studies with no other species and
+optional strains then included in <code>speciesFilter</code> and
+<code>strainFilter</code>
+</p>
+</li>
+<li>
+<p> FALSE: Include animals for all studies with species and strain
+matching <code>speciesFilter</code> and <code>strainFilter</code> respectively.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noFilterReportUncertain</code></td>
+<td>
+<p>Optional, boolean.<br>
+Only relevant if the <code>speciesFilter</code> and  <code>strainFilter</code> are
+empty.<br>
+Indicates if the reason should be included if the species or strain cannot
+be confidently decided for an animal.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The species and strain per animal respectively are identified by a
+hierarchical lookup in these domains
+</p>
+
+<ul>
+<li>
+<p> DM - If the DM.SPECIES (DM.STRAIN) isn't empty, this value is
+included in the output.<br></p>
+</li>
+<li>
+<p> TX - if a TX parameter 'SPECIES' ('STRAIN') exists for the group
+related to the animal, the TXVAL value for this is included in the
+output.<br></p>
+</li>
+<li>
+<p> TS - if a TS parameter 'SPECIES' ('STRAIN') exists, this is included
+in the output.<br></p>
+</li>
+</ul>
+<p>The comparisons of species/strain values is done case insensitive and trimmed
+for leading/trailing blanks.
+</p>
+<p>If input parameter <code>inclUncertain=TRUE</code>, uncertain animals are included
+in the output set. These uncertain situations are identified and reported for
+SPECIES and STRAIN respectively (in column UNCERTAIN_MSG):
+</p>
+
+<ul>
+<li>
+<p> TS parameter SPECIES/STRAIN is missing or invalid (not CT value -
+CDISC SEND code list SPECIES/STRAIN) and TX parameter SPECIES/STRAIN is
+missing or invalid (not CT value) and DM.SPECIES/STRAIN is missing or
+invalid (not CT value)
+</p>
+</li>
+<li>
+<p> Different values of SPECIES/STRAIN across TS, TX and DM for studies
+where no or only one TS parameter SPECIES/STRAIN is registered
+</p>
+</li>
+<li>
+<p> Multiple TS parameter SPECIES/STRAIN values are registered for study
+and TX parameter SPECIES/STRAIN and/or DM.SPECIES/STRAIN do not match any
+of the TS values.
+</p>
+</li>
+<li>
+<p>  Multiple TS parameter SPECIES/STRAIN values are registered for study
+and TX parameter SPECIES/STRAIN and DM.SPECIES/STRAIN are unequal.
+</p>
+</li>
+</ul>
+<p>The same checks are performed and reported in column NOT_VALID_MSG if
+<code>speciesFilter</code> and <code>strainFilter</code> are empty and
+<code>noFilterReportUncertain=TRUE</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function returns a data.table with columns:
+</p>
+
+<ul>
+<li>
+<p> STUDYID       (character)
+</p>
+</li>
+<li>
+<p> Additional columns contained in the <code>animalList</code> table
+</p>
+</li>
+<li>
+<p> SPECIES       (character)
+The value is always returned in uppercase and trimmed for leading/trailing
+blanks.
+</p>
+</li>
+<li>
+<p> STRAIN        (character)
+The value is always returned in uppercase and trimmed for leading/trailing
+blanks.
+</p>
+</li>
+<li>
+<p> UNCERTAIN_MSG (character)<br>
+Included when parameter <code>inclUncertain=TRUE</code>.<br>
+In case the species or strain cannot be confidently matched during the
+filtering of data, the column contains an indication of the reason.<br>
+Is NA for rows where species and strain can be confidently matched.<br>
+A non-empty UNCERTAIN_MSG value generated by this function is merged with
+non-empty UNCERTAIN_MSG values which may exist in the input set of animals
+specified in <code>animalList</code> - separated by '|'.
+</p>
+</li>
+<li>
+<p> NOT_VALID_MSG (character)<br>
+Included when parameter <code>noFilterReportUncertain=TRUE</code>.<br>
+In case the species or strain cannot be confidently decided, the column
+contains an indication of the reason.<br>
+Is NA for rows where species and strain can be confidently decided.<br>
+A non-empty NOT_VALID_MSG value generated by this function is merged with
+non-empty NOT_VALID_MSG values which may exist in the input set of animals
+<code>animalList</code> - separated by '|'.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Extract rats and mice plus uncertain animals
+getSubjSpeciesStrain(dbToken, controlAnimals,
+                     speciesFilter = c('RAT', 'MOUSE'),
+                     inclUncertain = TRUE)
+# Extract Spargue-Dawley rats plus uncertain animals.
+# Include only animals from studies which do not contain other species or
+# strains
+getSubjSpeciesStrain(dbToken, controlAnimals,
+                     speciesFilter = 'RAT',
+                     strainFilter = 'SPRAGUE-DAWLEY',
+                     inclUncertain = TRUE,
+                     exclusively = TRUE,
+                     noFilterReportUncertain = TRUE)
+# Extract Wistar rats and and Beagle dogs - and no uncertain animals
+getSubjSpeciesStrain(dbToken, controlAnimals,
+                     speciesFilter = c('RAT', 'DOG'),
+                     strainFilter = c('RAT: WISTAR', 'DOG: BEAGLE'))
+# No filtering, just add SPECIES and STRAIN - do not include messages when
+# these values cannot be confidently found
+getSubjSpeciesStrain(dbToken, controlAnimals,
+                     noFilterReportUncertain = FALSE)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

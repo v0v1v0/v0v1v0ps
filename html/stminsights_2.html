@@ -1,0 +1,150 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>get_effects</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>extract stm effect estimates</h2>
+
+<h3>Description</h3>
+
+<p><code> get_effects()</code> is a helper function to store effect estimates from
+stm in a data frame.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">get_effects(
+  estimates,
+  variable,
+  type,
+  ci = 0.95,
+  moderator = NULL,
+  modval = NULL,
+  cov_val1 = NULL,
+  cov_val2 = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>estimates</code></td>
+<td>
+<p>The object containing estimates calculated with
+<code>estimateEffect</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>variable</code></td>
+<td>
+<p>The variable for which estimates should be extracted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>The estimate type. Must be either <code>'pointestimate'</code>,
+<code>'continuous'</code>, or <code>'difference'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci</code></td>
+<td>
+<p>The confidence interval for uncertainty estimates.
+Defaults to  <code>0.95</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>moderator</code></td>
+<td>
+<p>The moderator variable in case you want to include
+an interaction effect.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>modval</code></td>
+<td>
+<p>The value of the moderator variable for an interaction effect.
+See examples for combining data for multiple values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov_val1</code></td>
+<td>
+<p>The first value of a covariate for type <code>'difference'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cov_val2</code></td>
+<td>
+<p>The second value of a covariate for type <code>'difference'</code>.
+The topic proportion of <code>'cov_val2'</code> will be subtracted from the
+proportion of <code>'cov_val1'</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns effect estimates in a tidy data frame.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(stm)
+library(dplyr)
+library(ggplot2)
+
+# store effects
+prep &lt;- estimateEffect(1:3 ~ treatment + pid_rep, gadarianFit, gadarian)
+
+effects &lt;- get_effects(estimates = prep,
+                      variable = 'treatment',
+                      type = 'pointestimate')
+
+
+# plot effects
+effects |&gt; filter(topic == 3) |&gt;
+ggplot(aes(x = value, y = proportion)) +
+ geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.1, size = 1) +
+ geom_point(size = 3) +
+ coord_flip() + theme_light() + labs(x = 'Treatment', y = 'Topic Proportion')
+
+
+# combine estimates for interaction effects
+prep_int &lt;- estimateEffect(1:3 ~ treatment * s(pid_rep),
+ gadarianFit, gadarian)
+
+effects_int &lt;- get_effects(estimates = prep_int,
+                          variable = 'pid_rep',
+                          type = 'continuous',
+                          moderator = 'treatment',
+                          modval = 1) |&gt;
+ bind_rows(
+   get_effects(estimates = prep_int,
+               variable = 'pid_rep',
+               type = 'continuous',
+               moderator = 'treatment',
+               modval = 0)
+ )
+
+# plot interaction effects
+effects_int  |&gt;  filter(topic == 2) |&gt;
+ mutate(moderator = as.factor(moderator)) |&gt;
+ ggplot(aes(x = value, y = proportion, color = moderator,
+ group = moderator, fill = moderator)) +
+ geom_line() +
+ geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2)  +
+ theme_light() + labs(x = 'PID Rep.', y = 'Topic Proportion',
+ color = 'Treatment', group = 'Treatment', fill = 'Treatment')
+
+
+</code></pre>
+
+
+</div>

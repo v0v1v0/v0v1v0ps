@@ -1,0 +1,1249 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>runSimulation</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Run a Monte Carlo simulation given conditions and simulation functions</h2>
+
+<h3>Description</h3>
+
+<p>This function runs a Monte Carlo simulation study given a set of predefined simulation functions,
+design conditions, and number of replications. Results can be saved as temporary files in case of
+interruptions and may be restored by re-running <code>runSimulation</code>, provided that the respective temp
+file can be found in the working directory. <code>runSimulation</code> supports parallel
+and cluster computing (with the <code>parallel</code> and
+<code>future</code> packages; see also
+<code>runArraySimulation</code> for submitting array jobs to HPC clusters),
+global and local debugging, error handling (including fail-safe
+stopping when functions fail too often, even across nodes), provides bootstrap estimates of the
+sampling variability (optional), and automatic tracking of error and warning messages
+with their associated <code>.Random.seed</code> states.
+For convenience, all functions available in the R work-space are exported across all nodes
+so that they are more easily accessible (however, other R objects are not, and therefore
+must be passed to the <code>fixed_objects</code> input to become available across nodes).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">runSimulation(
+  design,
+  replications,
+  generate,
+  analyse,
+  summarise,
+  fixed_objects = NULL,
+  packages = NULL,
+  filename = NULL,
+  debug = "none",
+  load_seed = NULL,
+  save = any(replications &gt; 2),
+  store_results = TRUE,
+  save_results = FALSE,
+  parallel = FALSE,
+  ncores = parallelly::availableCores(omit = 1L),
+  cl = NULL,
+  notification = "none",
+  beep = FALSE,
+  sound = 1,
+  CI = 0.95,
+  seed = NULL,
+  boot_method = "none",
+  boot_draws = 1000L,
+  max_errors = 50L,
+  resume = TRUE,
+  save_details = list(),
+  control = list(),
+  progress = TRUE,
+  verbose = TRUE
+)
+
+## S3 method for class 'SimDesign'
+summary(object, ...)
+
+## S3 method for class 'SimDesign'
+print(x, list2char = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>design</code></td>
+<td>
+<p>a <code>tibble</code> or <code>data.frame</code> object containing the Monte Carlo simulation
+conditions to be studied, where each row represents a unique condition and each column a factor
+to be varied. See <code>createDesign</code> for the standard approach
+to create this simulation design object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replications</code></td>
+<td>
+<p>number of independent replications to perform per
+condition (i.e., each row in <code>design</code>). Can be a single number, which
+will be used for each design condition, or an integer vector with length
+equal to <code>nrow(design)</code>. All inputs must be greater than 0, though setting
+to less than 3 (for initial testing purpose) will disable the <code>save</code>
+and <code>control$stop_on_fatal</code> flags</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>generate</code></td>
+<td>
+<p>user-defined data and parameter generating function (or named list of functions).
+See <code>Generate</code> for details. Note that this argument may be omitted by the
+user if they wish to generate the data with the <code>analyse</code> step, but for real-world
+simulations this is generally not recommended. If multiple generate functions are provided
+as a list then the list of generate functions are executed in order until the first valid
+generate function is executed, where the subsequent generation functions are then ignored
+(see <code>GenerateIf</code> to only apply data generation for specific conditions).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>analyse</code></td>
+<td>
+<p>user-defined analysis function (or named list of functions)
+that acts on the data generated from
+<code>Generate</code> (or, if <code>generate</code> was omitted, can be used to generate and
+analyses the simulated data). See <code>Analyse</code> for details</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>summarise</code></td>
+<td>
+<p>optional (but strongly recommended) user-defined summary function
+from <code>Summarise</code> to be used to compute meta-statistical summary
+information after all the replications have completed within
+each <code>design</code> condition. Return of this function, in order
+of increasing complexity, should be: a named numeric vector or <code>data.frame</code>
+with one row, a <code>matrix</code> or <code>data.frame</code> with more than one row, and,
+failing these more atomic types, a named <code>list</code>. For summary objects that
+are not easily appended to the original <code>design</code> object use
+<code>SimExtract</code> with the option <code>what = 'summarise'</code>.
+</p>
+<p>Note that unlike the Generate and Analyse
+steps, the Summarise portion is not as important to perfectly organize
+as the results can be summarised later on by using the built-in
+<code>reSummarise</code> function (provided either
+<code>store_results = TRUE</code> or <code>save_results = TRUE</code> were included).
+</p>
+<p>Omitting this function will return a tibble with the <code>Design</code>
+and associated results information for all
+<code>nrow(Design) * repliations</code> evaluations if the results from each
+<code>Analyse()</code> call was a one-dimensional vector.
+For more general objects returned by <code>Analyse()</code>
+(such as <code>list</code>s), a <code>list</code>
+containing the results returned form <code>Analyse</code>.
+This is generally only recommended for didactic purposes because the results
+will leave out a large amount of
+information (e.g., try-errors, warning messages, saving files, etc), can
+witness memory related issues if the Analyse function returns larger objects,
+and generally is not as flexible internally. However, it may be useful
+when replications are expensive and ANOVA-based decompositions involving
+the within-condition replication information are of interest, though
+of course this  can be circumvented by using <code>store_results = TRUE</code> or
+<code>save_results = TRUE</code> with or without a supplied <code>summarise</code>
+definition.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fixed_objects</code></td>
+<td>
+<p>(optional) an object (usually a named <code>list</code>)
+containing additional user-defined objects
+that should remain fixed across conditions. This is useful when including
+large vectors/matrices of population parameters, fixed data information
+that should be used across all conditions and replications (e.g., including a
+common design matrix for linear regression models), or simply control
+constant global elements (e.g., a constant for sample size)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>packages</code></td>
+<td>
+<p>a character vector of external packages to be used during the simulation (e.g.,
+<code>c('MASS', 'extraDistr', 'simsem')</code> ). Use this input when running code in
+parallel to use non-standard functions from additional packages,
+otherwise the functions must be made available by using explicit
+<code>library</code> or <code>require</code> calls within the provided simulation functions.
+Alternatively, functions can be called explicitly without attaching the package
+with the <code>::</code> operator
+(e.g., <code>extraDistr::rgumbel()</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>filename</code></td>
+<td>
+<p>(optional) the name of the <code>.rds</code> file to save the final
+simulation results to. If the extension
+<code>.rds</code> is not included in the file name (e.g. <code>"mysimulation"</code>
+versus <code>"mysimulation.rds"</code>) then the
+<code>.rds</code> extension will be automatically added to the file name to ensure
+the file extension is correct.
+</p>
+<p>Note that if the same file name already exists in the working
+directly at the time of saving then a new
+file will be generated instead and a warning will be thrown. This helps to
+avoid accidentally overwriting
+existing files. Default is <code>NULL</code>, indicating no file will be saved by default</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>debug</code></td>
+<td>
+<p>a string indicating where to initiate a <code>browser()</code> call for editing
+and debugging, and pairs particularly well with the <code>load_seed</code> argument for precise debugging.
+General options are <code>'none'</code> (default; no debugging), <code>'error'</code>, which
+starts the debugger
+when any error in the code is detected in one of three generate-analyse-summarise functions,
+and <code>'all'</code>, which debugs all the user defined functions regardless of
+whether an error was thrown
+or not. Specific options include: <code>'generate'</code>
+to debug the data simulation function, <code>'analyse'</code> to debug the computational function, and
+<code>'summarise'</code> to debug the aggregation function.
+</p>
+<p>If the <code>Analyse</code> argument is supplied as a named list of functions then it is also possible
+to debug the specific function of interest by passing the name of the respective function in the list.
+For instance, if <code>analyse = list(A1=Analyse.A1, A2=Analyse.A2)</code> then passing
+<code>debug = 'A1'</code> will debug only the first function in this list, and all remaining analysis
+functions will be ignored.
+</p>
+<p>For debugging specific rows in the <code>Design</code> input (e.g.,
+when a number of initial rows successfully complete but the <code>k</code>th
+row fails) the row number can be appended to the standard
+<code>debug</code> input using a <code>'-'</code> separator.
+For instance, debugging whenever an error is raised
+in the second row of <code>Design</code> can be declared via <code>debug = 'error-2'</code>.
+</p>
+<p>Finally, users may place <code>browser</code> calls within the respective functions for
+debugging at specific lines, which is useful when debugging based on conditional evaluations (e.g.,
+<code>if(this == 'problem') browser()</code>). Note that parallel computation flags
+will automatically be disabled when a <code>browser()</code> is detected or when a debugging
+argument other than
+<code>'none'</code> is supplied</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>load_seed</code></td>
+<td>
+<p>used to replicate an exact simulation state, which is
+primarily useful for debugging purposes.
+Input can be a character object indicating which file to load from when the
+<code>.Random.seed</code>s have
+be saved (after a call with <code>save_seeds = TRUE</code>), or an integer vector
+indicating the actual
+<code>.Random.seed</code> values (e.g., extracted after using <code>store_seeds</code>).
+E.g., <code>load_seed = 'design-row-2/seed-1'</code>
+will load the first seed in the second row of the <code>design</code> input, or
+explicitly passing the
+elements from <code>.Random.seed</code> (see <code>SimExtract</code> to extract
+the seeds associated explicitly
+with errors during the simulation, where each column represents a unique seed).
+If the input is a character vector then it is important NOT
+to modify the <code>design</code> input object, otherwise the path may not point
+to the correct saved location, while
+if the input is an integer vector (or single column <code>tbl</code> object)
+then it WILL be important to modify the <code>design</code> input in order to load this
+exact seed for the corresponding design row. Default is <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save</code></td>
+<td>
+<p>logical; save the temporary simulation state to the hard-drive? This is useful
+for simulations which require an extended amount of time, though for shorter simulations
+can be disabled to slightly improve computational efficiency. When <code>TRUE</code>,
+which is the default when evaluating <code>replications &gt; 2</code>, a temp file
+will be created in the working directory which allows the simulation state to be saved
+and recovered (in case of power outages, crashes, etc). As well, triggering this flag will
+save any fatal <code>.Random.seed</code> states when conditions unexpectedly crash (where each seed
+is stored row-wise in an external .rds file), which provides a much easier mechanism
+to debug issues (see <code>load_seed</code> for details). Upon completion, this temp file will
+be removed.
+</p>
+<p>To recover your simulation at the last known location (having patched the issues in the
+previous execution code) simply re-run the code you used to
+initially define the simulation and the external file will automatically be detected and read-in.
+Default is <code>TRUE</code> when <code>replications &gt; 10</code> and <code>FALSE</code> otherwise</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>store_results</code></td>
+<td>
+<p>logical; store the complete tables of simulation results
+in the returned object? This is <code>TRUE</code> default, though if RAM anticipated to
+be an issue see <code>save_results</code> instead. Note that if the <code>Design</code>
+object is omitted from the call to <code>runSimulation()</code>, or the number of rows in <code>Design</code>
+is exactly 1, then this argument is automatically set to <code>TRUE</code> as RAM storage is no
+longer an issue.
+</p>
+<p>To extract these results
+pass the returned object to either <code>SimResults</code> or <code>SimExtract</code> with
+<code>what = 'results'</code>, which will return a named list
+of all the simulation results for each condition if <code>nrow(Design) &gt; 1</code>; otherwise, if
+<code>nrow(Design) == 1</code> or <code>Design</code> was missing the <code>results</code> object will be stored as-is</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_results</code></td>
+<td>
+<p>logical; save the results returned from <code>Analyse</code> to external
+<code>.rds</code> files located in the defined <code>save_results_dirname</code> directory/folder?
+Use this if you would like to keep track of the individual parameters returned from
+the <code>analysis</code> function.
+Each saved object will contain a list of three elements containing the
+condition (row from <code>design</code>),
+results (as a <code>list</code> or <code>matrix</code>), and try-errors.
+See <code>SimResults</code> for an example of how to read these <code>.rds</code> files back into R
+after the simulation is complete. Default is <code>FALSE</code>.
+</p>
+<p>WARNING: saving results to your hard-drive can fill up space very quickly for
+larger simulations. Be sure to
+test this option using a smaller number of replications before the full Monte
+Carlo simulation is performed.
+See also <code>reSummarise</code> for applying summarise functions from saved
+simulation results</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>logical; use parallel processing from the <code>parallel</code>
+package over each unique condition? This distributes the independent <code>replications</code>
+across the defined nodes, and is repeated for each row condition in the <code>design</code>
+input.
+</p>
+<p>Alternatively, if the <code>future</code> package approach is desired then passing
+<code>parallel = 'future'</code> to <code>runSimulation()</code> will use the defined
+<code>plan</code> for execution. This allows for greater flexibility when
+specifying the general computing plan (e.g., <code>plan(multisession)</code>) for parallel computing
+on the same machine, <code>plan(future.batchtools::batchtools_torque)</code> or
+<code>plan(future.batchtools::batchtools_slurm)</code> for common MPI/Slurm schedulers, etc).
+However, it is the responsibility of the user to use <code>plan(sequential)</code> to reset the
+computing plan when the jobs are completed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>number of cores to be used in parallel execution (ignored if using the
+<code>future</code> package approach). Default uses all available minus 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>cluster object defined by <code>makeCluster</code> used to run code in parallel
+(ignored if using the <code>future</code> package approach).
+If <code>NULL</code> and <code>parallel = TRUE</code>, a local cluster object will be defined which
+selects the maximum number cores available
+and will be stopped when the simulation is complete. Note that supplying a <code>cl</code>
+object will automatically set the <code>parallel</code> argument to <code>TRUE</code>. Define and supply this
+cluster object yourself whenever you have multiple nodes and can link them together manually
+</p>
+<p>If the <code>future</code> package has
+been attached prior to executing <code>runSimulation()</code> then the associated
+<code>plan()</code> will be followed instead</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>notification</code></td>
+<td>
+<p>an optional character vector input that can be used to send
+Pushbullet notifications from a configured
+computer. This reports information such as the total execution time, the condition
+completed, and error/warning
+messages recorded. This arguments assumes that users have already A) registered for
+a Pushbullet account,
+B) installed the application on their mobile device and computer, and C) created an
+associated JSON file of the form
+<code>~/.rpushbullet.json</code> using <code>RPushbullet::pbSetup()</code>).
+</p>
+<p>To utilize the <code>RPushbullet</code> in <code>SimDesign</code> first call <code>library(RPushbullet</code>
+before running <code>runSimulation()</code> to read-in the default JSON file. Next,
+pass one of the following supported
+options: <code>'none'</code> (default; send no notification),
+<code>'condition'</code> to send a notification after each condition has completed,
+or <code>'complete'</code> to send
+a notification only when the simulation has finished.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beep</code></td>
+<td>
+<p>logical; call the <code>beepr</code> package when the simulation is completed?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sound</code></td>
+<td>
+<p><code>sound</code> argument passed to <code>beepr::beep()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI</code></td>
+<td>
+<p>bootstrap confidence interval level (default is 95%)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>a vector or list of integers to be used for reproducibility.
+The length of the vector must be equal the number of rows in <code>design</code>.
+If the input is a vector then <code>set.seed</code> or
+<code>clusterSetRNGStream</code> for each condition will be called, respectively.
+If a list is provided then these
+numbers must have been generated from <code>gen_seeds</code> with the argument
+<code>CMRG.seed</code> used to specify the initial. The list approach ensures random number
+generation independence across conditions and replications, while the vector input
+ensures independence within the replications per conditions but not necessarily
+across conditions. Default randomly generates seeds within the
+range 1 to 2147483647 for each condition via <code>link{gen_seeds}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot_method</code></td>
+<td>
+<p>method for performing non-parametric bootstrap confidence intervals
+for the respective meta-statistics computed by the <code>Summarise</code> function.
+Can be <code>'basic'</code> for the empirical bootstrap CI, <code>'percentile'</code>
+for percentile CIs, <code>'norm'</code> for normal approximations CIs, or <code>'studentized'</code>
+for Studentized CIs (should only be used for simulations with lower replications due to its
+computational intensity). Alternatively, CIs can be constructed using the argument <code>'CLT'</code>,
+which computes the intervals according to the large-sample standard error
+approximation <code class="reqn">SD(results)/\sqrt{R}</code>. Default is <code>'none'</code>, which performs no CI computations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot_draws</code></td>
+<td>
+<p>number of non-parametric bootstrap draws to sample for the <code>summarise</code>
+function after the generate-analyse replications are collected. Default is 1000</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_errors</code></td>
+<td>
+<p>the simulation will terminate when more than this number of consecutive
+errors are thrown in any
+given condition, causing the simulation to continue to the next unique <code>design</code> condition.
+This is included to avoid getting stuck in infinite re-draws, and to indicate that
+something fatally problematic
+is going wrong in the generate-analyse phases. Default is 50</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resume</code></td>
+<td>
+<p>logical; if a temporary <code>SimDesign</code> file is detected should
+the simulation resume from this location? Keeping this <code>TRUE</code> is generally recommended,
+however this should be disabled if using <code>runSimulation</code> within <code>runSimulation</code> to avoid
+reading improper save states. Alternatively, if an integer is supplied then the simulation
+will continue at the associated row location in <code>design</code> (e.g., <code>resume=10</code>).
+This is useful to overwrite a previously evaluate element in the temporary files that was detected
+to contain fatal errors that require re-evaluation without discarding the originally valid rows
+in the simulation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save_details</code></td>
+<td>
+<p>a list pertaining to information regarding how and where files should be saved
+when the <code>save</code> or <code>save_results</code> flags are triggered.
+</p>
+
+<dl>
+<dt><code>safe</code></dt>
+<dd>
+<p>logical; trigger whether safe-saving should be performed. When <code>TRUE</code> files
+will never be overwritten accidentally, and where appropriate the program will either stop or generate
+new files with unique names. Default is <code>TRUE</code></p>
+</dd>
+<dt><code>compname</code></dt>
+<dd>
+<p>name of the computer running the simulation. Normally this doesn't need
+to be modified, but in the event that a manual node breaks down while running a simulation the
+results from the temp files may be resumed on another computer by changing the name of the
+node to match the broken computer. Default is the result of evaluating
+<code>unname(Sys.info()['nodename'])</code></p>
+</dd>
+<dt><code>out_rootdir</code></dt>
+<dd>
+<p>root directory to save all files to. Default uses the
+current working directory</p>
+</dd>
+<dt><code>save_results_dirname</code></dt>
+<dd>
+<p>a string indicating the name of the folder to save
+result objects to when <code>save_results = TRUE</code>. If a directory/folder does not exist
+in the current working directory then a unique one will be created automatically. Default is
+<code>'SimDesign-results_'</code> with the associated <code>compname</code> appended if no
+<code>filename</code> is defined, otherwise the filename is used to replace 'SimDesign'
+in the string</p>
+</dd>
+<dt><code>save_results_filename</code></dt>
+<dd>
+<p>a string indicating the name file to store, where the
+<code>Design</code> row ID will be appended to ensure uniqueness across rows. Specifying
+this input will disable any checking for the uniqueness of the file folder, thereby
+allowing independent <code>runSimulation</code> calls to write to the same
+<code>save_results_dirname</code>. Useful when the files should all be stored in the same
+working directory, however the rows of <code>Design</code> are evaluated in isolation (e.g.,
+for HPC structures that allow asynchronous file storage).
+WARNING: the uniqueness of the file names are not checked using
+this approach, therefore please ensure that each generated name will be unique a priori,
+such as naming the file based on the supplied row condition information</p>
+</dd>
+<dt><code>save_seeds_dirname</code></dt>
+<dd>
+<p>a string indicating the name of the folder to save
+<code>.Random.seed</code> objects to when <code>save_seeds = TRUE</code>. If a directory/folder
+does not exist
+in the current working directory then one will be created automatically. Default is
+<code>'SimDesign-seeds_'</code> with the associated <code>compname</code> appended if no
+<code>filename</code> is defined, otherwise the filename is used to replace 'SimDesign'
+in the string</p>
+</dd>
+<dt><code>tmpfilename</code></dt>
+<dd>
+<p>string indicating the temporary file name to save
+provisional information to. If not specified the following will be used:
+<code>paste0('SIMDESIGN-TEMPFILE_', compname, '.rds')</code></p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>a list for extra information flags for controlling less
+commonly used features. These include
+</p>
+
+<dl>
+<dt><code>stop_on_fatal</code></dt>
+<dd>
+<p>logical (default is <code>FALSE</code>); should the simulation be
+terminated immediately when
+the maximum number of consecutive errors (<code>max_errors</code>) is reached? If <code>FALSE</code>,
+the simulation will continue as though errors did not occur, however a column
+<code>FATAL_TERMINATION</code> will be included in the resulting object indicating the final
+error message observed, and <code>NA</code> placeholders will be placed in all other row-elements.
+Default is <code>FALSE</code>, though is automatically set to <code>TRUE</code> when <code>replications &lt; 3</code>
+for the purpose of debugging</p>
+</dd>
+<dt><code>warnings_as_errors</code></dt>
+<dd>
+<p>logical (default is <code>FALSE</code>);
+treat warning messages as error messages during the simulation? Default is FALSE,
+therefore warnings are only collected and not used to restart the data generation step,
+and the seeds associated with
+the warning message conditions are not stored within the final simulation object.
+</p>
+<p>Note that this argument is generally intended for debugging/early planning
+stages when designing a simulation experiment. If specific warnings are known to
+be problematic and should be treated as errors then please use
+<code>manageWarnings</code> instead</p>
+</dd>
+<dt><code>save_seeds</code></dt>
+<dd>
+<p>logical; save the <code>.Random.seed</code> states prior to performing
+each replication into
+plain text files located in the defined <code>save_seeds_dirname</code> directory/folder?
+Use this if you would like to keep track of every simulation state within each
+replication and design
+condition. This can be used to completely replicate any cell in the simulation if need be.
+As well, see the <code>load_seed</code> input
+to load a given <code>.Random.seed</code> to exactly replicate the generated data and
+analysis state (mostly useful
+for debugging). When <code>TRUE</code>, temporary files will also be saved
+to the working directory (in the same way as when <code>save = TRUE</code>).
+Default is <code>FALSE</code>
+</p>
+<p>Note, however, that this option is not typically necessary or recommended since
+the <code>.Random.seed</code> states for simulation
+replications that throw errors during the execution are automatically stored
+within the final simulation
+object, and can be extracted and investigated using <code>SimExtract</code>.
+Hence, this option is only of
+interest when <em>all</em> of the replications must be reproducible (which occurs very rarely),
+otherwise the defaults to <code>runSimulation</code> should be sufficient</p>
+</dd>
+<dt><code>store_Random.seeds</code></dt>
+<dd>
+<p>logical; store the
+complete <code>.Random.seed</code> states
+for each simulation replicate? Default is <code>FALSE</code> as this can
+take up a great deal of unnecessary RAM (see related <code>save_seeds</code>),
+however this may be useful
+when used with <code>runArraySimulation</code>. To extract use
+<code>SimExtract(..., what = 'stored_Random.seeds')</code></p>
+</dd>
+<dt><code>store_warning_seeds</code></dt>
+<dd>
+<p>logical (default is <code>FALSE</code>);
+in addition to storing the <code>.Random.seed</code> states whenever error messages
+are raised, also store the <code>.Random.seed</code> states when warnings are raised? This is
+disabled by default
+since warnings are generally less problematic than errors, and because many more
+warnings messages may be raised
+throughout the simulation (potentially causing RAM related issues when constructing
+the final simulation object as
+any given simulation replicate could generate numerous warnings, and storing the seeds
+states could add up quickly).
+</p>
+<p>Set this to <code>TRUE</code> when replicating warning messages is important, however be aware
+that too many warnings messages raised during the simulation implementation could cause
+RAM related issues.</p>
+</dd>
+<dt>
+<code>include_replication_index</code> or
+<code>include_reps</code>
+</dt>
+<dd>
+<p>logical (default is <code>FALSE</code>);
+should a REPLICATION element be added to
+the <code>condition</code> object when performing the simulation to track which specific
+replication experiment is being evaluated? This is useful when, for instance, attempting
+to run external software programs (e.g., Mplus) that require saving temporary data sets
+to the hard-drive (see the Wiki for examples)</p>
+</dd>
+<dt><code>try_all_analyse</code></dt>
+<dd>
+<p>logical; when <code>analyse</code> is a list, should every generated
+data set be analyzed by each function definition in the <code>analyse</code> list?
+Default is <code>TRUE</code>.
+</p>
+<p>Note that this <code>TRUE</code> default can be computationally demanding when some analysis
+functions require more computational resources than others, and the data should be
+discarded early as an invalid candidate (e.g., estimating a model via maximum-likelihood
+in on analyze component, while estimating a model using MCMC estimation on another). Hence,
+the main benefit of using <code>FALSE</code> instead is that the data set may be rejected earlier,
+where easier/faster to estimate <code>analyse</code> definitions should be placed earlier in the list
+as the functions are evaluated in sequence
+(e.g., <code>Analyse = list(MLE=MLE_definition, MCMC=MCMC_definition)</code>) </p>
+</dd>
+<dt><code>allow_na</code></dt>
+<dd>
+<p>logical (default is <code>FALSE</code>); should <code>NA</code>s be allowed in the
+analyse step as a valid result from the simulation analysis?</p>
+</dd>
+<dt><code>allow_nan</code></dt>
+<dd>
+<p>logical (default is <code>FALSE</code>); should <code>NaN</code>s be allowed in the
+analyse step as a valid result from the simulation analysis?</p>
+</dd>
+<dt><code>type</code></dt>
+<dd>
+<p>default type of cluster to create for the <code>cl</code> object if not supplied.
+For Windows OS this defaults to <code>"PSOCK"</code>, otherwise <code>"SOCK"</code> is selected
+(suitable for Linux and Mac OSX). This is ignored if the user specifies their own <code>cl</code> object</p>
+</dd>
+<dt><code>print_RAM</code></dt>
+<dd>
+<p>logical (default is <code>TRUE</code>); print the amount of RAM
+used throughout the simulation? Set to <code>FALSE</code> if unnecessary or if the call to
+<code>gc</code> is unnecessarily time consuming</p>
+</dd>
+<dt><code>max_time</code></dt>
+<dd>
+<p>Similar to <code>runArraySimulation</code>, specifies the (approximate) maximum
+time that the simulation is allowed to be executed. However, unlike the implementation
+in <code>runArraySimulation</code> is evaluated on a per condition basis,
+where <code>max_time</code> is only evaluated after every row in the
+<code>design</code> object has been completed (hence, is notably more approximate as it
+has the potential to overshoot by a wider margin). Default sets no time limit.
+See <code>timeFormater</code> for the input specifications.
+</p>
+</dd>
+<dt><code>max_RAM</code></dt>
+<dd>
+<p>Similar to <code>runArraySimulation</code>, specifies the (approximate) maximum
+RAM that the simulation is allowed to occupy. However, unlike the implementation
+in <code>runArraySimulation</code> is evaluated on a per condition basis,
+where <code>max_RAM</code> is only evaluated after every row in the
+<code>design</code> object has been completed (hence, is notably more approximate as it
+has the potential to overshoot by a wider margin). Default sets no RAM limit.
+See <code>runArraySimulation</code> for the input specifications.
+</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>logical; display a progress bar (using the <code>pbapply</code> package)
+for each simulation condition?
+This is useful when simulations conditions take a long time to run (see also the
+<code>notifications</code> argument). Default is <code>TRUE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical; print messages to the R console? Default is <code>TRUE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>SimDesign object returned from <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>SimDesign object returned from <code>runSimulation</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>list2char</code></td>
+<td>
+<p>logical; for <code>tibble</code> object re-evaluate list elements
+as character vectors for better printing of the levels? Note that this
+does not change the original classes of the object, just how they are printed.
+Default is TRUE</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For an in-depth tutorial of the package please refer to Chalmers and Adkins (2020;
+<a href="https://doi.org/10.20982/tqmp.16.4.p248">doi:10.20982/tqmp.16.4.p248</a>).
+For an earlier didactic presentation of the package refer to Sigal and Chalmers
+(2016; <a href="https://doi.org/10.1080/10691898.2016.1246953">doi:10.1080/10691898.2016.1246953</a>). Finally, see the associated
+wiki on Github (<a href="https://github.com/philchalmers/SimDesign/wiki">https://github.com/philchalmers/SimDesign/wiki</a>)
+for tutorial material, examples, and applications of <code>SimDesign</code> to real-world
+simulation experiments, as well as the various vignette files associated with the package.
+</p>
+<p>The strategy for organizing the Monte Carlo simulation work-flow is to
+</p>
+
+<dl>
+<dt>1)</dt>
+<dd>
+<p>Define a suitable <code>Design</code> object (a <code>tibble</code> or <code>data.frame</code>)
+containing fixed conditional
+information about the Monte Carlo simulations. Each row or this <code>design</code> object pertains
+to a unique set of simulation to study, while each column the simulation factor under
+investigation (e.g., sample size,
+distribution types, etc). This is often expedited by using the
+<code>createDesign</code> function, and if necessary the argument <code>subset</code>
+can be used to remove redundant or non-applicable rows</p>
+</dd>
+<dt>2)</dt>
+<dd>
+<p>Define the three step functions to generate the data (<code>Generate</code>; see also
+<a href="https://CRAN.R-project.org/view=Distributions">https://CRAN.R-project.org/view=Distributions</a> for a list of distributions in R),
+analyse the generated data by computing the respective parameter estimates, detection rates,
+etc (<code>Analyse</code>), and finally summarise the results across the total
+number of replications (<code>Summarise</code>).
+</p>
+</dd>
+<dt>3)</dt>
+<dd>
+<p>Pass the <code>design</code> object and three defined R functions to <code>runSimulation</code>,
+and declare the number of replications to perform with the <code>replications</code> input.
+This function will return a suitable
+<code>tibble</code> object with the complete simulation results and execution details</p>
+</dd>
+<dt>4)</dt>
+<dd>
+<p>Analyze the output from <code>runSimulation</code>, possibly using ANOVA techniques
+(<code>SimAnova</code>) and generating suitable plots and tables</p>
+</dd>
+</dl>
+<p>Expressing the above more succinctly, the functions to be called have the following form,
+with the exact functional arguments listed:
+</p>
+
+<dl>
+<dt><code>Design &lt;- createDesign(...)</code></dt>
+<dd></dd>
+<dt><code>Generate &lt;- function(condition, fixed_objects) {...} </code></dt>
+<dd></dd>
+<dt><code>Analyse &lt;- function(condition, dat, fixed_objects) {...} </code></dt>
+<dd></dd>
+<dt><code>Summarise &lt;- function(condition, results, fixed_objects) {...} </code></dt>
+<dd></dd>
+<dt><code>res &lt;- runSimulation(design=Design, replications, generate=Generate,
+        analyse=Analyse, summarise=Summarise)</code></dt>
+<dd></dd>
+</dl>
+<p>The <code>condition</code> object above represents a single row from the <code>design</code> object, indicating
+a unique Monte Carlo simulation condition. The <code>condition</code> object also contains two
+additional elements to help track the simulation's state: an <code>ID</code> variable, indicating
+the respective row number in the <code>design</code> object, and a <code>REPLICATION</code> element
+indicating the replication iteration number (an integer value between 1 and <code>replication</code>).
+This setup allows users to easily locate the <code>r</code>th replication (e.g., <code>REPLICATION == 500</code>)
+within the <code>j</code>th row in the simulation design (e.g., <code>ID == 2</code>). The
+<code>REPLICATION</code> input is also useful when temporarily saving files to the hard-drive
+when calling external command line utilities (see examples on the wiki).
+</p>
+<p>For a template-based version of the work-flow, which is often useful when initially
+defining a simulation, use the <code>SimFunctions</code> function. This
+function will write a template simulation
+to one/two files so that modifying the required functions and objects can begin immediately.
+This means that users can focus on their Monte Carlo simulation details right away rather
+than worrying about the repetitive administrative code-work required to organize the simulation's
+execution flow.
+</p>
+<p>Finally, examples, presentation files, and tutorials can be found on the package wiki located at
+<a href="https://github.com/philchalmers/SimDesign/wiki">https://github.com/philchalmers/SimDesign/wiki</a>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a <code>tibble</code> from the <code>dplyr</code> package (also of class <code>'SimDesign'</code>)
+with the original <code>design</code> conditions in the left-most columns,
+simulation results in the middle columns, and additional information in the right-most columns (see below).
+</p>
+<p>The right-most column information for each condition are:
+<code>REPLICATIONS</code> to indicate the number of Monte Carlo replications,
+<code>SIM_TIME</code> to indicate how long (in seconds) it took to complete
+all the Monte Carlo replications for each respective design condition,
+<code>RAM_USED</code> amount of RAM that was in use at the time of completing
+each simulation condition,
+<code>COMPLETED</code> to indicate the date in which the given simulation condition completed,
+<code>SEED</code> for the integer values in the <code>seed</code> argument (if applicable; not
+relevant when L'Ecuyer-CMRG method used), and, if applicable,
+<code>ERRORS</code> and <code>WARNINGS</code> which contain counts for the number of error or warning
+messages that were caught (if no errors/warnings were observed these columns will be omitted).
+Note that to extract the specific error and warnings messages see
+<code>SimExtract</code>. Finally,
+if <code>boot_method</code> was a valid input other than 'none' then the final right-most
+columns will contain the labels
+<code>BOOT_</code> followed by the name of the associated meta-statistic defined in <code>summarise()</code> and
+and bootstrapped confidence interval location for the meta-statistics.
+</p>
+
+
+<h3>Saving data, results, seeds, and the simulation state</h3>
+
+<p>To conserve RAM, temporary objects (such as data generated across conditions and replications)
+are discarded; however, these can be saved to the hard-disk by passing the appropriate flags.
+For longer simulations it is recommended to use the <code>save_results</code> flag to write the
+analysis results to the hard-drive.
+</p>
+<p>The use of the <code>store_seeds</code> or the <code>save_seeds</code> options
+can be evoked to save R's <code>.Random.seed</code>
+state to allow for complete reproducibility of each replication within each condition. These
+individual <code>.Random.seed</code> terms can then be read in with the
+<code>load_seed</code> input to reproduce the exact simulation state at any given replication.
+Most often though, saving the complete list of seeds is unnecessary as problematic seeds are
+automatically stored in the final simulation object to allow for easier replicability
+of potentially problematic errors (which incidentally can be extracted
+using <code>SimExtract(res, 'error_seeds')</code> and passed to the <code>load_seed</code> argument). Finally,
+providing a vector of <code>seeds</code> is also possible to ensure
+that each simulation condition is macro reproducible under the single/multi-core method selected.
+</p>
+<p>Finally, when the Monte Carlo simulation is complete
+it is recommended to write the results to a hard-drive for safe keeping, particularly with the
+<code>filename</code> argument provided (for reasons that are more obvious in the parallel computation
+descriptions below). Using the <code>filename</code> argument supplied is safer than using, for instance,
+<code>saveRDS</code> directly because files will never accidentally be overwritten,
+and instead a new file name will be created when a conflict arises; this type of implementation safety
+is prevalent in many locations in the package to help avoid unrecoverable (yet surprisingly
+common) mistakes during the process of designing and executing Monte Carlo simulations.
+</p>
+
+
+<h3>Resuming temporary results</h3>
+
+<p>In the event of a computer crash, power outage, etc, if <code>save = TRUE</code> was used (the default)
+then the original code used to execute <code>runSimulation()</code> need only be re-run to resume
+the simulation. The saved temp file will be read into the function automatically, and the
+simulation will continue one the condition where it left off before the simulation
+state was terminated. If users wish to remove this temporary
+simulation state entirely so as to start anew then simply pass <code>SimClean(temp = TRUE)</code>
+in the R console to remove any previously saved temporary objects.
+</p>
+
+
+<h3>A note on parallel computing</h3>
+
+<p>When running simulations in parallel (either with <code>parallel = TRUE</code>
+or when using the <code>future</code> approach with a <code>plan()</code> other than sequential)
+R objects defined in the global environment will generally <em>not</em> be visible across nodes.
+Hence, you may see errors such as <code>Error: object 'something' not found</code> if you try to use
+an object that is defined in the work space but is not passed to <code>runSimulation</code>.
+To avoid this type or error, simply pass additional objects to the
+<code>fixed_objects</code> input (usually it's convenient to supply a named list of these objects).
+Fortunately, however, <em>custom functions defined in the global environment are exported across
+nodes automatically</em>. This makes it convenient when writing code because custom functions will
+always be available across nodes if they are visible in the R work space. As well, note the
+<code>packages</code> input to declare packages which must be loaded via <code>library()</code> in order to make
+specific non-standard R functions available across nodes.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Phil Chalmers <a href="mailto:rphilip.chalmers@gmail.com">rphilip.chalmers@gmail.com</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Chalmers, R. P., &amp; Adkins, M. C.  (2020). Writing Effective and Reliable Monte Carlo Simulations
+with the SimDesign Package. <code>The Quantitative Methods for Psychology, 16</code>(4), 248-280.
+<a href="https://doi.org/10.20982/tqmp.16.4.p248">doi:10.20982/tqmp.16.4.p248</a>
+</p>
+<p>Sigal, M. J., &amp; Chalmers, R. P. (2016). Play it again: Teaching statistics with Monte
+Carlo simulation. <code>Journal of Statistics Education, 24</code>(3), 136-156.
+<a href="https://doi.org/10.1080/10691898.2016.1246953">doi:10.1080/10691898.2016.1246953</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SimFunctions</code>, <code>createDesign</code>,
+<code>Generate</code>, <code>Analyse</code>, <code>Summarise</code>,
+<code>SimExtract</code>,
+<code>reSummarise</code>, <code>SimClean</code>, <code>SimAnova</code>, <code>SimResults</code>,
+<code>SimCollect</code>, <code>Attach</code>, <code>AnalyseIf</code>,
+<code>SimShiny</code>, <code>manageWarnings</code>, <code>runArraySimulation</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#-------------------------------------------------------------------------------
+# Example 1: Sampling distribution of mean
+
+# This example demonstrate some of the simpler uses of SimDesign,
+# particularly for classroom settings. The only factor varied in this simulation
+# is sample size.
+
+# skeleton functions to be saved and edited
+SimFunctions()
+
+#### Step 1 --- Define your conditions under study and create design data.frame
+
+Design &lt;- createDesign(N = c(10, 20, 30))
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~
+#### Step 2 --- Define generate, analyse, and summarise functions
+
+# help(Generate)
+Generate &lt;- function(condition, fixed_objects) {
+    dat &lt;- with(condition, rnorm(N, 10, 5)) # distributed N(10, 5)
+    dat
+}
+
+# help(Analyse)
+Analyse &lt;- function(condition, dat, fixed_objects) {
+    ret &lt;- c(mean=mean(dat)) # mean of the sample data vector
+    ret
+}
+
+# help(Summarise)
+Summarise &lt;- function(condition, results, fixed_objects) {
+    # mean and SD summary of the sample means
+    ret &lt;- c(mu=mean(results$mean), SE=sd(results$mean))
+    ret
+}
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~
+#### Step 3 --- Collect results by looping over the rows in design
+
+# run the simulation in testing mode (replications = 2)
+Final &lt;- runSimulation(design=Design, replications=2,
+                       generate=Generate, analyse=Analyse, summarise=Summarise)
+Final
+SimResults(Final)
+
+# reproduce exact simulation
+Final_rep &lt;- runSimulation(design=Design, replications=2, seed=Final$SEED,
+                       generate=Generate, analyse=Analyse, summarise=Summarise)
+Final_rep
+SimResults(Final_rep)
+
+## Not run: 
+# run with more standard number of replications
+Final &lt;- runSimulation(design=Design, replications=1000,
+                       generate=Generate, analyse=Analyse, summarise=Summarise)
+Final
+SimResults(Final)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~
+#### Extras
+# compare SEs estimates to the true SEs from the formula sigma/sqrt(N)
+5 / sqrt(Design$N)
+
+# To store the results from the analyse function either
+#   a) omit a definition of summarise() to return all results,
+#   b) use store_results = TRUE (default) to store results internally and later
+#      extract with SimResults(), or
+#   c) pass save_results = TRUE to runSimulation() and read the results in with SimResults()
+#
+#   Note that method c) should be adopted for larger simulations, particularly
+#   if RAM storage could be an issue and error/warning message information is important.
+
+# a) approach
+res &lt;- runSimulation(design=Design, replications=100,
+                     generate=Generate, analyse=Analyse)
+res
+
+# b) approach (store_results = TRUE by default)
+res &lt;- runSimulation(design=Design, replications=100,
+                     generate=Generate, analyse=Analyse, summarise=Summarise)
+res
+SimResults(res)
+
+# c) approach
+Final &lt;- runSimulation(design=Design, replications=100, save_results=TRUE,
+                       generate=Generate, analyse=Analyse, summarise=Summarise)
+
+# read-in all conditions (can be memory heavy)
+res &lt;- SimResults(Final)
+res
+head(res[[1]]$results)
+
+# just first condition
+res &lt;- SimResults(Final, which=1)
+head(res$results)
+dplyr::tibble(res$condition, res$results)
+
+
+# obtain empirical bootstrapped CIs during an initial run
+# the simulation was completed (necessarily requires save_results = TRUE)
+res &lt;- runSimulation(design=Design, replications=1000, boot_method = 'basic',
+                     generate=Generate, analyse=Analyse, summarise=Summarise)
+res
+
+# alternative bootstrapped CIs that uses saved results via reSummarise().
+# Default directory save to:
+dirname &lt;- paste0('SimDesign-results_', unname(Sys.info()['nodename']), "/")
+res &lt;- reSummarise(summarise=Summarise, dir=dirname, boot_method = 'basic')
+res
+
+# remove the saved results from the hard-drive if you no longer want them
+SimClean(results = TRUE)
+
+
+## End(Not run)
+
+
+#-------------------------------------------------------------------------------
+# Example 2: t-test and Welch test when varying sample size, group sizes, and SDs
+
+# skeleton functions to be saved and edited
+SimFunctions()
+
+## Not run: 
+# in real-world simulations it's often better/easier to save
+# these functions directly to your hard-drive with
+SimFunctions('my-simulation')
+
+## End(Not run)
+
+#### Step 1 --- Define your conditions under study and create design data.frame
+
+Design &lt;- createDesign(sample_size = c(30, 60, 90, 120),
+                       group_size_ratio = c(1, 4, 8),
+                       standard_deviation_ratio = c(.5, 1, 2))
+Design
+
+#~~~~~~~~~~~~~~~~~~~~~~~~
+#### Step 2 --- Define generate, analyse, and summarise functions
+
+Generate &lt;- function(condition, fixed_objects) {
+    N &lt;- condition$sample_size      # could use Attach() to make objects available
+    grs &lt;- condition$group_size_ratio
+    sd &lt;- condition$standard_deviation_ratio
+    if(grs &lt; 1){
+        N2 &lt;- N / (1/grs + 1)
+        N1 &lt;- N - N2
+    } else {
+        N1 &lt;- N / (grs + 1)
+        N2 &lt;- N - N1
+    }
+    group1 &lt;- rnorm(N1)
+    group2 &lt;- rnorm(N2, sd=sd)
+    dat &lt;- data.frame(group = c(rep('g1', N1), rep('g2', N2)), DV = c(group1, group2))
+    dat
+}
+
+Analyse &lt;- function(condition, dat, fixed_objects) {
+    welch &lt;- t.test(DV ~ group, dat)$p.value
+    independent &lt;- t.test(DV ~ group, dat, var.equal=TRUE)$p.value
+
+    # In this function the p values for the t-tests are returned,
+    #  and make sure to name each element, for future reference
+    ret &lt;- nc(welch, independent)
+    ret
+}
+
+Summarise &lt;- function(condition, results, fixed_objects) {
+    #find results of interest here (e.g., alpha &lt; .1, .05, .01)
+    ret &lt;- EDR(results, alpha = .05)
+    ret
+}
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~
+#### Step 3 --- Collect results by looping over the rows in design
+
+# first, test to see if it works
+res &lt;- runSimulation(design=Design, replications=2,
+                     generate=Generate, analyse=Analyse, summarise=Summarise)
+res
+
+## Not run: 
+# complete run with 1000 replications per condition
+res &lt;- runSimulation(design=Design, replications=1000, parallel=TRUE,
+                     generate=Generate, analyse=Analyse, summarise=Summarise)
+res
+View(res)
+
+## save final results to a file upon completion, and play a beep when done
+runSimulation(design=Design, replications=1000, parallel=TRUE, filename = 'mysim',
+              generate=Generate, analyse=Analyse, summarise=Summarise, beep=TRUE)
+
+## same as above, but send a notification via Pushbullet upon completion
+library(RPushbullet) # read-in default JSON file
+runSimulation(design=Design, replications=1000, parallel=TRUE, filename = 'mysim',
+              generate=Generate, analyse=Analyse, summarise=Summarise,
+              notification = 'complete')
+
+## Submit as RStudio job (requires job package and active RStudio session)
+job::job({
+  res &lt;- runSimulation(design=Design, replications=100,
+                       generate=Generate, analyse=Analyse, summarise=Summarise)
+}, title='t-test simulation')
+res  # object res returned to console when completed
+
+## Debug the generate function. See ?browser for help on debugging
+##   Type help to see available commands (e.g., n, c, where, ...),
+##   ls() to see what has been defined, and type Q to quit the debugger
+runSimulation(design=Design, replications=1000,
+              generate=Generate, analyse=Analyse, summarise=Summarise,
+              parallel=TRUE, debug='generate')
+
+## Alternatively, place a browser() within the desired function line to
+##   jump to a specific location
+Summarise &lt;- function(condition, results, fixed_objects) {
+    #find results of interest here (e.g., alpha &lt; .1, .05, .01)
+    browser()
+    ret &lt;- EDR(results[,nms], alpha = .05)
+    ret
+}
+
+## The following debugs the analyse function for the
+## second row of the Design input
+runSimulation(design=Design, replications=1000,
+              generate=Generate, analyse=Analyse, summarise=Summarise,
+              parallel=TRUE, debug='analyse-2')
+
+
+####################################
+## EXTRA: To run the simulation on a user-define cluster, use the following setup (not run)
+## Network linked via ssh (two way ssh key-paired connection must be
+## possible between master and slave nodes)
+##
+## Define IP addresses, including primary IP
+primary &lt;- '192.168.2.20'
+IPs &lt;- list(
+    list(host=primary, user='phil', ncore=8),
+    list(host='192.168.2.17', user='phil', ncore=8)
+)
+spec &lt;- lapply(IPs, function(IP)
+                   rep(list(list(host=IP$host, user=IP$user)), IP$ncore))
+spec &lt;- unlist(spec, recursive=FALSE)
+
+cl &lt;- parallel::makeCluster(type='PSOCK', master=primary, spec=spec)
+res &lt;- runSimulation(design=Design, replications=1000, parallel = TRUE,
+                     generate=Generate, analyse=Analyse, summarise=Summarise, cl=cl)
+
+
+## Using parallel='future' to allow the future framework to be used instead
+library(future) # future structure to be used internally
+plan(multisession) # specify different plan (default is sequential)
+
+res &lt;- runSimulation(design=Design, replications=100, parallel='future',
+                     generate=Generate, analyse=Analyse, summarise=Summarise)
+head(res)
+
+# The progressr package is used for progress reporting with futures. To redefine
+#  use progressr::handlers() (see below)
+library(progressr)
+with_progress(res &lt;- runSimulation(design=Design, replications=100, parallel='future',
+                     generate=Generate, analyse=Analyse, summarise=Summarise))
+head(res)
+
+# re-define progressr's bar (below requires cli)
+handlers(handler_pbcol(
+   adjust = 1.0,
+   complete = function(s) cli::bg_red(cli::col_black(s)),
+   incomplete = function(s) cli::bg_cyan(cli::col_black(s))
+))
+
+with_progress(res &lt;- runSimulation(design=Design, replications=100, parallel='future',
+                     generate=Generate, analyse=Analyse, summarise=Summarise))
+
+# reset future computing plan when complete (good practice)
+plan(sequential)
+
+####################################
+
+###### Post-analysis: Analyze the results via functions like lm() or SimAnova(), and create
+###### tables(dplyr) or plots (ggplot2) to help visualize the results.
+###### This is where you get to be a data analyst!
+
+library(dplyr)
+res %&gt;% summarise(mean(welch), mean(independent))
+res %&gt;% group_by(standard_deviation_ratio, group_size_ratio) %&gt;%
+   summarise(mean(welch), mean(independent))
+
+# quick ANOVA analysis method with all two-way interactions
+SimAnova( ~ (sample_size + group_size_ratio + standard_deviation_ratio)^2, res,
+  rates = TRUE)
+
+# or more specific ANOVAs
+SimAnova(independent ~ (group_size_ratio + standard_deviation_ratio)^2,
+    res, rates = TRUE)
+
+# make some plots
+library(ggplot2)
+library(tidyr)
+dd &lt;- res %&gt;%
+   select(group_size_ratio, standard_deviation_ratio, welch, independent) %&gt;%
+   pivot_longer(cols=c('welch', 'independent'), names_to = 'stats')
+dd
+
+ggplot(dd, aes(factor(group_size_ratio), value)) + geom_boxplot() +
+    geom_abline(intercept=0.05, slope=0, col = 'red') +
+    geom_abline(intercept=0.075, slope=0, col = 'red', linetype='dotted') +
+    geom_abline(intercept=0.025, slope=0, col = 'red', linetype='dotted') +
+    facet_wrap(~stats)
+
+ggplot(dd, aes(factor(group_size_ratio), value, fill = factor(standard_deviation_ratio))) +
+    geom_boxplot() + geom_abline(intercept=0.05, slope=0, col = 'red') +
+    geom_abline(intercept=0.075, slope=0, col = 'red', linetype='dotted') +
+    geom_abline(intercept=0.025, slope=0, col = 'red', linetype='dotted') +
+    facet_grid(stats~standard_deviation_ratio) +
+    theme(legend.position = 'none')
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

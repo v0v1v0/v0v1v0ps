@@ -1,0 +1,197 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SQN_free</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SQN Free-Mode Optimizer</h2>
+
+<h3>Description</h3>
+
+<p>Optimizes an empirical (convex) loss function over batches of sample data. Compared to
+function/class 'SQN', this version lets the user do all the calculations from the outside, only
+interacting with the object by means of a function that returns a request type and is fed the
+required calculation through methods 'update_gradient' and 'update_hess_vec'.
+</p>
+<p>Order in which requests are made:
+</p>
+<p>========== loop ===========
+</p>
+<p>* calc_grad
+</p>
+<p><code style="white-space: pre;">⁠   ⁠</code>... (repeat calc_grad)
+</p>
+<p>if 'use_grad_diff':
+</p>
+<p><code style="white-space: pre;">⁠    ⁠</code>* calc_grad_big_batch
+</p>
+<p>else:
+</p>
+<p><code style="white-space: pre;">⁠    ⁠</code>* calc_hess_vec
+</p>
+<p>===========================
+</p>
+<p>After running this function, apply 'run_SQN_free' to it to get the first requested piece of information.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SQN_free(mem_size = 10, bfgs_upd_freq = 20, min_curvature = 1e-04,
+  y_reg = NULL, use_grad_diff = FALSE, check_nan = TRUE,
+  nthreads = -1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mem_size</code></td>
+<td>
+<p>Number of correction pairs to store for approximation of Hessian-vector products.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bfgs_upd_freq</code></td>
+<td>
+<p>Number of iterations (batches) after which to generate a BFGS correction pair.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_curvature</code></td>
+<td>
+<p>Minimum value of (s * y) / (s * s) in order to accept a correction pair. Pass 'NULL' for
+no minimum.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y_reg</code></td>
+<td>
+<p>Regularizer for 'y' vector (gets added y_reg * s). Pass 'NULL' for no regularization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use_grad_diff</code></td>
+<td>
+<p>Whether to create the correction pairs using differences between gradients instead of Hessian-vector products.
+These gradients are calculated on a larger batch than the regular ones (given by batch_size * bfgs_upd_freq).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>check_nan</code></td>
+<td>
+<p>Whether to check for variables becoming NaN after each iteration, and reverting the step if they do
+(will also reset BFGS memory).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nthreads</code></td>
+<td>
+<p>Number of parallel threads to use. If set to -1, will determine the number of available threads and use
+all of them. Note however that not all the computations can be parallelized, and the BLAS backend might use a different
+number of threads.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An 'SQN_free' object, which can be used through functions 'update_gradient', 'update_hess_vec',
+and 'run_SQN_free'
+</p>
+
+
+<h3>References</h3>
+
+ <ul>
+<li>
+<p> Byrd, R.H., Hansen, S.L., Nocedal, J. and Singer, Y., 2016.
+"A stochastic quasi-Newton method for large-scale optimization."
+SIAM Journal on Optimization, 26(2), pp.1008-1031.
+</p>
+</li>
+<li>
+<p> Wright, S. and Nocedal, J., 1999. "Numerical optimization." (ch 7) Springer Science, 35(67-68), p.7.</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p>update_gradient , update_hess_vec , run_oLBFGS_free
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### Example optimizing Rosenbrock 2D function
+### Note that this example is not stochastic, as the
+### function is not evaluated in expectation based on
+### batches of data, but rather it has a given absolute
+### form that never varies.
+### Warning: this optimizer is meant for convex functions
+### (Rosenbrock's is not convex)
+library(stochQN)
+
+
+fr &lt;- function(x) { ## Rosenbrock Banana function
+	x1 &lt;- x[1]
+	x2 &lt;- x[2]
+	100 * (x2 - x1 * x1)^2 + (1 - x1)^2
+}
+grr &lt;- function(x) { ## Gradient of 'fr'
+	x1 &lt;- x[1]
+	x2 &lt;- x[2]
+	c(-400 * x1 * (x2 - x1 * x1) - 2 * (1 - x1),
+	  200 * (x2 - x1 * x1))
+}
+Hvr &lt;- function(x, v) { ## Hessian of 'fr' by vector 'v'
+	x1 &lt;- x[1]
+	x2 &lt;- x[2]
+	H &lt;- matrix(c(1200 * x1^2 - 400*x2 + 2,
+			  -400 * x1, -400 * x1, 200),
+			nrow = 2)
+	as.vector(H %*% v)
+}
+
+### Initial values of x
+x_opt = as.numeric(c(0, 2))
+cat(sprintf("Initial values of x: [%.3f, %.3f]\n",
+			x_opt[1], x_opt[2]))
+
+### Will use constant step size throughout
+### (not recommended)
+step_size = 1e-3
+
+### Initialize the optimizer
+optimizer = SQN_free()
+
+### Keep track of the iteration number
+curr_iter &lt;- 0
+
+### Run a loop for severa, iterations
+### (Note that some iterations might require more
+###  than 1 calculation request)
+for (i in 1:200) {
+  req &lt;- run_SQN_free(optimizer, x_opt, step_size)
+  if (req$task == "calc_grad") {
+    update_gradient(optimizer, grr(req$requested_on$req_x))
+  } else if (req$task == "calc_hess_vec") {
+	   update_hess_vec(optimizer,
+      Hvr(req$requested_on$req_x, req$requested_on$req_vec))
+  }
+
+  ### Track progress every 10 iterations
+  if (req$info$iteration_number &gt; curr_iter) {
+  	curr_iter &lt;- req$info$iteration_number
+  }
+  if ((curr_iter %% 10) == 0) {
+  	cat(sprintf(
+  	 "Iteration %3d - Current function value: %.3f\n",
+  	 req$info$iteration_number, fr(x_opt)))
+  }
+}
+cat(sprintf("Current values of x: [%.3f, %.3f]\n",
+			x_opt[1], x_opt[2]))
+</code></pre>
+
+
+</div>

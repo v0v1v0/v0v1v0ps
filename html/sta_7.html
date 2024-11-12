@@ -1,0 +1,371 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sta</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Statistical Seasonal Trend Analysis for numeric vector or <code>RasterStack</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>Statistical Seasonal Trend Analysis for numeric vector or <code>RasterStack</code>
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sta(
+  data,
+  freq,
+  numFreq = 4,
+  delta = 0,
+  startYear = 2000,
+  endYear = 2018,
+  intraAnnualPeriod = c("wetSeason", "drySeason"),
+  interAnnualPeriod,
+  adhocPeriod = NULL,
+  significance = NULL,
+  save = FALSE,
+  dirToSaveSTA = NULL,
+  numCores = 20
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>numeric vector, matrix or RasterStack object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>freq</code></td>
+<td>
+<p>integer with the number of observations per period. See <code>Details</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numFreq</code></td>
+<td>
+<p>integer with the number of frequencies to employ in harmonic regression fitting. 
+See <code>haRmonics</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>delta</code></td>
+<td>
+<p>numeric (positive) controlling regularization and prevent non-invertible
+hat matrix in harmonic regression model. See <code>haRmonics</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startYear</code></td>
+<td>
+<p>numeric, time series initial year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endYear</code></td>
+<td>
+<p>numeric, time series last year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intraAnnualPeriod</code></td>
+<td>
+<p>character indicating seasons (wet or dry) to be considered for additional 
+statistical analysis. See <code>Details</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interAnnualPeriod</code></td>
+<td>
+<p>numeric vector indicating the number of years to be considered in STA. For instance,
+1:5, indicates that the first five years will be
+utilized for STA. Similarly, c(2,6,10) indicates that the second, sixth and tenth
+years will be utilized for STA. See <code>Details</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adhocPeriod</code></td>
+<td>
+<p>numeric vector with the specific observations to be considered in additional
+statistical analysis. See <code>Details</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>significance</code></td>
+<td>
+<p>numeric in the interval (0,1) to assess statistical significance of trend analysis.
+<code>NULL</code> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save</code></td>
+<td>
+<p>logical, should STA output be saved, default is <code>FALSE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dirToSaveSTA</code></td>
+<td>
+<p>character with full path name used to save <code>sta</code> progress report. When 
+<code>save = TRUE</code>, <code>sta</code>'s output is saved on this path.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>numCores</code></td>
+<td>
+<p>integer given the number of cores to use; pertinent when <code>data</code> is a
+RasterStack or a <code>matrix</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>When the input is a <code>matrix</code>, its first two columns must correspond 
+to geographic coordinates. For instance, the matrix resulting from applying <code>rasterToPoints</code> 
+to a <code>RasterStack</code> has this format. 
+</p>
+<p><code>freq</code> must be either 12 (monthly observations), 23 (Landsat annual scale) or 36 (10-day composite)
+as this version implements STA for time series with these frequencies.
+</p>
+<p>This version sets <code>intraAnnualPeriod</code> to either the <code>wetSeason</code> or the <code>drySeason</code> 
+of Mexico. Empirical evidence suggests that while wet season runs from May to October, dry season
+runs from November to April. Should a desired STA require specific months/days, these must be
+provided through <code>adhocPeriod</code>.
+</p>
+<p>When <code>interAnnualPeriod</code> is not specified and <code>class(data)=numeric</code>,
+<code>interAnnualPeriod = 1:(length(data)/freq)</code>; when <code>class(data)</code> is either <code>RasterStack</code>
+or <code>matrix</code>, <code>interAnnualPeriod = 1:((ncol(data)-2)/freq)</code>.
+</p>
+<p>Since <code>adhocPeriod</code> defines an inter annual period "ad-hoc", the specific days of this ad-hoc
+season must be known in advance and consequently, the specific time-points (with respect to the 
+time series under consideration) must be provided in a numeric vector.
+</p>
+<p>When <code>save=T</code>, a valid <code>dirToSaveSTA</code> must be provided, that is, this folder should have been
+created previously. In this case, <code>sta</code>'s output is saved on <code>dirToSaveSTA</code>. This version
+saves arrays of STA of the mean, annual and semi-annual parameters (along with their corresponding basic statistics)
+in the file <code>sta_matrix_output.RData</code> inside <code>dirToSaveSTA</code>. Also, in the same directory,
+the file <code>sta_progress.txt</code> records the progress of the STA process.
+</p>
+<p><code>save=T</code>, <code>dirToSaveSTA</code>, <code>numCores</code> and <code>master</code> are required when <code>data</code> is either a
+<code>RasterStack</code> or a <code>matrix</code>. The aforementioned basic statistics are: mean and standard deviation
+of the time series of annual maximum and minimum as well as the global minima and maxima.
+</p>
+
+
+<h3>Value</h3>
+
+<p>When <code>class(data)</code> is a <code>numeric</code>, an object of class "staNumeric" containing:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>numeric vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>freq</code></td>
+<td>
+<p>integer with the number of observations per period</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startYear</code></td>
+<td>
+<p>numeric, time series initial year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endYear</code></td>
+<td>
+<p>numeric, time series last year</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intraAnnualPeriod</code></td>
+<td>
+<p>character indicating seasons (wet or dry)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interAnnualPeriod</code></td>
+<td>
+<p>numeric vector indicating the number of years considered in STA</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ts</code></td>
+<td>
+<p>time series object; <code>data</code> in <code>ts</code> format</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit</code></td>
+<td>
+<p>numeric vector with output of <code>haRmonics</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sta</code></td>
+<td>
+<p>a list containing the following elements:</p>
+</td>
+</tr>
+</table>
+<ul>
+<li> <p><code>mean</code> a list of 12 elements with STA output for shape parameter <em>mean</em>
+</p>
+</li>
+<li> <p><code>annual</code> a list of 12 elements with STA output for shape parameter <em>annual</em>
+</p>
+</li>
+<li> <p><code>semiannual</code> a list of 12 elements with STA output for shape parameter <em>semiannual</em>
+</p>
+</li>
+</ul>
+<table><tr style="vertical-align: top;">
+<td><code>significance</code></td>
+<td>
+<p>numeric in the interval (0,1) or <code>NULL</code> when default used</p>
+</td>
+</tr></table>
+<p>When <code>class(data)</code> is a <code>RasterStack</code> or a <code>matrix</code>, an object of class
+"staMatrix" containing:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>freq</code></td>
+<td>
+<p>integer with the number of observations per period</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>daysUsedFit</code></td>
+<td>
+<p>integer vector indicating the indices used to fit harmonic regression. see <code>haRmonics</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intervalsUsedBasicStats</code></td>
+<td>
+<p>numeric vector indicating the indices used on calculation of basic statistics</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sta</code></td>
+<td>
+<p>a list containg the following elements:</p>
+</td>
+</tr>
+</table>
+<ul>
+<li> <p><code>mean</code> a matrix of 4 columns with STA output for shape parameter <em>mean</em>. First two columns provide geolocation of analyzed pixels, 
+third and fourth columns show p-value and slope estimate of STA, respectively
+</p>
+</li>
+<li> <p><code>mean_basicStats</code> a matrix of 10 columns with basic statistics for shape parameter <em>mean</em>. First two columns provide geolocation of analyzed pixels, 
+from third to tenth columns show mean, standard deviation, global minimum, and maximum of minimum values, as well as mean, standard deviation,
+global minimum, and maximum of maximum values, respectively
+</p>
+</li>
+<li> <p><code>annual</code> a matrix of 4 columns with STA output for shape parameter <em>annual</em>. First two columns provide geolocation of analyzed pixels, 
+third and fourth columns show p-value and slope estimate of STA, respectively
+</p>
+</li>
+<li> <p><code>annual_basicStats</code> a matrix of 10 columns with basic statistics for shape parameter <em>annual</em>. First two columns provide geolocation of analyzed pixels, 
+from third to tenth columns show mean, standard deviation, global minimum, and maximum of minimum values, as well as mean, standard deviation,
+global minimum, and maximum of maximum values, respectively
+</p>
+</li>
+<li> <p><code>semiannual</code> a matrix of 4 columns with STA output for shape parameter <em>semiannual</em>. First two columns provide geolocation of analyzed pixels, 
+third and fourth columns show p-value and slope estimate of STA, respectively
+</p>
+</li>
+<li> <p><code>semiannual_basicStats</code> a matrix of 10 columns with basic statistics for shape parameter <em>semiannual</em>. First two columns provide geolocation of analyzed pixels, 
+from third to tenth columns show mean, standard deviation, global minimum, and maximum of minimum values, as well as mean, standard deviation,
+global minimum, and maximum of maximum values, respectively 
+</p>
+</li>
+</ul>
+<h3>Note</h3>
+
+<p>STA is based on the following ideas. Let <code class="reqn">y_t</code> denote the value of a periodic time
+series at time-point <code class="reqn">t</code>. It is well-known that this type of observations can be modeled
+as:
+</p>
+<p><code class="reqn">y_t = a_0 + a_1 cos( (2 \pi t)/L - \phi_1) + ... +  a_K cos( (2 \pi K t)/L - \phi_K) + \varepsilon_t</code>, <code class="reqn">t=1,\ldots,L</code>.
+</p>
+<p>This model is known as harmonic regression. <code class="reqn">L</code> denotes the number of observations per period, <code class="reqn">K</code> is the number of 
+harmonics included in the fit, <code class="reqn">a_i</code>'s and <code class="reqn">\phi_i</code>'s are called amplitude coefficients and phase angles,
+respectively. <code class="reqn">K</code> can be known empirically. Amplitudes and phase angle can be obtained as the solution of a least-squares
+problem. 
+</p>
+<p>In vegetation monitoring, amplitudes and phase angles are known as <em>shape parameters</em>. In particular,
+<code class="reqn">a_0</code>, <code class="reqn">a_1</code> and <code class="reqn">a_2</code> are called <em>mean</em> and <em>annual</em> and <em>semiannual</em> amplitudes, respectively.
+Applying the harmonic regression model to observations over <code class="reqn">P</code> periods of length <code class="reqn">L</code> each, results
+in estimates of shape parameters for each period. Thus, focusing only on amplitudes, <code>sta</code> yields
+time series of mean, annual and semiannual parameters. A subsequent Mann-Kendall test for trend is performed
+on each of these series.
+</p>
+
+
+<h3>References</h3>
+
+<p>Eastman, R., Sangermano, F., Ghimine, B., Zhu, H., Chen, H., Neeti, N., Cai, Y., Machado E., Crema, S. (2009).
+<em>Seasonal trend analysis of image time series</em>,
+International Journal of Remote Sensing, <b>30(10)</b>, 2721–2726.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">sta_marismas &lt;- sta(data=marismas, freq=36)
+str(sta_marismas)
+plot(sta_marismas)
+plot(sta_marismas, significance=0.09)
+
+# Use of interAnnualPeriod
+sta_21016 &lt;- sta(data = marismas, freq = 36, interAnnualPeriod = c(2, 10, 16))
+plot(sta_21016)
+
+# Use of intraAnnualPeriod
+sta_drySeason_218 &lt;- sta(data = marismas, freq = 36,
+                     interAnnualPeriod = 2:18, intraAnnualPeriod = "drySeason")
+plot(sta_drySeason_218)
+
+# Use of adhocPeriod and significance
+adhoc &lt;- list()
+beginPeriod &lt;- (1:17) * 36
+endPeriod &lt;- 2:18 * 36 
+adhoc$partial &lt;- c( sapply(1:length(beginPeriod), 
+                 function(s) c(beginPeriod[s]+1, endPeriod[s]) ) )
+adhoc$full &lt;- c( sapply(1:length(beginPeriod), 
+              function(s) (beginPeriod[s]+1):endPeriod[s]) )
+sta_adhoc_218 &lt;- sta(data = marismas, freq = 36, interAnnualPeriod = 2:18,
+                 startYear = 2000, endYear = 2018, adhocPeriod = adhoc, significance=0.05)
+plot(sta_adhoc_218)
+
+# Use of ndmi RasterStack
+
+ndmi_path = system.file("extdata", "ndmi.tif", package = "sta")
+ndmiSTACK &lt;- stack(ndmi_path)
+dir.create(path=paste0(system.file("extdata", package="sta"), "/output_ndmi"),
+          showWarnings=FALSE)
+outputDIR = paste0(system.file("extdata", package="sta"), "/output_ndmi")
+
+sta_ndmi_21016 &lt;- sta(data = ndmiSTACK, freq = 36,
+                  numFreq = 4, delta = 0.2, intraAnnualPeriod = "wetSeason",
+                  startYear = 2000, endYear = 2018, interAnnualPeriod = c(2,10,16),
+                  save = TRUE, numCores = 2L, dirToSaveSTA = outputDIR)
+ 
+</code></pre>
+
+
+</div>

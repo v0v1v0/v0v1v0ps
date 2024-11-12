@@ -1,0 +1,359 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SKAT</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>SNP-set (Sequence) Kernel Association Test</h2>
+
+<h3>Description</h3>
+
+<p>Test for association between a set of SNPS/genes and continuous or dichotomous phenotypes using kernel regression framework.      
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+SKAT(Z, obj, kernel = "linear.weighted", 
+  method="davies", weights.beta=c(1,25), weights=NULL, 
+  impute.method="fixed", r.corr=0, is_check_genotype=TRUE,
+  is_dosage = FALSE, missing_cutoff=0.15 , max_maf=1, estimate_MAF=1)
+
+SKAT.SSD.OneSet(SSD.INFO, SetID, obj, ... ,obj.SNPWeight=NULL)
+
+SKAT.SSD.OneSet_SetIndex(SSD.INFO, SetIndex, obj, ... ,obj.SNPWeight=NULL)
+
+ </code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Z</code></td>
+<td>
+<p>a numeric genotype matrix with each row as a different individual and each column as a separate gene/snp. 
+Each genotype should be coded as 0, 1, 2, and 9 (or NA) for AA, Aa, aa, and missing, where A is a major allele and a is a minor allele. 
+Missing genotypes will be imputed by the simple Hardy-Weinberg equilibrium (HWE) based imputation. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>an output object of the SKAT_Null_Model function. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kernel</code></td>
+<td>
+<p>a type of kernel (default= "linear.weighted"). See detail section. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a method to compute the p-value (default= "davies"). 
+"davies" represents an exact method that  computes the p-value by inverting the characteristic function of the mixture chisq, 
+"liu" represents an approximation method that matches the first 3 moments, 
+"liu.mod" represents modified "liu" method that matches kurtosis instead of skewness 
+to improve tail probability approximation,"SKATO" and "optimal.adj" represent a SKAT-O based on an unified approach, 
+and "optimal" is an old version of the implementation of SKAT-O. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights.beta</code></td>
+<td>
+<p>a numeric vector of parameters for the beta weights for the weighted kernels. 
+If you want to use your own  weights, please use the “weights” parameter. It will be ignored if “weights” parameter is not null.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>a numeric vector of weights for the weighted kernels. 
+It is <code class="reqn">\sqrt{w}</code> in the SKAT paper. 
+So if you want to use the Madsen and Browning (2009) weight, you should set each element of weights as <code class="reqn">1/ \sqrt{p(1-p)}</code>, 
+not <code class="reqn">1/ p(1-p)</code>. When it is NULL, the beta weight with the “weights.beta” parameter is used. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>impute.method</code></td>
+<td>
+<p>a method to impute missing genotypes (default= "fixed"). 
+"bestguess" imputes missing genotypes as most likely values (0,1,2), "random" imputes missing genotypes by generating binomial(2,p) random variables (p is the MAF), 
+and "fixed" imputes missing genotypes by assigning the mean genotype values (2p).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r.corr</code></td>
+<td>
+<p>the <code class="reqn">\rho</code> parameter for the compound symmetric correlation structure kernels (default= 0). 
+If you give a vector value, SKAT will conduct the optimal test. It will be ignored if method=“optimal” or method=“optimal.adj”. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>is_check_genotype</code></td>
+<td>
+<p>a logical value indicating whether to check the validity of the genotype matrix Z (default= TRUE). 
+If Z has non-SNP data, please set it FALSE, otherwise you will get an error message. 
+If it is FALSE and you use weighted kernels, the weights should be given through the “weights” parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>is_dosage</code></td>
+<td>
+<p>a logical value indicating whether the matrix Z is a dosage matrix. If it is TRUE, SKAT will ignore “is_check_genotype”. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>missing_cutoff</code></td>
+<td>
+<p>a cutoff of the missing rates of SNPs (default=0.15). Any SNPs with missing rates higher than the cutoff will be excluded from the analysis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_maf</code></td>
+<td>
+<p>a cutoff of the maximum minor allele frequencies (MAF) (default=1, no cutoff). Any SNPs with MAF &gt; cutoff will be excluded from the analysis.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>estimate_MAF</code></td>
+<td>
+<p>a numeric value indicating how to estimate MAFs for the weight calculation and 
+the missing genotype imputation. If estimate_MAF=1 (default), SKAT uses all samples to estimate MAFs. 
+If estimate_MAF=2, only samples with non-missing phenotypes and covariates are used to estimate MAFs. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SSD.INFO</code></td>
+<td>
+<p>an SSD_INFO object returned from Open_SSD. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SetID</code></td>
+<td>
+<p>a character value of Set ID. A set ID of each set can be found from SetInfo object in SSD.INFO.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SetIndex</code></td>
+<td>
+<p>a numeric value of Set index. A set index of each set can be found from SetInfo object in SSD.INFO.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>further arguments to be passed to “SKAT” </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj.SNPWeight</code></td>
+<td>
+<p> an output object of Read_SNP_WeightFile (default=NULL). 
+If NULL, the beta weight with the “weights.beta” parameter will be used.  </p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>There are 6 types of pre-specified kernels:
+"linear", "linear.weighted", "IBS", "IBS.weighted", "quadratic" and "2wayIX".
+Among them, "2wayIX" is a product kernel consisting of main effects and SNP-SNP interaction terms. 
+</p>
+<p>If users want to use dosage values instead of genotypes, set is_dosage=TRUE. 
+Please keep in mind that plink formatted files (so SSD files) cannot used for dosages. Instead, 
+you should make a genotype matrix Z to run SKAT.
+</p>
+<p>The kernel matrix for the weighted linear kernel is
+<code class="reqn">K = G W W G </code>, where G is a genotype matrix and W is a diagonal weight matrix. 
+Please note that it is different from the notation we used in the original SKAT paper, 
+which was <code class="reqn">K = G W G </code>. 
+The Madsen and Browning (2009) weight is <code class="reqn">w = 1/ \sqrt{p(1-p)}</code> in the current notation. 
+By the previous notation, it is <code class="reqn">w = 1/ p(1-p)</code>.
+</p>
+<p>If you want to use the SSD file, you need to open it first using Open_SSD,
+and then use either SKAT.SSD.OneSet  or SKAT.SSD.OneSet_SetIndex. 
+Set index is a numeric value and automatically assigned to each set (from 1).
+</p>
+<p>The r.corr represents a <code class="reqn">\rho</code> parameter of the unified test, 
+<code class="reqn">Q_{\rho} = (1-\rho) Q_S + \rho Q_B</code>, where <code class="reqn">Q_S</code> is a SKAT test statistic, 
+and <code class="reqn">Q_B</code> is a weighted burden test statistic. 
+Therefore, <code class="reqn">\rho=0</code> results in the original weighted linear kernel SKAT, 
+and <code class="reqn">\rho=1</code> results in the weighted burden test (default: <code class="reqn">\rho=0</code>). 
+If r.corr is a vector, SKAT-O will be conducted with adaptively seleting <code class="reqn">\rho</code> from given r.corr values. 
+<code class="reqn">\rho</code> should be a value between 0 and 1. When method="optimal" or method="optimal.adj", the r.corr parameter will be ignored.
+</p>
+<p>We slightly changed the implementation for SKAT-O to improve the estimation of p-values. You can run it by 
+using method="optimal.adj" or "SKATO". It uses a grid of eight points <code class="reqn">\rho=(0, 0.1^2, 0.2^2, 0.3^2, 0.4^2, 0.5^2, 0.5, 1)</code> 
+for the search of the optimal <code class="reqn">\rho</code>.   
+If you want to use the original implementation of SKAT-O, use method="optimal" that 
+carries out SKAT-O with an equal sized grid of 11 points (from 0 to 1).
+</p>
+<p>If the true p.value is very small, you can have p.value=0 due to numerical reasons. In this case, 
+please see pval.zero.msg that shows how small it is. 
+For example, if the p.value is smaller than <code class="reqn">10^{-60}</code>, it has "Pvalue &lt; 1.000000e-60".                                           
+</p>
+<p>By default, SKAT uses impute.method="fixed" that imputes missing genotypes as the mean genotype values (2p). 
+When variates are very rare and missing rates between cases and controls are highly unbalanced, 
+impute.method="fixed" can yield inflated type I error rate. In this case, we recommend to use
+impute.method="bestguess", which does not suffer the same problem.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>p.value</code></td>
+<td>
+<p>p-value of SKAT. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.value.resampling</code></td>
+<td>
+<p>p-values from resampled outcomes. You can get it when you use obj from SKAT_Null_Model function with resampling. See the SKAT_Null_Model. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.value.noadj</code></td>
+<td>
+<p>p-value of SKAT without the small sample adjustment. It only appears when small sample adjustment is applied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p.value.noadj.resampling</code></td>
+<td>
+<p>p-values from resampled outcomes without the small sample adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pval.zero.msg</code></td>
+<td>
+<p>(only when p.value=0) text message that shows how small the p.value is. ex. "Pvalue &lt; 1.000000e-60" when the p.value is smaller than <code class="reqn">10^{-60}</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Q</code></td>
+<td>
+<p>test statistic of SKAT. It has NA when method="optimal.adj" or "optimal".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param</code></td>
+<td>
+<p>estimated parameters of each method.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param$Is_Converged</code></td>
+<td>
+<p> (only with method="davies") an indicator of the convergence (1=convergence, 0=non-convergence). 
+When 0 (not converged), "liu" method will be used to compute p-values. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param$n.marker</code></td>
+<td>
+<p>a number of SNPs in the genotype matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>param$n.marker.test</code></td>
+<td>
+<p>a number of SNPs used for the test. It can be different from param$n.marker when 
+some markers are monomorphic or have higher missing rates than the missing_cutoff. </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>test.snp.mac</code></td>
+<td>
+<p>a vector of minor allele count (MAC) of the snps tested. The name is SNP-ID. </p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Seunggeun Lee, Micheal Wu</p>
+
+
+<h3>References</h3>
+
+<p>Lee, S., Emond, M.J., Bamshad, M.J., Barnes, K.C., Rieder, M.J., Nickerson, D.A., 
+NHLBI GO Exome Sequencing Project-ESP Lung Project Team, Christiani, D.C., Wurfel, M.M. and Lin, X. (2012) 
+Optimal unified approach for rare variant association testing with application to small sample 
+case-control whole-exome sequencing studies. <em>American Journal of Human Genetics</em>, 91, 224-237.
+</p>
+<p>Lee, S., Wu, M. C., and Lin, X. (2012)  Optimal tests for rare variant effects in sequencing association studies. <em>Biostatistics</em>, 13, 762-775.
+</p>
+<p>Wu, M. C.*, Lee, S.*, Cai, T., Li, Y., Boehnke, M., and Lin, X. (2011)  Rare Variant Association Testing for Sequencing Data Using the Sequence Kernel Association Test (SKAT). <em>American Journal of Human Genetics</em>, 89, 82-93. \
+* contributed equally. 
+</p>
+<p>Wu, M. C., Kraft, P., Epstein, M. P.,Taylor, D., M., Chanock, S. J., Hunter, D., J., and Lin, X. (2010)  Powerful SNP Set Analysis for Case-Control Genome-wide Association Studies. <em>American Journal of Human Genetics</em>, 86, 929-942.
+</p>
+<p>Davies R.B. (1980) Algorithm AS 155: The Distribution of a Linear
+Combination of chi-2 Random Variables, <em> Journal of the Royal
+Statistical Society. Series C </em>, 29, 323-333.
+</p>
+<p>H. Liu, Y. Tang, H.H. Zhang (2009) A new chi-square approximation
+to the distribution of non-negative definite quadratic forms in
+non-central normal variables, <em>Computational Statistics and Data Analysis</em>, 53, 853-856.
+</p>
+<p>Duchesne, P. and Lafaye De Micheaux, P. (2010) Computing the distribution of quadratic forms: Further comparisons between the Liu-Tang-Zhang approximation and exact methods, <em>Computational Statistics and Data Analysis</em>, 54, 858-862. 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+data(SKAT.example)
+
+
+#############################################################
+#	SKAT with default Beta(1,25) Weights 
+#		- without covariates
+Z&lt;-SKAT.example$Z
+# continuous trait
+obj&lt;-SKAT_Null_Model(y.c ~ 1, out_type="C", data=SKAT.example)
+SKAT(Z, obj)$p.value
+
+# dichotomous trait 
+obj&lt;-SKAT_Null_Model(y.b ~ 1, out_type="D", data=SKAT.example)
+SKAT(Z, obj)$p.value
+
+
+##################################################
+#	SKAT with default Beta(1,25) Weights
+#		- with covariates
+
+# continuous trait
+obj&lt;-SKAT_Null_Model(y.c ~ X, out_type="C", data=SKAT.example)
+SKAT(Z, obj)$p.value
+
+obj.b&lt;-SKAT_Null_Model(y.b ~ X, out_type="D", data=SKAT.example)
+SKAT(Z, obj.b)$p.value
+
+##################################################
+#	SKAT with default Beta(1,25) Weights
+#		- Optimal Test
+
+SKAT(Z, obj, method="optimal.adj")$p.value
+
+# you can get the same p-value by using method="SKATO"
+SKAT(Z, obj, method="SKATO")$p.value
+
+#############################################################
+#	SKAT with Beta(1,30) Weights
+
+SKAT(Z, obj, weights.beta=c(1,30))$p.value
+
+
+</code></pre>
+
+
+</div>

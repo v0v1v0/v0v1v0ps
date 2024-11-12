@@ -1,0 +1,142 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>autocov_dist</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Distance-weighted autocovariate</h2>
+
+<h3>Description</h3>
+
+<p>Calculates the autocovariate to be used in autonormal, autopoisson or autologistic regression. Three distance-weighting schemes are available.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">autocov_dist(z, xy, nbs = 1, type = "inverse", zero.policy = NULL,
+ style = "B", longlat=NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>z</code></td>
+<td>
+<p>the response variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xy</code></td>
+<td>
+<p>a matrix of coordinates or a SpatialPoints, <code>sf</code> or <code>sfc</code> points object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nbs</code></td>
+<td>
+<p>neighbourhood radius; default is 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>the weighting scheme: "one" gives equal weight to all data points in the neighbourhood; "inverse" (the default) weights by inverse distance; "inverse.squared" weights by the square of "inverse"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zero.policy</code></td>
+<td>
+<p>default NULL, use global option value; if FALSE stop with error for any empty neighbour sets, if TRUE permit the weights list to be formed with zero-length weights vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>style</code></td>
+<td>
+<p>default “B” (changed from “W” 2015-01-27); style can take values “W”, “B”, “C”, “U”, and “S”</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>longlat</code></td>
+<td>
+<p>TRUE if point coordinates are longitude-latitude decimal, in which case distances are measured in kilometers; if xy is a SpatialPoints object, the value is taken from the object itself</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A numeric vector of autocovariate values
+</p>
+
+
+<h3>Note</h3>
+
+<p>The validity of this approach strongly hinges on the correct choice of the
+neighbourhood scheme! Using <span class="option">style="B"</span> ensures symmetry of the
+neighbourhood matrix (i.e. <code class="reqn">w_{nm} = w_{mn}</code>). Please see Bardos et al. (2015)
+for details.</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Carsten F. Dormann and Roger Bivand</p>
+
+
+<h3>References</h3>
+
+<p>Augustin N.H., Mugglestone M.A. and Buckland S.T. (1996) An autologistic model for the spatial distribution of wildlife. <em>Journal of Applied Ecology</em>, 33, 339-347; Gumpertz M.L., Graham J.M. and Ristaino J.B. (1997) Autologistic model of spatial pattern of Phytophthora epidemic in bell pepper: effects of soil variables on disease presence. <em>Journal of Agricultural, Biological and Environmental Statistics</em>, 2, 131-156; Bardos, D.C., Guillera-Arroita, G. and Wintle, B.A. (2015) Valid auto-models for spatially autocorrelated occupancy and abundance data. arXiv, 1501.06529.</p>
+
+
+<h3>See Also</h3>
+
+<p><code>nb2listw</code></p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">columbus &lt;- st_read(system.file("shapes/columbus.gpkg", package="spData")[1], quiet=TRUE)
+#xy &lt;- cbind(columbus$X, columbus$Y)
+xy &lt;- st_coordinates(st_centroid(st_geometry(columbus),
+ of_largest_polygon=TRUE))
+ac1a &lt;- autocov_dist(columbus$CRIME, xy, nbs=10, style="B",
+ type="one")
+acinva &lt;- autocov_dist(columbus$CRIME, xy, nbs=10, style="B",
+ type="inverse")
+acinv2a &lt;- autocov_dist(columbus$CRIME, xy, nbs=10, style="B",
+ type="inverse.squared")
+plot(ac1a ~ columbus$CRIME, pch=16, ylim=c(0,9000))
+points(acinva ~ columbus$CRIME, pch=16, col="red")
+points(acinv2a ~ columbus$CRIME, pch=16, col="blue")
+legend("topleft", legend=c("one", "inverse", "inverse.squared"),
+ col=c("black", "red", "blue"), bty="n", pch=16)
+nb &lt;- dnearneigh(xy, 0, 10)
+lw &lt;- nb2listw(nb, style="B")
+ac1b &lt;- lag(lw, columbus$CRIME)
+all.equal(ac1b, ac1a)
+nbd &lt;- nbdists(nb, xy)
+gl &lt;- lapply(nbd, function(x) 1/x)
+lw &lt;- nb2listw(nb, glist=gl, style="B")
+acinvb &lt;- lag(lw, columbus$CRIME)
+all.equal(acinvb, acinva)
+gl2 &lt;- lapply(nbd, function(x) 1/(x^2))
+lw &lt;- nb2listw(nb, glist=gl2, style="B")
+acinv2b &lt;- lag(lw, columbus$CRIME)
+all.equal(acinv2b, acinv2a)
+#xy &lt;- SpatialPoints(xy)
+#acinva &lt;- autocov_dist(columbus$CRIME, xy, nbs=10, style="W",
+# type="inverse")
+#nb &lt;- dnearneigh(xy, 0, 10)
+#nbd &lt;- nbdists(nb, xy)
+#gl &lt;- lapply(nbd, function(x) 1/x)
+#lw &lt;- nb2listw(nb, glist=gl)
+#acinvb &lt;- lag(lw, columbus$CRIME)
+#all.equal(acinvb, acinva)
+acinvc &lt;- autocov_dist(columbus$CRIME, st_centroid(st_geometry(columbus),
+ of_largest_polygon=TRUE), nbs=10, style="W", type="inverse")
+all.equal(acinvc, acinva)
+</code></pre>
+
+
+</div>

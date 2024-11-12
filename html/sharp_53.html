@@ -1,0 +1,118 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>OpenMxModel</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Writing OpenMx model (matrix specification)</h2>
+
+<h3>Description</h3>
+
+<p>Returns matrix specification for use in <code>mxModel</code> from
+(i) the adjacency matrix of a Directed Acyclic Graph (asymmetric matrix A in
+Reticular Action Model notation), and (ii) a binary matrix encoding nonzero
+entries in the residual covariance matrix (symmetric matrix S in Reticular
+Action Model notation).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">OpenMxModel(adjacency, residual_covariance = NULL, manifest = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>adjacency</code></td>
+<td>
+<p>binary adjacency matrix of the Directed Acyclic Graph
+(transpose of the asymmetric matrix A in Reticular Action Model notation).
+The row and column names of this matrix must be defined.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>residual_covariance</code></td>
+<td>
+<p>binary and symmetric matrix encoding the nonzero
+entries in the residual covariance matrix (symmetric matrix S in Reticular
+Action Model notation). By default, this is the identity matrix (no
+residual covariance).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>manifest</code></td>
+<td>
+<p>optional vector of manifest variable names.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of RAM matrices that can be used in <code>mxRun</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>PenalisedOpenMx</code>, <code>OpenMxMatrix</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (requireNamespace("OpenMx", quietly = TRUE)) {
+  # Definition of simulated effects
+  pk &lt;- c(3, 2, 3)
+  dag &lt;- LayeredDAG(layers = pk)
+  theta &lt;- dag
+  theta[2, 4] &lt;- 0
+  theta[3, 7] &lt;- 0
+  theta[4, 7] &lt;- 0
+
+  # Data simulation
+  set.seed(1)
+  simul &lt;- SimulateStructural(n = 500, v_between = 1, theta = theta, pk = pk)
+
+  # Writing RAM matrices for mxModel
+  ram_matrices &lt;- OpenMxModel(adjacency = dag)
+
+  # Running unpenalised model
+  unpenalised &lt;- OpenMx::mxRun(OpenMx::mxModel(
+    "Model",
+    OpenMx::mxData(simul$data, type = "raw"),
+    ram_matrices$Amat,
+    ram_matrices$Smat,
+    ram_matrices$Fmat,
+    ram_matrices$Mmat,
+    OpenMx::mxExpectationRAM("A", "S", "F", "M", dimnames = colnames(dag)),
+    OpenMx::mxFitFunctionML()
+  ), silent = TRUE, suppressWarnings = TRUE)
+  unpenalised$A$values
+
+  # Incorporating latent variables
+  ram_matrices &lt;- OpenMxModel(
+    adjacency = dag,
+    manifest = paste0("x", seq_len(7))
+  )
+  ram_matrices$Fmat$values
+
+  # Running unpenalised model
+  unpenalised &lt;- OpenMx::mxRun(OpenMx::mxModel(
+    "Model",
+    OpenMx::mxData(simul$data[, seq_len(7)], type = "raw"),
+    ram_matrices$Amat,
+    ram_matrices$Smat,
+    ram_matrices$Fmat,
+    ram_matrices$Mmat,
+    OpenMx::mxExpectationRAM("A", "S", "F", "M", dimnames = colnames(dag)),
+    OpenMx::mxFitFunctionML()
+  ), silent = TRUE, suppressWarnings = TRUE)
+  unpenalised$A$values
+}
+</code></pre>
+
+
+</div>

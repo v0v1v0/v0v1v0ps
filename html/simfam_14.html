@@ -1,0 +1,113 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>recomb_haplo_inds</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Construct haplotypes of individuals given their ancestral blocks and the ancestral haplotype variants</h2>
+
+<h3>Description</h3>
+
+<p>Construct haplotypes of individuals given their ancestral blocks and the ancestral haplotype variants
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">recomb_haplo_inds(inds, haplo, ret_anc = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>inds</code></td>
+<td>
+<p>A list of individuals in the same format as the output of <code>recomb_fam()</code> after being processed with <code>recomb_map_inds()</code>.
+More specifically, each individual is a list with two haploid individuals named <code>pat</code> and <code>mat</code>, each of which is a list of chromosomes (always identified by number, but may also be named arbitrarily), each of which is a data.frame/tibble with implicit ranges (<code>pos</code> is end coordinates in base pairs; start is the end of the previous block plus one, 1 for the first block) and ancestors <code>anc</code> as strings.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>haplo</code></td>
+<td>
+<p>The ancestral haplotypes, which is a list of chromosomes, each of which is a list with two named elements: <code>X</code> is a matrix of haplotype markers (loci along rows, ancestral individuals along columns, which must be named as in <code>anc</code> strings in <code>inds</code> above), and <code>pos</code> is a vector of locus positions in base pair coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ret_anc</code></td>
+<td>
+<p>If <code>TRUE</code>, returns local ancestries (per position) along with haplotypes, otherwise only haplotypes are returned.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A list of diploid individuals, each of which is a list with two haploid individuals named <code>pat</code> and <code>mat</code>, each of which is a list of chromosomes.
+If <code>ret_anc = FALSE</code> (default), each chromosome is a haplotype (vector of values copied from ancestors in <code>haplo</code>);
+if <code>ret_anc = TRUE</code>, each chromosome is a list with named elements <code>x</code> for the haplotype vector and <code>anc</code> for the vector of ancestor name per position.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>recomb_fam()</code> for drawing recombination (ancestor) blocks, defined in terms of genetic distance.
+</p>
+<p><code>recomb_map_inds()</code> for transforming genetic to basepair coordinates given a genetic map.
+</p>
+<p><code>recomb_geno_inds()</code> for transforming the output of this function from haplotypes (a nested lists structure) to a plain genotype matrix.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Lengthy code creates individuals with recombination data to map
+# The smallest pedigree, two parents and a child (minimal fam table).
+library(tibble)
+fam &lt;- tibble(
+  id = c('father', 'mother', 'child'),
+  pat = c(NA, NA, 'father'),
+  mat = c(NA, NA, 'mother')
+)
+# use latest human recombination map, but just first two chrs to keep this example fast
+map &lt;- recomb_map_hg38[ 1L:2L ]
+# initialize parents with this other function
+founders &lt;- recomb_init_founders( c('father', 'mother'), map )
+# draw recombination breaks for child
+inds &lt;- recomb_fam( founders, fam )
+# now add base pair coordinates to recombination breaks
+inds &lt;- recomb_map_inds( inds, map )
+
+# also need ancestral haplotypes
+# these should be simulated carefully as needed, but for this example we make random data
+haplo &lt;- vector( 'list', length( map ) )
+# names of ancestor haplotypes for this scenario
+# (founders of fam$id but each with "_pat" and "_mat" suffixes)
+anc_names &lt;- c( 'father_pat', 'father_mat', 'mother_pat', 'mother_mat' )
+n_ind &lt;- length( anc_names )
+# number of loci per chr, for toy test
+m_loci &lt;- 10L
+for ( chr in 1L : length( map ) ) {
+    # draw random positions
+    pos_chr &lt;- sample.int( max( map[[ chr ]]$pos ), m_loci )
+    # draw haplotypes
+    X_chr &lt;- matrix(
+        rbinom( m_loci * n_ind, 1L, 0.5 ),
+        nrow = m_loci,
+        ncol = n_ind
+    )
+    # required column names!
+    colnames( X_chr ) &lt;- anc_names
+    # add to structure, in a list
+    haplo[[ chr ]] &lt;- list( X = X_chr, pos = pos_chr )
+}
+
+# finally, run desired function!
+# determine haplotypes of descendants given ancestral haplotypes
+data &lt;- recomb_haplo_inds( inds, haplo )
+
+
+</code></pre>
+
+
+</div>

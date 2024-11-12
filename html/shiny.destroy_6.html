@@ -1,0 +1,101 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>makeModuleUIDestroyable</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create Destroyable Module</h2>
+
+<h3>Description</h3>
+
+<p>Adding wrappers to a shiny module to enable an ease of dynamically
+adding and removing modules within a shiny application.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">makeModuleUIDestroyable(module_fn, wrapper = shiny::div)
+
+makeModuleServerDestroyable(module_fn)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>module_fn</code></td>
+<td>
+<p>The server-side part of the module</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wrapper</code></td>
+<td>
+<p>If the module is a 'shiny::tagList()', then an HTML tag
+will be wrapped by an HTML tag so that a shiny.destroy attribute
+can be attached</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An updated function call of 'module_fn'.
+</p>
+<p>For the UI, if the returned object from 'module_fn' is a 'shiny.tag'
+then an additional attribute will be added to the top-level HTML tag
+for {shiny.destroy} to reference when removing the UI. If the returned
+object is a 'shiny.tag.list' then a wrapper tag will surround the module
+with the attribute to destroy the module.
+</p>
+<p>For the server, each observer will be assigned to the '.shiny.destroy'
+list within 'session$userData'. The returned object from the module
+remains the same as before.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(shiny)
+
+# UI
+basicModuleUI &lt;- function(id) {
+  ns &lt;- NS(id)
+  actionButton("click", "Increase")
+}
+
+destroyableModuleUI &lt;- makeModuleUIDestroyable(basicModuleUI)
+
+# Server-side
+basicMoudleServer &lt;- function(id) {
+  moduleServer(id, function(input, output, session) {
+    rv &lt;- reactiveVal()
+    observeEvent(input$click, rv(input$click))
+  })
+}
+
+destroyableModuleServer &lt;- makeModuleServerDestroyable(basicMoudleServer)
+
+# Shiny Application
+ui &lt;- fluidPage(
+  destroyableModuleUI(id = "test"),
+  actionButton("destroy", "Destroy module"),
+  textOutput("reactive_value")
+)
+
+server &lt;- function(input, output, session) {
+  top_rv &lt;- reactiveVal()
+
+  reactive_value &lt;- destroyableModuleServer("test")
+  observeEvent(reactive_value(), top_rv(reactive_value()))
+
+  output$reactive_value &lt;- renderText(top_rv())
+
+  observeEvent(input$destroy, destroyModule("test"))
+}
+
+</code></pre>
+
+
+</div>

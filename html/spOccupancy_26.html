@@ -1,0 +1,478 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>intMsPGOcc</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for Fitting Integrated Multi-Species Occupancy Models Using Polya-Gamma Latent Variables</h2>
+
+<h3>Description</h3>
+
+<p>Function for fitting integrated multi-species occupancy models using Polya-Gamma latent variables. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">intMsPGOcc(occ.formula, det.formula, data, inits, priors, n.samples,
+           n.omp.threads = 1, verbose = TRUE, n.report = 100, 
+           n.burn = round(.10 * n.samples), n.thin = 1, n.chains = 1,
+           k.fold, k.fold.threads = 1, k.fold.seed, k.fold.only = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>occ.formula</code></td>
+<td>
+<p>a symbolic description of the model to be fit
+for the occurrence portion of the model using R's model syntax. Only
+right-hand side of formula is specified. See example below. Random 
+intercepts are allowed using <span class="pkg">lme4</span> syntax (Bates et al. 2015).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>det.formula</code></td>
+<td>
+<p>a list of symbolic descriptions of the models to be fit
+for the detection portion of the model using R's model syntax for 
+each data set. Each element in the list is a formula for the detection 
+model of a given data set. Only right-hand side of formula is specified. 
+Random effects are not currently supported. See example below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a list containing data necessary for model fitting.
+Valid tags are <code>y</code>, <code>occ.covs</code>, <code>det.covs</code>, <code>sites</code>,
+and <code>species</code>. <code>y</code> is a list of three-dimensional arrays. Each 
+element of the list has first dimension equal to the number of species
+observed in that data source, second dimension equal to the number of 
+sites observed in that data source, and thir dimension equal to the 
+maximum number of replicates at a given site. 
+<code>occ.covs</code> is a matrix or data frame containing the variables 
+used in the occurrence portion of the model, with the number of rows
+being the number of sites with at least one data source for each 
+column (variable). <code>det.covs</code> is a list of variables included
+in the detection portion of the model for each data source. <code>det.covs</code>
+should have the same number of elements as <code>y</code>, where each element
+is itself a list. Each element of the list for a given data source is a
+different detection covariate, which can be site-level or observational-level.
+Site-level covariates are specified as a vector with length equal to the
+number of observed sites of that data source, while observational-level
+covariates are specified as a matrix or data frame with the number of 
+rows equal to the number of observed sites of that data source and number
+of columns equal to the maximum number of replicates at a given site. <code>sites</code>
+is a list of site indices with number of elements equal to the number of data sources being 
+modeled. Each element contains a vector of length equal to the number of 
+sites that specific data source contains. Each value in the vector indicates
+the row in <code>occ.covs</code> that corresponds with the specific row of the 
+detection-nondetection data for the data source. This is used to properly link sites across
+data sets. <code>species</code> is a list with number of data sources being modeled. Each
+element of the list is a vector of codes (these can be numeric or character) that
+indicate the species modeled in the specific data set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inits</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name.
+Valid tags are <code>alpha.comm</code>, <code>beta.comm</code>, <code>beta</code>, 
+<code>alpha</code>, <code>tau.sq.beta</code>, <code>tau.sq.alpha</code>, <code>sigma.sq.psi</code>, 
+and <code>z</code>. The value portion of each tag is the parameter's initial value. See 
+<code>priors</code> description for definition of each parameter name.
+Additionally, the tag <code>fix</code> can be set to <code>TRUE</code> 
+to fix the starting values across all chains. If <code>fix</code> is not specified
+(the default), starting values are varied randomly across chains.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priors</code></td>
+<td>
+<p>a list with each tag corresponding to a parameter name. 
+Valid tags are <code>beta.comm.normal</code>, <code>alpha.comm.normal</code>, 
+<code>tau.sq.beta.ig</code>, <code>tau.sq.alpha.ig</code>, <code>sigma.sq.psi.ig</code>, and 
+<code>sigma.sq.p.ig</code>. Community-level occurrence 
+(<code>beta.comm</code>) regression coefficients are assumed to 
+follow a normal distribution. The hyperparameters of the 
+normal distribution are passed as a list of length two with the first
+and second elements corresponding to the mean and variance of the normal
+distribution, which are each specified as vectors of 
+length equal to the number of coefficients to be estimated or of length one
+if priors are the same for all coefficients. If not
+specified, prior means are set to 0 and prior variances set to 2.72. For the 
+community-level detection means (<code>alpha.comm</code>), the mean and variance
+hyperparameters are themselves passed in as lists, with each element of the list
+corresponding to the specific hyperparameters for the detection parameters in a 
+given data source. If not specified, prior means are set to 0 and prior 
+variances set to 2.72. Community-level variance parameters for occurrence (<code>tau.sq.beta</code>) and
+detection (<code>tau.sq.alpha</code>) are assumed to follow an inverse Gamma 
+distribution. For the occurrence parameters, the hyperparameters of the inverse gamma distribution are 
+passed as a list of length two with the first and second elements 
+corresponding to the shape and scale parameters, which are each specified
+as vectors of length equal to the number of coefficients to be estimated 
+or a single value if all parameters are assigned the same prior. 
+If not specified, prior shape and scale parameters are set to 0.1. For the detection
+community-level variance parameters (<code>tau.sq.alpha</code>), the shape and scale 
+parameters are passed in as lists, with each element of the list corresponding 
+to the specific hyperparameters for the detection variances in a given 
+data source. <code>sigma.sq.psi</code> and are the random effect variances for any occurrence
+random effects, respectively, and are assumed to follow an inverse
+Gamma distribution. The hyperparameters of the inverse-Gamma distribution
+are passed as a list of length two with first and second elements corresponding
+to the shape and scale parameters, respectively, which are each specified as
+vectors of length equal to the number of random intercepts or of length one 
+if priors are the same for all random effect variances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.samples</code></td>
+<td>
+<p>the number of posterior samples to collect in each chain.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating the number of threads
+to use for SMP parallel processing. The package must be compiled for 
+OpenMP support. For most Intel-based machines, we recommend setting 
+<code>n.omp.threads</code> up to the number of hypterthreaded cores. Note, 
+<code>n.omp.threads</code> &gt; 1 might not work on some systems. Currently only 
+relevant for spatial models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, messages about data preparation, 
+model specification, and progress of the sampler are printed to the screen. 
+Otherwise, no messages are printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report MCMC progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.burn</code></td>
+<td>
+<p>the number of samples out of the total <code>n.samples</code> to 
+discard as burn-in for each chain. By default, the first 10% of samples is discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.thin</code></td>
+<td>
+<p>the thinning interval for collection of MCMC samples. The
+thinning occurs after the <code>n.burn</code> samples are discarded. Default 
+value is set to 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.chains</code></td>
+<td>
+<p>the number of chains to run in sequence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold</code></td>
+<td>
+<p>cross-validation is not currently supported for integrated 
+multi-species occupancy models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.threads</code></td>
+<td>
+<p>cross-validation is not currently supported for 
+integrated multi-species occupancy models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.seed</code></td>
+<td>
+<p>cross-validation is not currently supported for integrated
+multi-species occupancy models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.fold.only</code></td>
+<td>
+<p>cross-validation is not currently supported for integrated
+multi-species occupancy models.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class <code>intMsPGOcc</code> that is a list comprised of: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>beta.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level occurrence regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.comm.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the community level detection regression coefficients for all 
+data sources.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occurrence community variance parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau.sq.alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the detection community variance parameters for all data sources.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level occurrence regression coefficients.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the species level detection regression coefficients for all 
+data sources.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent occurrence values for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>psi.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples for
+the latent occurrence probability values for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma.sq.psi.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for variances of random intercepts included in the occurrence portion
+of the model. Only included if random intercepts are specified in 
+<code>occ.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta.star.samples</code></td>
+<td>
+<p>a <code>coda</code> object of posterior samples
+for the occurrence random effects. Only included if random intercepts
+are specified in <code>occ.formula</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>like.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior samples
+for the likelihood value associated with each site and species. 
+Used for calculating WAIC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rhat</code></td>
+<td>
+<p>a list of Gelman-Rubin diagnostic values for some of the model
+parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ESS</code></td>
+<td>
+<p>a list of effective sample sizes for some of the model parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>MCMC sampler execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for 
+subsequent prediction and/or model fit evaluation. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>Basic functionality of this function is stable, but some components are still in development and not currently available. Please create a GitHub issue on the package GitHub page if you use this function and encounter an error. 
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br></p>
+
+
+<h3>References</h3>
+
+<p>Polson, N.G., J.G. Scott, and J. Windle. (2013) Bayesian Inference for
+Logistic Models Using Polya-Gamma Latent Variables.
+<em>Journal of the American Statistical Association</em>, 108:1339-1349.
+</p>
+<p>Bates, Douglas, Martin Maechler, Ben Bolker, Steve Walker (2015).
+Fitting Linear Mixed-Effects Models Using lme4. Journal of
+Statistical Software, 67(1), 1-48. <a href="https://doi.org/10.18637/jss.v067.i01">doi:10.18637/jss.v067.i01</a>.
+</p>
+<p>Dorazio, R. M., and Royle, J. A. (2005). Estimating size and composition 
+of biological communities by modeling the occurrence of species. 
+Journal of the American Statistical Association, 100(470), 389-398.
+</p>
+<p>Doser, J. W., Leuenberger, W., Sillett, T. S., Hallworth, M. T. 
+&amp; Zipkin, E. F. (2022). Integrated community occupancy models: A framework 
+to assess occurrence and biodiversity dynamics using multiple data 
+sources. Methods in Ecology and Evolution, 00, 1-14. <a href="https://doi.org/10.1111/2041-210X.13811">doi:10.1111/2041-210X.13811</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(91)
+J.x &lt;- 10
+J.y &lt;- 10
+# Total number of data sources across the study region
+J.all &lt;- J.x * J.y
+# Number of data sources.
+n.data &lt;- 2
+# Sites for each data source.
+J.obs &lt;- sample(ceiling(0.2 * J.all):ceiling(0.5 * J.all), n.data, replace = TRUE)
+n.rep &lt;- list()
+n.rep[[1]] &lt;- rep(3, J.obs[1])
+n.rep[[2]] &lt;- rep(4, J.obs[2])
+
+# Number of species observed in each data source
+N &lt;- c(8, 3)
+
+# Community-level covariate effects
+# Occurrence
+beta.mean &lt;- c(0.2, 0.5)
+p.occ &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.4, 0.3)
+# Detection
+# Detection covariates
+alpha.mean &lt;- list()
+tau.sq.alpha &lt;- list()
+# Number of detection parameters in each data source
+p.det.long &lt;- c(4, 3)
+for (i in 1:n.data) {
+  alpha.mean[[i]] &lt;- runif(p.det.long[i], -1, 1)
+  tau.sq.alpha[[i]] &lt;- runif(p.det.long[i], 0.1, 1)
+}
+# Random effects
+psi.RE &lt;- list()
+p.RE &lt;- list()
+beta &lt;- matrix(NA, nrow = max(N), ncol = p.occ)
+for (i in 1:p.occ) {
+  beta[, i] &lt;- rnorm(max(N), beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+alpha &lt;- list()
+for (i in 1:n.data) {
+  alpha[[i]] &lt;- matrix(NA, nrow = N[i], ncol = p.det.long[i])
+  for (t in 1:p.det.long[i]) {
+    alpha[[i]][, t] &lt;- rnorm(N[i], alpha.mean[[i]][t], sqrt(tau.sq.alpha[[i]])[t])
+  }
+}
+sp &lt;- FALSE
+factor.model &lt;- FALSE
+# Simulate occupancy data
+dat &lt;- simIntMsOcc(n.data = n.data, J.x = J.x, J.y = J.y,
+                   J.obs = J.obs, n.rep = n.rep, N = N, beta = beta, alpha = alpha,
+                   psi.RE = psi.RE, p.RE = p.RE, sp = sp, factor.model = factor.model,
+                   n.factors = n.factors)
+J &lt;- nrow(dat$coords.obs)
+y &lt;- dat$y
+X &lt;- dat$X.obs
+X.p &lt;- dat$X.p
+X.re &lt;- dat$X.re.obs
+X.p.re &lt;- dat$X.p.re
+sites &lt;- dat$sites
+species &lt;- dat$species
+
+# Package all data into a list
+occ.covs &lt;- cbind(X)
+colnames(occ.covs) &lt;- c('int', 'occ.cov.1')
+#colnames(occ.covs) &lt;- c('occ.cov')
+det.covs &lt;- list()
+# Add covariates one by one
+det.covs[[1]] &lt;- list(det.cov.1.1 = X.p[[1]][, , 2], 
+                      det.cov.1.2 = X.p[[1]][, , 3], 
+                      det.cov.1.3 = X.p[[1]][, , 4])
+det.covs[[2]] &lt;- list(det.cov.2.1 = X.p[[2]][, , 2], 
+                      det.cov.2.2 = X.p[[2]][, , 3]) 
+
+data.list &lt;- list(y = y, 
+                  occ.covs = occ.covs, 
+                  det.covs = det.covs, 
+                  sites = sites, 
+                  species = species)
+# Take a look at the data.list structure for integrated multi-species
+# occupancy models.
+# Priors 
+prior.list &lt;- list(beta.comm.normal = list(mean = 0,var = 2.73),
+                   alpha.comm.normal = list(mean = list(0, 0),
+                                            var = list(2.72, 2.72)), 
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1), 
+                   tau.sq.alpha.ig = list(a = list(0.1, 0.1), 
+                                          b = list(0.1, 0.1)))
+inits.list &lt;- list(alpha.comm = list(0, 0), 
+                   beta.comm = 0, 
+                   tau.sq.beta = 1, 
+                   tau.sq.alpha = list(1, 1), 
+                   alpha = list(a = matrix(rnorm(p.det.long[1] * N[1]), N[1], p.det.long[1]), 
+                                b = matrix(rnorm(p.det.long[2] * N[2]), N[2], p.det.long[2])),
+                   beta = 0)
+
+# Fit the model. 
+out &lt;- intMsPGOcc(occ.formula = ~ occ.cov.1,
+                  det.formula = list(f.1 = ~ det.cov.1.1 + det.cov.1.2 + det.cov.1.3,
+                                     f.2 = ~ det.cov.2.1 + det.cov.2.2),
+                  inits = inits.list,
+                  priors = prior.list,
+                  data = data.list, 
+                  n.samples = 100, 
+                  n.omp.threads = 1, 
+                  verbose = TRUE, 
+                  n.report = 10, 
+                  n.burn = 50, 
+                  n.thin = 1, 
+                  n.chains = 1) 
+summary(out, level = 'community')
+</code></pre>
+
+
+</div>

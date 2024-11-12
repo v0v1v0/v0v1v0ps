@@ -1,0 +1,583 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>twinstim_simulation</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Simulation of a Self-Exciting Spatio-Temporal Point Process
+</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>simEpidataCS</code> simulates events of a self-exciting
+spatio-temporal point process of the <code>"twinstim"</code> class.
+Simulation works via Ogata's modified thinning of the conditional
+intensity as described in Meyer et al. (2012). Note that simulation is
+limited to the spatial and temporal range of <code>stgrid</code>.
+</p>
+<p>The <code>simulate</code> method for objects of class
+<code>"twinstim"</code> simulates new epidemic data using the model and
+the parameter estimates of the fitted object.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">simEpidataCS(endemic, epidemic, siaf, tiaf, qmatrix, rmarks,
+    events, stgrid, tiles, beta0, beta, gamma, siafpars, tiafpars,
+    epilink = "log", t0 = stgrid$start[1], T = tail(stgrid$stop,1),
+    nEvents = 1e5, control.siaf = list(F=list(), Deriv=list()),
+    W = NULL, trace = 5, nCircle2Poly = 32, gmax = NULL, .allocate = 500,
+    .skipChecks = FALSE, .onlyEvents = FALSE)
+
+## S3 method for class 'twinstim'
+simulate(object, nsim = 1, seed = NULL, data, tiles,
+    newcoef = NULL, rmarks = NULL, t0 = NULL, T = NULL, nEvents = 1e5,
+    control.siaf = object$control.siaf,
+    W = data$W, trace = FALSE, nCircle2Poly = NULL, gmax = NULL,
+    .allocate = 500, simplify = TRUE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>endemic</code></td>
+<td>
+
+<p>see <code>twinstim</code>. Note that type-specific endemic
+intercepts are specified by <code>beta0</code> here, not by the term
+<code>(1|type)</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epidemic</code></td>
+<td>
+
+<p>see <code>twinstim</code>. Marks appearing in this formula must
+be returned by the generating function <code>rmarks</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>siaf</code></td>
+<td>
+
+<p>see <code>twinstim</code>.
+In addition to what is required for fitting with <code>twinstim</code>,
+the <code>siaf</code> specification must also contain the element
+<code>simulate</code>, a function which draws random locations following the
+spatial kernel <code>siaf$f</code>. The first argument of the function is the
+number of points to sample (say <code>n</code>),
+the second one is the vector of parameters
+<code>siafpars</code>, the third one is the type indicator (a character string
+matching a type name as specified by <code>dimnames(qmatrix)</code>). With the
+current implementation there will always be simulated only one
+location at a time, i.e. <code>n=1</code>.
+The predefined siaf's all provide simulation.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tiaf</code></td>
+<td>
+
+<p>e.g. what is returned by the generating function
+<code>tiaf.constant</code> or <code>tiaf.exponential</code>. See also
+<code>twinstim</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>qmatrix</code></td>
+<td>
+
+<p>see <code>epidataCS</code>. Note that this square
+matrix and its <code>dimnames</code> determine the number and names of the
+different event types. In the simplest case, there is only a single
+type of event, i.e. <code>qmatrix = diag(1)</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rmarks</code></td>
+<td>
+
+<p>function of single time (1st argument) and location
+(2nd argument) returning a one-row <code>data.frame</code> of marks (named
+according to the variables in <code>epidemic</code>) for an event at this
+point. This must include the columns <code>eps.s</code> and <code>eps.t</code>, 
+i.e. the values of the spatial and temporal interaction ranges at this
+point. Only <code>"numeric"</code> and <code>"factor"</code> columns are
+allowed. Assure that factor variables are coded equally 
+(same levels and level order) for each new sample.
+</p>
+<p>For the <code>simulate.twinstim</code> method, the default (<code>NULL</code>)
+means sampling from the empirical distribution function of the
+(non-missing) marks in <code>data</code> restricted to events in the
+simulation period (<code>t0</code>;<code>T</code>]. If there are no events in
+this period, e.g., if simulating beyond the original observation
+period, <code>rmarks</code> will sample marks from all of
+<code>data$events</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>events</code></td>
+<td>
+
+<p><code>NULL</code> or missing (default) in case of an empty prehistory,
+or a <code>SpatialPointsDataFrame</code> containing events of the
+prehistory (-Inf;<code>t0</code>] of the process (required for the
+epidemic to start in case of no endemic component in the model).
+The <code>SpatialPointsDataFrame</code> must have the same
+<code>proj4string</code> as <code>tiles</code> and <code>W</code>). The attached
+<code>data.frame</code> (data slot) must contain the typical 
+columns as described in <code>as.epidataCS</code> (<code>time</code>,
+<code>tile</code>, <code>eps.t</code>, <code>eps.s</code>, and, for type-specific
+models, <code>type</code>) and all marks appearing in the <code>epidemic</code>
+specification. Note that some column names are reserved (see
+<code>as.epidataCS</code>).  Only events up to
+time <code>t0</code> are selected and taken as the prehistory.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stgrid</code></td>
+<td>
+
+<p>see <code>as.epidataCS</code>. Simulation only works inside the spatial
+and temporal range of <code>stgrid</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tiles</code></td>
+<td>
+
+<p>object inheriting from <code>"SpatialPolygons"</code> with
+<code>row.names</code> matching the <code>tile</code> names in <code>stgrid</code> and
+having the same <code>proj4string</code> as <code>events</code> and <code>W</code>. This is necessary
+to sample the spatial location of events generated by the endemic component.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta0,beta,gamma,siafpars,tiafpars</code></td>
+<td>
+
+<p>these are the parameter subvectors of the <code>twinstim</code>.
+<code>beta</code> and <code>gamma</code> must be given in the 
+same order as they appear in <code>endemic</code> and <code>epidemic</code>,
+respectively. <code>beta0</code> is either a single endemic intercept or a
+vector of type-specific endemic intercepts in the same order as in
+<code>qmatrix</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epilink</code></td>
+<td>
+
+<p>a character string determining the link function to be used for the
+<code>epidemic</code> linear predictor of event marks. By default, the
+log-link is used. The experimental alternative is
+<code>epilink = "identity"</code>. Note that the identity link does not
+guarantee the force of infection to be positive. If this leads to a
+negative total intensity (endemic + epidemic), the point process is
+not well defined and simulation cannot proceed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t0</code></td>
+<td>
+
+<p><code>events</code> having occurred during (-Inf;<code>t0</code>] are regarded
+as part of the prehistory <code class="reqn">H_0</code> of the process.
+For <code>simEpidataCS</code>, by default and also if <code>t0=NULL</code>,
+the beginning of <code>stgrid</code> is used as <code>t0</code>.
+For the <code>simulate.twinstim</code> method, <code>NULL</code> means to use
+the fitted time range of the <code>"twinstim"</code> <code>object</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>T, nEvents</code></td>
+<td>
+
+<p>simulate a maximum of <code>nEvents</code> events up to time <code>T</code>,
+then stop. For <code>simEpidataCS</code>, by default, and also if
+<code>T=NULL</code>, <code>T</code> equals the last stop time in <code>stgrid</code>
+(it cannot be greater) and <code>nEvents</code> is bounded above by 10000.
+For the <code>simulate.twinstim</code> method, <code>T=NULL</code> means to use
+the same same time range as for the fitting of the <code>"twinstim"</code>
+<code>object</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+
+<p>see <code>as.epidataCS</code>. When simulating from
+<code>twinstim</code>-fits, <code>W</code> is by default taken from the original
+<code>data$W</code>. If specified as <code>NULL</code>, <code>W</code> is generated 
+automatically via <code>unionSpatialPolygons(tiles)</code>.
+However, since the result of such a polygon operation should always
+be verified, it is recommended to do that in advance.<br>
+It is important that <code>W</code> and <code>tiles</code> cover the same region:
+on the one hand direct offspring is sampled
+in the spatial influence region of the parent event, i.e., in the
+intersection of <code>W</code> and a circle of radius the <code>eps.s</code> of the
+parent event, after which the corresponding tile is determined by
+overlay with <code>tiles</code>. On the other hand endemic events are
+sampled from <code>tiles</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trace</code></td>
+<td>
+
+<p>logical (or integer) indicating if (or how often) the current
+simulation status should be <code>cat</code>ed.  For the
+<code>simulate.twinstim</code> method, <code>trace</code> currently only applies
+to the first of the <code>nsim</code> simulations.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.allocate</code></td>
+<td>
+
+<p>number of rows (events) to initially allocate for the event history;
+defaults to 500.  Each time the simulated epidemic exceeds the
+allocated space, the event <code>data.frame</code> will be enlarged by
+<code>.allocate</code> rows.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.skipChecks,.onlyEvents</code></td>
+<td>
+
+<p>these logical arguments are not meant to be set by the user.
+They are used by the <code>simulate</code>-method for <code>"twinstim"</code> objects.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+
+<p>an object of class <code>"twinstim"</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsim</code></td>
+<td>
+
+<p>number of epidemics (i.e. spatio-temporal point patterns inheriting
+from class <code>"epidataCS"</code>) to simulate.  Defaults to 1 when the
+result is a simple object inheriting from class
+<code>"simEpidataCS"</code> (as if <code>simEpidataCS</code> would have been
+called directly).  If <code>nsim &gt; 1</code>, the result 
+will be a list the structure of which depends on the argument
+<code>simplify</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+
+<p>an object specifying how the random number generator should be
+initialized for simulation (via <code>set.seed</code>). The
+initial state will also be stored as an attribute <code>"seed"</code> of
+the result. The original state of the <code>.Random.seed</code>
+will be restored at the end of the simulation.
+By default (<code>NULL</code>), neither initialization nor recovery will
+be done.
+This behaviour is copied from the <code>simulate.lm</code> method.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+
+<p>an object of class <code>"epidataCS"</code>, usually the one to which the
+<code>"twinstim"</code> <code>object</code> was fitted. It carries
+the <code>stgrid</code> of the endemic component, but also
+<code>events</code> for use as the prehistory, and defaults for
+<code>rmarks</code> and <code>nCircle2Poly</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newcoef</code></td>
+<td>
+
+<p>an optional named numeric vector of (a subset of) parameters to
+replace the original point estimates in <code>coef(object)</code>.
+Elements which do not match any model parameter by name are silently
+ignored. The <code>newcoef</code>s may also be supplied in a list
+following the same conventions as for the <code>start</code> argument in
+<code>twinstim</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simplify</code></td>
+<td>
+
+<p>logical. It is strongly recommended to set <code>simplify = TRUE</code>
+(default) if <code>nsim</code> is large. This saves space and computation time,
+because for each simulated epidemic only the <code>events</code> component is
+saved. All other components, which do not vary between simulations,
+are only stored from the first run. In this case, the runtime of each
+simulation is stored as an attribute <code>"runtime"</code> to each simulated
+<code>events</code>. See also the “Value” section below.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control.siaf</code></td>
+<td>
+<p>see <code>twinstim</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCircle2Poly</code></td>
+<td>
+<p>see <code>as.epidataCS</code>. For
+<code>simulate.twinstim</code>, <code>NULL</code> means to use the same value as
+for <code>data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gmax</code></td>
+<td>
+
+<p>maximum value the temporal interaction function
+<code>tiaf$g</code> can attain. If <code>NULL</code>, then it is assumed as the
+maximum value of the type-specific values at 0, i.e.
+<code>max(tiaf$g(rep.int(0,nTypes), tiafpars, 1:nTypes))</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>unused (arguments of the generic).</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The function <code>simEpidataCS</code> returns a simulated epidemic of class
+<code>"simEpidataCS"</code>, which enhances the class
+<code>"epidataCS"</code> by the following additional components known from
+objects of class <code>"twinstim"</code>:
+<code>bbox</code>, <code>timeRange</code>, <code>formula</code>, <code>coefficients</code>,
+<code>npars</code>, <code>control.siaf</code>, <code>call</code>, <code>runtime</code>.
+It has corresponding <code>coeflist</code>,
+<code>residuals</code>,
+<code>R0</code>, and
+<code>intensityplot</code> methods.
+</p>
+<p>The <code>simulate.twinstim</code> method has some additional
+<em>attributes</em> set on its result:
+<code>call</code>, <code>seed</code>, and <code>runtime</code>.
+If <code>nsim &gt; 1</code>, it returns an object of class
+<code>"simEpidataCSlist"</code>, the form of which depends on the value of
+<code>simplify</code> (which is stored as an attribute <code>simplified</code>):
+if <code>simplify = FALSE</code>, then the return value is
+just a list of sequential simulations, each of class
+<code>"simEpidataCS"</code>. However, if <code>simplify = TRUE</code>, then the
+sequential simulations share all components but the simulated
+<code>events</code>, i.e. the result is a list with the same components as
+a single object of class <code>"simEpidataCS"</code>, but with <code>events</code>
+replaced by an <code>eventsList</code> containing the <code>events</code> returned
+by each of the simulations.
+</p>
+<p>The <code>stgrid</code> component of the returned <code>"simEpidataCS"</code>
+will be truncated to the actual end of the simulation, which might
+be <code class="reqn">&lt;T</code>, if the upper bound <code>nEvents</code> is reached during
+simulation.
+</p>
+<p>CAVE: Currently, <code>simplify=TRUE</code> in <code>simulate.twinstim</code>
+ignores that multiple simulated epidemics
+(<code>nsim &gt; 1</code>) may have different <code>stgrid</code> 
+time ranges. In a <code>"simEpidataCSlist"</code>, the <code>stgrid</code> shared
+by all of the simulated epidemics is just the <code>stgrid</code>
+returned by the <em>first</em> simulation.
+</p>
+
+
+<h3>Note</h3>
+
+<p>The more detailed the polygons in <code>tiles</code> are the slower is
+the algorithm. You are advised to sacrifice some shape
+details for speed by reducing the polygon complexity,
+for example via the <code>mapshaper</code> JavaScript library wrapped by
+the R package <a href="https://CRAN.R-project.org/package=rmapshaper"><span class="pkg">rmapshaper</span></a>, or via
+<code>simplify.owin</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+ 
+<p>Sebastian Meyer, with contributions by Michael Höhle
+</p>
+
+
+<h3>References</h3>
+
+<p>Douglas, D. H. and Peucker, T. K. (1973):
+Algorithms for the reduction of the number of points required to
+represent a digitized line or its caricature.
+<em>Cartographica: The International Journal for Geographic
+Information and Geovisualization</em>, <b>10</b>, 112-122
+</p>
+<p>Meyer, S., Elias, J. and Höhle, M. (2012):
+A space-time conditional intensity model for invasive meningococcal
+disease occurrence. <em>Biometrics</em>, <b>68</b>, 607-616.
+<a href="https://doi.org/10.1111/j.1541-0420.2011.01684.x">doi:10.1111/j.1541-0420.2011.01684.x</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p>The function <code>simEndemicEvents</code> is a faster alternative
+for endemic-only models, only returning a
+<code>"SpatialPointsDataFrame"</code> of simulated events.
+</p>
+<p>The <code>plot.epidataCS</code> and <code>animate.epidataCS</code>
+methods for plotting and animating continuous-space epidemic data,
+respectively, also work for simulated epidemics (by inheritance),
+and <code>twinstim</code> can be used to fit
+spatio-temporal conditional intensity models also to simulated data.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("imdepi", "imdepifit")
+
+## load borders of Germany's districts (originally obtained from
+## the German Federal Agency for Cartography and Geodesy,
+## https://gdz.bkg.bund.de/), simplified by the "modified Visvalingam"
+## algorithm (level=6.6%) using MapShaper.org (v. 0.1.17):
+load(system.file("shapes", "districtsD.RData", package="surveillance"))
+if (surveillance.options("allExamples")) {
+  plot(districtsD)
+  plot(stateD, add=TRUE, border=2, lwd=2)
+}
+
+## simulate 2 realizations (over a short period, for speed)
+## considering events from data(imdepi) before t=31 as prehistory
+## IGNORE_RDIFF_BEGIN
+mysims &lt;- simulate(imdepifit, nsim=2, seed=1, data=imdepi,
+                   tiles=districtsD, newcoef=c("e.typeC"=-1),
+                   t0=31, T=if (interactive()) 180 else 45, # for CRAN
+                   simplify=TRUE)
+## IGNORE_RDIFF_END
+
+
+## plot both simulations using the plot-method for simEpidataCSlist's
+mysims
+plot(mysims, aggregate="time")
+
+## extract the second realization -&gt; object of class simEpidataCS
+mysim2 &lt;- mysims[[2]]
+summary(mysim2)
+plot(mysim2, aggregate="space")
+
+
+### compare the observed _cumulative_ number of cases in the first 90 days to
+nsim &lt;- 20
+### simulations from the fitted model
+
+sims &lt;- simulate(imdepifit, nsim=nsim, seed=1, data=imdepi, t0=0, T=90,
+                 tiles=districtsD, simplify=TRUE)
+
+## extract cusums
+getcsums &lt;- function (events) {
+    tapply(events$time, events@data["type"],
+           function (t) cumsum(table(t)), simplify=FALSE)
+}
+csums_observed &lt;- getcsums(imdepi$events)
+csums_simulated &lt;- lapply(sims$eventsList, getcsums)
+
+## plot it
+plotcsums &lt;- function (csums, ...) {
+    mapply(function (csum, ...) lines(as.numeric(names(csum)), csum, ...),
+           csums, ...)
+    invisible()
+}
+plot(c(0,90), c(0,35), type="n", xlab="Time [days]",
+     ylab="Cumulative number of cases")
+plotcsums(csums_observed, col=c(2,4), lwd=3)
+legend("topleft", legend=levels(imdepi$events$type), col=c(2,4), lwd=1)
+invisible(lapply(csums_simulated, plotcsums,
+                 col=adjustcolor(c(2,4), alpha.f=0.5)))
+
+
+## Not run: 
+### Experimental code to generate 'nsim' simulations of 'nm2add' months
+### beyond the observed time period:
+nm2add &lt;- 24
+nsim &lt;- 5
+### The events still infective by the end of imdepi$stgrid will be used
+### as the prehistory for the continued process.
+
+origT &lt;- tail(imdepi$stgrid$stop, 1)
+## extend the 'stgrid' by replicating the last block 'nm2add' times
+## (i.e., holding "popdensity" constant)
+stgridext &lt;- local({
+    gLast &lt;- subset(imdepi$stgrid, BLOCK == max(BLOCK))
+    gAdd &lt;- gLast[rep(1:nrow(gLast), nm2add),]; rownames(gAdd) &lt;- NULL
+    newstart &lt;- seq(origT, by=30, length.out=nm2add)
+    newstop &lt;- c(newstart[-1], max(newstart) + 30)
+    gAdd$start &lt;- rep(newstart, each=nlevels(gAdd$tile))
+    gAdd$stop &lt;- rep(newstop, each=nlevels(gAdd$tile))
+    rbind(imdepi$stgrid, gAdd, make.row.names = FALSE)[,-1]
+})
+## create an updated "epidataCS" with the time-extended 'stgrid'
+imdepiext &lt;- update(imdepi, stgrid = stgridext)
+newT &lt;- tail(imdepiext$stgrid$stop, 1)
+
+## simulate beyond the original period
+simsext &lt;- simulate(imdepifit, nsim=nsim, seed=1, t0=origT, T=newT,
+                    data=imdepiext, tiles=districtsD, simplify=TRUE)
+
+## Aside to understand the note from checking events and tiles:
+# marks(imdepi)["636",]  # tile 09662 is attributed to this event, but:
+# plot(districtsD[c("09678","09662"),], border=1:2, lwd=2, axes=TRUE)
+# points(imdepi$events["636",])
+## this mismatch is due to polygon simplification
+
+## plot the observed and simulated event numbers over time
+plot(imdepiext, breaks=c(unique(imdepi$stgrid$start),origT),
+     cumulative=list(maxat=330))
+for (i in seq_along(simsext$eventsList))
+    plot(simsext[[i]], add=TRUE, legend.types=FALSE,
+         breaks=c(unique(simsext$stgrid$start),newT),
+         subset=!is.na(source),  # have to exclude the events of the prehistory
+         cumulative=list(offset=c(table(imdepi$events$type)), maxat=330, axis=FALSE),
+         border=NA, density=0)  # no histogram
+abline(v=origT, lty=2, lwd=2)
+
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,201 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>obsloglik</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimate parameters in the disease model using observed data log-likelihood
+using direct maximization.</h2>
+
+<h3>Description</h3>
+
+<p><code>obsloglik</code> jointly estimates the disease model and sensitivity
+model parameters using profile likelihood methods. Estimation involves
+direct maximization of the observed data log-likelihood.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">obsloglik(Dstar, Z, X, start, beta0_fixed = NULL, weights = NULL,
+  expected = TRUE, itnmax = 5000)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Dstar</code></td>
+<td>
+<p>Numeric vector containing observed disease status. Should be
+coded as 0/1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Z</code></td>
+<td>
+<p>Numeric matrix of covariates in disease model. 'Z' should not
+contain an intercept</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>Numeric matrix of covariates in sensitivity model. Set to
+NULL to fit model with no covariates in sensitivity model. 'X' should not
+contain an intercept</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Numeric vector of starting values for theta and beta
+(theta, beta). Theta is the parameter of the disease model, and beta is
+the parameter of the sensitivity model</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta0_fixed</code></td>
+<td>
+<p>Optional numeric vector of values of sensitivity model
+intercept to profile over. If a single value, corresponds to fixing
+intercept at specified value. Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>Optional vector of patient-specific weights used for
+selection bias adjustment. Default is NULL</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>expected</code></td>
+<td>
+<p>Whether or not to calculate the covariance matrix via the
+expected fisher information matrix. Default is TRUE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>itnmax</code></td>
+<td>
+<p>Maximum number of iterations to run <code>optimx</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>We are interested in modeling the relationship between binary disease status
+and covariates Z using a logistic regression model. However, D may be
+misclassified, and our observed data may not well-represent the population of
+interest. In this setting, we estimate parameters from the disease model
+using the following modeling framework.
+Notation:
+</p>
+
+<dl>
+<dt>D</dt>
+<dd>
+<p>Binary disease status of interest.</p>
+</dd>
+<dt>D*</dt>
+<dd>
+<p>Observed binary disease status. Potentially a misclassified
+version of D. We assume D = 0 implies D* = 0.</p>
+</dd>
+<dt>S</dt>
+<dd>
+<p>Indicator for whether patient from population of interest is
+included in the analytical dataset.</p>
+</dd>
+<dt>Z</dt>
+<dd>
+<p>Covariates in disease model of interest.</p>
+</dd>
+<dt>W</dt>
+<dd>
+<p>Covariates in model for patient inclusion in analytical dataset
+(selection model).</p>
+</dd>
+<dt>X</dt>
+<dd>
+<p>Covariates in model for probability of observing disease given
+patient has disease (sensitivity model).</p>
+</dd>
+</dl>
+<p>Model Structure:
+</p>
+
+<dl>
+<dt>Disease Model</dt>
+<dd>
+<p style="text-align: center;"><code class="reqn">logit(P(D=1|X)) = theta_0 + theta_Z Z</code>
+</p>
+</dd>
+<dt>Selection Model</dt>
+<dd>
+<p style="text-align: center;"><code class="reqn">P(S=1|W,D)</code>
+</p>
+</dd>
+<dt>Sensitivity Model</dt>
+<dd>
+<p style="text-align: center;"><code class="reqn">logit(P(D* = 1| D = 1, S = 1, X)) = beta_0 + beta_X X</code>
+</p>
+</dd>
+</dl>
+<h3>Value</h3>
+
+<p>A "SAMBA.fit" object with nine elements: 'param', the maximum
+likelihood estimate of the coeficients,  'variance', the covariance matrix of
+the final estimate, param.seq', the sequence of estimates at each value of
+beta0, and 'loglik.seq', the log likelihood at each value. The rest of the
+elements are Dstar', 'X', 'Z', and 'weights'.
+</p>
+
+
+<h3>References</h3>
+
+<p>Statistical inference for association studies using electronic health records:
+handling both selection bias and outcome misclassification
+Lauren J Beesley and Bhramar Mukherjee
+medRxiv <a href="https://doi.org/10.1101/2019.12.26.19015859">2019.12.26.19015859</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(SAMBA)
+# These examples are generated from the vignette. See it for more details.
+
+# Generate IPW weights from the true model
+expit &lt;- function(x) exp(x) / (1 + exp(x))
+prob.WD &lt;- expit(-0.6 + 1 * samba.df$D + 0.5 * samba.df$W)
+weights &lt;- nrow(samba.df) * (1  / prob.WD) / (sum(1 / prob.WD))
+
+# Get initial parameter estimates
+logit &lt;- function(x) log(x / (1 - x))
+fitBeta  &lt;- glm(Dstar ~ X, binomial(), data = samba.df)
+fitTheta &lt;- glm(Dstar ~ Z, binomial(), data = samba.df)
+
+sens &lt;- sensitivity(samba.df$Dstar, samba.df$X, mean(samba.df$D), r = 2)
+start &lt;- c(coef(fitTheta), logit(sens$c_marg), coef(fitBeta)[2])
+
+# Direct observed data likelihood maximization without fixed intercept
+
+fit1 &lt;- obsloglik(samba.df$Dstar, samba.df$Z, samba.df$X, start = start,
+                 weights = weights)
+obsloglik1 &lt;- list(param = fit1$param, variance = diag(fit1$variance))
+
+# Direct observed data likelihood maximization with fixed intercept
+
+fit2   &lt;- obsloglik(samba.df$Dstar, samba.df$Z, samba.df$X, start = start,
+                 beta0_fixed = logit(sens$c_marg), weights = weights)
+
+# since beta0 is fixed, its variance is NA
+obsloglik1 &lt;- list(param = fit2$param, variance = diag(fit2$variance))
+
+</code></pre>
+
+
+</div>

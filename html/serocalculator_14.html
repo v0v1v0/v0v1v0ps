@@ -1,0 +1,265 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>est.incidence.by</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimate Seroincidence</h2>
+
+<h3>Description</h3>
+
+<p>Function to estimate seroincidences based on cross-section serology data and longitudinal
+response model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">est.incidence.by(
+  pop_data,
+  curve_params,
+  noise_params,
+  strata,
+  curve_strata_varnames = strata,
+  noise_strata_varnames = strata,
+  antigen_isos = pop_data %&gt;% pull("antigen_iso") %&gt;% unique(),
+  lambda_start = 0.1,
+  build_graph = FALSE,
+  num_cores = 1L,
+  verbose = FALSE,
+  print_graph = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>pop_data</code></td>
+<td>
+<p><code>data.frame()</code> with cross-sectional serology data per antibody and age, and additional columns to identify possible <code>strata</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>curve_params</code></td>
+<td>
+<p>a <code>data.frame()</code> containing MCMC samples of parameters from the Bayesian posterior distribution of a longitudinal decay curve model. The parameter columns must be named:
+</p>
+
+<ul>
+<li> <p><code>antigen_iso</code>: a <code>character()</code> vector indicating antigen-isotype combinations
+</p>
+</li>
+<li> <p><code>iter</code>: an <code>integer()</code> vector indicating MCMC sampling iterations
+</p>
+</li>
+<li> <p><code>y0</code>: baseline antibody level at <code class="reqn">t=0</code> (<code class="reqn">y(t=0)</code>)
+</p>
+</li>
+<li> <p><code>y1</code>: antibody peak level (ELISA units)
+</p>
+</li>
+<li> <p><code>t1</code>: duration of infection
+</p>
+</li>
+<li> <p><code>alpha</code>: antibody decay rate (1/days for the current longitudinal parameter sets)
+</p>
+</li>
+<li> <p><code>r</code>: shape factor of antibody decay
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise_params</code></td>
+<td>
+<p>a <code>data.frame()</code> (or <code>tibble::tibble()</code>) containing the following variables, specifying noise parameters for each antigen isotype:
+</p>
+
+<ul>
+<li> <p><code>antigen_iso</code>: antigen isotype whose noise parameters are being specified on each row
+</p>
+</li>
+<li> <p><code>nu</code>: biological noise
+</p>
+</li>
+<li> <p><code>eps</code>: measurement noise
+</p>
+</li>
+<li> <p><code>y.low</code>: lower limit of detection for the current antigen isotype
+</p>
+</li>
+<li> <p><code>y.high</code>: upper limit of detection for the current antigen isotype
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>strata</code></td>
+<td>
+<p>Character vector of stratum-defining variables. Values must be variable names in <code>pop_data</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>curve_strata_varnames</code></td>
+<td>
+<p>A subset of <code>strata</code>. Values must be variable names in <code>curve_params</code>. Default = "".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise_strata_varnames</code></td>
+<td>
+<p>A subset of <code>strata</code>. Values must be variable names in <code>noise_params</code>. Default = "".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>antigen_isos</code></td>
+<td>
+<p>Character vector with one or more antibody names. Values must match <code>pop_data</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda_start</code></td>
+<td>
+<p>starting guess for incidence rate, in years/event.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>build_graph</code></td>
+<td>
+<p>whether to graph the log-likelihood function across a range of incidence rates (lambda values)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_cores</code></td>
+<td>
+<p>Number of processor cores to use for calculations when computing by strata. If set to more than 1 and package <span class="pkg">parallel</span> is available, then the computations are executed in parallel. Default = 1L.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical: if TRUE, print verbose log information to console</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print_graph</code></td>
+<td>
+<p>whether to display the log-likelihood curve graph in the course of running <code>est.incidence()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Arguments passed on to <code>est.incidence</code>, <code>stats::nlm</code>
+</p>
+
+<dl>
+<dt><code>stepmin</code></dt>
+<dd>
+<p>A positive scalar providing the minimum allowable relative step length.</p>
+</dd>
+<dt><code>stepmax</code></dt>
+<dd>
+<p>a positive scalar which gives the maximum allowable
+scaled step length.  <code>stepmax</code> is used to prevent steps which
+would cause the optimization function to overflow, to prevent the
+algorithm from leaving the area of interest in parameter space, or to
+detect divergence in the algorithm. <code>stepmax</code> would be chosen
+small enough to prevent the first two of these occurrences, but should
+be larger than any anticipated reasonable step.</p>
+</dd>
+<dt><code>typsize</code></dt>
+<dd>
+<p>an estimate of the size of each parameter
+at the minimum.</p>
+</dd>
+<dt><code>fscale</code></dt>
+<dd>
+<p>an estimate of the size of <code>f</code> at the minimum.</p>
+</dd>
+<dt><code>ndigit</code></dt>
+<dd>
+<p>the number of significant digits in the function <code>f</code>.</p>
+</dd>
+<dt><code>gradtol</code></dt>
+<dd>
+<p>a positive scalar giving the tolerance at which the
+scaled gradient is considered close enough to zero to
+terminate the algorithm.  The scaled gradient is a
+measure of the relative change in <code>f</code> in each direction
+<code>p[i]</code> divided by the relative change in <code>p[i]</code>.</p>
+</dd>
+<dt><code>iterlim</code></dt>
+<dd>
+<p>a positive integer specifying the maximum number of
+iterations to be performed before the program is terminated.</p>
+</dd>
+<dt><code>check.analyticals</code></dt>
+<dd>
+<p>a logical scalar specifying whether the
+analytic gradients and Hessians, if they are supplied, should be
+checked against numerical derivatives at the initial parameter
+values. This can help detect incorrectly formulated gradients or
+Hessians.</p>
+</dd>
+</dl>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <code>strata</code> is left empty, a warning will be produced, recommending that you use <code>est.incidence()</code> for unstratified analyses, and then the data will be passed to <code>est.incidence()</code>. If for some reason you want to use <code>est.incidence.by()</code> with no strata instead of calling <code>est.incidence()</code>, you may use <code>NA</code>, <code>NULL</code>, or "" as the <code>strata</code> argument to avoid that warning.
+</p>
+
+
+<h3>Value</h3>
+
+
+<ul>
+<li>
+<p> if <code>strata</code> has meaningful inputs:
+An object of class <code>"seroincidence.by"</code>; i.e., a list of <code>"seroincidence"</code> objects from <code>est.incidence()</code>, one for each stratum, with some meta-data attributes.
+</p>
+</li>
+<li>
+<p> if <code>strata</code> is missing, <code>NULL</code>, <code>NA</code>, or <code>""</code>:
+An object of class <code>"seroincidence"</code>.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+library(dplyr)
+
+xs_data &lt;- load_pop_data("https://osf.io/download//n6cp3/") %&gt;%
+  clean_pop_data()
+
+curve &lt;- load_curve_params("https://osf.io/download/rtw5k/") %&gt;%
+  filter(antigen_iso %in% c("HlyE_IgA", "HlyE_IgG")) %&gt;%
+  slice(1:100, .by = antigen_iso) # Reduce dataset for the purposes of this example
+
+noise &lt;- load_noise_params("https://osf.io/download//hqy4v/")
+
+
+est2 &lt;- est.incidence.by(
+  strata = c("catchment"),
+  pop_data = xs_data %&gt;% filter(Country == "Pakistan"),
+  curve_params = curve,
+  noise_params = noise %&gt;% filter(Country == "Pakistan"),
+  antigen_isos = c("HlyE_IgG", "HlyE_IgA"),
+  #num_cores = 8 # Allow for parallel processing to decrease run time
+)
+
+summary(est2)
+
+</code></pre>
+
+
+</div>

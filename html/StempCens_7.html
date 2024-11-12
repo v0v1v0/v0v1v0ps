@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>PredStempCens</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prediction in spatio-temporal model with censored/missing responses</h2>
+
+<h3>Description</h3>
+
+<p>This function performs spatio-temporal prediction in a set of new <code>S</code> spatial locations for fixed time points.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">PredStempCens(Est.StempCens, locPre, timePre, xPre)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Est.StempCens</code></td>
+<td>
+<p>an object of class <code>Est.StempCens</code> given as output by the <code>EstStempCens</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>locPre</code></td>
+<td>
+<p>a matrix of coordinates for which prediction is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>timePre</code></td>
+<td>
+<p>the time point vector for which prediction is performed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xPre</code></td>
+<td>
+<p>a matrix of covariates for which prediction is performed.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The function returns an object of class <code>Pred.StempCens</code> which is a list given by:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>predValues</code></td>
+<td>
+<p>predicted values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>VarPred</code></td>
+<td>
+<p>predicted covariance matrix.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Katherine L. Valeriano, Victor H. Lachos and Larissa A. Matos
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>EstStempCens</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Initial parameter values
+beta &lt;- c(-1,1.50)
+phi  &lt;- 5;    rho &lt;- 0.60
+tau2 &lt;- 0.80; sigma2 &lt;- 2
+# Simulating data
+n1 &lt;- 17   # Number of spatial locations
+n2 &lt;- 5    # Number of temporal index
+set.seed(12345)
+x.co &lt;- round(runif(n1,0,10),9)   # X coordinate
+y.co &lt;- round(runif(n1,0,10),9)   # Y coordinate
+coord &lt;- cbind(x.co,y.co)         # Cartesian coordinates without repetitions
+coord2 &lt;- cbind(rep(x.co,each=n2),rep(y.co,each=n2)) # Cartesian coordinates with repetitions
+time &lt;- as.matrix(seq(1,n2))      # Time index without repetitions
+time2 &lt;- as.matrix(rep(time,n1))  # Time index with repetitions
+x1 &lt;- rexp(n1*n2,2)
+x2 &lt;- rnorm(n1*n2,2,1)
+x  &lt;- cbind(x1,x2)
+media &lt;- x%*%beta
+# Covariance matrix
+Ms  &lt;- as.matrix(dist(coord))   # Spatial distances
+Mt  &lt;- as.matrix(dist(time))    # Temporal distances
+Cov &lt;- CovarianceM(phi,rho,tau2,sigma2,Ms,Mt,0.50,"pow.exp")
+# Data
+require(mvtnorm)
+y &lt;- as.vector(rmvnorm(1,mean=as.vector(media),sigma=Cov))
+data &lt;- data.frame(coord2,time2,y,x)
+names(data) &lt;- c("x.coord","y.coord","time","yObs","x1","x2")
+# Splitting the dataset
+local.est  &lt;- coord[-c(4,13),]
+data.est   &lt;- data[data$x.coord%in%local.est[,1]&amp;data$y.coord%in%local.est[,2],]
+data.valid &lt;- data[data$x.coord%in%coord[c(4,13),1]&amp;data$y.coord%in%coord[c(4,13),2],]
+# Censored
+perc &lt;- 0.10
+y &lt;- data.est$yObs
+aa &lt;- sort(y);  bb &lt;- aa[1:(perc*nrow(data.est))]
+cutof &lt;- bb[perc*nrow(data.est)]
+cc &lt;- matrix(1,nrow(data.est),1)*(y&lt;=cutof)
+y[cc==1] &lt;- cutof
+data.est &lt;- cbind(data.est[,-c(4,5,6)],y,cc,data.est[,c(5,6)])
+names(data.est) &lt;- c("x.coord","y.coord","time","yObs","censored","x1","x2")
+
+# Estimation
+y  &lt;- data.est$yObs
+x  &lt;- cbind(data.est$x1,data.est$x2)
+cc &lt;- data.est$censored
+time2  &lt;- matrix(data.est$time)
+coord2 &lt;- data.est[,1:2]
+LI &lt;- y; LI[cc==1] &lt;- -Inf    # Left-censored
+LS &lt;- y
+est_teste &lt;- EstStempCens(y, x, cc, time2, coord2, LI, LS, init.phi=3.5,
+                 init.rho=0.5, init.tau2=1, kappa=0.5, type.S="pow.exp",
+                 IMatrix=FALSE, M=20, perc=0.25, MaxIter=300, pc=0.20)
+class(est_teste)
+
+# Prediction
+locPre &lt;- data.valid[,1:2]
+timePre &lt;- matrix(data.valid$time)
+xPre &lt;- cbind(data.valid$x1,data.valid$x2)
+pre_teste &lt;- PredStempCens(est_teste, locPre, timePre, xPre)
+library(ggplot2)
+Model &lt;- rep(c("y Observed","y Predicted"),each=10)
+station &lt;- rep(rep(c("Station 1", "Station 2"),each=5),times=2)
+xcoord1 &lt;- rep(seq(1:5),4)
+ycoord1 &lt;- c(data.valid$yObs,pre_teste$predValues)
+data2 &lt;- data.frame(Model,station,xcoord1,ycoord1)
+ggplot(data=data2,aes(x=xcoord1,y=ycoord1)) + geom_line(aes(color=Model)) +
+facet_wrap(station~.,nrow=2) + labs(x="",y="") + theme(legend.position="bottom")
+## End(Not run)
+</code></pre>
+
+
+</div>

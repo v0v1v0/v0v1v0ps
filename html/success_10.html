@@ -1,0 +1,285 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bk_cusum</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Continuous time BK-CUSUM</h2>
+
+<h3>Description</h3>
+
+<p>This function implements the BK-CUSUM procedure based on the
+Biswas &amp; Kalbfleisch (2008) CUSUM. To construct the Biswas &amp; Kalbfleisch
+(2008) CUSUM, set <code>C = 1</code> (years) or <code>C = 365</code> (days).
+For detection purposes, it is sufficient
+to determine the value of the chart at the times of failure. This can be
+achieved by leaving <code>ctimes</code> unspecified.
+The function requires the specification of <code>theta</code> and
+has two vital parameters, at least one of which must be specified:
+</p>
+
+<dl>
+<dt>
+<code>coxphmod</code>: </dt>
+<dd>
+<p>Cox proportional hazards model to be used for
+risk-adjustment. If <code>cbaseh</code> is not specified, it will be determined
+from <code>coxphmod</code> numerically.</p>
+</dd>
+<dt>
+<code>cbaseh</code>: </dt>
+<dd>
+<p>The cumulative baseline hazard rate to use for chart
+construction. If specified with <code>coxphmod</code> missing, no risk-adjustment
+will be performed</p>
+</dd>
+</dl>
+<h3>Usage</h3>
+
+<pre><code class="language-R">bk_cusum(data, theta, coxphmod, cbaseh, ctimes, h, stoptime, C,
+  twosided = FALSE, pb = FALSE, assist)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A <code>data.frame</code> with rows representing subjects and the
+following named columns: </p>
+
+<dl>
+<dt>
+<code>entrytime</code>:</dt>
+<dd>
+<p>time of entry into study (numeric);</p>
+</dd>
+<dt>
+<code>survtime</code>:</dt>
+<dd>
+<p>time from entry until event (numeric);</p>
+</dd>
+<dt>
+<code>censorid</code>:</dt>
+<dd>
+<p>censoring indicator (0 = right censored, 1 = observed),
+(integer).</p>
+</dd>
+</dl>
+<p> and optionally additional covariates used for risk-adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+<p>The expected log-hazard ratio <code class="reqn">\theta</code> under the alternative hypothesis.
+If <code class="reqn">\theta &gt;= 0</code>, the chart will try to detect an increase
+in hazard ratio (upper one-sided). If <code class="reqn">\theta &lt; 0</code>,
+the chart will look for a decrease in hazard ratio (lower one-sided).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coxphmod</code></td>
+<td>
+<p>A Cox proportional hazards regression model as
+produced by
+the function <code>coxph()</code>. Suggested: <br><code>coxph(Surv(survtime, censorid) ~ covariates, data = data)</code>. <br>
+Alternatively, a list with the following elements:
+</p>
+
+<dl>
+<dt>
+<code>formula</code>:</dt>
+<dd>
+<p>a <code>formula()</code> in the form <code>~ covariates</code>;</p>
+</dd>
+<dt>
+<code>coefficients</code>:</dt>
+<dd>
+<p>a named vector specifying risk adjustment coefficients
+for covariates. Names must be the same as in <code>formula</code> and colnames of <code>data</code>.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cbaseh</code></td>
+<td>
+<p>A function that returns the unadjusted cumulative
+baseline hazard <code class="reqn">H_0(t)</code>. If <code>cbaseh</code> is missing but
+<code>coxphmod</code> has been
+specified as a survival object, this baseline hazard rate will be determined
+using the provided <code>coxphmod</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ctimes</code></td>
+<td>
+<p>(optional): Vector of construction times at which the value of the chart should be
+determined. When not specified, the chart is constructed at all failure times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>(optional): Value of the control limit. The chart will only be
+constructed until the value of the control limit has been reached or
+surpassed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stoptime</code></td>
+<td>
+<p>(optional): Time after which the value of the chart should no
+longer be determined. Default = max(failure time). Useful when ctimes
+has not been specified.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>C</code></td>
+<td>
+<p>(optional): A numeric value indicating how long after entering the study
+patients should no longer influence the value of the chart. This is
+equivalent to right-censoring every observation at time <code>entrytime</code> + C.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>twosided</code></td>
+<td>
+<p>(optional): A boolean indicating whether a two-sided CUSUM
+should be constructed.
+If <code>TRUE</code>, 2 CUSUM charts are determined. One to check for an increase
+of <code class="reqn">e^\theta</code> and one for
+a decrease of <code class="reqn">e^{-\theta}</code> in the hazard rate w.r.t.
+the baseline hazard. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pb</code></td>
+<td>
+<p>(optional): A boolean indicating whether a progress bar should
+be shown. Default is <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>assist</code></td>
+<td>
+<p>(optional): Output of the function <code>parameter_assist()</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The BK-CUSUM can be used to test the alternative hypothesis of an
+instant change of fixed size <code class="reqn">e^\theta</code>
+in the subject specific hazard rate from <code class="reqn">h_i(t)</code> to
+<code class="reqn">h_i(t) e^\theta</code>. The parameter <code>C</code> can be used
+to ignore the contributions of subjects, C time units after their entry
+into the study.
+The BK-CUSUM is constructed as
+</p>
+<p style="text-align: center;"><code class="reqn">G(t) = \max_{0 \leq k \leq t} \left( \theta N(k,t) - \left( e^\theta -1  \right) \Lambda(k,t)  \right),</code>
+</p>
+
+<p>where <code class="reqn">\theta</code> is the log expected hazard ratio,
+</p>
+<p style="text-align: center;"><code class="reqn">N(k,t) = N(t) - N(k)</code>
+</p>
+
+<p>with <code class="reqn">N(t)</code> the counting process of all failures at time t, and </p>
+<p style="text-align: center;"><code class="reqn">\Lambda(k,t) = \Lambda(t) - \Lambda(k)</code>
+</p>
+
+<p>with <code class="reqn">\Lambda(t)</code> the summed cumulative intensity of all
+subjects at time <code class="reqn">t</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>bkcusum</code> containing:
+</p>
+
+<ul>
+<li> <p><code>BK</code>: a <code>data.frame</code> containing the following named columns:
+</p>
+
+<dl>
+<dt>
+<code>time</code>:</dt>
+<dd>
+<p>times at which chart is constructed;</p>
+</dd>
+<dt>
+<code>value</code>:</dt>
+<dd>
+<p>value of the chart at corresponding times.</p>
+</dd>
+</dl>
+</li>
+<li> <p><code>stopind</code>: indicator for whether the chart was stopped by
+the control limit;
+</p>
+</li>
+<li> <p><code>call</code>: the call used to obtain output;
+</p>
+</li>
+<li> <p><code>h</code>: Specified value for the control limit.
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Daniel Gomon
+</p>
+
+
+<h3>References</h3>
+
+<p>Biswas P. and Kalbfleisch J.D. (2008), A risk-adjusted CUSUM in
+continuous time based on the Cox Model, Statistics in medicine 27, 3452-3452.
+<a href="https://doi.org/10.1002/sim.3216">doi:10.1002/sim.3216</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.bkcusum</code>, <code>runlength.bkcusum</code>
+</p>
+<p>Other quality control charts: 
+<code>cgr_cusum()</code>,
+<code>funnel_plot()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(survival)
+#Select only the data of the first hospital in the surgerydat data set
+tdat &lt;- subset(surgerydat, unit == 1)
+
+#We know that the cumulative baseline hazard in the data set is
+#Exponential(0.01). If you don't know the cumulative baseline, we suggest
+#leaving the cbaseh argument empty and determining a coxphmod (see help)
+tcbaseh &lt;- function(t) chaz_exp(t, lambda = 0.01)
+
+#Determine a risk-adjustment model using a Cox proportional hazards model.
+#Outcome (survival) is regressed on the available covariates:
+exprfit &lt;- Surv(survtime, censorid) ~ age + sex + BMI
+tcoxmod &lt;- coxph(exprfit, data= surgerydat)
+
+#Determine the values of the chart
+bk &lt;- bk_cusum(data = tdat, theta = log(2), coxphmod = tcoxmod, cbaseh = tcbaseh, pb = TRUE)
+#plot the BK-CUSUM (exact hazard)
+plot(bk)
+
+#Alternatively, cbaseh can be left empty when specifying coxphmod through coxph()
+bk_cox &lt;- bk_cusum(data = tdat, theta = log(2), coxphmod = tcoxmod, pb = TRUE)
+#plot the BK-CUSUM (estimated hazard from coxph)
+plot(bk_cox)
+</code></pre>
+
+
+</div>

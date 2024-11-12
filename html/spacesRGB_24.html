@@ -1,0 +1,229 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Opto-Optical Transfer Function, parameterized</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Opto-Optical Transfer Function, general
+</h2>
+
+<h3>Description</h3>
+
+<p>This parameterized OOTF maps from ACES (linear scene) RGB to linear display RGB
+(both of these are optical in nature).
+<br>
+This transform bypasses non-linear signal display RGB (which is electrical in nature).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">general.OOTF( display_pri, Ymin=0.00010, Ymid=7.2, Ymax=108,
+                 observerWP=NULL, limiting_pri=NULL,
+                 surround='dark', dynrange='SDR', glowmod='1.1', redmod='1.1' )
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>display_pri</code></td>
+<td>
+<p>a 4x2 matrix containing the display primaries, or a numeric vector of length 8
+that can be converted to such a matrix, by row.
+Some built-in matrices are <code>REC709_PRI</code>, etc.
+This argument cannot be <code>NULL</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ymin</code></td>
+<td>
+<p>the minimum display luminance, in <code class="reqn">cd/m^2</code>, or nit.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ymid</code></td>
+<td>
+<p>the middle display luminance, in <code class="reqn">cd/m^2</code>, or nit.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ymax</code></td>
+<td>
+<p>the maximum display luminance, in <code class="reqn">cd/m^2</code>, or nit.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>observerWP</code></td>
+<td>
+<p>the xy chromaticity of the assumed observer whitepoint.
+This is used to make a Chromatic Adaptation Transform (CAT) from the ACES whitepoint (approximately D60)
+to the assumed observer whitepoint.
+If <code>observerWP</code> is <code>NULL</code>, it is taken from <code>display_pri</code>.
+If ACES and observer whitepoints are the same, there is no CAT.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>limiting_pri</code></td>
+<td>
+<p>a 4x2 matrix containing the limiting primaries, or a numeric vector of length 8
+that can be converted to such a matrix, by row.
+If <code>limiting_pri</code> is not <code>NULL</code>, and not equal to <code>display_pri</code>,
+then the output RGB is clamped to the RGB cube that corresponds to <code>limiting_pri</code>. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>surround</code></td>
+<td>
+<p>The level of the surround luminance.
+Valid values are <code>'dark'</code> and <code>'dim'</code>.
+If the level is <code>'dark'</code> there is no special color compensation.
+Partial matching is enabled and matching is case-insensitive.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynrange</code></td>
+<td>
+<p>the dynamic range of the display system.
+Valid values are <code>'SDR'</code> (standard dynamic range) and <code>'HDR'</code> (high dynamic range).
+If the value is <code>'HDR'</code> then <code>surround</code> is ignored.
+Matching is partial and case-insensitive.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glowmod</code></td>
+<td>
+<p>the version of the Glow Modifier to use.  
+The only version currently supported is <code>"1.1"</code>.
+<br><code>glowmod</code> can also be <code>NULL</code>, <code>NA</code>, or <code>FALSE</code>,
+which means to use no Glow Modifier at all.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>redmod</code></td>
+<td>
+<p>the version of the Red Modifier to use.  
+The only version currently supported is <code>"1.1"</code>.
+This string can also be <code>"1.1+pinv"</code>
+which means to use a precision inverse; the forward transfer is exactly the same.
+This precision inverse uses an iterative root-finder, 
+and is slower than the approximate default inverse.
+<br><code>redmod</code> can also be <code>NULL</code>, <code>NA</code>, or <code>FALSE</code>,
+which means to use no Red Modifier at all.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The transfer is complicated; here is a summary of the steps:
+</p>
+
+<ol>
+<li>
+<p> glow module  (see argument <code>glowmod</code>)
+</p>
+</li>
+<li>
+<p> red modifier (see argument <code>redmod</code>)
+</p>
+</li>
+<li>
+<p> matrix conversion from AP0 RGB   →  AP1 RGB
+</p>
+</li>
+<li>
+<p> clamp to non-negative RGB
+</p>
+</li>
+<li>
+<p> global desaturation  (as in <code>RRT.TF</code>)
+</p>
+</li>
+<li>
+<p> single-stage tone-scale  (SSTS)  using <code>Ymin</code>, <code>Ymid</code>, and <code>Ymax</code>
+</p>
+</li>
+<li>
+<p> absolute luminance to linear code-value, in cube [0,1]<code class="reqn">^3</code>
+</p>
+</li>
+<li>
+<p> matrix conversion from AP1 RGB to XYZ
+</p>
+</li>
+<li>
+<p> dim surround compensation (optional, see arguments <code>surround</code> and <code>dynrange</code>)
+</p>
+</li>
+<li>
+<p> clamp XYZ to limiting primaries (optional, see argument <code>limiting_pri</code>)
+</p>
+</li>
+<li>
+<p> adapt XYZ from ACES whitepoint to observer whitepoint (optional, see argument <code>observerWP</code>)
+</p>
+</li>
+<li>
+<p> matrix conversion from XYZ to linear display RGB (see argument <code>display_pri</code>)
+</p>
+</li>
+<li>
+<p> scale and roll-white to avoid clipping (optional, only when <code>observerWP</code> is ACES whitepoint and display whitepoint is D65 or DCI whitepoint)
+</p>
+</li>
+<li>
+<p> clamp to non-negative RGB
+</p>
+</li>
+</ol>
+<h3>Value</h3>
+
+<p><code>general.OOTF()</code> returns a <code>TransferFunction</code> of dimension 3
+that maps ACES RGB to linear display RGB.
+<br>
+The domain of the returned <code>TransferFunction</code> depends on the values of 
+<code>Ymin</code>, <code>Ymid</code>, and <code>Ymax</code>.
+The range is [0,1]<code class="reqn">^3</code>, for which clamping may be used.
+<br>
+The <code>metadata</code> contains the display primaries and whitepoint,
+which is useful in <code>installRGB()</code>.
+</p>
+
+
+<h3>Source</h3>
+
+<p>This function was based on source code at:
+<a href="https://github.com/ampas/aces-dev">https://github.com/ampas/aces-dev</a>;
+especially the file <code>ACESlib.OutputTransforms.ctl</code>.
+This transform is a sub-transform of the function <code>outputTransform()</code>;
+it omits the final EOTF<code class="reqn">^{-1}</code> and optional Full-to-SMPTE range.
+</p>
+
+
+<h3>References</h3>
+
+<p>ST 2065-1:2012.
+SMPTE Standard - Academy Color Encoding Specification (ACES).
+2013.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>TransferFunction</code>,
+<code>installRGB()</code>,
+<code>metadata()</code>,
+Standard Primaries
+</p>
+
+
+</div>

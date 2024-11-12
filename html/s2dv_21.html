@@ -1,0 +1,259 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ConfigFileOpen</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Functions To Create Open And Save Configuration File</h2>
+
+<h3>Description</h3>
+
+<p>These functions help in creating, opening and saving configuration files.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ConfigFileOpen(file_path, silent = FALSE, stop = FALSE)
+
+ConfigFileCreate(file_path, confirm = TRUE)
+
+ConfigFileSave(configuration, file_path, confirm = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>file_path</code></td>
+<td>
+<p>Path to the configuration file to create/open/save.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Flag to activate or deactivate verbose mode.
+Defaults to FALSE (verbose mode on).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stop</code></td>
+<td>
+<p>TRUE/FALSE whether to raise an error if not all the mandatory 
+default variables are defined in the configuration file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>confirm</code></td>
+<td>
+<p>Flag to stipulate whether to ask for confirmation when 
+saving a configuration file that already exists.<br>
+Defaults to TRUE (confirmation asked).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>configuration</code></td>
+<td>
+<p>Configuration object to save in a file.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>ConfigFileOpen() loads all the data contained in the configuration file 
+specified as parameter 'file_path'.
+Returns a configuration object with the variables needed for the 
+configuration file mechanism to work.
+This function is called from inside the Load() function to load the 
+configuration file specified in 'configfile'.<br><br>
+ConfigFileCreate() creates an empty configuration file and saves it to 
+the specified path. It may be opened later with ConfigFileOpen() to be edited.
+Some default values are set when creating a file with this function, you 
+can check these with ConfigShowDefinitions().<br><br>
+ConfigFileSave() saves a configuration object into a file, which may then 
+be used from Load().<br><br>
+Two examples of configuration files can be found inside the 'inst/config/' 
+folder in the package:
+</p>
+
+<ul>
+<li>
+<p>BSC.conf: configuration file used at BSC-CNS. Contains location 
+data on several datasets and variables.
+</p>
+</li>
+<li>
+<p>template.conf: very simple configuration file intended to be used as 
+pattern when starting from scratch.
+</p>
+</li>
+</ul>
+<p>How the configuration file works:<br>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~<br>
+It contains one list and two tables.<br>
+Each of these have a header that starts with '!!'. These are key lines and 
+should not be removed or reordered.<br>
+Lines starting with '#' and blank lines will be ignored.
+The list should contains variable definitions and default value definitions.<br>
+The first table contains information about experiments.<br>
+The third table contains information about observations.<br>
+Each table entry is a list of comma-separated elements.<br>
+The two first are part of a key that is associated to a value formed by the 
+other elements.<br>
+The key elements are a dataset identifier and a variable name.<br>
+The value elements are the dataset main path, dataset file path, the 
+variable name inside the .nc file, a default suffix (explained below) and a 
+minimum and maximum vaues beyond which loaded data is deactivated.<br>
+Given a dataset name and a variable name, a full path is obtained 
+concatenating the main path and the file path.<br>
+Also the nc variable name, the suffixes and the limit values are obtained.<br>
+Any of the elements in the keys can contain regular expressions[1] that will 
+cause matching for sets of dataset names or variable names.<br>
+The dataset path and file path can contain shell globbing expressions[2] 
+that will cause matching for sets of paths when fetching the file in the 
+full path.<br>
+The full path can point to an OPeNDAP URL.<br>
+Any of the elements in the value can contain variables that will be replaced 
+to an associated string.<br>
+Variables can be defined only in the list at the top of the file. <br>
+The pattern of a variable definition is<br>
+VARIABLE_NAME = VARIABLE_VALUE<br>
+and can be accessed from within the table values or from within the variable 
+values as<br>
+$VARIABLE_NAME$<br>
+For example:<br>
+FILE_NAME = tos.nc<br>
+!!table of experiments<br>
+ecmwf, tos, /path/to/dataset/, $FILE_NAME$<br>
+There are some reserved variables that will offer information about the 
+store frequency, the current startdate Load() is fetching, etc:<br>
+$VAR_NAME$, $START_DATE$, $STORE_FREQ$, $MEMBER_NUMBER$<br>
+for experiments only: $EXP_NAME$<br>
+for observations only: $OBS_NAME$, $YEAR$, $MONTH$, $DAY$<br>
+Additionally, from an element in an entry value you can access the other 
+elements of the entry as:<br>
+$EXP_MAIN_PATH$, $EXP_FILE_PATH$, <br>$VAR_NAME$, $SUFFIX$, $VAR_MIN$, $VAR_MAX$<br><br>
+The variable $SUFFIX$ is useful because it can be used to take part in the 
+main or file path. For example: '/path/to$SUFFIX$/dataset/'.<br>
+It will be replaced by the value in the column that corresponds to the 
+suffix unless the user specifies a different suffix via the parameter 
+'suffixexp' or 'suffixobs'.<br>
+This way the user is able to load two variables with the same name in the 
+same dataset but with slight modifications, with a suffix anywhere in the 
+path to the data that advices of this slight modification.<br><br>
+The entries in a table will be grouped in 4 levels of specificity:
+</p>
+
+<ol>
+<li>
+<p>General entries:<br>
+- the key dataset name and variable name are both a regular expression 
+matching any sequence of characters (.*) that will cause matching for any 
+pair of dataset and variable names<br>
+Example:  .*, .*, /dataset/main/path/, file/path, nc_var_name, suffix, 
+var_min, var_max
+
+</p>
+</li>
+<li>
+<p>Dataset entries:<br>
+- the key variable name matches any sequence of characters<br>
+Example:  ecmwf, .*, /dataset/main/path/, file/path, nc_var_name, 
+suffix, var_min, var_max
+
+</p>
+</li>
+<li>
+<p>Variable entries:<br>
+- the key dataset name matches any sequence of characters<br>
+Example:  .*, tos, /dataset/main/path/, file/path, nc_var_name, 
+suffix, var_min, var_max
+
+</p>
+</li>
+<li>
+<p>Specific entries:<br>
+- both key values are specified<br>
+Example:  ecmwf, tos, /dataset/main/path/, file/path, nc_var_name, 
+suffix, var_min, var_max
+
+</p>
+</li>
+</ol>
+<p>Given a pair of dataset name and variable name for which we want to know the 
+full path, all the rules that match will be applied from more general to 
+more specific.<br>
+If there is more than one entry per group that match a given key pair, 
+these will be applied in the order of appearance in the configuration file 
+(top to bottom).<br><br>
+An asterisk (*) in any value element will be interpreted as 'leave it as is 
+or take the default value if yet not defined'.<br>
+The default values are defined in the following reserved variables:<br>
+$DEFAULT_EXP_MAIN_PATH$, $DEFAULT_EXP_FILE_PATH$, $DEFAULT_NC_VAR_NAME$, 
+$DEFAULT_OBS_MAIN_PATH$, $DEFAULT_OBS_FILE_PATH$, $DEFAULT_SUFFIX$, 
+$DEFAULT_VAR_MIN$, $DEFAULT_VAR_MAX$, <br>
+$DEFAULT_DIM_NAME_LATITUDES$, $DEFAULT_DIM_NAME_LONGITUDES$, <br>
+$DEFAULT_DIM_NAME_MEMBERS$<br><br>
+Trailing asterisks in an entry are not mandatory. For example<br>
+ecmwf, .*, /dataset/main/path/, *, *, *, *, *<br>
+will have the same effect as<br>
+ecmwf, .*, /dataset/main/path/ <br><br>
+A double quote only (") in any key or value element will be interpreted as 
+'fill in with the same value as the entry above'.
+</p>
+
+
+<h3>Value</h3>
+
+<p>ConfigFileOpen() returns a configuration object with all the information for 
+the configuration file mechanism to work.<br>
+ConfigFileSave() returns TRUE if the file has been saved and FALSE otherwise.<br>
+ConfigFileCreate() returns nothing.
+</p>
+
+
+<h3>References</h3>
+
+<p>[1] <a href="https://stat.ethz.ch/R-manual/R-devel/library/base/html/regex.html">https://stat.ethz.ch/R-manual/R-devel/library/base/html/regex.html</a><br>
+[2] <a href="https://tldp.org/LDP/abs/html/globbingref.html">https://tldp.org/LDP/abs/html/globbingref.html</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p>ConfigApplyMatchingEntries, ConfigEditDefinition, 
+ConfigEditEntry, ConfigFileOpen, ConfigShowSimilarEntries, ConfigShowTable
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Create an empty configuration file
+config_file &lt;- paste0(tempdir(), "/example.conf")
+ConfigFileCreate(config_file, confirm = FALSE)
+# Open it into a configuration object
+configuration &lt;- ConfigFileOpen(config_file)
+# Add an entry at the bottom of 4th level of file-per-startdate experiments 
+# table which will associate the experiment "ExampleExperiment2" and variable 
+# "ExampleVariable" to some information about its location.
+configuration &lt;- ConfigAddEntry(configuration, "experiments", 
+                "last", "ExampleExperiment2", "ExampleVariable", 
+                "/path/to/ExampleExperiment2/", 
+                "ExampleVariable/ExampleVariable_$START_DATE$.nc")
+# Edit entry to generalize for any variable. Changing variable needs .
+configuration &lt;- ConfigEditEntry(configuration, "experiments", 1, 
+                var_name = ".*", 
+                file_path = "$VAR_NAME$/$VAR_NAME$_$START_DATE$.nc")
+# Now apply matching entries for variable and experiment name and show the 
+# result
+match_info &lt;- ConfigApplyMatchingEntries(configuration, 'tas', 
+             exp = c('ExampleExperiment2'), show_result = TRUE)
+# Finally save the configuration file.
+ConfigFileSave(configuration, config_file, confirm = FALSE)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,204 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim.qm.ramsay</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Simulate from Ramsay's Quotient Model
+</h2>
+
+<h3>Description</h3>
+
+<p>This function simulates dichotomous item response data
+according to Ramsay's quotient model (Ramsay, 1989).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim.qm.ramsay(theta, b, K)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>theta</code></td>
+<td>
+
+<p>Vector of of length <code class="reqn">N</code> person parameters (must be positive!)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+
+<p>Vector of length <code class="reqn">I</code> of item difficulties (must be positive)
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+
+<p>Vector of length <code class="reqn">I</code> of guessing parameters (must be positive)
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Ramsay's quotient model (Ramsay, 1989) is defined by the equation
+</p>
+<p style="text-align: center;"><code class="reqn">P(X_{pi}=1 | \theta_p )=\frac{ \exp { ( \theta_p / b_i ) } }
+    { K_i + \exp { ( \theta_p / b_i ) } }</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>An <code class="reqn">N \times I</code>  data frame with dichotomous item responses.
+</p>
+
+
+<h3>References</h3>
+
+<p>Ramsay, J. O. (1989). A comparison of three simple test theory models.
+<em>Psychometrika, 54</em>, 487-499.
+</p>
+<p>van der Maas, H. J. L., Molenaar, D., Maris, G., Kievit, R. A., &amp;
+Borsboom, D. (2011).
+Cognitive psychology meets psychometric theory: On the relation between
+process models for decision making and latent variable models for
+individual differences.
+<em>Psychological Review, 318</em>, 339-356.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See <code>rasch.mml2</code> for estimating Ramsay's quotient model.
+</p>
+<p>See <code>sim.raschtype</code> for simulating response data from
+the generalized logistic item response model.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#############################################################################
+# EXAMPLE 1: Estimate Ramsay Quotient Model with rasch.mml2
+#############################################################################
+
+set.seed(657)
+# simulate data according to the Ramsay model
+N &lt;- 1000       # persons
+I &lt;- 11         # items
+theta &lt;- exp( stats::rnorm( N ) )  # person ability
+b &lt;- exp( seq(-2,2,len=I))  # item difficulty
+K &lt;- rep( 3, I )           # K parameter (=&gt; guessing)
+
+# apply simulation function
+dat &lt;- sirt::sim.qm.ramsay( theta, b, K )
+
+#***
+# analysis
+mmliter &lt;- 50       # maximum number of iterations
+I &lt;- ncol(dat)
+fixed.K &lt;- rep( 3, I )
+
+# Ramsay QM with fixed K parameter (K=3 in fixed.K specification)
+mod1 &lt;- sirt::rasch.mml2( dat, mmliter=mmliter, irtmodel="ramsay.qm",
+              fixed.K=fixed.K )
+summary(mod1)
+
+# Ramsay QM with joint estimated K parameters
+mod2 &lt;- sirt::rasch.mml2( dat, mmliter=mmliter, irtmodel="ramsay.qm",
+             est.K=rep(1,I)  )
+summary(mod2)
+
+## Not run: 
+# Ramsay QM with itemwise estimated K parameters
+mod3 &lt;- sirt::rasch.mml2( dat, mmliter=mmliter, irtmodel="ramsay.qm",
+              est.K=1:I  )
+summary(mod3)
+
+# Rasch model
+mod4 &lt;- sirt::rasch.mml2( dat )
+summary(mod4)
+
+# generalized logistic model
+mod5 &lt;- sirt::rasch.mml2( dat, est.alpha=TRUE, mmliter=mmliter)
+summary(mod5)
+
+# 2PL model
+mod6 &lt;- sirt::rasch.mml2( dat, est.a=rep(1,I) )
+summary(mod6)
+
+# Difficulty + Guessing (b+c) Model
+mod7 &lt;- sirt::rasch.mml2( dat, est.c=rep(1,I) )
+summary(mod7)
+
+# estimate separate guessing (c) parameters
+mod8 &lt;- sirt::rasch.mml2( dat, est.c=1:I  )
+summary(mod8)
+
+#*** estimate Model 1 with user defined function in mirt package
+
+# create user defined function for Ramsay's quotient model
+name &lt;- 'ramsayqm'
+par &lt;- c("K"=3, "b"=1 )
+est &lt;- c(TRUE, TRUE)
+P.ramsay &lt;- function(par,Theta){
+     eps &lt;- .01
+     K &lt;- par[1]
+     b &lt;- par[2]
+     num &lt;- exp( exp( Theta[,1] ) / b )
+     denom &lt;- K + num
+     P1 &lt;- num / denom
+     P1 &lt;- eps + ( 1 - 2*eps ) * P1
+     cbind(1-P1, P1)
+}
+
+# create item response function
+ramsayqm &lt;- mirt::createItem(name, par=par, est=est, P=P.ramsay)
+# define parameters to be estimated
+mod1m.pars &lt;- mirt::mirt(dat, 1, rep( "ramsayqm",I),
+                   customItems=list("ramsayqm"=ramsayqm), pars="values")
+mod1m.pars[ mod1m.pars$name=="K", "est" ] &lt;- FALSE
+# define Theta design matrix
+Theta &lt;- matrix( seq(-3,3,len=10), ncol=1)
+# estimate model
+mod1m &lt;- mirt::mirt(dat, 1, rep( "ramsayqm",I), customItems=list("ramsayqm"=ramsayqm),
+               pars=mod1m.pars, verbose=TRUE,
+               technical=list( customTheta=Theta, NCYCLES=50)
+                )
+print(mod1m)
+summary(mod1m)
+cmod1m &lt;- sirt::mirt.wrapper.coef( mod1m )$coef
+# compare simulated and estimated values
+dfr &lt;- cbind( b, cmod1m$b, exp(mod1$item$b ) )
+colnames(dfr) &lt;- c("simulated", "mirt", "sirt_rasch.mml2")
+round( dfr, 2 )
+  ##      simulated mirt sirt_rasch.mml2
+  ## [1,]      0.14 0.11            0.11
+  ## [2,]      0.20 0.17            0.18
+  ## [3,]      0.30 0.27            0.29
+  ## [4,]      0.45 0.42            0.43
+  ## [5,]      0.67 0.65            0.67
+  ## [6,]      1.00 1.00            1.01
+  ## [7,]      1.49 1.53            1.54
+  ## [8,]      2.23 2.21            2.21
+  ## [9,]      3.32 3.00            2.98
+  ##[10,]      4.95 5.22            5.09
+  ##[11,]      7.39 5.62            5.51
+
+## End(Not run)
+</code></pre>
+
+
+</div>

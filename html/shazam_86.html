@@ -1,0 +1,150 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>slideWindowTune</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Parameter tuning for sliding window approach</h2>
+
+<h3>Description</h3>
+
+<p>Apply slideWindowDb over a search grid made of combinations of <code>mutThresh</code> and 
+<code>windowSize</code> to help with picking a pair of values for these parameters. Parameter 
+tuning can be performed by choosing a combination that gives a reasonable number of 
+filtered/remaining sequences.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">slideWindowTune(
+  db,
+  sequenceColumn = "sequence_alignment",
+  germlineColumn = "germline_alignment_d_mask",
+  dbMutList = NULL,
+  mutThreshRange,
+  windowSizeRange,
+  verbose = TRUE,
+  nproc = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>db</code></td>
+<td>
+<p><code>data.frame</code> containing sequence data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sequenceColumn</code></td>
+<td>
+<p>name of the column containing IMGT-gapped sample sequences.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>germlineColumn</code></td>
+<td>
+<p>name of the column containing IMGT-gapped germline sequences.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dbMutList</code></td>
+<td>
+<p>if supplied, this should be a list consisting of <code>data.frame</code>s 
+returned as <code>$pos</code> in the nested list produced by 
+calcObservedMutations with <code>returnRaw=TRUE</code>; otherwise, 
+calcObservedMutations is called on columns <code>sequenceColumn</code>
+and <code>germlineColumn</code> of <code>db</code>. Default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mutThreshRange</code></td>
+<td>
+<p>range of threshold on the number of mutations in <code>windowSize</code> 
+consecutive nucleotides to try. Must be between 1 and 
+maximum <code>windowSizeRange</code> inclusive.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowSizeRange</code></td>
+<td>
+<p>range of length of consecutive nucleotides to try. The lower end
+must be at least 2.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>whether to print out messages indicating current progress. Default
+is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nproc</code></td>
+<td>
+<p>Number of cores to distribute the operation over. If the 
+<code>cluster</code> has already been set earlier, then pass the 
+<code>cluster</code>. This will ensure that it is not reset.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If, in a given combination of <code>mutThresh</code> and <code>windowSize</code>, <code>mutThresh</code> 
+is greater than <code>windowSize</code>, <code>NA</code>s will be returned for that particular
+combination. A message indicating that the combination has been "skipped" will be 
+printed if <code>verbose=TRUE</code>.
+</p>
+<p>If calcObservedMutations was previously run on <code>db</code> and saved, supplying
+<code>$pos</code> from the saved result as <code>dbMutList</code> could save time by skipping a
+second call of calcObservedMutations. This could be helpful especially when 
+<code>db</code> is large.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list of logical matrices. Each matrix corresponds to a <code>windowSize</code> in 
+<code>windowSizeRange</code>. Each column in a matrix corresponds to a <code>mutThresh</code> in
+<code>mutThreshRange</code>. Each row corresponds to a sequence. <code>TRUE</code> values
+mean the sequences has at least the number of mutations specified in the column name,
+for that <code>windowSize</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>slideWindowDb is called on <code>db</code> for tuning. See slideWindowTunePlot 
+for visualization. See calcObservedMutations for generating <code>dbMutList</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Load and subset example data
+data(ExampleDb, package="alakazam")
+db &lt;- ExampleDb[1:5, ]
+
+# Try out thresholds of 2-4 mutations in window sizes of 7-9 nucleotides. 
+# In this case, all combinations are legal.
+slideWindowTune(db, mutThreshRange=2:4, windowSizeRange=7:9)
+
+# Illegal combinations are skipped, returning NAs.
+slideWindowTune(db, mutThreshRange=2:4, windowSizeRange=2:4, 
+                verbose=FALSE)
+                                                            
+# Run calcObservedMutations separately
+exDbMutList &lt;- sapply(1:5, function(i) {
+    calcObservedMutations(inputSeq=db[["sequence_alignment"]][i],
+                          germlineSeq=db[["germline_alignment_d_mask"]][i],
+                          returnRaw=TRUE)$pos })
+slideWindowTune(db, dbMutList=exDbMutList, 
+                mutThreshRange=2:4, windowSizeRange=2:4)
+</code></pre>
+
+
+</div>

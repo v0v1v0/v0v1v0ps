@@ -1,0 +1,649 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>stack_modelling</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build an SSDM that assembles multiple algorithms and species.</h2>
+
+<h3>Description</h3>
+
+<p>This is a function to build an SSDM that assembles multiple algorithm and
+species. The function takes as inputs an occurrence data frame made of
+presence/absence or presence-only records and a raster object for data
+extraction and projection. The function returns an S4
+Stacked.SDM class object containing the local species richness
+map, the between-algorithm variance map, and all evaluation tables coming with
+(model evaluation, algorithm evaluation, algorithm correlation matrix and
+variable importance), and a list of ensemble SDMs for each species (see
+<code>ensemble_modelling</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">stack_modelling(
+  algorithms,
+  Occurrences,
+  Env,
+  Xcol = "Longitude",
+  Ycol = "Latitude",
+  Pcol = NULL,
+  Spcol = "SpeciesID",
+  rep = 10,
+  name = NULL,
+  save = FALSE,
+  path = getwd(),
+  PA = NULL,
+  cv = "holdout",
+  cv.param = c(0.7, 1),
+  final.fit.data = "all",
+  bin.thresh = "SES",
+  metric = NULL,
+  thresh = 1001,
+  axes.metric = "Pearson",
+  uncertainty = TRUE,
+  tmp = FALSE,
+  SDM.projections = FALSE,
+  ensemble.metric = c("AUC"),
+  ensemble.thresh = c(0.75),
+  weight = TRUE,
+  method = "pSSDM",
+  rep.B = 1000,
+  range = NULL,
+  endemism = c("WEI", "Binary"),
+  verbose = TRUE,
+  GUI = FALSE,
+  cores = 0,
+  parmode = "species",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>algorithms</code></td>
+<td>
+<p>character. Choice of the algorithm(s) to be run (see details
+below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Occurrences</code></td>
+<td>
+<p>data frame. Occurrence table (can be processed first by
+<code>load_occ</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Env</code></td>
+<td>
+<p>raster object. Raster object of environmental variables (can be
+processed first by <code>load_var</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Xcol</code></td>
+<td>
+<p>character. Name of the column in the occurrence table containing
+Latitude or X coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ycol</code></td>
+<td>
+<p>character. Name of the column in the occurrence table containing
+Longitude or Y coordinates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Pcol</code></td>
+<td>
+<p>character. Name of the column in the occurrence table specifying
+whether a line is a presence or an absence. A value of 1 is presence and
+value of 0 is absence. If NULL presence-only dataset is assumed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Spcol</code></td>
+<td>
+<p>character. Name of the column containing species names or IDs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rep</code></td>
+<td>
+<p>integer. Number of repetitions for each algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>character. Optional name given to the final Ensemble.SDM produced.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save</code></td>
+<td>
+<p>logical. If set to true, the SSDM is automatically saved.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>path</code></td>
+<td>
+<p>character. If save is true, the path to the directory in which the
+ensemble SDM will be saved.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>PA</code></td>
+<td>
+<p>list(nb, strat) defining the pseudo-absence selection strategy used
+in case of presence-only dataset. If PA is NULL, recommended PA selection
+strategy is used depending on the algorithm (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cv</code></td>
+<td>
+<p>character. Method of cross-validation used to evaluate the ensemble
+SDM (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cv.param</code></td>
+<td>
+<p>numeric. Parameters associated with the method of
+cross-validation used to evaluate the ensemble SDM (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>final.fit.data</code></td>
+<td>
+<p>strategy used for fitting the final/evaluated Algorithm.SDMs: 'holdout'= use same train and test data as in (last) evaluation, 'all'= train model with all data (i.e. no test data) or numeric (0-1)= sample a custom training fraction (left out fraction is set aside as test data)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bin.thresh</code></td>
+<td>
+<p>character. Classification threshold (<code>threshold</code>) used to binarize model predictions into presence/absence and compute the confusion matrix (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>(deprecated) character. Classification threshold (<code>SDMTools::optim.thresh</code>) used to binarize model predictions into presence/absence and compute the confusion matrix (see details below). This argument is only kept for backwards compatibility, if possible please use <code>bin.thresh</code> instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thresh</code></td>
+<td>
+<p>(deprecated) integer. Number of equally spaced thresholds in the interval 0-1 (<code>SDMTools::optim.thresh</code>). Only needed when <code>metric</code> is set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>axes.metric</code></td>
+<td>
+<p>Metric used to evaluate variable relative importance (see
+details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>uncertainty</code></td>
+<td>
+<p>logical. If set to true, generates an uncertainty map and
+an algorithm correlation matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tmp</code></td>
+<td>
+<p>logical. If set to true, the habitat suitability map of each
+algorithms is saved in a temporary file to release memory. But beware: if
+you close R, temporary files will be deleted. To avoid any loss you can
+save your SSDM with <code>save.model</code>. Depending on number,
+resolution and extent of models, temporary files can take a lot of disk
+space. Temporary files are written in R environment temporary folder.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SDM.projections</code></td>
+<td>
+<p>logical. If FALSE (default), the Algorithm.SDMs inside the 'sdms' slot will not contain projections (for memory saving purposes).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ensemble.metric</code></td>
+<td>
+<p>character. Metric(s) used to select the best SDMs that
+will be included in the ensemble SDM (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ensemble.thresh</code></td>
+<td>
+<p>numeric. Threshold(s) associated with the metric(s)
+used to compute the selection.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight</code></td>
+<td>
+<p>logical. Choose whether or not you want the SDMs to be weighted
+using the selection metric or, alternatively, the mean of the selection
+metrics.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>character. Define the method used to create the local species
+richness map (see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rep.B</code></td>
+<td>
+<p>integer. If the method used to create the local species richness
+is the random bernoulli (<strong>Bernoulli</strong>), rep.B parameter defines the number of
+repetitions used to create binary maps for each species.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>range</code></td>
+<td>
+<p>integer. Set a value of range restriction (in pixels) around
+presences occurrences on habitat suitability maps (all further points will
+have a null probability, see Crisp et al (2011) in references). If NULL, no
+range restriction will be applied.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>endemism</code></td>
+<td>
+<p>character. Define the method used to create an endemism map
+(see details below).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical. If set to true, allows the function to print text in
+the console.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>GUI</code></td>
+<td>
+<p>logical. Don't take that argument into account (parameter for the
+user interface).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>integer. Specify the number of CPU cores used to do the
+computing. You can use <code>detectCores</code>) to automatically
+use all the available CPU cores.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parmode</code></td>
+<td>
+<p>character. Parallelization mode: along 'species', 'algorithms' or 'replicates'. Defaults to 'species'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters for the algorithm modelling function (see
+details below).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+ <dl>
+<dt>algorithms</dt>
+<dd>
+<p>'all' allows you to call directly all
+available algorithms. Currently, available algorithms include Generalized
+linear model (<strong>GLM</strong>), Generalized additive model (<strong>GAM</strong>),
+Multivariate adaptive regression splines (<strong>MARS</strong>), Generalized
+boosted regressions model (<strong>GBM</strong>), Classification tree analysis
+(<strong>CTA</strong>), Random forest (<strong>RF</strong>), Maximum entropy
+(<strong>MAXENT</strong>), Artificial neural network (<strong>ANN</strong>), and Support
+vector machines (<strong>SVM</strong>). Each algorithm has its own parameters
+settable with the <strong>...</strong> (see each algorithm section below to set
+their parameters).</p>
+</dd> <dt>"PA"</dt>
+<dd>
+<p>list with two values: <strong>nb</strong> number of
+pseudo-absences selected, and <strong>strat</strong> strategy used to select
+pseudo-absences: either random selection or disk selection. We set default
+recommendation from Barbet-Massin et al. (2012) (see reference).</p>
+</dd>
+<dt>cv</dt>
+<dd>
+<p><strong>Cross-validation</strong> method used to split the occurrence
+dataset used for evaluation: <strong>holdout</strong> data are partitioned into a
+training set and an evaluation set using a fraction (<em>cv.param[1]</em>) and
+the operation can be repeated (<em>cv.param[2]</em>) times, <strong>k-fold</strong>
+data are partitioned into k (<em>cv.param[1]</em>) folds being k-1 times in
+the training set and once the evaluation set and the operation can be
+repeated (<em>cv.param[2]</em>) times, <strong>LOO</strong> (Leave One Out) each point
+is successively taken as evaluation data.</p>
+</dd> <dt>metric</dt>
+<dd>
+<p>Choice of the
+metric used to compute the binary map threshold and the confusion matrix (by
+default SES as recommended by Liu et al. (2005), see reference below):
+<strong>Kappa</strong> maximizes the Kappa, <strong>CCR</strong> maximizes the proportion of
+correctly predicted observations, <strong>TSS</strong> (True Skill Statistic)
+maximizes the sum of sensitivity and specificity, <strong>SES</strong> uses the
+sensitivity-specificity equality, <strong>LW</strong> uses the lowest occurrence
+prediction probability, <strong>ROC</strong> minimizes the distance between the ROC
+plot (receiving operating curve) and the upper left corner
+(1,1).</p>
+</dd>
+<dt>axes.metric</dt>
+<dd>
+<p>Choice of the metric used to evaluate the variable
+relative importance (difference between a full model and one with each
+variable successively omitted): <strong>Pearson</strong> (computes a simple
+Pearson's correlation <em>r</em> between predictions of the full model and the
+one without a variable, and returns the score <em>1-r</em>: the highest the
+value, the more influence the variable has on the model), <strong>AUC</strong>,
+<strong>Kappa</strong>, <strong>sensitivity</strong>, <strong>specificity</strong>, and
+<strong>prop.correct</strong> (proportion of correctly predicted occurrences).</p>
+</dd>
+<dt>ensemble.metric</dt>
+<dd>
+<p>Ensemble metric(s) used to select SDMs: <strong>AUC</strong>,
+<strong>Kappa</strong>, <strong>sensitivity</strong>, <strong>specificity</strong>, and
+<strong>prop.correct</strong> (proportion of correctly predicted occurrences).</p>
+</dd>
+<dt>method</dt>
+<dd>
+<p>Choice of the method used to compute the local species
+richness map (see Calabrese et al. (2014) and D'Amen et al (2015) for more
+informations, see reference below): <strong>pSSDM</strong> sum probabilities of
+habitat suitability maps, <strong>Bernoulli</strong> drawing repeatedly from a
+Bernoulli distribution, <strong>bSSDM</strong> sum the binary map obtained with the
+thresholding (depending on the metric, see metric parameter),
+<strong>MaximumLikelihood</strong> adjust species richness using maximum likelihood parameter estimates on the logit-transformed occurrence probabilities (see Calabrese et al. (2014)), <strong>PRR.MEM</strong> model richness with a macroecological model
+(MEM) and adjust each ESDM binary map by ranking habitat suitability and
+keeping as much as predicted richness of the MEM, <strong>PRR.pSSDM</strong> model
+richness with a pSSDM and adjust each ESDM binary map by ranking habitat
+suitability and keeping as much as predicted richness of the pSSDM</p>
+</dd>
+<dt>endemism</dt>
+<dd>
+<p>Choice of the method used to compute the endemism map (see
+Crisp et al. (2001) for more information, see reference below):
+<strong>NULL</strong> No endemism map, <strong>WEI</strong> (Weighted Endemism Index)
+Endemism map built by counting all species in each cell and weighting each
+by the inverse of its range, <strong>CWEI</strong> (Corrected Weighted Endemism
+Index) Endemism map built by dividing the weighted endemism index by the
+total count of species in the cell. First string of the character is the
+method either WEI or CWEI, and in those cases second string of the vector is
+used to precise range calculation, whether the total number of occurrences
+<strong>'NbOcc'</strong> whether the surface of the binary map species distribution
+<strong>'Binary'</strong>.</p>
+</dd> <dt>...</dt>
+<dd>
+<p>See algorithm in detail section</p>
+</dd> </dl>
+<h3>Value</h3>
+
+<p>an S4 Stacked.SDM class object viewable with the
+<code>plot.model</code> function.
+</p>
+
+
+<h3>Generalized linear model (<strong>GLM</strong>) </h3>
+
+<p>Uses the <code>glm</code>
+function from the package 'stats'. You can set parameters by supplying <code>glm.args=list(arg1=val1,arg2=val2)</code> (see <code>glm</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>test</dt>
+<dd>
+<p>character. Test used to evaluate the SDM, default 'AIC'.</p>
+</dd>
+<dt>control</dt>
+<dd>
+<p>list (created with <code>glm.control</code>).
+Contains parameters for controlling the fitting process. Default is <code>glm.control(epsilon = 1e-08, maxit = 500)</code>.
+'epsilon' is a numeric and defines the positive convergence tolerance (eps).
+'maxit' is an integer giving the maximal number of IWLS (Iterative Weighted Last Squares) iterations.</p>
+</dd> </dl>
+<h3>Generalized additive model (<strong>GAM</strong>) </h3>
+
+<p>Uses the <code>gam</code>
+function from the package 'mgcv'. You can set parameters by supplying <code>gam.args=list(arg1=val1,arg2=val2)</code> (see <code>gam</code> for all settable arguments).
+The following parameters have defaults: </p>
+<dl>
+<dt>test</dt>
+<dd>
+<p>character.
+Test used to evaluate the model, default 'AIC'.</p>
+</dd> <dt>control</dt>
+<dd>
+<p>list (created with <code>gam.control</code>).
+Contains parameters for controlling the fitting process. Default is <code>gam.control(epsilon = 1e-08, maxit = 500)</code>.
+'epsilon' is a numeric used for judging the conversion of the GLM IRLS (Iteratively Reweighted Least Squares) loop. 'maxit' is an integer giving the maximum number of IRLS iterations to perform.</p>
+</dd> </dl>
+<h3>Multivariate adaptive regression splines (<strong>MARS</strong>) </h3>
+
+<p>Uses the
+<code>earth</code> function from the package 'earth'. You can set parameters by supplying <code>mars.args=list(arg1=val1,arg2=val2)</code> (see <code>earth</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>degree</dt>
+<dd>
+<p>integer. Maximum degree of interaction (Friedman's mi) ; 1
+meaning build an additive model (i.e., no interaction terms). By default,
+set to 2.</p>
+</dd> </dl>
+<h3>Generalized boosted regressions model (<strong>GBM</strong>) </h3>
+
+<p>Uses the
+<code>gbm</code> function from the package 'gbm'. You can set parameters by supplying <code>gbm.args=list(arg1=val1,arg2=val2)</code> (see <code>gbm</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>distribution</dt>
+<dd>
+<p>character. Automatically detected from the format of the presence column in the occurrence dataset.</p>
+</dd>
+<dt>n.trees</dt>
+<dd>
+<p>integer. The total number of trees to fit. This is equivalent
+to the number of iterations and the number of basis functions in the
+additive expansion. By default, set to 2500.</p>
+</dd>
+<dt>n.minobsinnode</dt>
+<dd>
+<p>integer.
+minimum number of observations in the trees terminal nodes. Note that this
+is the actual number of observations, not the total weight. By default, set
+to 1.</p>
+</dd>
+<dt>cv.folds</dt>
+<dd>
+<p>integer. Number of cross-validation folds to perform.
+If cv.folds&gt;1 then gbm - in addition to the usual fit - will perform a
+cross-validation. By default, set to 3.</p>
+</dd>
+<dt>shrinkage</dt>
+<dd>
+<p>numeric. A shrinkage parameter applied to each tree in the expansion (also known as learning rate or step-size reduction). By default, set to 0.001.</p>
+</dd>
+<dt>bag.fraction</dt>
+<dd>
+<p>numeric. Fraction of the training set observations randomly selected to propose the next tree in the expansion.</p>
+</dd>
+<dt>train.fraction</dt>
+<dd>
+<p>numeric. Training fraction used to fit the first gbm. The remainder is used to compute out-of-sample estimates of the loss function. By default, set to 1 (since evaluation/holdout is done with <code>SSDM::evaluate</code>.</p>
+</dd>
+<dt>n.cores</dt>
+<dd>
+<p>integer. Number of cores to use for parallel computation of the CV folds. By default, set to 1. If you intend to use this, please set <code>ncores=0</code> to avoid conflicts.</p>
+</dd> </dl>
+<h3>Classification tree analysis (<strong>CTA</strong>) </h3>
+
+<p>Uses the <code>rpart</code>
+function from the package 'rpart'. You can set parameters by supplying <code>cta.args=list(arg1=val1,arg2=val2)</code> (see <code>rpart</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>control</dt>
+<dd>
+<p>list (created with <code>rpart.control</code>).
+Contains parameters for controlling the rpart fit. The default is <code>rpart.control(minbucket=1, xval=3)</code>.
+'mibucket' is an integer giving the minimum number of observations in any
+terminal node. 'xval' is an integer defining the number of
+cross-validations.</p>
+</dd> </dl>
+<h3>Random Forest (<strong>RF</strong>) </h3>
+
+<p>Uses the <code>randomForest</code> function
+from the package 'randomForest'. You can set parameters by supplying <code>cta.args=list(arg1=val1,arg2=val2)</code> (see <code>randomForest</code> all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>ntree</dt>
+<dd>
+<p>integer. Number of trees to grow. This should not be set to a
+too small number, to ensure that every input row gets predicted at least a
+few times. By default, set to 2500.</p>
+</dd>
+<dt>nodesize</dt>
+<dd>
+<p>integer. Minimum size of terminal nodes. Setting this number larger causes smaller trees to be grown (and thus take less time). By default, set to 1.</p>
+</dd> </dl>
+<h3>Maximum Entropy (<strong>MAXENT</strong>) </h3>
+
+<p>Uses the <code>maxent</code> function
+from the package 'dismo'. Make sure that you have correctly installed the
+maxent.jar file in the folder ~\R\library\version\dismo\java available
+at <a href="https://biodiversityinformatics.amnh.org/open_source/maxent/">https://biodiversityinformatics.amnh.org/open_source/maxent/</a>. As with the other algorithms, you can set parameters by supplying <code>maxent.args=list(arg1=val1,arg2=val2)</code>. Mind that arguments are passed from dismo to the MAXENT software again as an argument list  (see <code>maxent</code> for more details).
+No specific defaults are set with this method.
+</p>
+
+
+<h3>Artificial Neural Network (<strong>ANN</strong>) </h3>
+
+<p>Uses the <code>nnet</code>
+function from the package 'nnet'. You can set parameters by supplying <code>ann.args=list(arg1=val1,arg2=val2)</code> (see <code>nnet</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>size</dt>
+<dd>
+<p>integer. Number of units in the hidden layer. By default, set to 6.</p>
+</dd>
+<dt>maxit</dt>
+<dd>
+<p>integer. Maximum number of iterations, default 500.</p>
+</dd> </dl>
+<h3>Support vector machines (<strong>SVM</strong>) </h3>
+
+<p>Uses the <code>svm</code> function
+from the package 'e1071'. You can set parameters by supplying <code>svm.args=list(arg1=val1,arg2=val2)</code> (see <code>svm</code> for all settable arguments).
+The following parameters have defaults: </p>
+
+<dl>
+<dt>type</dt>
+<dd>
+<p>character. Regression/classification type SVM should be used with. By default, set to "eps-regression".</p>
+</dd>
+<dt>epsilon</dt>
+<dd>
+<p>float. Epsilon parameter in the insensitive loss function, default 1e-08.</p>
+</dd>
+<dt>cross</dt>
+<dd>
+<p>integer. If an integer value k&gt;0 is specified, a k-fold
+cross-validation on the training data is performed to assess the quality of
+the model: the accuracy rate for classification and the Mean Squared Error
+for regression. By default, set to 3.</p>
+</dd>
+<dt>kernel</dt>
+<dd>
+<p>character. The kernel used in training and predicting. By default, set to "radial".</p>
+</dd>
+<dt>gamma</dt>
+<dd>
+<p>numeric. Parameter needed for all kernels, default <code>1/(length(data) -1)</code>.</p>
+</dd> </dl>
+<h3>Warning </h3>
+
+<p>Depending on the raster object resolution the process can
+be more or less time and memory consuming.
+</p>
+
+
+<h3>References</h3>
+
+<p>M. D'Amen, A. Dubuis, R. F. Fernandes, J. Pottier, L. Pelissier, &amp;
+A Guisan (2015) "Using species richness and functional traits prediction to
+constrain assemblage predicitions from stacked species distribution models"
+<em>Journal of Biogeography</em> 42(7):1255-1266
+<a href="http://doc.rero.ch/record/235561/files/pel_usr.pdf">http://doc.rero.ch/record/235561/files/pel_usr.pdf</a>
+</p>
+<p>M. Barbet-Massin, F. Jiguet, C. H.  Albert, &amp; W. Thuiller (2012) "Selecting
+pseudo-absences for species distribution models: how, where and how many?"
+<em>Methods Ecology and Evolution</em> 3:327-338
+<a href="http://onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2011.00172.x/full">http://onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2011.00172.x/full</a>
+</p>
+<p>J.M. Calabrese, G. Certain, C.  Kraan, &amp; C.F. Dormann (2014) "Stacking
+species distribution  models  and  adjusting  bias  by linking them to
+macroecological models." <em>Global Ecology and Biogeography</em> 23:99-112
+<a href="https://onlinelibrary.wiley.com/doi/full/10.1111/geb.12102">https://onlinelibrary.wiley.com/doi/full/10.1111/geb.12102</a>
+</p>
+<p>M. D. Crisp, S. Laffan, H. P. Linder &amp; A. Monro (2001) "Endemism in the
+Australian flora"  <em>Journal of Biogeography</em> 28:183-198
+<a href="http://biology-assets.anu.edu.au/hosted_sites/Crisp/pdfs/Crisp2001_endemism.pdf">http://biology-assets.anu.edu.au/hosted_sites/Crisp/pdfs/Crisp2001_endemism.pdf</a>
+</p>
+<p>C. Liu, P. M. Berry, T. P. Dawson,  R. &amp; G. Pearson (2005) "Selecting
+thresholds of occurrence in the prediction of species distributions."
+<em>Ecography</em> 28:85-393
+<a href="http://www.researchgate.net/publication/230246974_Selecting_Thresholds_of_Occurrence_in_the_Prediction_of_Species_Distributions">http://www.researchgate.net/publication/230246974_Selecting_Thresholds_of_Occurrence_in_the_Prediction_of_Species_Distributions</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>modelling</code> to build simple SDMs.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Loading data
+data(Env)
+data(Occurrences)
+
+# SSDM building
+SSDM &lt;- stack_modelling(c('CTA', 'SVM'), Occurrences, Env, rep = 1,
+                       Xcol = 'LONGITUDE', Ycol = 'LATITUDE',
+                       Spcol = 'SPECIES')
+
+# Results plotting
+plot(SSDM)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

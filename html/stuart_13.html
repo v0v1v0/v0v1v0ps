@@ -1,0 +1,181 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>kfold</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>k-Folds Crossvalidation</h2>
+
+<h3>Description</h3>
+
+<p>k-Folds crossvalidation for item selection using any approach implemented in STUART.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">kfold(
+  type,
+  k = 5,
+  max.invariance = "strict",
+  seed = NULL,
+  seeded.search = TRUE,
+  ...,
+  remove.details = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>A <code>character</code> calling the item-selection procedure. Can be one of "mmas" (see <code>mmas</code>), "gene" (see <code>gene</code>), "bruteforce" (see <code>bruteforce</code>), or randomsamples (see <code>randomsamples</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>The number of folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.invariance</code></td>
+<td>
+<p>The maximum measurement invariance level which will be tested. Currently there are four options: 'configural', 'weak', 'strong', and 'strict' (the default). All levels below <code>max.invariance</code> are also tested.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>The random seed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seeded.search</code></td>
+<td>
+<p>A <code>logical</code> indicating whether the <code>seed</code> should also be used for the search procedure (the default) or only for the sample splitting.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments passed to the item-selection procedure called with <code>type</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>remove.details</code></td>
+<td>
+<p>A <code>logical</code> indicating whether to remove detailed information such as models and copies of datasets. Reduces output size by approx. 90%. Defaults to <code>TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function splits the provided data into k subsets using <code>holdout</code> and runs the item-selection procedure requested via <code>type</code> on the training datasets. Validation is performed using <code>crossvalidate</code> to check for invariance of the measurement models between the training and validation data up to the invariance level provided via <code>max.invariance</code>. The final item selection is based on the highest value on the objective function in the multiple-group SEM imposing <code>max.invariance</code> between the training and validation data.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns an object of the class <code>stuartKfold</code> for which specific <code>summary</code> and <code>print</code> methods are available. The results are a list.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>call </code></td>
+<td>
+<p>The called function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subtests</code></td>
+<td>
+<p>A list containing the names of the selected items and their respective subtests.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>solution</code></td>
+<td>
+<p>A list of matrices with the choices made in the global-best solution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>final</code></td>
+<td>
+<p>The results of the estimation of the solution leading to best objective value when cross-validated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>frequencies</code></td>
+<td>
+<p>A list of matrices showing the relative frequencies with which an item was selected across the k-folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>full</code></td>
+<td>
+<p>A list of the results returned by the k runs of <code>type</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>crossvalidations</code></td>
+<td>
+<p>A list of data.frames showing the fit and model comparisons of all invariance levels up to <code>max.invariance</code> in each of the k folds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A <code>data.frame</code>. The same as the original <code>data.frame</code> provided to <code>data</code> with the added variable <code>stuartKfold</code> indicating which fold an observation was assigned to.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Martin Schultze
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>holdout</code> <code>crossvalidate</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# k-Folding for a simple bruteforce selection
+data(fairplayer)
+fs &lt;- list(ra = names(fairplayer)[53:57])
+
+sel &lt;- kfold('bruteforce', k = 2,
+  data = fairplayer, factor.structure = fs, 
+  capacity = 3, seed = 55635,
+  cores = 1)
+summary(sel)
+
+
+### longitudinal example with mmas ----
+data(fairplayer)
+fs &lt;- list(si1 = names(fairplayer)[83:92],
+  si2 = names(fairplayer)[93:102],
+  si3 = names(fairplayer)[103:112])
+
+repe &lt;- list(si = c('si1', 'si2', 'si3'))
+
+sel_mmas &lt;- kfold('mmas', k = 3,
+  data = fairplayer, factor.structure = fs,
+  repeated.measures = repe, long.invariance = 'strong',
+  capacity = 3, seed = 55635, pbest = .5,
+  cores = 1)
+summary(sel_mmas)
+
+
+
+</code></pre>
+
+
+</div>

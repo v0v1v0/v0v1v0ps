@@ -1,0 +1,288 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SSGL</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spike-and-Slab Group Lasso for Group-Regularized Generalized Linear Models (GLMs)</h2>
+
+<h3>Description</h3>
+
+<p>This is a function to implement group-regularized GLMs with the spike-and-slab group lasso (SSGL) penalty of Bai et al. (2022) and Bai (2023). The identity link function is used for Gaussian regression, the logit link is used for binomial regression, and the log link is used for Poisson, negative binomial, and gamma regression. If the covariates in each <code class="reqn">x_i</code> are grouped according to known groups <code class="reqn">g=1, ..., G</code>, then this function can estimate some of the <code class="reqn">G</code> groups of coefficients as all zero, depending on the amount of regularization. 
+</p>
+<p>In addition, this function has the option of returning the generalized information criterion (GIC) of Fan and Tang (2013) for each regularization parameter in the grid <code>lambda0</code>. The GIC can be used for model selection and serves as a useful alternative to cross-validation. The formula for the GIC and a given <code class="reqn">\lambda_0</code> is
+</p>
+<p style="text-align: center;"><code class="reqn">DIC(\lambda_0) = \frac{1}{n} Deviance_{\lambda_0} + a_n \times \nu),</code>
+</p>
+
+<p>where <code class="reqn">Deviance_{\lambda_0}</code> is the deviance computed with the estimate of <code>beta</code> based on spike hyperparameter <code class="reqn">\lambda_0</code>, <code class="reqn">\nu_0</code> is the number of nonzero elements in the estimated <code>beta</code>, and <code class="reqn">a_n</code> is a sequence that diverges at a suitable rate relative to <code class="reqn">n</code>. As recommended by Fan and Tang (2013), we set <code class="reqn">a_n = \{\log(\log(n))\}\log(p)</code>.</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SSGL(Y, X, groups, 
+     family=c("gaussian","binomial","poisson","negativebinomial","gamma"), 
+     X_test, nb_size=1, gamma_shape=1, group_weights, n_lambda0=25, 
+     lambda0, lambda1=1, a=1, b=dim(X)[2], 
+     max_iter=100, tol = 1e-6, return_GIC=TRUE, print_lambda0=TRUE) 
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p><code class="reqn">n \times 1</code> vector of responses for training data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p><code class="reqn">n \times p</code> design matrix for training data, where the <code class="reqn">j</code>th column of <code>X</code> corresponds to the <code class="reqn">j</code>th overall covariate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groups</code></td>
+<td>
+<p><code class="reqn">p</code>-dimensional vector of group labels. The <code class="reqn">j</code>th entry in <code>groups</code> should contain either the group number <em>or</em> the factor level name that the feature in the <code class="reqn">j</code>th column of <code>X</code> belongs to. <code>groups</code> must be either a vector of integers or factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>exponential dispersion family of the response variables. Allows for <code>"gaussian"</code>, <code>"binomial"</code>, <code>"poisson"</code>, <code>"negativebinomial"</code>, and <code>"gamma"</code>. Note that for <code>"negativebinomial"</code>, the size parameter must be specified in advance, while for <code>"gamma"</code>, the shape parameter must be specified in advance.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_test</code></td>
+<td>
+<p><code class="reqn">n_{test} \times p</code> design matrix for test data to calculate predictions. <code>X_test</code> must have the <em>same</em> number of columns as X, but not necessarily the same number of rows. If <em>no</em> test data is provided or if in-sample predictions are desired, then the function automatically sets <code>X_test=X</code> in order to calculate <em>in-sample</em> predictions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_size</code></td>
+<td>
+<p>known size parameter <code class="reqn">\alpha</code> in <code class="reqn">NB(\alpha,\mu_i)</code> distribution for the responses if the user specifies <code>family="negativebinomial"</code>. Default is <code>nb_size=1</code>. Ignored if <code>family</code> is not <code>"gamma"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gamma_shape</code></td>
+<td>
+<p>known shape parameter <code class="reqn">\nu</code> in <code class="reqn">Gamma(\mu_i,\nu)</code> distribution for the responses if the user specifies <code>family="gamma"</code>. Default is <code>gamma_shape=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_weights</code></td>
+<td>
+<p>group-specific, nonnegative weights for the penalty. Default is to use the square roots of the group sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_lambda0</code></td>
+<td>
+<p>number of spike hyperparameters <code class="reqn">L</code>. Default is <code>n_lambda0=25</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda0</code></td>
+<td>
+<p>grid of <code class="reqn">L</code> spike hyperparameters <code class="reqn">\lambda_0</code>. The user may specify either a scalar or a vector. If the user does not provide this, the program chooses the grid automatically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda1</code></td>
+<td>
+<p>slab hyperparameter <code class="reqn">\lambda_1</code> in the SSGL prior. Default is <code>lambda1=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>a</code></td>
+<td>
+<p>shape hyperparameter for the <code class="reqn">Beta(a,b)</code> prior on the mixing proportion in the SSGL prior. Default is <code>a=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>shape hyperparameter for the <code class="reqn">Beta(a,b)</code> prior on the mixing proportion in the SSGL prior. Default is <code>b=dim(X)[2]</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>maximum number of iterations in the algorithm. Default is <code>max_iter=100</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>convergence threshold for algorithm. Default is <code>tol=1e-6</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return_GIC</code></td>
+<td>
+<p>Boolean variable for whether or not to return the GIC. Default is <code>return_GIC=TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print_lambda0</code></td>
+<td>
+<p>Boolean variable for whether or not to print the current value in <code>lambda0</code>. Default is <code>print_lambda0=TRUE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The function returns a list containing the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>lambda0</code></td>
+<td>
+<p><code class="reqn">L \times 1</code> vector of spike hyperpameters <code>lambda0</code> used to fit the model. <code>lambda0</code> is displayed in descending order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p><code class="reqn">p \times L</code> matrix of estimated regression coefficients. The <code class="reqn">k</code>th column in <code>beta</code> corresponds to the <code class="reqn">k</code>th spike hyperparameter in <code>lambda0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta0</code></td>
+<td>
+<p><code class="reqn">L \times 1</code> vector of estimated intercepts. The <code class="reqn">k</code>th entry in <code>beta0</code> corresponds to the <code class="reqn">k</code>th spike hyperparameter in <code>lambda0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>classifications</code></td>
+<td>
+<p><code class="reqn">G \times L</code> matrix of classifications, where <code class="reqn">G</code> is the number of groups. An entry of "1" indicates that the group was classified as nonzero, and an entry of "0" indicates that the group was classified as zero. The <code class="reqn">k</code>th column of <code>classifications</code> corresponds to the <code class="reqn">k</code>th spike hyperparameter in <code>lambda0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y_pred</code></td>
+<td>
+<p><code class="reqn">n_{test} \times L</code> matrix of predicted mean response values <code class="reqn">\mu_{test} = E(Y_{test})</code> based on the <em>test</em> data in <code>X_test</code> (or training data <code>X</code> if no argument was specified for <code>X_test</code>). The <code class="reqn">k</code>th column in <code>Y_pred</code> corresponds to the predictions for the <code class="reqn">k</code>th spike hyperparameter in <code>lambda0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>GIC</code></td>
+<td>
+<p><code class="reqn">L \times 1</code> vector of GIC values. The <code class="reqn">k</code>th entry of <code>GIC</code> corresponds to the <code class="reqn">k</code>th entry in our <code>lambda0</code> grid. This is not returned if <code>return_GIC=FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda0_min</code></td>
+<td>
+<p>The value in <code>lambda0</code> that minimizes <code>GIC</code>. This is not returned if <code>return_GIC=FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min_index</code></td>
+<td>
+<p>The index of <code>lambda0_min</code> in <code>lambda0</code>. This is not returned if <code>return_GIC=FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Bai, R. (2023). "Bayesian group regularization in generalized linear models with a continuous spike-and-slab prior." <em>arXiv pre-print arXiv:2007.07021</em>.
+</p>
+<p>Bai, R., Moran, G. E., Antonelli, J. L., Chen, Y., and Boland, M.R. (2022). "Spike-and-slab group lassos for grouped regression and sparse generalized additive models." <em>Journal of the American Statistical Association</em>, <b>117</b>:184-197.
+</p>
+<p>Fan, Y. and Tang, C. Y. (2013). "Tuning parameter selection in high dimensional penalized likelihood." <em>Journal of the Royal Statistical Society: Series B (Statistical Methodology)</em>, <b>75</b>:531-552.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Generate data
+set.seed(12345)
+X = matrix(runif(100*10), nrow=100)
+n = dim(X)[1]
+groups = c("A","A","A","B","B","B","C","C","D","D")
+groups = as.factor(groups)
+beta_true = c(-2.5,1.5,1.5,0,0,0,2,-2,0,0)
+
+## Generate responses from Gaussian distribution
+Y = crossprod(t(X), beta_true) + rnorm(n)
+
+## Generate test data
+n_test = 50
+X_test = matrix(runif(n_test*10), nrow=n_test)
+
+## Fit SSGL model with 10 spike hyperparameters
+## NOTE: If you do not specify lambda0, the program will automatically choose a suitable grid.
+SSGL_mod = SSGL(Y, X, groups, family="gaussian", X_test, lambda0=seq(from=50,to=5,by=-5))
+
+## Regression coefficient estimates
+SSGL_mod$beta
+
+## Predicted n_test-dimensional vectors mu=E(Y.test) based on test data, X_test. 
+## The kth column of 'Y_pred' corresponds to the kth entry in 'lambda.'
+SSGL_mod$Y_pred 
+
+## Classifications of the 8 groups. The kth column of 'classifications'
+## corresponds to the kth entry in 'lambda.'
+SSGL_mod$classifications
+
+## Plot lambda vs. GIC
+plot(SSGL_mod$lambda0, SSGL_mod$GIC, type='l')
+
+## Model selection with the lambda that minimizes GIC
+SSGL_mod$lambda0_min
+SSGL_mod$min_index 
+SSGL_mod$classifications[, SSGL_mod$min_index]
+SSGL_mod$beta[, SSGL_mod$min_index]
+
+
+
+## Example with binary logistic regression
+
+set.seed(12345)
+X = matrix(runif(100*8), nrow=100)
+n = dim(X)[1]
+groups = c("A","A","A","B","B","B","C","C")
+groups = as.factor(groups)
+beta_true = c(-2.5,1.5,1.5,0,0,0,2,-2)
+
+## Generate binary responses
+eta = crossprod(t(X), beta_true)
+Y = rbinom(n, size=1, prob=1/(1+exp(-eta)))
+
+## Generate test data
+n_test = 50
+X_test = matrix(runif(n_test*8), nrow=n_test)
+
+## Fit SSGL logistic regression model with 10 spike hyperparameters
+## NOTE: If you do not specify lambda0, the program will automatically choose a suitable grid.
+SSGL_logistic_mod = SSGL(Y, X, groups, family="binomial", X_test, lambda0=seq(from=10,to=1,by=-1.5))
+
+## Regression coefficient estimates
+SSGL_logistic_mod$beta
+
+## Predicted n_test-dimensional vectors mu=E(Y_test) based on test data, X_test. 
+## The kth column of 'Y_pred' corresponds to the kth entry in 'lambda.'
+SSGL_logistic_mod$Y_pred
+
+## Classifications of the 8 groups. The kth column of 'classifications'
+## corresponds to the kth entry in 'lambda.'
+SSGL_logistic_mod$classifications
+
+## Plot lambda vs. GIC
+plot(SSGL_logistic_mod$lambda0, SSGL_logistic_mod$GIC, type='l')
+
+## Model selection with the lambda that minimizes GIC
+SSGL_logistic_mod$lambda0_min
+SSGL_logistic_mod$min_index 
+SSGL_logistic_mod$classifications[, SSGL_logistic_mod$min_index]
+SSGL_logistic_mod$beta[, SSGL_logistic_mod$min_index]
+
+</code></pre>
+
+
+</div>

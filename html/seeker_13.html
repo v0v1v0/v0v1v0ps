@@ -1,0 +1,341 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>seeker</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Process RNA-seq data end to end</h2>
+
+<h3>Description</h3>
+
+<p>This function selectively performs various steps to process RNA-seq data.
+See also the vignettes: <code>browseVignettes('seeker')</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">seeker(params, parentDir = ".", dryRun = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>params</code></td>
+<td>
+<p>Named list of parameters with components:
+</p>
+
+<ul>
+<li> <p><code>study</code>: String used to name the output directory within <code>parentDir</code>.
+</p>
+</li>
+<li> <p><code>metadata</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to fetch metadata. See
+<code>fetchMetadata()</code>. If <code>TRUE</code>, saves a file
+<code>parentDir</code>/<code>study</code>/metadata.csv. If <code>FALSE</code>, expects that file to
+already exist. The unmodified fetched or found metadata is saved to a
+file <code>parentDir</code>/<code>study</code>/metadata_original.csv. Following components
+are only checked if <code>run</code> is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>bioproject</code>: String indicating the study's bioproject accession.
+</p>
+</li>
+<li> <p><code>include</code>: Optional named list for specifying which rows of metadata to
+include for further processing, with components:
+</p>
+
+<ul>
+<li> <p><code>colname</code>: String indicating column in metadata
+</p>
+</li>
+<li> <p><code>values</code>: Vector indicating values within <code>colname</code>
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>exclude</code>: Optional named list for specifying which rows of metadata to
+exclude from further processing (superseding <code>include</code>), with components:
+</p>
+
+<ul>
+<li> <p><code>colname</code>: String indicating column in metadata
+</p>
+</li>
+<li> <p><code>values</code>: Vector indicating values within <code>colname</code>
+</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li> <p><code>fetch</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to fetch files from SRA. See <code>fetch()</code>.
+If <code>TRUE</code>, saves files to <code>parentDir</code>/<code>study</code>/fetch_output. Whether
+<code>TRUE</code> or <code>FALSE</code>, expects metadata to have a column "run_accession", and
+updates metadata with column "fastq_fetched" containing paths to files in
+<code>parentDir</code>/<code>study</code>/fetch_output. Following components are only checked
+if <code>run</code> is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>keep</code>: Logical indicating whether to keep fastq.gz files when all
+processing steps have completed. <code>NULL</code> indicates <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>overwrite</code>: Logical indicating whether to overwrite files that already
+exist. <code>NULL</code> indicates to use the default in <code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>keepSra</code>: Logical indicating whether to keep the ".sra" files. <code>NULL</code>
+indicates to use the default in <code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>prefetchCmd</code>: String indicating command for prefetch, which downloads
+".sra" files. <code>NULL</code> indicates to use the default in <code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>prefetchArgs</code>: Character vector indicating arguments to pass to
+prefetch. <code>NULL</code> indicates to use the default in <code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>fasterqdumpCmd</code>: String indicating command for fasterq-dump, which
+uses ".sra" files to create ".fastq" files. <code>NULL</code> indicates to use the
+default in <code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>prefetchArgs</code>: Character vector indicating arguments to pass to
+fasterq-dump. <code>NULL</code> indicates to use the default in <code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>pigzCmd</code>: String indicating command for pigz, which converts ".fastq"
+files to ".fastq.gz" files. <code>NULL</code> indicates to use the default in
+<code>fetch()</code>.
+</p>
+</li>
+<li> <p><code>pigzArgs</code>: Character vector indicating arguments to pass to pigz. <code>NULL</code>
+indicates to use the default in <code>fetch()</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>trimgalore</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to perform quality/adapter trimming of
+reads. See <code>trimgalore()</code>. If <code>TRUE</code>, expects metadata to have a column
+"fastq_fetched" containing paths to fastq files in
+<code>parentDir</code>/<code>study</code>/fetch_output, saves trimmed files to
+<code>parentDir</code>/<code>study</code>/trimgalore_output, and updates metadata with column
+"fastq_trimmed". If <code>FALSE</code>, expects and does nothing. Following
+components are only checked if <code>run</code> is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>keep</code>: Logical indicating whether to keep trimmed fastq files when all
+processing steps have completed. <code>NULL</code> indicates <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>cmd</code>: Name or path of the command-line interface. <code>NULL</code> indicates to
+use the default in <code>trimgalore()</code>.
+</p>
+</li>
+<li> <p><code>args</code>: Additional arguments to pass to the command-line interface.
+<code>NULL</code> indicates to use the default in <code>trimgalore()</code>.
+</p>
+</li>
+<li> <p><code>pigzCmd</code>: String indicating command for pigz, which converts ".fastq"
+files to ".fastq.gz" files. <code>NULL</code> indicates to use the default in
+<code>trimgalore()</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>fastqc</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to perform QC on reads. See <code>fastqc()</code>.
+If <code>TRUE</code> and <code>trimgalore$run</code> is <code>TRUE</code>, expects metadata to have a
+column "fastq_trimmed" containing paths to fastq files in
+<code>parentDir</code>/<code>study</code>/trimgalore_output. If <code>TRUE</code> and <code>trimgalore$run</code> is
+<code>FALSE</code>, expects metadata to have a column "fastq_fetched" containing
+paths to fastq files in <code>parentDir</code>/<code>study</code>/fetch_output. If <code>TRUE</code>,
+saves results to <code>parentDir</code>/<code>study</code>/fastqc_output. If <code>FALSE</code>, expects
+and does nothing. Following components are only checked if <code>run</code> is
+<code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>keep</code>: Logical indicating whether to keep fastqc files when all
+processing steps have completed. <code>NULL</code> indicates <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>cmd</code>: Name or path of the command-line interface. <code>NULL</code> indicates to
+use the default in <code>fastqc()</code>.
+</p>
+</li>
+<li> <p><code>args</code>: Additional arguments to pass to the command-line interface.
+<code>NULL</code> indicates to use the default in <code>fastqc()</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>salmon</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to quantify transcript abundances. See
+<code>salmon()</code>. If <code>TRUE</code> and <code>trimgalore$run</code> is <code>TRUE</code>, expects metadata to
+have a column "fastq_trimmed" containing paths to fastq files in
+<code>parentDir</code>/<code>study</code>/trimgalore_output. If <code>TRUE</code> and <code>trimgalore$run</code> is
+<code>FALSE</code>, expects metadata to have a column "fastq_fetched" containing
+paths to fastq files in <code>parentDir</code>/<code>study</code>/fetch_output. If <code>TRUE</code>,
+saves results to <code>parentDir</code>/<code>study</code>/salmon_output and
+<code>parentDir</code>/<code>study</code>/salmon_meta_info.csv. If <code>FALSE</code>, expects and does
+nothing. Following components are only checked if <code>run</code> is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>indexDir</code>: Directory that contains salmon index.
+</p>
+</li>
+<li> <p><code>sampleColname</code>: String indicating column in metadata containing sample
+ids. <code>NULL</code> indicates "sample_accession", which should work for data
+from SRA and ENA.
+</p>
+</li>
+<li> <p><code>keep</code>: Logical indicating whether to keep quantification results when
+all processing steps have completed. <code>NULL</code> indicates <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>cmd</code>: Name or path of the command-line interface. <code>NULL</code> indicates to
+use the default in <code>salmon()</code>.
+</p>
+</li>
+<li> <p><code>args</code>: Additional arguments to pass to the command-line interface.
+<code>NULL</code> indicates to use the default in <code>salmon()</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>multiqc</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to aggregrate results of various
+processing steps. See <code>multiqc()</code>. If <code>TRUE</code>, saves results to
+<code>parentDir</code>/<code>study</code>/multiqc_output. If <code>FALSE</code>, expects and does nothing.
+Following components are only checked if <code>run</code> is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>cmd</code>: Name or path of the command-line interface. <code>NULL</code> indicates to
+use the default in <code>multiqc()</code>.
+</p>
+</li>
+<li> <p><code>args</code>: Additional arguments to pass to the command-line interface.
+<code>NULL</code> indicates to use the default in <code>multiqc()</code>.
+</p>
+</li>
+</ul>
+</li>
+<li> <p><code>tximport</code>: Named list with components:
+</p>
+
+<ul>
+<li> <p><code>run</code>: Logical indicating whether to summarize transcript- or gene-level
+estimates for downstream analysis. See <code>tximport()</code>. If <code>TRUE</code>, expects
+metadata to have a column <code>sampleColname</code> of sample ids, and expects a
+directory <code>parentDir</code>/<code>study</code>/salmon_output containing directories of
+quantification results, and saves results to
+<code>parentDir</code>/<code>study</code>/tximport_output.qs. If <code>FALSE</code>, expects and does
+nothing. Following components are only checked if <code>run</code> is <code>TRUE</code>.
+</p>
+</li>
+<li> <p><code>tx2gene</code>: Optional named list with components:
+</p>
+
+<ul>
+<li> <p><code>organism</code>: String indicating organism and thereby ensembl gene dataset.
+See <code>getTx2gene()</code>.
+</p>
+</li>
+<li> <p><code>version</code>: Optional number indicating ensembl version. <code>NULL</code> indicates
+the latest version. See <code>getTx2gene()</code>.
+</p>
+</li>
+<li> <p><code>filename</code>: Optional string indicating name of pre-existing text file
+in <code>parentDir</code>/<code>params$study</code> containing mapping between transcripts
+(first column) and genes (second column), with column names in the
+first row. If <code>filename</code> is specified, <code>organism</code> and <code>version</code> must not
+be specified.
+</p>
+</li>
+</ul>
+<p>If not <code>NULL</code>, saves a file <code>parentDir</code>/<code>study</code>/tx2gene.csv.gz.
+</p>
+</li>
+<li> <p><code>countsFromAbundance</code>: String indicating whether or how to estimate
+counts using estimated abundances. See <code>tximport::tximport()</code>.
+</p>
+</li>
+<li> <p><code>ignoreTxVersion</code>: Logical indicating whether to the version suffix on
+transcript ids. <code>NULL</code> indicates to use <code>TRUE</code>. See
+<code>tximport::tximport()</code>.
+</p>
+</li>
+</ul>
+</li>
+</ul>
+<p><code>params</code> can be derived from a yaml file, see
+<code>vignette("introduction", package = "seeker")</code>. The yaml representation
+of <code>params</code> will be saved to <code>parentDir</code>/<code>params$study</code>/params.yml.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parentDir</code></td>
+<td>
+<p>Directory in which to store the output, which will be a
+directory named according to <code>params$study</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dryRun</code></td>
+<td>
+<p>Logical indicating whether to check the validity of inputs
+without actually fetching or processing any data.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Path to the output directory <code>parentDir</code>/<code>params$study</code>, invisibly.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>fetchMetadata()</code>, <code>fetch()</code>, <code>trimgalore()</code>, <code>fastqc()</code>,
+<code>salmon()</code>, <code>multiqc()</code>, <code>tximport()</code>, <code>installSysDeps()</code>, <code>seekerArray()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+doParallel::registerDoParallel()
+params = yaml::read_yaml('my_params.yaml')
+seeker(params)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

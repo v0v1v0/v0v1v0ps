@@ -1,0 +1,114 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dRegulation</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Evaluates gene differential regulation based on manifold alignment distances.</h2>
+
+<h3>Description</h3>
+
+<p>Using the output of the non-linear manifold alignment, this function computes the Euclidean distance between the coordinates for the same gene in both conditions. Calculated distances are then transformed using Box-Cox power transformation, and standardized to ensure normality. P-values are assigned following the chi-square distribution over the fold-change of the squared distance computed with respect to the expectation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dRegulation(manifoldOutput)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>manifoldOutput</code></td>
+<td>
+<p>A matrix. The output of the non-linear manifold alignment,  a labeled matrix with two times the number of shared genes as rows (X_ genes followed by Y_ genes in the same order) and <code>d</code> number of columns.</p>
+</td>
+</tr></table>
+<h3>Value</h3>
+
+<p>A data frame with 6 columns as follows: </p>
+
+<ul>
+<li> <p><code>gene</code> A character vector with the gene id identified from the <code>manifoldAlignment</code> output.
+</p>
+</li>
+<li> <p><code>distance</code> A numeric vector of the Euclidean distance computed between the coordinates of the same gene in both conditions.
+</p>
+</li>
+<li> <p><code>Z</code> A numeric vector of the Z-scores computed after Box-Cox power transformation.
+</p>
+</li>
+<li> <p><code>FC</code> A numeric vector of the FC computed with respect to the expectation.
+</p>
+</li>
+<li> <p><code>p.value</code> A numeric vector of the p-values associated to the fold-changes, probabilities are asigned as <code class="reqn">P[X &gt; x]</code> using the Chi-square distribution with one degree of freedom.
+</p>
+</li>
+<li> <p><code>p.adj</code> A numeric vector of adjusted p-values using Benjamini &amp; Hochberg (1995) FDR correction.
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+
+<ul><li>
+<p> Benjamini, Y., and Yekutieli, D. (2001). The control of the false discovery rate in multiple testing under dependency. Annals of Statistics, 29, 1165-1188. doi: 10.1214/aos/1013699998.
+</p>
+</li></ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(scTenifoldNet)
+
+# Simulating of a dataset following a negative binomial distribution with high sparcity (~67%)
+nCells = 2000
+nGenes = 100
+set.seed(1)
+X &lt;- rnbinom(n = nGenes * nCells, size = 20, prob = 0.98)
+X &lt;- round(X)
+X &lt;- matrix(X, ncol = nCells)
+rownames(X) &lt;- c(paste0('ng', 1:90), paste0('mt-', 1:10))
+
+# Performing Single cell quality control
+qcOutput &lt;- scQC(
+  X = X,
+  minLibSize = 30,
+  removeOutlierCells = TRUE,
+  minPCT = 0.05,
+  maxMTratio = 0.1
+)
+
+# Computing 3 single-cell gene regulatory networks each one from a subsample of 500 cells
+xNetworks &lt;- makeNetworks(X = qcOutput,
+                         nNet = 3, 
+                         nCells = 500, 
+                         nComp = 3, 
+                         scaleScores = TRUE, 
+                         symmetric = FALSE, 
+                         q = 0.95
+                         )
+
+# Computing a K = 3 CANDECOMP/PARAFAC (CP) Tensor Decomposition 
+tdOutput &lt;- tensorDecomposition(xNetworks, K = 3, maxError = 1e5, maxIter = 1e3)
+
+## Not run: 
+# Computing the alignment
+# For this example, we are using the same input, the match should be perfect. 
+maOutput &lt;- manifoldAlignment(tdOutput$X, tdOutput$X)
+
+# Evaluating the difference in regulation
+dcOutput &lt;- dRegulation(maOutput, minFC = 0)
+head(dcOutput)
+
+# Plotting
+# If FDR &lt; 0.05, the gene will be colored in red.
+geneColor &lt;- ifelse(dcOutput$p.adj &lt; 0.05, 'red', 'black')
+qqnorm(dcOutput$Z, main = 'Standardized Distance', pch = 16, col = geneColor)
+qqline(dcOutput$Z)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,191 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>glicko_run</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Glicko rating algorithm</h2>
+
+<h3>Description</h3>
+
+<p>Glicko rating algorithm
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">glicko_run(
+  data,
+  formula,
+  r = numeric(0),
+  rd = numeric(0),
+  init_r = 1500,
+  init_rd = 350,
+  lambda = numeric(0),
+  share = numeric(0),
+  weight = numeric(0),
+  kappa = 0.5
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>data.frame which contains columns specified in formula, and
+optional columns defined by <code>lambda</code>, <code>weight</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>formula which specifies the model. RHS Allows only player
+rating parameter and it should be specified in following manner:<br></p>
+<p><code>rank | id ~ player(name)</code>.
+</p>
+
+<ul>
+<li> <p><code>rank</code> player position in event.
+</p>
+</li>
+<li> <p><code>id</code> event identifier in which pairwise comparison is assessed.
+</p>
+</li>
+<li> <p><code>player(name)</code> name of the contestant. In this case <code>player(name)</code>
+helps algorithm point name of the column where player names are stored.
+</p>
+</li>
+</ul>
+<p>Users can also specify formula in in different way:<br></p>
+<p><code>rank | id ~ player(name|team)</code>. Which means that players are playing in teams,
+and results are observed for teams not for players. For more see vignette.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>named vector of initial players ratings estimates. If not specified
+then <code>r</code> will be created automatically for parameters specified in <code>formula</code>
+with initial value <code>init_r</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rd</code></td>
+<td>
+<p>rd named vector of initial rating deviation estimates. If not specified
+then <code>rd</code> will be created automatically for parameters specified in <code>formula</code>
+with initial value <code>init_rd</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init_r</code></td>
+<td>
+<p>initial values for <code>r</code> if not provided.
+Default (<code>glicko = 1500</code>, <code>glicko2 = 1500</code>, <code>bbt = 25</code>,
+<code>dbl = 0</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init_rd</code></td>
+<td>
+<p>initial values for <code>rd</code> if not provided.
+Default (<code>glicko = 350</code>, <code>glicko2 = 350</code>, <code>bbt = 25/3</code>, <code>dbl = 1</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>name of the column in <code>data</code> containing lambda values or one
+constant value (eg. <code>lambda = colname</code> or <code>lambda = 0.5</code>).
+Lambda impact prior variance, and uncertainty of the matchup result. The
+higher lambda, the higher prior variance and more uncertain result of the
+matchup. Higher lambda flattens chances of winning.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>share</code></td>
+<td>
+<p>name of the column in <code>data</code> containing player share in team
+efforts. It's used to first calculate combined rating of the team and
+then redistribute ratings update back to players level. Warning - it should
+be used only if formula is specified with players nested within teams (<code>player(player|team)</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight</code></td>
+<td>
+<p>name of the column in <code>data</code> containing weights values or
+one constant (eg. <code>weight = colname</code> or <code>weight = 0.5</code>).
+Weights increasing (weight &gt; 1) or decreasing (weight &lt; 1) update change.
+Higher weight increasing impact of event result on rating estimate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kappa</code></td>
+<td>
+<p>controls <code>rd</code> shrinkage not to be greater than <code>rd*(1 - kappa)</code>.
+<code>kappa=1</code> means that  <code>rd</code> will not be decreased.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A "rating" object is returned:
+</p>
+
+<ul>
+<li> <p><code>final_r</code> named vector containing players ratings.
+</p>
+</li>
+<li> <p><code>final_rd</code> named vector containing players ratings deviations.
+</p>
+</li>
+<li> <p><code>r</code> data.frame with evolution of the ratings and ratings deviations
+estimated at each event.
+</p>
+</li>
+<li> <p><code>pairs</code> pairwise combinations of players in analysed events with
+prior probability and result of a challenge.
+</p>
+</li>
+<li> <p><code>class</code> of the object.
+</p>
+</li>
+<li> <p><code>method</code> type of algorithm used.
+</p>
+</li>
+<li> <p><code>settings</code> arguments specified in function call.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R"># the simplest example
+data &lt;- data.frame(
+  id = c(1, 1, 1, 1),
+  team = c("A", "A", "B", "B"),
+  player = c("a", "b", "c", "d"),
+  rank_team = c(1, 1, 2, 2),
+  rank_player = c(3, 4, 1, 2)
+)
+
+# Example from Glickman
+glicko &lt;- glicko_run(
+  data = data,
+  formula = rank_player | id ~ player(player),
+  r = setNames(c(1500.0, 1400.0, 1550.0, 1700.0), c("a", "b", "c", "d")),
+  rd = setNames(c(200.0, 30.0, 100.0, 300.0), c("a", "b", "c", "d"))
+)
+
+# nested matchup
+glicko &lt;- glicko_run(
+  data = data,
+  formula = rank_team | id ~ player(player | team)
+)
+</code></pre>
+
+
+</div>

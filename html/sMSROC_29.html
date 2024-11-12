@@ -1,0 +1,415 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sMSROC</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>sMS ROC curve estimator computation</h2>
+
+<h3>Description</h3>
+
+<p>Core function for computing the sMS ROC estimator which fits the estimation of the ROC curve when the outcome of interest is time-dependent (<b>prognosis</b> scenarios) and when it is not (<b>diagnosis</b> scenarios).</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sMSROC(marker, status, observed.time, left, right, time,
+       meth, grid, probs, sd.probs,
+       conf.int, ci.cl, ci.meth, ci.nboots, parallel, ncpus, all)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>marker</code></td>
+<td>
+<p>vector with the biomarker values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>status</code></td>
+<td>
+<p>numeric response vector. The highest value is assumed to stand for the subjects having the event under study. The lowest one, for those who do not. Any other value will not be considered. It is a mandatory parameter in diagnosis scenarios.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>observed.time</code></td>
+<td>
+<p>vector with the observed times for each subject, for prognosis scenarios under right censorship. Notice that these values may be the event times or the censoring times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>left</code></td>
+<td>
+<p>vector containing the lower edges of the observed intervals. It is mandatory in prognosis scenarios under interval censorship and ignored in other situations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>right</code></td>
+<td>
+<p>vector with the upper edges of the observed intervals. It is mandatory in prognosis scenarios under interval censorship and ignored in other situations. The infinity is admissible as value (indicated as <b>inf</b>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p> point of time at which the sMS ROC curve estimator will be computed. The default value is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>meth</code></td>
+<td>
+<p> method for approximating the predictive model <code class="reqn">P(D|X=x)</code>. There are several options available:
+</p>
+
+<ul>
+<li> <p><b>“E”,</b> allocates to each individual their own condition as positive or negative. Those whose condition is unknown at time <code>time</code> are dismissed.
+</p>
+</li>
+<li> <p><b>“L”,</b> for <b>L</b>inear logistic regression and proportional hazards regression models (see Details).
+</p>
+</li>
+<li> <p><b>“S”,</b> for <b>S</b>mooth models (see Details).
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probs</code></td>
+<td>
+<p> vector containing the probabilities corresponding to the predictive model when it has been externally computed. Only values within [0,1] are admissible.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sd.probs</code></td>
+<td>
+<p> vector with the standard deviations of the probabilities entered in <code>probs</code>. It is an optional parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grid</code></td>
+<td>
+<p>grid size for computing the AUC. Default value 1000.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>conf.int</code></td>
+<td>
+<p>indicates whethet a conficence interval for the AUC will be computed (<b>“T”</b>) or not (<b>“F”</b>). The default value is (<b>“F”</b>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci.cl</code></td>
+<td>
+<p>confidence level at which the confidence interval for the AUC will be provided. The default value is 95%. This parameter is ignored when <code>conf.int</code> is set to <b>“F”</b>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci.meth</code></td>
+<td>
+<p>method for computing the confidence interval for the AUC. There are three options:
+</p>
+
+<ul>
+<li> <p><b>“E”</b>, for the <b>E</b>mpirical variance estimation.
+</p>
+</li>
+<li> <p><b>“V”</b>, for the theoretical <b>V</b>ariance estimation.
+</p>
+</li>
+<li> <p><b>“B”</b>, for the <b>B</b>ootstrap percentile approximation.
+</p>
+<p>The empirical method <b>E</b> is taken as default value and the parameter is ignored too when <code>ci.cl</code> value is <b>“F”</b>.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci.nboots</code></td>
+<td>
+<p>number of boostrap samples to be run when <b>B</b>oostrap is set as <code>ci.meth</code> parameter. The default value is 500 and it is not taken into account when no confidence interval is computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>indicates whether parallel computing will be done (<b>“T”</b>) or not (<b>“F”</b>) when computing the variance of the AUC through the methods <b>“V”</b> and <b>“B”</b>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncpus</code></td>
+<td>
+<p>number of CPUS that will be used when parallel computing is chosen. The default value is 1 and the maximum is 2.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>all</code></td>
+<td>
+<p>parameter indicating whether all probabilities given by the predictive model should be considered (value <b>“T”</b>) or just those corresponding to individuals whose condition as positive or negative is unknown (<b>“F”</b>). The default value is (<b>“T”</b>).
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The Two-stages mixed-subjects (sMSROC) ROC curve estimator links diagnosis and prognosis scenarios through a general predictive model (first
+stage) and the weighted empirical estimator of the cumulative distribution function of the biomarker
+(second stage).
+</p>
+<p>The predictive model <code class="reqn">P(D|X=x)</code> depicts the relationship between the biomarker and the binary response variable. It is approximated through the most suitable probabilistic model.
+</p>
+<p>For <b>diagnosis</b> scenarios:
+</p>
+
+<ul>
+<li>
+<p> If <code>meth</code> = <b>“L”</b>, the logit transformation of the predicitive model is approximated by a linear logistic regression model:
+</p>
+<p style="text-align: center;"><code class="reqn">P (D|X=x) = 1/(1 + \exp{- \{ \beta_0 + \beta_1 x \}),}</code>
+</p>
+
+<p>with <code class="reqn">\beta_0, \beta_1 \in {\cal R}</code>.
+</p>
+</li>
+<li>
+<p> If <code>meth</code> = <b>“S”</b>, the logit transformation of the predicitive model is estimated by the smooth logistic regression,
+</p>
+<p style="text-align: center;"><code class="reqn"> P(D | X=x) = 1 / ( 1 + \exp \{ - s(x) \}),</code>
+</p>
+<p> being <code class="reqn">s(\cdot)</code> the smooth function (splines, <a href="https://doi.org/10.1002/sim.4780080504">doi:10.1002/sim.4780080504</a>).
+</p>
+</li>
+</ul>
+<p>Notice that the predictive model allows to compute the probability of being positive/negative even when the actual belonging group is unknown.
+</p>
+<p>For <b>prognosis</b> scenarios and right censorship:
+</p>
+
+<ul>
+<li>
+<p> If <code>meth</code> = <b>“L”</b>, the event times are assumed to come from a Cox proportional hazards regression model:
+</p>
+<p style="text-align: center;"><code class="reqn"> P (T \leq t \;|\; X=x) = 1 - \exp \{ - \Delta_0(t) \cdot \exp \{ \beta_0 + \beta_1 \cdot \log(x)\}\},</code>
+</p>
+<p> where <code class="reqn">\Delta_0(\cdot)</code> is the baseline hazard function and <code class="reqn">\beta_0, \beta_1 \in {\cal R}</code>.
+</p>
+</li>
+<li>
+<p> If <code>meth</code> = <b>“S”</b>, the approximation is done by </p>
+<p style="text-align: center;"><code class="reqn">P (T\leq t \;|\; X=x) = 1 - \exp \{ - \Delta_0(t) \cdot \exp \{ s(x)\}\} </code>
+</p>
+<p> being <code class="reqn">s(\cdot)</code> the smooth function (penalized splines, <a href="https://doi.org/10.1111/1467-9868.00125">doi:10.1111/1467-9868.00125</a>).</p>
+</li>
+</ul>
+<p>Finally, for <b>prognosis</b> scenarios and interval censorship:
+</p>
+
+<ul>
+<li>
+<p>If <code>meth</code> = <b>“L”</b>, the event times are assumed to come from a Cox proportional hazards regression model and the predictive model is estimated as indicated in <a href="https://doi.org/10.1080/00949655.2020.1736071">doi:10.1080/00949655.2020.1736071</a>.
+</p>
+<p style="text-align: center;"><code class="reqn"> P (T \leq t \;|\; X=x) = \frac{S(U|x) - S(t|x) }{S(U|x) - S(V|x)},</code>
+</p>
+<p> where <code class="reqn">U = \min{\{t, L\}}</code> and <code class="reqn">V = \max {\{t, R\}}</code>, being L and R the random variables that stand for the edges of the observable interval containing the event time.
+
+</p>
+</li>
+<li>
+<p>If <code>meth</code> = <b>“S”</b>, the approximation is done by </p>
+<p style="text-align: center;"><code class="reqn">P (T\leq t \;|\; X=x) = 1 - S(t|x),</code>
+</p>
+<p> being <code class="reqn">S(\cdot)</code> the survival function at time <b>t</b> given the marker value, estimated through a proportional hazard model for interval censored data according to <a href="https://doi.org/10.2307/2530698">doi:10.2307/2530698</a>.
+
+</p>
+</li>
+</ul>
+<p>The confidence intervals for the AUC can be computed in three different ways according to parameter <code>ci.meth</code>. When it is set to <b>"E"</b> the variance of the AUC is estimated by the empirical
+procedure and when the chosen option is <b>"V"</b>, the theoretical approximation is used (see <a href="https://doi.org/10.1515/ijb-2019-0097">doi:10.1515/ijb-2019-0097</a>). The third option in by using the Bootstrap percentile.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The ouput is an objetc of class <code>sMSROC</code> with the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>thres</code></td>
+<td>
+<p>vector containing the biomarker values for which sensitivity and specificity were computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SE</code></td>
+<td>
+<p>vector with the estimates of the sensitivity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SP</code></td>
+<td>
+<p>vector with the estimates of the specificity.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>probs</code></td>
+<td>
+<p>vector with the probabilities corresponding to the predictive model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u</code></td>
+<td>
+<p>vector containing the points between 0 and 1 at which the ROC curve estimator will be computed. Its size is determined by the <code>grid</code> parameter.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ROC</code></td>
+<td>
+<p>ROC curve approximated at each point of the vector <code>u</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>auc</code></td>
+<td>
+<p> area under sMSROC curve estimator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>auc.ci.l</code></td>
+<td>
+<p>lower edge of the confidence interval for the AUC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>auc.ci.u</code></td>
+<td>
+<p>upper edge of the confidence interval for the AUC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci.cl</code></td>
+<td>
+<p>confidence level at which the confidence interval for the AUC were computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ci.meth</code></td>
+<td>
+<p>method chosen for computing the confidence interval for the AUC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>point of time at which the sMS ROC curve estimator was computed in prognosis scenarios.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>list contaning several parameters used in the internal functions, when applicable:
+</p>
+
+<ul>
+<li>
+<p> data_type - type of scenario handled (diagnosis/prognosis, under right or interval censorship).
+</p>
+</li>
+<li>
+<p> grid - grid size.
+</p>
+</li>
+<li>
+<p> marker - vector with the biomarker values.
+</p>
+</li>
+<li>
+<p> outcome  - vector with the condition of the individuals at time <code>time</code> as positive, negative or unknown.
+</p>
+</li>
+<li>
+<p> ncpus - CPUs used if parallel computing was performed.
+</p>
+</li>
+<li>
+<p> ci.nboots - number of bootstrap samples generated for computing the confidence intervals for the AUC.
+</p>
+</li>
+<li>
+<p> parallel - was parallel computing performed?
+</p>
+</li>
+<li>
+<p> meth - method used to compute the predictive model.
+</p>
+</li>
+<li>
+<p> status - response vector.
+</p>
+</li>
+<li>
+<p> observed.time - vector with the observed times for each subject.
+</p>
+</li>
+<li>
+<p> left - vector with the lower edges of the observed intervals.
+</p>
+</li>
+<li>
+<p> right - vector with the upper edges of the observed intervals.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>message</code></td>
+<td>
+<p>table containing the warning messages generated during the execution of the function.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>S. Díaz-Coto, P. Martínez-Camblor, and N. O. Corral-Blanco. Cumulative/dynamic ROC curve
+estimation under interval censorship. Journal of Statistical Computation and Simulation, 90(9):1570–
+1590, 2020. <a href="https://doi.org/10.1080/00949655.2020.1736071">doi:10.1080/00949655.2020.1736071</a>.
+
+</p>
+
+<p>S. Díaz-Coto, N. O. Corral-Blanco, and P. Martínez-Camblor. Two-stage receiver operating-characteristic
+curve estimator for cohort studies. The International Journal of Biostatistics, 17:117–137, 2021. <a href="https://doi.org/10.1515/ijb-2019-0097">doi:10.1515/ijb-2019-0097</a>.
+
+</p>
+<p>Finkelstein, Dianne M. A Proportional Hazards Model for Interval-Censored Failure Time Data. Biometrics 42, no. 4 (1986): 845–54. <a href="https://doi.org/10.2307/2530698">doi:10.2307/2530698</a>.
+
+</p>
+<p>Durrleman S, Simon R. Flexible regression models with cubic splines. Statistics in Medicine 1989; 8(5): 551-561.<a href="https://doi.org/10.1002/sim.4780080504">doi:10.1002/sim.4780080504</a>
+
+</p>
+<p>Hurvich C, Simonoff J, Tsai CL. Smoothing parameter selection in nonparametric regression using an improved Akaike 1998. J.R. Statist. Soc. 60 271-293. <a href="https://doi.org/10.1111/1467-9868.00125">doi:10.1111/1467-9868.00125</a>
+
+</p>
+<p>B. Efron and R. J. Tibshirani. An Introduction to the Bootstrap. CRC press, 1994.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data(ktfs)
+DT &lt;- ktfs
+sROC &lt;- sMSROC(marker = DT$score, status = DT$failure,
+               observed.time = DT$time, time = 5, meth = "L", conf.int = "T",
+               ci.cl =0.90, ci.meth = "E")
+</code></pre>
+
+
+</div>

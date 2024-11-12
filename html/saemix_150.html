@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rapi.saemix</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Rutgers Alcohol Problem Index</h2>
+
+<h3>Description</h3>
+
+<p>The RAPI data studies gender differences across two years in alcohol-related problems, as measured by the Rutgers
+Alcohol Problem Index (RAPI; White &amp; Labouvie, 1989). The dataset includes 3,616 repeated measures of counts
+representing the number of alcohol problems reported over six months period, across five time points from 818 individuals.
+</p>
+
+
+<h3>Format</h3>
+
+<p>This data frame contains the following columns:
+</p>
+
+<dl>
+<dt>id</dt>
+<dd>
+<p>subject identification number</p>
+</dd>
+<dt>time</dt>
+<dd>
+<p>time since the beginning of the study (months)</p>
+</dd>
+<dt>rapi</dt>
+<dd>
+<p>the number of reported alcohol problems during a six-months period</p>
+</dd>
+<dt>gender</dt>
+<dd>
+<p> gender (0=Men, 1=Women</p>
+</dd> </dl>
+<h3>Source</h3>
+
+<p>David Atkins, University of Washington
+</p>
+
+
+<h3>References</h3>
+
+<p>D Atkins, S Baldwin, C Zheng, R Gallop, C Neighbors C (2013).
+A tutorial on count regression and zero-altered count models
+for longitudinal substance use data. Psychology of Addictive Behaviors, 27(1):166–177.
+</p>
+<p>C Neighbors, Lewis MA, Atkins D, Jensen MM, Walter T, Fossos N, Lee C, Larimer M (2010).
+Efficacy of web-based personalized normative feedback: A two-year randomized controlled trial.
+Journal of Consulting and Clinical Psychology 78(6):898-911.
+</p>
+<p>C Neighbors, N Barnett, D Rohsenow, S Colby, P Monti (2010). Cost-Effectiveness of a Motivational lntervention for
+Alcohol-Involved Youth in a Hospital Emergency Department. Journal of Studies on Alcohol and Drugs 71(3):384-394.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"> data(rapi.saemix)
+ saemix.data&lt;-saemixData(name.data=rapi.saemix, name.group=c("id"),
+                     name.predictors=c("time","rapi"),name.response=c("rapi"),
+                     name.covariates=c("gender"),units=list(x="months",y="",covariates=c("")))
+hist(rapi.saemix$rapi, main="", xlab="RAPI score", breaks=30)
+
+
+# Fitting a Poisson model
+count.poisson&lt;-function(psi,id,xidep) { 
+  time&lt;-xidep[,1]
+  y&lt;-xidep[,2]
+  intercept&lt;-psi[id,1]
+  slope&lt;-psi[id,2]
+  lambda&lt;- exp(intercept + slope*time)
+  logp &lt;- -lambda + y*log(lambda) - log(factorial(y))
+  return(logp)
+}
+countsimulate.poisson&lt;-function(psi, id, xidep) {
+   time&lt;-xidep[,1]
+   y&lt;-xidep[,2]
+   ymax&lt;-max(y)
+   intercept&lt;-psi[id,1]
+   slope&lt;-psi[id,2]
+   lambda&lt;- exp(intercept + slope*time)
+   y&lt;-rpois(length(time), lambda=lambda)
+   y[y&gt;ymax]&lt;-ymax+1 # truncate to maximum observed value to avoid simulating aberrant values
+   return(y)
+}
+# Gender effect on intercept and slope
+rapimod.poisson&lt;-saemixModel(model=count.poisson, simulate.function=countsimulate.poisson,
+   description="Count model Poisson",modeltype="likelihood",   
+   psi0=matrix(c(log(5),0.01),ncol=2,byrow=TRUE,dimnames=list(NULL, c("intercept","slope"))), 
+   transform.par=c(0,0), omega.init=diag(c(0.5, 0.5)),
+    covariance.model =matrix(data=1, ncol=2, nrow=2),
+    covariate.model=matrix(c(1,1), ncol=2, byrow=TRUE))
+saemix.options&lt;-list(seed=632545,save=FALSE,save.graphs=FALSE, displayProgress=FALSE, fim=FALSE)
+poisson.fit&lt;-saemix(rapimod.poisson,saemix.data,saemix.options)
+
+# Fitting a ZIP model
+count.poissonzip&lt;-function(psi,id,xidep) {
+  time&lt;-xidep[,1]
+  y&lt;-xidep[,2]
+  intercept&lt;-psi[id,1]
+  slope&lt;-psi[id,2]
+  p0&lt;-psi[id,3] # Probability of zero's
+  lambda&lt;- exp(intercept + slope*time)
+  logp &lt;- log(1-p0) -lambda + y*log(lambda) - log(factorial(y)) # Poisson
+  logp0 &lt;- log(p0+(1-p0)*exp(-lambda)) # Zeroes
+  logp[y==0]&lt;-logp0[y==0]
+  return(logp)
+}
+countsimulate.poissonzip&lt;-function(psi, id, xidep) {
+  time&lt;-xidep[,1]
+  y&lt;-xidep[,2]
+  ymax&lt;-max(y)
+  intercept&lt;-psi[id,1]
+  slope&lt;-psi[id,2]
+  p0&lt;-psi[id,3] # Probability of zero's
+  lambda&lt;- exp(intercept + slope*time)
+  prob0&lt;-rbinom(length(time), size=1, prob=p0)
+  y&lt;-rpois(length(time), lambda=lambda)
+  y[prob0==1]&lt;-0
+  y[y&gt;ymax]&lt;-ymax+1 # truncate to maximum observed value to avoid simulating aberrant values
+  return(y)
+}
+rapimod.zip&lt;-saemixModel(model=count.poissonzip, simulate.function=countsimulate.poissonzip,
+   description="count model ZIP",modeltype="likelihood",   
+   psi0=matrix(c(1.5, 0.01, 0.2),ncol=3,byrow=TRUE,
+   dimnames=list(NULL, c("intercept", "slope","p0"))), 
+   transform.par=c(0,0,3), covariance.model=diag(c(1,1,0)), omega.init=diag(c(0.5,0.3,0)),
+   covariate.model = matrix(c(1,1,0),ncol=3, byrow=TRUE))
+zippoisson.fit&lt;-saemix(rapimod.zip,saemix.data,saemix.options)
+
+# Using simulations to compare the predicted proportion of 0's in the two models
+nsim&lt;-100
+yfit1&lt;-simulateDiscreteSaemix(poisson.fit,  nsim=nsim)
+yfit2&lt;-simulateDiscreteSaemix(zippoisson.fit,  nsim=100)
+{
+nobssim&lt;-length(yfit1@sim.data@datasim$ysim)
+cat("Observed proportion of 0's", 
+   length(yfit1@data@data$rapi[yfit1@data@data$rapi==0])/yfit1@data@ntot.obs,"\n")
+cat("      Poisson model, p=",
+   length(yfit1@sim.data@datasim$ysim[yfit1@sim.data@datasim$ysim==0])/nobssim,"\n")
+cat("          ZIP model, p=",
+   length(yfit2@sim.data@datasim$ysim[yfit2@sim.data@datasim$ysim==0])/nobssim,"\n")
+}
+  
+  
+</code></pre>
+
+
+</div>

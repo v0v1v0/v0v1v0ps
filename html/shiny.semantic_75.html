@@ -1,0 +1,98 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>register_search</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Register search api url</h2>
+
+<h3>Description</h3>
+
+<p>Calls Shiny session's registerDataObj to create REST API.
+Publishes any R object as a URL endpoint that is unique to Shiny session.
+search_query must be a function that takes two arguments:
+data (the value that was passed into registerDataObj) and req
+(an environment that implements the Rook specification for HTTP requests).
+search_query will be called with these values whenever an HTTP request is
+made to the URL endpoint. The return value of search_query should be a list
+of list or a dataframe. Note that different semantic components expect
+specific JSON fields to be present in order to work correctly.
+Check components documentation for details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">register_search(session, data, search_query)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>session</code></td>
+<td>
+<p>Shiny server session</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>Data (the value that is passed into registerDataObj)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>search_query</code></td>
+<td>
+<p>Function providing a response as a list of
+lists or dataframe of search results.</p>
+</td>
+</tr>
+</table>
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (interactive()) {
+  library(shiny)
+  library(tibble)
+  library(shiny.semantic)
+  shinyApp(
+    ui = semanticPage(
+      textInput("txt", "Enter the car name (or subset of name)"),
+      textOutput("api_url"),
+      uiOutput("open_url")
+    ),
+    server = function(input, output, session) {
+      api_response &lt;- function(data, q) {
+        has_matching &lt;- function(field) {
+          grepl(toupper(q), toupper(field), fixed = TRUE)
+        }
+        dplyr::filter(data, has_matching(car))
+      }
+
+      search_api_url &lt;- register_search(session,
+                           tibble::rownames_to_column(mtcars, "car"), api_response)
+
+      output$api_url &lt;- renderText({
+       glue::glue(
+        "Registered API url: ",
+        "{session$clientData$url_protocol}//{session$clientData$url_hostname}",
+        ":{session$clientData$url_port}/",
+        "{search_api_url}&amp;q={input$txt}"
+        )
+      })
+
+      output$open_url &lt;- renderUI({
+        tags$a(
+          "Open", class = "ui button",
+          href = glue::glue("./{search_api_url}&amp;q={input$txt}"), target = "_blank"
+        )
+      })
+    }
+  )
+}
+
+</code></pre>
+
+
+</div>

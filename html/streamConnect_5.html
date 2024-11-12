@@ -1,0 +1,178 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>publish_DSC_via_WebService</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Publish a Data Stream Clustering Task via a Web Service</h2>
+
+<h3>Description</h3>
+
+<p>Uses the package plumber to publish a data stream task as a web service.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">publish_DSC_via_WebService(
+  dsc,
+  port,
+  task_file = NULL,
+  serializer = "csv",
+  serve = TRUE,
+  background = TRUE,
+  debug = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>dsc</code></td>
+<td>
+<p>A character string that creates a DSC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>port</code></td>
+<td>
+<p>port used to serve the task.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>task_file</code></td>
+<td>
+<p>name of the plumber task script file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>serializer</code></td>
+<td>
+<p>method used to serialize the data. By default <code>csv</code> (comma separated values)
+is used. Other methods are <code>json</code> and <code>rds</code> (see plumber::serializer_csv).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>serve</code></td>
+<td>
+<p>if <code>TRUE</code>, then a task file is written and a server started, otherwise,
+only a plumber task file is written.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>background</code></td>
+<td>
+<p>logical; start a background process?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>debug</code></td>
+<td>
+<p>if <code>TRUE</code>, then the service is started locally and a web client is started to explore the interface.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function writes a plumber task script file and starts the web server to serve
+the content of the stream using the endpoints
+</p>
+
+<ul>
+<li>
+<p> GET <code style="white-space: pre;">⁠/info⁠</code>
+</p>
+</li>
+<li>
+<p> POST <code style="white-space: pre;">⁠/update⁠</code> requires the data to be uploaded as a file in csv format (see Examples section).
+</p>
+</li>
+<li>
+<p> GET <code style="white-space: pre;">⁠/get_centers⁠</code> with parameter <code>type</code> (see <code>stream::get_centers()</code>).
+</p>
+</li>
+<li>
+<p> GET <code style="white-space: pre;">⁠/get_weights⁠</code> with parameter <code>type</code> (see <code>stream::get_weights()</code>).
+</p>
+</li>
+</ul>
+<p>Supported serializers are <code>csv</code> (default), <code>json</code>, and <code>rds</code>.
+</p>
+<p>APIs generated using plumber can be easily deployed. See: <a href="https://www.rplumber.io/articles/hosting.html">Hosting</a>. By setting a <code>task_file</code> and <code>serve = FALSE</code> a plumber
+task script file is generated that can deployment.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a processx::process object created with <code>callr::r_bg()</code> which runs the plumber server
+in the background. The process can be stopped with <code>rp$kill()</code> or by killing the process
+using the operating system with the appropriate PID. <code>rp$get_result()</code> can
+be used to check for errors in the server process (e.g., when it terminates
+unexpectedly).
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other WebService: 
+<code>DSC_WebService()</code>,
+<code>DSD_ReadWebService()</code>,
+<code>publish_DSD_via_WebService()</code>
+</p>
+<p>Other dsc: 
+<code>DSC_WebService()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># find a free port
+port &lt;- httpuv::randomPort()
+port
+
+# Deploy a clustering process listening for data on the port
+rp1 &lt;- publish_DSC_via_WebService("DSC_DBSTREAM(r = .05)", port = port)
+rp1
+
+# look at ? DSC_WebService for a convenient interface. 
+# Here we we show how to connect to the port and send data manually.
+library(httr)
+
+# the info verb returns some basic information about the clusterer.
+resp &lt;- RETRY("GET", paste0("http://localhost:", port, "/info"))
+d &lt;- content(resp, show_col_types = FALSE)
+d
+
+# create a local data stream and send it to the clusterer using the update verb.
+dsd &lt;- DSD_Gaussians(k = 3, d = 2, noise = 0.05)
+
+tmp &lt;- tempfile()
+stream::write_stream(dsd, tmp, n = 500, header = TRUE)
+resp &lt;- POST(paste0("http://localhost:", port, "/update"), 
+  body = list(upload = upload_file(tmp)))
+unlink(tmp)
+resp
+
+# retrieve the cluster centers using the get_centers verb
+resp &lt;- GET(paste0("http://localhost:", port, "/get_centers"))
+d &lt;- content(resp, show_col_types = FALSE)
+head(d)
+
+plot(dsd, n = 100)
+points(d, col = "red", pch = 3, lwd = 3)
+
+# kill the process.
+rp1$kill()
+rp1
+
+# Debug the interface (run the service and start a web interface)
+if (interactive())
+  publish_DSC_via_WebService("DSC_DBSTREAM(r = .05)", 
+         port = port, debug = TRUE)
+</code></pre>
+
+
+</div>

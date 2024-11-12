@@ -1,0 +1,242 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.sfJSDM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function for prediction at new locations for spatial factor joint species distribution model</h2>
+
+<h3>Description</h3>
+
+<p>The function <code>predict</code> collects posterior predictive samples for a set of new locations given an object of class 'sfJSDM'.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sfJSDM'
+predict(object, X.0, coords.0, n.omp.threads = 1, verbose = TRUE, 
+        n.report = 100, ignore.RE = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class sfJSDM</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X.0</code></td>
+<td>
+<p>the design matrix of covariates at the prediction locations. This should include a column of 1s for the intercept if an intercept is included in the model. If random effects are included in the model, the levels of the random effects at the new locations should be included as a column in the design matrix. The ordering of the levels should match the ordering used to fit the data in <code>sfJSDM</code>. Columns should correspond to the order of how covariates were specified in the formula argument of <code>sfJSDM</code>. Column names of the random effects must match the name of the random effects, if specified in the formula argument of <code>sfJSDM</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords.0</code></td>
+<td>
+<p>the spatial coordinates corresponding to <code>X.0</code>. Note that <code>spOccupancy</code> assumes coordinates are specified 
+in a projected coordinate system.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.omp.threads</code></td>
+<td>
+<p>a positive integer indicating
+the number of threads to use for SMP parallel processing. The package must
+be compiled for OpenMP support. For most Intel-based machines, we recommend setting
+<code>n.omp.threads</code> up to the number of hyperthreaded cores. 
+Note, <code>n.omp.threads</code> &gt; 1 might not work on some systems.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code>, model specification and progress of the 
+sampler is printed to the screen. Otherwise, nothing is printed to
+the screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.report</code></td>
+<td>
+<p>the interval to report sampling progress.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ignore.RE</code></td>
+<td>
+<p>a logical value indicating whether to include unstructured random 
+effects for prediction. If TRUE, unstructured random effects will be ignored and 
+prediction will only use the fixed effects and the spatial random effects. If FALSE, 
+random effects will be included in the prediction for both observed and unobserved 
+levels of the unstructured random effects.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently no additional arguments</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An list object of class <code>predict.sfJSDM</code> that consists of:  
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>psi.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the
+latent occurrence probability values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>z.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples for the
+latent occurrence values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.0.samples</code></td>
+<td>
+<p>a three-dimensional array of posterior predictive samples
+for the latent spatial factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>run.time</code></td>
+<td>
+<p>execution time reported using <code>proc.time()</code>.</p>
+</td>
+</tr>
+</table>
+<p>The return object will include additional objects used for standard 
+extractor functions. 
+</p>
+
+
+<h3>Note</h3>
+
+<p>When <code>ignore.RE = FALSE</code>, both sampled levels and non-sampled levels of random effects are supported for prediction. For sampled levels, the posterior distribution for the random intercept corresponding to that level of the random effect will be used in the prediction. For non-sampled levels, random values are drawn from a normal distribution using the posterior samples of the random effect variance, which results in fully propagated uncertainty in predictions with models that incorporate random effects.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jeffrey W. Doser <a href="mailto:doserjef@msu.edu">doserjef@msu.edu</a>, <br>
+Andrew O. Finley <a href="mailto:finleya@msu.edu">finleya@msu.edu</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">set.seed(400)
+
+# Simulate Data -----------------------------------------------------------
+J.x &lt;- 7
+J.y &lt;- 7
+J &lt;- J.x * J.y
+n.rep &lt;- sample(2:4, size = J, replace = TRUE)
+N &lt;- 5
+# Community-level covariate effects
+# Occurrence
+beta.mean &lt;- c(0.2, -0.15)
+p.occ &lt;- length(beta.mean)
+tau.sq.beta &lt;- c(0.6, 0.3)
+# Detection
+alpha.mean &lt;- c(0.5, 0.2, -.2)
+tau.sq.alpha &lt;- c(0.2, 0.3, 0.8)
+p.det &lt;- length(alpha.mean)
+# Draw species-level effects from community means.
+beta &lt;- matrix(NA, nrow = N, ncol = p.occ)
+alpha &lt;- matrix(NA, nrow = N, ncol = p.det)
+for (i in 1:p.occ) {
+  beta[, i] &lt;- rnorm(N, beta.mean[i], sqrt(tau.sq.beta[i]))
+}
+for (i in 1:p.det) {
+  alpha[, i] &lt;- rnorm(N, alpha.mean[i], sqrt(tau.sq.alpha[i]))
+}
+n.factors &lt;- 3
+phi &lt;- runif(n.factors, 3/1, 3/.4)
+sp &lt;- TRUE
+
+dat &lt;- simMsOcc(J.x = J.x, J.y = J.y, n.rep = n.rep, N = N, beta = beta, alpha = alpha,
+                phi = phi, sigma.sq = sigma.sq, sp = TRUE, cov.model = 'exponential', 
+                factor.model = TRUE, n.factors = n.factors)
+
+# Number of batches
+n.batch &lt;- 10
+# Batch length
+batch.length &lt;- 25
+n.samples &lt;- n.batch * batch.length
+
+# Split into fitting and prediction data set
+pred.indx &lt;- sample(1:J, round(J * .25), replace = FALSE)
+# Summarize the multiple replicates into a single value for use in a JSDM
+y &lt;- apply(dat$y[, -pred.indx, ], c(1, 2), max, na.rm = TRUE)
+# Occupancy covariates
+X &lt;- dat$X[-pred.indx, ]
+# Coordinates
+coords &lt;- as.matrix(dat$coords[-pred.indx, ])
+# Prediction values
+X.0 &lt;- dat$X[pred.indx, ]
+coords.0 &lt;- as.matrix(dat$coords[pred.indx, ])
+psi.0 &lt;- dat$psi[, pred.indx]
+
+# Package all data into a list
+covs &lt;- X[, 2, drop = FALSE]
+colnames(covs) &lt;- c('occ.cov')
+data.list &lt;- list(y = y, 
+                  covs = covs,
+                  coords = coords)
+
+# Priors 
+prior.list &lt;- list(beta.comm.normal = list(mean = 0, var = 2.72), 
+                   tau.sq.beta.ig = list(a = 0.1, b = 0.1), 
+                   phi.unif = list(a = 3/1, b = 3/.1)) 
+# Starting values
+lambda.inits &lt;- matrix(0, N, n.factors)
+diag(lambda.inits) &lt;- 1
+lambda.inits[lower.tri(lambda.inits)] &lt;- rnorm(sum(lower.tri(lambda.inits)))
+inits.list &lt;- list(beta.comm = 0, 
+                   beta = 0, 
+                   tau.sq.beta = 1, 
+                   phi = 3 / .5, 
+                   sigma.sq = 2,
+                   lambda = lambda.inits)
+# Tuning
+tuning.list &lt;- list(phi = 1) 
+
+out &lt;- sfJSDM(formula = ~ occ.cov, 
+              data = data.list,
+              inits = inits.list, 
+              n.batch = n.batch, 
+              batch.length = batch.length, 
+              accept.rate = 0.43, 
+              n.factors = 3,
+              priors = prior.list, 
+              cov.model = "exponential", 
+              tuning = tuning.list, 
+              n.omp.threads = 1, 
+              verbose = TRUE, 
+              NNGP = TRUE, 
+              n.neighbors = 5, 
+              search.type = 'cb', 
+              n.report = 10, 
+              n.burn = 100, 
+              n.thin = 1)
+
+summary(out, level = 'both')
+
+# Predict at new locations ------------------------------------------------
+out.pred &lt;- predict(out, X.0, coords.0, verbose = FALSE)
+</code></pre>
+
+
+</div>

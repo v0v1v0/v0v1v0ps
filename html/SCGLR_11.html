@@ -1,0 +1,119 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>multivariatePredictGlm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Function that predicts the responses from the covariates for a new sample</h2>
+
+<h3>Description</h3>
+
+<p>Function that predicts the responses from the covariates for a new sample
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">multivariatePredictGlm(Xnew, family, beta, offset = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Xnew</code></td>
+<td>
+<p>a data frame containing the values of the covariates for the new sample.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>a vector of character specifying the distributions of the responses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>the matrix of coefficients estimated from the calibration sample.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>offset</code></td>
+<td>
+<p>used for the poisson dependent variables.
+A vector or a matrix of size: number of observations * number of Poisson dependent variables is expected.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a matrix of predicted values.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+library(SCGLR)
+
+# load sample data
+data(genus)
+
+# get variable names from dataset
+n &lt;- names(genus)
+ny &lt;- n[grep("^gen",n)]    # Y &lt;- names that begins with "gen"
+nx &lt;- n[-grep("^gen",n)]   # X &lt;- remaining names
+
+# remove "geology" and "surface" from nx as surface is
+# offset and we want to use geology as additional covariate
+nx &lt;-nx[!nx%in%c("geology","surface")]
+
+# build multivariate formula
+# we also add "lat*lon" as computed covariate
+form &lt;- multivariateFormula(ny,c(nx,"I(lat*lon)"),c("geology"))
+
+# split genus dataset
+sub &lt;- sample(1:nrow(genus),100,replace=FALSE)
+sub_fit &lt;- (1:nrow(genus))[-sub]
+
+# define family
+fam &lt;- rep("poisson",length(ny))
+
+# fit the model
+genus.scglr &lt;- scglr(formula=form, data=genus, family=fam, K=4,
+ offset=genus$surface, subset=sub_fit)
+
+# xnew, the design matrix associated to sub-sample used for prediction
+# rhs parameters is introduced to take into account that the covariate
+# of the formula is composed of two differents sets
+xnew &lt;- model.matrix(form, data=genus[sub,], rhs=1:2)[,-1]
+
+# prediction based on the scglr approch
+pred.scglr &lt;- multivariatePredictGlm(xnew,family=fam,
+ beta=genus.scglr$beta,offset=genus$surface[sub])
+cor.scglr &lt;-diag(cor(pred.scglr,genus[sub,ny]))
+plot(cor.scglr, col="red",ylim=c(-1,1))
+
+# prediction based on classical poisson glm
+X &lt;- model.matrix(form, data=genus)[,-1]
+Y &lt;- genus[,ny]
+genus.glm &lt;- multivariateGlm.fit(Y[sub_fit,,drop=FALSE],X[sub_fit,,drop=FALSE],
+                              family=fam, offset=matrix(genus$surface[sub_fit],
+                              length(sub_fit),length(ny)),size=NULL)
+coefs &lt;- sapply(genus.glm,coef)
+
+# rhs parameters is introduced to take into account that the covariate
+# part of the formula is composed of two differents sets
+pred.glm &lt;- multivariatePredictGlm(xnew,family=fam,beta=coefs,
+ offset=genus$surface[sub])
+cor.glm &lt;- diag(cor(pred.glm,genus[sub,ny]))
+
+points(cor.glm, col="blue")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

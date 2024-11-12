@@ -1,0 +1,182 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>resizeGraph</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Interactome-assisted graph re-seizing</h2>
+
+<h3>Description</h3>
+
+<p>An input directed graph is re-sized, removing edges
+or adding edges/nodes. This function takes three input graphs: the
+first is the input causal model (i.e., a directed graph), and the
+second can be either a directed or undirected graph, providing a set
+of connections to be checked against a directed reference network
+(i.e., the third input) and imported to the first graph.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">resizeGraph(g = list(), gnet, d = 2, v = TRUE, verbose = FALSE, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>A list of two graphs as igraph objects, g=list(graph1, graph2).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gnet</code></td>
+<td>
+<p>External directed network as an igraph object. The reference
+network should have weighted edges, corresponding to their interaction
+p-values, as an edge attribute <code>E(gnet)$pv</code>. Then, connections in
+<code>graph2</code> will be checked by known connections from the reference network,
+intercepted by the minimum-weighted shortest path found among the equivalent
+ones by the Dijkstra algorithm, as implemented in the <span class="pkg">igraph</span> function
+<code>all_shortest_paths()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>An integer value indicating the maximum geodesic distance between
+two nodes in the interactome to consider the inferred interaction between
+the same two nodes in <code>graph2</code> as validated, otherwise the edges are
+removed. For instance, if <code>d = 2</code>, two interacting nodes must either
+share a direct interaction or being connected through at most one mediator
+in the reference interactome (in general, at most <code>d - 1</code> mediators are
+allowed). Typical <code>d</code> values include <code>2</code> (at most one mediator), or
+<code>mean_distance(gnet)</code> (i.e., the average shortest path length for
+the reference network). Setting d = 0, is equivalent to <code>gnet = NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>v</code></td>
+<td>
+<p>A logical value. If TRUE (default) new nodes and edges on the
+validated shortest path in the reference interactome will be added in the
+re-sized graph.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>A logical value. If FALSE (default), the processed graphs
+will not be plotted to screen, saving execution time (for large graphs)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Typically, the first graph is an estimated causal graph (DAG),
+and the second graph is the output of either <code>SEMdag</code>
+or <code>SEMbap</code>. Alternatively, the first graph is an
+empthy graph, and the second graph is a external covariance graph.
+In the former we use the new inferred causal structure stored in the
+<code>dag.new</code> object. In the latter, we use the new inferred covariance
+structure stored in the <code>guu</code> object. Both directed (causal) edges
+inferred by <code>SEMdag()</code> and covariances (i.e., bidirected edges)
+added by <code>SEMbap()</code>, highlight emergent hidden topological
+proprieties, absent in the input graph. Estimated directed edges between
+nodes X and Y are interpreted as either direct links or direct paths
+mediated by hidden connector nodes. Covariances between any two bow-free
+nodes X and Y may hide causal relationships, not explicitly represented
+in the current model. Conversely, directed edges could be redundant or
+artifact, specific to the observed data and could be deleted.
+Function <code>resizeGraph()</code> leverage on these concepts to extend/reduce a
+causal model, importing new connectors or deleting estimated edges, if they are
+present or absent in a given reference network. The whole process may lead to
+the discovery of new paths of information flow, and cut edges not corroborate
+by a validated network. Since added nodes can already be present in the causal
+graph, network resize may create cross-connections between old and new paths
+and their possible closure into circuits.
+</p>
+
+
+<h3>Value</h3>
+
+<p>"Ug", the re-sized graph, the graph union of the causal graph <code>graph1</code>
+and the re-sized graph <code>graph2</code>
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Grassi M, Palluzzi F, Tarantino B (2022). SEMgraph: An R Package for Causal Network
+Analysis of High-Throughput Data with Structural Equation Models.
+Bioinformatics, 38 (20), 4829–4830 &lt;https://doi.org/10.1093/bioinformatics/btac567&gt;
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+
+# Extract the "Protein processing in endoplasmic reticulum" pathway:
+
+g &lt;- kegg.pathways[["Protein processing in endoplasmic reticulum"]]
+G &lt;- properties(g)[[1]]; summary(G)
+
+# Extend a graph using new inferred DAG edges (dag+dag.new):
+
+# Nonparanormal(npn) transformation
+als.npn &lt;- transformData(alsData$exprs)$data
+
+dag &lt;- SEMdag(graph = G, data = als.npn, beta = 0.1)
+gplot(dag$dag)
+ext &lt;- resizeGraph(g=list(dag$dag, dag$dag.new), gnet = kegg, d = 2)
+gplot(ext) 
+
+# Create a directed graph from correlation matrix, using
+# i) an empty graph as causal graph,
+# ii) a covariance graph,
+# iii) KEGG as reference:
+
+corr2graph&lt;- function(R, n, alpha=5e-6, ...)
+{
+	Z &lt;- qnorm(alpha/2, lower.tail=FALSE)
+thr &lt;- (exp(2*Z/sqrt(n-3))-1)/(exp(2*Z/sqrt(n-3))+1)
+	A &lt;- ifelse(abs(R) &gt; thr, 1, 0)
+	diag(A) &lt;- 0
+	return(graph_from_adjacency_matrix(A, mode="undirected"))
+}
+
+v &lt;- which(colnames(als.npn) %in% V(G)$name)
+selectedData &lt;- als.npn[, v]
+G0 &lt;- make_empty_graph(n = ncol(selectedData))
+V(G0)$name &lt;- colnames(selectedData)
+G1 &lt;- corr2graph(R = cor(selectedData), n= nrow(selectedData))
+ext &lt;- resizeGraph(g=list(G0, G1), gnet = kegg, d = 2, v = TRUE)
+
+#Graphs
+old.par &lt;- par(no.readonly = TRUE)
+par(mfrow=c(1,2), mar=rep(1,4))
+plot(G1, layout = layout.circle)
+plot(ext, layout = layout.circle)
+par(old.par)
+
+
+</code></pre>
+
+
+</div>

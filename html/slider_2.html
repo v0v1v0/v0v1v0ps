@@ -1,0 +1,172 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>block</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Break a vector into blocks</h2>
+
+<h3>Description</h3>
+
+<p><code>block()</code> breaks up the <code>i</code>-ndex by <code>period</code>, and then uses that to define
+the indices to chop <code>x</code> with.
+</p>
+<p>For example, it can split <code>x</code> into monthly or yearly blocks. Combined with
+<code>purrr::map()</code>, it is a way to iterate over a vector in "time blocks".
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">block(x, i, period, every = 1L, origin = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[vector]⁠</code>
+</p>
+<p>The vector to block.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>i</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[Date / POSIXct / POSIXlt]⁠</code>
+</p>
+<p>The datetime index to block by.
+</p>
+<p>There are 3 restrictions on the index:
+</p>
+
+<ul>
+<li>
+<p> The size of the index must match the size of <code>x</code>, they will not be
+recycled to their common size.
+</p>
+</li>
+<li>
+<p> The index must be an <em>increasing</em> vector, but duplicate values
+are allowed.
+</p>
+</li>
+<li>
+<p> The index cannot have missing values.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>period</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[character(1)]⁠</code>
+</p>
+<p>A string defining the period to group by. Valid inputs can be roughly
+broken into:
+</p>
+
+<ul>
+<li> <p><code>"year"</code>, <code>"quarter"</code>, <code>"month"</code>, <code>"week"</code>, <code>"day"</code>
+</p>
+</li>
+<li> <p><code>"hour"</code>, <code>"minute"</code>, <code>"second"</code>, <code>"millisecond"</code>
+</p>
+</li>
+<li> <p><code>"yweek"</code>, <code>"mweek"</code>
+</p>
+</li>
+<li> <p><code>"yday"</code>, <code>"mday"</code>
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>every</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[positive integer(1)]⁠</code>
+</p>
+<p>The number of periods to group together.
+</p>
+<p>For example, if the period was set to <code>"year"</code> with an every value of <code>2</code>,
+then the years 1970 and 1971 would be placed in the same group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>origin</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[Date(1) / POSIXct(1) / POSIXlt(1) / NULL]⁠</code>
+</p>
+<p>The reference date time value. The default when left as <code>NULL</code> is the
+epoch time of <code style="white-space: pre;">⁠1970-01-01 00:00:00⁠</code>, <em>in the time zone of the index</em>.
+</p>
+<p>This is generally used to define the anchor time to count from, which is
+relevant when the every value is <code style="white-space: pre;">⁠&gt; 1⁠</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>block()</code> determines the indices to block by with <code>warp::warp_boundary()</code>,
+and splits <code>x</code> by those indices using <code>vctrs::vec_chop()</code>.
+</p>
+<p>Like <code>slide()</code>, <code>block()</code> splits data frame <code>x</code> values row wise.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A vector fulfilling the following invariants:
+</p>
+
+<ul>
+<li> <p><code>vec_size(block(x)) == vec_size(unique(warp::warp_boundary(i)))</code>
+</p>
+</li>
+<li> <p><code>vec_ptype(block(x)) == list()</code>
+</p>
+</li>
+<li> <p><code>vec_ptype(block(x)[[1]]) == vec_ptype(x)</code>
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>slide_period()</code>, <code>slide()</code>, <code>slide_index()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">x &lt;- 1:6
+i &lt;- as.Date("2019-01-01") + c(-2:2, 31)
+
+block(i, i, period = "year")
+
+# Data frames are split row wise
+df &lt;- data.frame(x = x, i = i)
+block(df, i, period = "month")
+
+# Iterate over these blocks to apply a function over
+# non-overlapping period blocks. For example, to compute a
+# mean over yearly or monthly blocks.
+vapply(block(x, i, "year"), mean, numeric(1))
+vapply(block(x, i, "month"), mean, numeric(1))
+
+# block by every 2 months, ensuring that we start counting
+# the 1st of the 2 months from `2019-01-01`
+block(i, i, period = "month", every = 2, origin = as.Date("2019-01-01"))
+
+# Use the `origin` to instead start counting from `2018-12-01`, meaning
+# that [2018-12, 2019-01] gets bucketed together.
+block(i, i, period = "month", every = 2, origin = as.Date("2018-12-01"))
+
+</code></pre>
+
+
+</div>

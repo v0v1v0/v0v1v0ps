@@ -1,0 +1,229 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sass</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compile Sass to CSS</h2>
+
+<h3>Description</h3>
+
+<p>Compile Sass to CSS using LibSass.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sass(
+  input = NULL,
+  options = sass_options_get(),
+  output = NULL,
+  write_attachments = NA,
+  cache = sass_cache_get(),
+  cache_key_extra = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>input</code></td>
+<td>
+<p>Any of the following:
+</p>
+
+<ul>
+<li>
+<p> A character vector containing Sass code.
+</p>
+</li>
+<li>
+<p> A named list containing variable names and values.
+</p>
+</li>
+<li>
+<p> A <code>sass_file()</code>, <code>sass_layer()</code>, and/or <code>sass_bundle()</code>.
+</p>
+</li>
+<li>
+<p> A <code>list()</code> containing any of the above.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>options</code></td>
+<td>
+<p>Compiler <code>sass_options()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output</code></td>
+<td>
+<p>Specifies path to output file for compiled CSS. May be a
+character string or <code>output_template()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>write_attachments</code></td>
+<td>
+<p>If the input contains <code>sass_layer()</code> objects that
+have file attachments, and <code>output</code> is not <code>NULL</code>, then copy the file
+attachments to the directory of <code>output</code>. (Defaults to <code>NA</code>, which merely
+emits a warning if file attachments are present, but does not write them to
+disk; the side-effect of writing extra files is subtle and potentially
+destructive, as files may be overwritten.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cache</code></td>
+<td>
+<p>This can be a directory to use for the cache, a FileCache
+object created by <code>sass_file_cache()</code>, or <code>FALSE</code> or <code>NULL</code> for no caching.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cache_key_extra</code></td>
+<td>
+<p>additional information to considering when computing
+the cache key. This should include any information that could possibly
+influence the resulting CSS that isn't already captured by <code>input</code>. For
+example, if <code>input</code> contains something like <code>"@import sass_file.scss"</code> you
+may want to include the <code>file.mtime()</code> of <code>sass_file.scss</code> (or, perhaps, a
+<code>packageVersion()</code> if <code>sass_file.scss</code> is bundled with an R package).</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>If <code>output = NULL</code>, the function returns a string value of the
+compiled CSS. If <code>output</code> is specified, the compiled CSS is written to a
+file and the filename is returned.
+</p>
+
+
+<h3>Caching</h3>
+
+<p>By default, caching is enabled, meaning that <code>sass()</code> avoids the possibly
+expensive re-compilation of CSS whenever the same <code>options</code> and <code>input</code> are
+requested. Unfortunately, in some cases, <code>options</code> and <code>input</code> alone aren't
+enough to determine whether new CSS output must be generated. For example,
+changes in local file
+<a href="https://sass-lang.com/documentation/at-rules/import">imports</a> that aren't
+captured through <code>sass_file()</code>/<code>sass_import()</code>, may lead to a
+false-positive cache hit. For this reason, developers are encouraged to
+capture such information in <code>cache_key_extra</code> (possibly with
+<code>packageVersion('myPackage')</code> if shipping Sass with a package), and users
+may want to disable caching altogether during local development by calling
+<code>options(sass.cache=FALSE)</code>.
+</p>
+<p>In some cases when developing and modifying .scss files, <code>sass()</code> might not
+detect changes, and keep using cached .css files instead of rebuilding
+them. To be safe, if you are developing a theme with sass, it's best to
+turn off caching by calling <code>options(sass.cache=FALSE)</code>.
+</p>
+<p>If caching is enabled, <code>sass()</code> will attempt to bypass the compilation
+process by reusing output from previous <code>sass()</code> calls that used equivalent
+inputs. This mechanism works by computing a <em>cache key</em> from each <code>sass()</code>
+call's <code>input</code>, <code>option</code>, and <code>cache_key_extra</code> arguments. If an object
+with that hash already exists within the cache directory, its contents are
+used instead of performing the compilation. If it does not exist, then
+compilation is performed and usual and the results are stored in the cache.
+</p>
+<p>If a file that is included using <code>sass_file()</code> changes on disk (i.e. its
+last-modified time changes), its previous cache entries will effectively be
+invalidated (not removed from disk, but they'll no longer be matched).
+However, if a file imported using <code>sass_file()</code> itself imports other sass
+files using <code style="white-space: pre;">⁠@import⁠</code>, changes to those files are invisible to the
+cache and you can end up with stale results. To avoid this problem when
+developing sass code, it's best to disable caching with
+<code>options(sass.cache=FALSE)</code>.
+</p>
+<p>By default, the maximum size of the cache is 40 MB. If it grows past that
+size, the least-recently-used objects will be evicted from the cache to
+keep it under that size. Also by default, the maximum age of objects in the
+cache is one week. Older objects will be evicted from the cache.
+</p>
+<p>To clear the default cache, call <code>sass_cache_get()$reset()</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><a href="https://sass-lang.com/guide">https://sass-lang.com/guide</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Raw Sass input
+sass("foo { margin: 122px * .3; }")
+
+# List of inputs, including named variables
+sass(list(
+  list(width = "122px"),
+  "foo { margin: $width * .3; }"
+))
+
+# Compile a .scss file
+example_file &lt;- system.file("examples/example-full.scss", package = "sass")
+sass(sass_file(example_file))
+
+# Import a file
+tmp_file &lt;- tempfile()
+writeLines("foo { margin: $width * .3; }", tmp_file)
+sass(list(
+  list(width = "122px"),
+  sass_file(tmp_file)
+))
+
+## Not run: 
+# ======================
+# Caching examples
+# ======================
+# Very slow to compile
+fib_sass &lt;- "@function fib($x) {
+  @if $x &lt;= 1 {
+    @return $x
+  }
+  @return fib($x - 2) + fib($x - 1);
+}
+
+body {
+  width: fib(27);
+}"
+
+# The first time this runs it will be very slow
+system.time(sass(fib_sass))
+
+# But on subsequent calls, it should be very fast
+system.time(sass(fib_sass))
+
+# sass() can be called with cache=NULL; it will be slow
+system.time(sass(fib_sass, cache = NULL))
+
+# Clear the cache
+sass_cache_get()$reset()
+
+## End(Not run)
+
+## Not run: 
+# Example of disabling cache by setting the default cache to NULL.
+
+# Disable the default cache (save the original one first, so we can restore)
+old_cache &lt;- sass_cache_get()
+sass_cache_set(NULL)
+# Will be slow, because no cache
+system.time(sass(fib_sass))
+
+# Restore the original cache
+sass_cache_set(old_cache)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

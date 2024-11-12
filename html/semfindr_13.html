@@ -1,0 +1,191 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fit_measures_change</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Case Influence on Fit Measures</h2>
+
+<h3>Description</h3>
+
+<p>Gets a <code>lavaan_rerun()</code> output and computes the changes
+in selected fit measures if a case is included.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fit_measures_change(
+  rerun_out,
+  fit_measures = c("chisq", "cfi", "rmsea", "tli"),
+  baseline_model = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>rerun_out</code></td>
+<td>
+<p>The output from <code>lavaan_rerun()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit_measures</code></td>
+<td>
+<p>The argument <code>fit.measures</code> used in
+lavaan::fitMeasures. Default is
+<code>c("chisq", "cfi", "rmsea", "tli")</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>baseline_model</code></td>
+<td>
+<p>The argument <code>baseline.model</code> used in
+lavaan::fitMeasures. Default is <code>NULL</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For each case, <code>fit_measures_change()</code> computes the
+differences in selected fit measures with and without this case:
+</p>
+<p>(Fit measure with all case) - (Fit measure without this case).
+</p>
+<p>If the value of a case is positive, including the case increases an estimate.
+</p>
+<p>If the value of a case is negative, including the case decreases an estimate.
+</p>
+<p>Note that an increase is an improvement in fit for
+goodness of fit measures such as CFI and TLI, but a decrease
+is an improvement in fit for badness of fit measures such as
+RMSEA and model chi-square.
+This is a measure of the influence of a case on a fit measure
+if it is included.
+</p>
+<p>If the analysis is not admissible or does not converge when a case
+is deleted, <code>NA</code>s will be turned for the differences of this
+case.
+</p>
+<p>Supports both single-group and multiple-group models.
+(Support for multiple-group models available in 0.1.4.8 and later version).
+</p>
+
+
+<h3>Value</h3>
+
+<p>An <code>fit_measures_change</code>-class object, which is
+matrix with the number of columns equals to the number of
+requested fit measures, and the number of rows equals to the number
+of cases. The row names are the case identification values used in
+<code>lavaan_rerun()</code>.
+A print method is available for user-friendly output.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Shu Fai Cheung <a href="https://orcid.org/0000-0002-9871-9448">https://orcid.org/0000-0002-9871-9448</a>.
+</p>
+
+
+<h3>References</h3>
+
+<p>Pek, J., &amp; MacCallum, R. (2011). Sensitivity analysis
+in structural equation models: Cases and their influence.
+<em>Multivariate Behavioral Research, 46</em>(2), 202-228.
+doi:10.1080/00273171.2011.561068
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(lavaan)
+
+# A path model
+
+dat &lt;- pa_dat
+mod &lt;-
+"
+m1 ~ a1 * iv1 + a2 * iv2
+dv ~ b * m1
+a1b := a1 * b
+a2b := a2 * b
+"
+# Fit the model
+fit &lt;- lavaan::sem(mod, dat)
+summary(fit)
+# Fit the model n times. Each time with one case removed.
+# For illustration, do this only for four selected cases
+fit_rerun &lt;- lavaan_rerun(fit, parallel = FALSE,
+                          to_rerun = 1:10)
+# Compute the changes in chisq if a case is included
+# vs. if this case is removed.
+# That is, case influence on model chi-squared.
+out &lt;- fit_measures_change(fit_rerun, fit_measures = "chisq")
+# Results excluding a case, for the first few cases
+head(out)
+# Chi-square will all cases included.
+(chisq_all &lt;- fitMeasures(fit, c("chisq")))
+# Chi-square with the first case removed
+fit_01 &lt;- lavaan::sem(mod, dat[-1, ])
+(chisq_no_1 &lt;- fitMeasures(fit_01, c("chisq")))
+# Difference
+chisq_all - chisq_no_1
+# Compare to the result from the fit_measures_change
+out[1, ]
+
+# A CFA model
+
+dat &lt;- cfa_dat
+mod &lt;-
+"
+f1 =~  x1 + x2 + x3
+f2 =~  x4 + x5 + x6
+f1 ~~ f2
+"
+# Fit the model
+fit &lt;- lavaan::cfa(mod, dat)
+
+fit_rerun &lt;- lavaan_rerun(fit, parallel = FALSE,
+                          to_rerun = 1:10)
+out &lt;- fit_measures_change(fit_rerun, fit_measures = "chisq")
+head(out)
+(chisq_all &lt;- fitMeasures(fit, c("chisq")))
+fit_01 &lt;- lavaan::sem(mod, dat[-1, ])
+(chisq_no_1 &lt;- fitMeasures(fit_01, c("chisq")))
+chisq_all - chisq_no_1
+out[1, ]
+
+# A latent variable model
+
+dat &lt;- sem_dat
+mod &lt;-
+"
+f1 =~  x1 + x2 + x3
+f2 =~  x4 + x5 + x6
+f3 =~  x7 + x8 + x9
+f2 ~   a * f1
+f3 ~   b * f2
+ab := a * b
+"
+# Fit the model
+fit &lt;- lavaan::sem(mod, dat)
+
+fit_rerun &lt;- lavaan_rerun(fit, parallel = FALSE,
+                          to_rerun = 1:10)
+out &lt;- fit_measures_change(fit_rerun, fit_measures = "chisq")
+head(out)
+(chisq_all &lt;- fitMeasures(fit, c("chisq")))
+fit_01 &lt;- lavaan::sem(mod, dat[-1, ])
+(chisq_no_1 &lt;- fitMeasures(fit_01, c("chisq")))
+chisq_all - chisq_no_1
+out[1, ]
+
+</code></pre>
+
+
+</div>

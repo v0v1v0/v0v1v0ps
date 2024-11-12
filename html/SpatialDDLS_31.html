@@ -1,0 +1,155 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>interGradientsDL</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate gradients of predicted cell types/loss function with respect to
+input features for interpreting trained deconvolution models</h2>
+
+<h3>Description</h3>
+
+<p>This function enables users to gain insights into the interpretability of the
+deconvolution model. It calculates the gradients of classes/loss function
+with respect to the input features used in training. These numeric values are
+calculated per gene and cell type in pure mixed transcriptional profiles,
+providing information on the extent to which each feature influences the
+model's prediction of cell proportions for each cell type.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">interGradientsDL(
+  object,
+  method = "class",
+  normalize = TRUE,
+  scaling = "standardize",
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p><code>SpatialDDLS</code> object containing a trained
+deconvolution model (<code>trained.model</code> slot) and pure mixed
+transcriptional profiles (<code>mixed.profiles</code> slot).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Method to calculate gradients with respect to inputs. It can be
+<code>'class'</code> (gradients of predicted classes w.r.t. inputs),
+<code>'loss'</code> (gradients of loss w.r.t. inputs) or <code>'both'</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normalize</code></td>
+<td>
+<p>Whether to normalize data using logCPM (<code>TRUE</code> by
+default). This parameter is only considered when the method used to
+simulate the mixed transcriptional profiles (<code>simMixedProfiles</code>
+function) was <code>"AddRawCount"</code>. Otherwise, data were already
+normalized. This parameter should be set according to the transformation
+used to train the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling</code></td>
+<td>
+<p>How to scale data. It can be: <code>"standardize"</code>
+(values are centered around the mean with a unit standard deviation),
+<code>"rescale"</code> (values are shifted and rescaled so that they end up
+ranging between 0 and 1, by default) or <code>"none"</code> (no scaling is
+performed). This parameter should be set according to the transformation
+used to train the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Show informative messages during the execution (<code>TRUE</code> by
+default).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Gradients of classes / loss function with respect to the input features are
+calculated exclusively using pure mixed transcriptional profiles composed of
+a single cell type. Consequently, these numbers can be interpreted as the
+extent to which each feature is being used to predict each cell type
+proportion. Gradients are calculated at the sample level for each gene, but
+only mean gradients by cell type are reported. For additional details, see
+Mañanes et al., 2023.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Object containing gradients in the <code>interpret.gradients</code> slot of
+the <code>DeconvDLModel</code> object (<code>trained.model</code> slot).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>deconvSpatialDDLS</code> <code>plotTrainingHistory</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(123)
+sce &lt;- SingleCellExperiment::SingleCellExperiment(
+  assays = list(
+    counts = matrix(
+      rpois(30, lambda = 5), nrow = 15, ncol = 10,
+      dimnames = list(paste0("Gene", seq(15)), paste0("RHC", seq(10)))
+    )
+  ),
+  colData = data.frame(
+    Cell_ID = paste0("RHC", seq(10)),
+    Cell_Type = sample(x = paste0("CellType", seq(2)), size = 10,
+                       replace = TRUE)
+  ),
+  rowData = data.frame(
+    Gene_ID = paste0("Gene", seq(15))
+  )
+)
+SDDLS &lt;- createSpatialDDLSobject(
+  sc.data = sce,
+  sc.cell.ID.column = "Cell_ID",
+  sc.gene.ID.column = "Gene_ID",
+  sc.filt.genes.cluster = FALSE
+)
+SDDLS &lt;- genMixedCellProp(
+  object = SDDLS,
+  cell.ID.column = "Cell_ID",
+  cell.type.column = "Cell_Type",
+  num.sim.spots = 50,
+  train.freq.cells = 2/3,
+  train.freq.spots = 2/3,
+  verbose = TRUE
+)
+SDDLS &lt;- simMixedProfiles(SDDLS)
+SDDLS &lt;- trainDeconvModel(
+  object = SDDLS,
+  batch.size = 12,
+  num.epochs = 5
+)
+## calculating gradients
+SDDLS &lt;- interGradientsDL(SDDLS)
+
+  
+</code></pre>
+
+
+</div>

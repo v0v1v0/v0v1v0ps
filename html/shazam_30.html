@@ -1,0 +1,185 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>findThreshold</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Find distance threshold</h2>
+
+<h3>Description</h3>
+
+<p><code>findThreshold</code> automatically determines an optimal threshold for clonal assignment of
+Ig sequences using a vector of nearest neighbor distances. It provides two alternative methods 
+using either a Gamma/Gaussian Mixture Model fit (<code>method="gmm"</code>) or kernel density 
+fit (<code>method="density"</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">findThreshold(
+  distances,
+  method = c("density", "gmm"),
+  edge = 0.9,
+  cross = NULL,
+  subsample = NULL,
+  model = c("gamma-gamma", "gamma-norm", "norm-gamma", "norm-norm"),
+  cutoff = c("optimal", "intersect", "user"),
+  sen = NULL,
+  spc = NULL,
+  progress = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>distances</code></td>
+<td>
+<p>numeric vector containing nearest neighbor distances.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>string defining the method to use for determining the optimal threshold.
+One of <code>"gmm"</code> or <code>"density"</code>. See Details for methodological
+descriptions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>edge</code></td>
+<td>
+<p>upper range as a fraction of the data density to rule initialization of 
+Gaussian fit parameters. Default value is 90
+Applies only when <code>method="density"</code>. .</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cross</code></td>
+<td>
+<p>supplementary nearest neighbor distance vector output from distToNearest 
+for initialization of the Gaussian fit parameters. 
+Applies only when <code>method="gmm"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subsample</code></td>
+<td>
+<p>maximum number of distances to subsample to before threshold detection.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>allows the user to choose among four possible combinations of fitting curves: 
+<code>"norm-norm"</code>, <code>"norm-gamma"</code>, <code>"gamma-norm"</code>, 
+and <code>"gamma-gamma"</code>. Applies only when <code>method="gmm"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutoff</code></td>
+<td>
+<p>method to use for threshold selection: the optimal threshold <code>"opt"</code>, 
+the intersection point of the two fitted curves <code>"intersect"</code>, or 
+a value defined by user for one of the sensitivity or specificity <code>"user"</code>.
+Applies only when <code>method="gmm"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sen</code></td>
+<td>
+<p>sensitivity required. Applies only when <code>method="gmm"</code> and <code>cutoff="user"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spc</code></td>
+<td>
+<p>specificity required. Applies only when <code>method="gmm"</code> and <code>cutoff="user"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>if <code>TRUE</code> print a progress bar.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+ 
+<ul>
+<li> <p><code>"gmm"</code>:     Performs a maximum-likelihood fitting procedure, for learning 
+the parameters of two mixture univariate, either Gamma or Gaussian, distributions 
+which fit the bimodal distribution entries. Retrieving the fit parameters, 
+it then calculates the optimum threshold <code>method="optimal"</code>, where the 
+average of the sensitivity plus specificity reaches its maximum. In addition, 
+the <code>findThreshold</code> function is also able 
+to calculate the intersection point (<code>method="intersect"</code>) of the two fitted curves 
+and allows the user to invoke its value as the cut-off point, instead of optimal point.
+</p>
+</li>
+<li> <p><code>"density"</code>: Fits a binned approximation to the ordinary kernel density estimate
+to the nearest neighbor distances after determining the optimal
+bandwidth for the density estimate via least-squares cross-validation of 
+the 4th derivative of the kernel density estimator. The optimal threshold
+is set as the minimum value in the valley in the density estimate
+between the two modes of the distribution.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+
+<ul>
+<li> <p><code>"gmm"</code> method:      Returns a GmmThreshold object including the  
+<code>threshold</code> and the function fit parameters, i.e.
+mixing weight, mean, and standard deviation of a Normal distribution, or 
+mixing weight, shape and scale of a Gamma distribution.
+</p>
+</li>
+<li> <p><code>"density"</code> method:  Returns a DensityThreshold object including the optimum 
+<code>threshold</code> and the density fit parameters.
+</p>
+</li>
+</ul>
+<h3>Note</h3>
+
+<p>Visually inspecting the resulting distribution fits is strongly recommended when using 
+either fitting method. Empirical observations imply that the bimodality 
+of the distance-to-nearest distribution is detectable for a minimum of 1,000 distances.
+Larger numbers of distances will improve the fitting procedure, although this can come 
+at the expense of higher computational demands.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See distToNearest for generating the nearest neighbor distance vectors.
+See plotGmmThreshold and plotDensityThreshold for plotting output.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Subset example data to 50 sequences, one sample and isotype as a demo
+data(ExampleDb, package="alakazam")
+db &lt;- subset(ExampleDb, sample_id == "-1h" &amp; c_call=="IGHG")[1:50,]
+
+# Use nucleotide Hamming distance and normalize by junction length
+db &lt;- distToNearest(db, sequenceColumn="junction", vCallColumn="v_call",
+                    jCallColumn="j_call", model="ham", normalize="len", nproc=1)
+                            
+# Find threshold using the "gmm" method with user defined specificity
+output &lt;- findThreshold(db$dist_nearest, method="gmm", model="gamma-gamma", 
+                        cutoff="user", spc=0.99)
+plot(output, binwidth=0.02, title=paste0(output@model, "   loglk=", output@loglk))
+print(output)
+
+</code></pre>
+
+
+</div>

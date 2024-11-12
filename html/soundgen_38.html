@@ -1,0 +1,237 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bandpass</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bandpass/stop filters</h2>
+
+<h3>Description</h3>
+
+<p>Filtering in the frequency domain with FFT-iFFT: low-pass, high-pass,
+bandpass, and bandstop filters. Similar to <code>ffilter</code>,
+but here we use FFT instead of STFT - that is, the entire sound is processed
+at once. This works best for relatively short sounds (seconds), but gives us
+maximum precision (e.g., for precise notch filtering) and doesn't affect the
+attack and decay. NAs are accepted and can be interpolated or preserved in
+the output. Because we don't do STFT, arbitrarily short vectors are also fine
+as input - for example, we can apply a low-pass filter prior to decimation
+when changing the sampling rate without aliasing. Note that, unlike
+<code>pitchSmoothPraat</code>, <code>bandpass</code> by default applies an abrupt
+cutoff instead of a smooth gaussian filter, but this behavior can be adjusted
+with the <code>bw</code> argument.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bandpass(
+  x,
+  samplingRate = NULL,
+  lwr = NULL,
+  upr = NULL,
+  action = c("pass", "stop")[1],
+  dB = Inf,
+  bw = 0,
+  na.rm = TRUE,
+  from = NULL,
+  to = NULL,
+  normalize = FALSE,
+  reportEvery = NULL,
+  cores = 1,
+  saveAudio = NULL,
+  plot = FALSE,
+  savePlots = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lwr, upr</code></td>
+<td>
+<p>cutoff frequencies, Hz. Specifying just lwr gives a high-pass
+filter, just upr low-pass filter with action = 'pass' (or vice versa with
+action = 'stop'). Specifying both lwr and upr a bandpass/bandstop filter,
+depending on 'action'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>action</code></td>
+<td>
+<p>"pass" = preserve the selected frequency range (bandpass),
+"stop" = remove the selected frequency range (bandstop)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dB</code></td>
+<td>
+<p>a positive number giving the strength of effect in dB (defaults to
+Inf - complete removal of selected frequencies)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bw</code></td>
+<td>
+<p>bandwidth of the filter cutoffs, Hz. Defaults to 0 (abrupt, step
+function), a positive number corresponds to the standard deviation of a
+Gaussian curve, and two numbers set different bandwidths for the lower and
+upper cutoff points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>if TRUE, NAs are interpolated, otherwise they are preserved in
+the output</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from, to</code></td>
+<td>
+<p>if NULL (default), analyzes the whole sound, otherwise
+from...to (s)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normalize</code></td>
+<td>
+<p>if TRUE, resets the output to the original scale (otherwise
+filtering often reduces the amplitude)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveAudio</code></td>
+<td>
+<p>full path to the folder in which to save the processed audio</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>should a spectrogram be plotted? TRUE / FALSE</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>full path to the folder in which to save the plots (NULL =
+don't save, ” = same folder as audio)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>graphical parameters for saving plots passed to
+<code>png</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters passed to <code>plot()</code> as well as to
+<code>meanspec</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Algorithm: fill in NAs with constant interpolation at the edges and linear
+interpolation in the middle; perform FFT; set the frequency ranges to be
+filtered out to 0; perform inverse FFT; set to the original scale; put the
+NAs back in.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Filter white noise
+s1 = fade(c(runif(2000, -1, 1)), samplingRate = 16000)
+
+# low-pass
+bandpass(s1, 16000, upr = 2000, plot = TRUE)
+
+# high-pass by 40 dB
+bandpass(s1, 16000, lwr = 2000, dB = 40, plot = TRUE, wl = 1024)
+# wl is passed to seewave::meanspec for plotting
+
+# bandstop
+bandpass(s1, 16000, lwr = 1000, upr = 1800, action = 'stop', plot = TRUE)
+
+# bandpass
+s2 = bandpass(s1, 16000, lwr = 2000, upr = 2100, plot = TRUE)
+# playme(rep(s2, 5))
+# spectrogram(s2, 16000)
+
+# low-pass and interpolate a short vector with some NAs
+x = rnorm(150, 10) + 3 * sin((1:50) / 5)
+x[sample(1:length(x), 50)] = NA
+plot(x, type = 'l')
+x_bandp = bandpass(x, samplingRate = 100, upr = 10)
+points(x_bandp, type = 'l', col = 'blue')
+
+## Not run: 
+# add 200 dB with a Gaussian-shaped filter instead of step function
+s3 = bandpass(s1, 16000, lwr = 1700, upr = 2100, bw = 200,
+  dB = 20, plot = TRUE)
+spectrogram(s3, 16000)
+s4 = bandpass(s1, 16000, lwr = 2000, upr = 4300, bw = c(100, 500),
+  dB = 60, action = 'stop', plot = TRUE)
+spectrogram(s4, 16000)
+
+# precise notch filtering is possible, even in low frequencies
+whiteNoise = runif(16000, -1, 1)
+s3 = bandpass(whiteNoise, 16000, lwr = 30, upr = 40, normalize = TRUE,
+              plot = TRUE, xlim = c(0, 500))
+playme(rep(s3, 5))
+spectrogram(s3, 16000, windowLength = 150, yScale = 'log')
+
+# compare the same with STFT
+s4 = seewave::ffilter(whiteNoise, f = 16000, from = 30, to = 40)
+spectrogram(s4, 16000, windowLength = 150, yScale = 'log')
+# (note: works better as wl approaches length(s4))
+
+# high-pass all audio files in a folder
+bandpass('~/Downloads/temp', saveAudio = '~/Downloads/temp/hp2000/',
+         lwr = 2000, savePlots = '~/Downloads/temp/hp2000/')
+
+## End(Not run)
+</code></pre>
+
+
+</div>

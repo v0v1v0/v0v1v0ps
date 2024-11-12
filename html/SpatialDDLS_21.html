@@ -1,0 +1,342 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>deconvSpatialDDLS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Deconvolute spatial transcriptomics data using trained model</h2>
+
+<h3>Description</h3>
+
+<p>Deconvolute spatial transcriptomics data using the trained model in
+the <code>SpatialDDLS</code> object. The trained model is used
+to predict cell proportions of two mirrored transcriptional profiles:
+</p>
+ <ul>
+<li>
+<p> 'Intrinsic' profiles: transcriptional profiles of each spot
+in the ST dataset. </p>
+</li>
+<li>
+<p> 'Extrinsic' profiles: profiles simulated from the
+surrounding spots of each spot.</p>
+</li>
+</ul>
+<p> After prediction, cell proportions
+from the intrinsic profiles (intrinsic cell proportions) are regularized
+based on the similarity between intrinsic and extrinsic profiles in order
+to maintain spatial consistency. This approach leverages both transcriptional
+and spatial information. For more details, see Mañanes et al., 2023 and the
+Details section.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">deconvSpatialDDLS(
+  object,
+  index.st,
+  normalize = TRUE,
+  scaling = "standardize",
+  k.spots = 4,
+  pca.space = TRUE,
+  fast.pca = TRUE,
+  pcs.num = 50,
+  pca.var = 0.8,
+  metric = "euclidean",
+  alpha.cutoff = "mean",
+  alpha.quantile = 0.5,
+  simplify.set = NULL,
+  simplify.majority = NULL,
+  use.generator = FALSE,
+  batch.size = 64,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p><code>SpatialDDLS</code> object with
+<code>trained.model</code> and <code>spatial.experiments</code> slots.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>index.st</code></td>
+<td>
+<p>Name or index of the dataset/slide stored in the
+<code>SpatialDDLS</code> object (<code>spatial.experiments</code> slot) to be
+deconvolute. If missing, all datasets will be deconvoluted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>normalize</code></td>
+<td>
+<p>Normalize data (logCPM) before deconvolution (<code>TRUE</code> by
+default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scaling</code></td>
+<td>
+<p>How to scale data before training. Options include
+<code>"standardize"</code> (values are centered around the mean with a unit
+standard deviation) or <code>"rescale"</code> (values are shifted and rescaled so
+that they end up ranging between 0 and 1). If <code>normalize = FALSE</code>,
+data are not scaled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k.spots</code></td>
+<td>
+<p>Number of nearest spots considered for each spot during
+regularization and simulation of extrinsic transcriptional profiles. The
+greater, the smoother the regularization will be (4 by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pca.space</code></td>
+<td>
+<p>Whether to use PCA space to calculate distances between
+intrinsic and extrinsic transcriptional profiles (<code>TRUE</code> by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fast.pca</code></td>
+<td>
+<p>Whether using the <span class="pkg">irlba</span> implementation. If <code>TRUE</code>,
+the number of PCs used is defined by the  parameter. If
+<code>FALSE</code>, the PCA implementation from the <span class="pkg">stats</span> R package is
+used instead (<code>TRUE</code> by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pcs.num</code></td>
+<td>
+<p>Number of PCs used to calculate distances if
+<code>fast.pca == TRUE</code> (50 by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pca.var</code></td>
+<td>
+<p>Threshold of explained
+variance (between 0.2 and 1) used to choose the number of PCs used if
+<code>pca.space == TRUE</code> and <code>fast.pca == FALSE</code> (0.8 by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metric</code></td>
+<td>
+<p>Metric used to measure distance/similarity between intrinsic
+and extrinsic transcriptional profiles. It may be <code>'euclidean'</code>,
+<code>'cosine'</code> or <code>'pearson'</code> (<code>'euclidean'</code> by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.cutoff</code></td>
+<td>
+<p>Minimum distance for regularization.
+It may be <code>'mean'</code> (spots with transcriptional distances shorter than
+the mean distance of the dataset will be modified) or <code>'quantile'</code>
+(spots with transcriptional distances shorter than the
+<code>alpha.quantile</code> quantile are used). <code>'mean'</code> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha.quantile</code></td>
+<td>
+<p>Quantile used if <code>alpha.cutoff == 'quantile'</code>.
+0.5 by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simplify.set</code></td>
+<td>
+<p>List specifying which cell types should be compressed
+into a new label with the name of the list item. See examples for details.
+If provided, results are stored in a list with <code>'raw'</code> and
+<code>'simpli.set'</code> elements.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>simplify.majority</code></td>
+<td>
+<p>List specifying which cell types should be
+compressed into the cell type with the highest proportion in each spot.
+Unlike <code>simplify.set</code>, no new labels are created. If provided, results
+are stored in a list with <code>'raw'</code> and <code>'simpli.majority'</code>
+elements.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>use.generator</code></td>
+<td>
+<p>Boolean indicating whether to use generators for
+prediction (<code>FALSE</code> by default).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>batch.size</code></td>
+<td>
+<p>Number of samples per batch. Only when <code>use.generator
+= TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Show informative messages during the execution.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The deconvolution process involves two main steps: predicting cell
+proportions based on transcriptome using the trained neural network model,
+and regularization of cell proportions based on the spatial location of each
+spot. In the regularization step, a mirrored version of each spot is
+simulated based on its N-nearest spots. We refer to these profiles as
+'extrinsic' profiles, whereas the transcriptional profiles of each spot are
+called 'intrinsic' profiles. Extrinsic profiles are used to regularize
+predictions based on intrinsic profiles. The rationale is that spots
+surrounded by transcriptionally similar spots should have similar cell
+compositions, and therefore predicted proportions can be smoothed to preserve
+their spatial consistency. On the other hand, spots surrounded by dissimilar
+spots cannot be predicted by their neighbors, and thus they can only be
+predicted by their own transcriptional profiles likely due to presenting very
+specific cell compositions.
+</p>
+<p>Regarding the working os <span class="pkg">SpatialDDLS</span>: first, extrinsic profiles are
+simulated based on the N-nearest spots for each spot by summing their
+transcriptomes. Distances between extrinsic and intrinsic profiles of each
+spot are calculated so that similar/dissimilar spots are identified. These
+two sets of transcriptional profiles are used as input for the trained neural
+network model, and according to the calculated distances, a weighted mean
+between the predicted proportions for each spot is calculated. Spots with
+distances between intrinsic and extrinsic profiles greater than
+<code>alpha.cutoff</code> are not regularized, whereas spots with distances less
+than <code>alpha.cutoff</code> contribute to the weighted mean. Weights are
+calculated by rescaling distances less than <code>alpha.cutoff</code> between 0
+and 0.5, so that the maximum extent to which a extrinsic profile can
+modified the predictions based on intrinsic profiles is 0.5 (a regular
+mean). For more details, see Mañanes et al., 2023.
+</p>
+<p>This function requires a <code>SpatialDDLS</code> object with a
+trained deep neural network model (<code>trained.model</code> slot, and the
+spatial transcriptomics datasets to be deconvoluted in the
+<code>spatial.experiments</code> slot. See <code>?createSpatialDDLSobject</code>
+or <code>?loadSTProfiles</code> for more details.
+</p>
+
+
+<h3>Value</h3>
+
+<p><code>SpatialDDLS</code> object with a <code>deconv.spots</code>
+slot. The output is a list containing 'Regularized', 'Intrinsic' and
+'Extrinsic' deconvoluted cell proportions, 'Distances' between intrinsic
+and extrinsic transcriptional profiles, and 'Weight.factors' with the
+final weights used to regularize intrinsic cell proportions. If
+<code>simplify.set</code> and/or <code>simplify.majority</code> are provided,
+the <code>deconv.spots</code> slot will contain a list with raw and simplified
+results.
+</p>
+
+
+<h3>References</h3>
+
+<p>Mañanes, D., Rivero-García, I., Jimenez-Carretero, D.,
+Torres, M., Sancho, D., Torroja, C., Sánchez-Cabo, F. (2023). SpatialDDLS:
+An R package to deconvolute spatial transcriptomics data using neural
+networks. biorxiv. doi: <a href="https://doi.org/10.1101/2023.08.31.555677">doi:10.1101/2023.08.31.555677</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>trainDeconvModel</code> <code>SpatialDDLS</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+set.seed(123)
+sce &lt;- SingleCellExperiment::SingleCellExperiment(
+  assays = list(
+    counts = matrix(
+     rpois(30, lambda = 5), nrow = 15, ncol = 20,
+      dimnames = list(paste0("Gene", seq(15)), paste0("RHC", seq(20)))
+    )
+  ),
+  colData = data.frame(
+    Cell_ID = paste0("RHC", seq(20)),
+    Cell_Type = sample(x = paste0("CellType", seq(6)), size = 20,
+                       replace = TRUE)
+  ),
+  rowData = data.frame(
+    Gene_ID = paste0("Gene", seq(15))
+  )
+)
+SDDLS &lt;- createSpatialDDLSobject(
+  sc.data = sce,
+  sc.cell.ID.column = "Cell_ID",
+  sc.gene.ID.column = "Gene_ID",
+  sc.filt.genes.cluster = FALSE
+)
+SDDLS &lt;- genMixedCellProp(
+  object = SDDLS,
+  cell.ID.column = "Cell_ID",
+  cell.type.column = "Cell_Type",
+  num.sim.spots = 50,
+  train.freq.cells = 2/3,
+  train.freq.spots = 2/3,
+  verbose = TRUE
+) 
+SDDLS &lt;- simMixedProfiles(SDDLS)
+# training of SDDLS model
+SDDLS &lt;- trainDeconvModel(
+  object = SDDLS,
+  batch.size = 15,
+  num.epochs = 5
+)
+# simulating spatial data
+ngenes &lt;- sample(3:40, size = 1)
+ncells &lt;- sample(10:40, size = 1)
+counts &lt;- matrix(
+  rpois(ngenes * ncells, lambda = 5), ncol = ncells,
+  dimnames = list(paste0("Gene", seq(ngenes)), paste0("Spot", seq(ncells)))
+)
+coordinates &lt;- matrix(
+  rep(c(1, 2), ncells), ncol = 2
+)
+st &lt;- SpatialExperiment::SpatialExperiment(
+  assays = list(counts = as.matrix(counts)),
+  rowData = data.frame(Gene_ID = paste0("Gene", seq(ngenes))),
+  colData = data.frame(Cell_ID = paste0("Spot", seq(ncells))),
+  spatialCoords = coordinates
+)
+SDDLS &lt;- loadSTProfiles(
+  object = SDDLS,
+  st.data = st,
+  st.spot.ID.column = "Cell_ID",
+  st.gene.ID.column = "Gene_ID"
+)
+# simplify arguments
+simplify &lt;- list(CellGroup1 = c("CellType1", "CellType2", "CellType4"),
+                 CellGroup2 = c("CellType3", "CellType5"))
+SDDLS &lt;- deconvSpatialDDLS(
+  object = SDDLS,
+  index.st = 1,
+  simplify.set = simplify, 
+  simplify.majority = simplify
+)
+
+</code></pre>
+
+
+</div>

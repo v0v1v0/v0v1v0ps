@@ -1,0 +1,188 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sbgp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Semiparametric Bayesian Gaussian processes</h2>
+
+<h3>Description</h3>
+
+<p>Monte Carlo sampling for Bayesian Gaussian process regression with an
+unknown (nonparametric) transformation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sbgp(
+  y,
+  locs,
+  X = NULL,
+  covfun_name = "matern_isotropic",
+  locs_test = locs,
+  X_test = NULL,
+  nn = 30,
+  emp_bayes = TRUE,
+  approx_g = FALSE,
+  nsave = 1000,
+  ngrid = 100
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code>n x 1</code> response vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>locs</code></td>
+<td>
+<p><code>n x d</code> matrix of locations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p><code>n x p</code> design matrix; if unspecified, use intercept only</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>covfun_name</code></td>
+<td>
+<p>string name of a covariance function; see ?GpGp</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>locs_test</code></td>
+<td>
+<p><code>n_test x d</code> matrix of locations
+at which predictions are needed; default is <code>locs</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_test</code></td>
+<td>
+<p><code>n_test x p</code> design matrix for test data;
+default is <code>X</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nn</code></td>
+<td>
+<p>number of nearest neighbors to use; default is 30
+(larger values improve the approximation but increase computing cost)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>emp_bayes</code></td>
+<td>
+<p>logical; if TRUE, use a (faster!) empirical Bayes
+approach for estimating the mean function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>approx_g</code></td>
+<td>
+<p>logical; if TRUE, apply large-sample
+approximation for the transformation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsave</code></td>
+<td>
+<p>number of Monte Carlo simulations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngrid</code></td>
+<td>
+<p>number of grid points for inverse approximations</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function provides Bayesian inference for a
+transformed Gaussian process model using Monte Carlo (not MCMC) sampling.
+The transformation is modeled as unknown and learned jointly
+with the regression function (unless <code>approx_g</code> = TRUE, which then uses
+a point approximation). This model applies for real-valued data, positive data, and
+compactly-supported data (the support is automatically deduced from the observed <code>y</code> values).
+The results are typically unchanged whether <code>laplace_approx</code> is TRUE/FALSE;
+setting it to TRUE may reduce sensitivity to the prior, while setting it to FALSE
+may speed up computations for very large datasets. For computational efficiency,
+the Gaussian process parameters are fixed at point estimates, and the latent Gaussian
+process is only sampled when <code>emp_bayes</code> = FALSE. However, the uncertainty
+from this term is often negligible compared to the observation errors, and the
+transformation serves as an additional layer of robustness.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list with the following elements:
+</p>
+
+<ul>
+<li> <p><code>coefficients</code> the estimated regression coefficients
+</p>
+</li>
+<li> <p><code>fitted.values</code> the posterior predictive mean at the test points <code>locs_test</code>
+</p>
+</li>
+<li> <p><code>fit_gp</code> the fitted <code>GpGp_fit</code> object, which includes
+covariance parameter estimates and other model information
+</p>
+</li>
+<li> <p><code>post_ypred</code>: <code>nsave x ntest</code> samples
+from the posterior predictive distribution at <code>locs_test</code>
+</p>
+</li>
+<li> <p><code>post_g</code>: <code>nsave</code> posterior samples of the transformation
+evaluated at the unique <code>y</code> values
+</p>
+</li>
+<li> <p><code>model</code>: the model fit (here, <code>sbgp</code>)
+</p>
+</li>
+</ul>
+<p>as well as the arguments passed in.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Simulate some data:
+n = 200 # sample size
+x = seq(0, 1, length = n) # observation points
+
+# Transform a noisy, periodic function:
+y = g_inv_bc(
+  sin(2*pi*x) + sin(4*pi*x) + rnorm(n, sd = .5),
+             lambda = .5) # Signed square-root transformation
+
+# Fit the semiparametric Bayesian Gaussian process:
+fit = sbgp(y = y, locs = x)
+names(fit) # what is returned
+coef(fit) # estimated regression coefficients (here, just an intercept)
+class(fit$fit_gp) # the GpGp object is also returned
+
+# Plot the model predictions (point and interval estimates):
+pi_y = t(apply(fit$post_ypred, 2, quantile, c(0.05, .95))) # 90% PI
+plot(x, y, type='n', ylim = range(pi_y,y),
+     xlab = 'x', ylab = 'y', main = paste('Fitted values and prediction intervals'))
+polygon(c(x, rev(x)),c(pi_y[,2], rev(pi_y[,1])),col='gray', border=NA)
+lines(x, y, type='p')
+lines(x, fitted(fit), lwd = 3)
+
+</code></pre>
+
+
+</div>

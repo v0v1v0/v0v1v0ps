@@ -1,0 +1,97 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>unweighted</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate the an unweighted summary statistic from a survey</h2>
+
+<h3>Description</h3>
+
+<p>Calculate unweighted summaries from a survey dataset, just as on
+a normal data.frame with <code>summarise</code>. Though it is
+possible to use regular functions directly, because the survey package
+doesn't always remove rows when filtering (instead setting the weight to 0),
+this can sometimes give bad results. See examples for more details.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">unweighted(...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>variables or expressions, calculated on the unweighted data.frame
+behind the <code>tbl_svy</code> object.</p>
+</td>
+</tr></table>
+<h3>Details</h3>
+
+<p>Uses tidy evaluation semantics and so if you want to use
+wrapper functions based on variable names, you must use
+tidy evaluation, see the examples here, documentation in
+nse-force, or the dplyr vignette called
+'programming' for more information.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(survey)
+library(dplyr)
+data(api)
+
+dstrata &lt;- apistrat %&gt;%
+  as_survey_design(strata = stype, weights = pw)
+
+dstrata %&gt;%
+  summarise(api99_unw = unweighted(mean(api99)),
+            n = unweighted(n()))
+
+dstrata %&gt;%
+  group_by(stype) %&gt;%
+  summarise(api_diff_unw = unweighted(mean(api00 - api99)))
+
+
+# Some survey designs, like ones with raked weights, are not removed
+# when filtered to preserve the structure. So if you don't use `unweighted()`
+# your results can be wrong.
+# Declare basic clustered design ----
+cluster_design &lt;- as_survey_design(
+  .data = apiclus1,
+  id = dnum,
+  weights = pw,
+  fpc = fpc
+)
+
+# Add raking weights for school type ----
+pop.types &lt;- data.frame(stype=c("E","H","M"), Freq=c(4421,755,1018))
+pop.schwide &lt;- data.frame(sch.wide=c("No","Yes"), Freq=c(1072,5122))
+
+raked_design &lt;- rake(
+  cluster_design,
+  sample.margins = list(~stype,~sch.wide),
+  population.margins = list(pop.types, pop.schwide)
+)
+
+raked_design %&gt;%
+filter(cname != "Alameda") %&gt;%
+  group_by(cname) %&gt;%
+  summarize(
+    direct_unw_mean = mean(api99),
+    wrapped_unw_mean = unweighted(mean(api99))
+  ) %&gt;%
+  filter(cname == "Alameda")
+
+# Notice how the results are different when using `unweighted()`
+
+</code></pre>
+
+
+</div>

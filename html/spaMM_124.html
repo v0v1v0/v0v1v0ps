@@ -1,0 +1,196 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>dopar</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Interface for parallel computations
+</h2>
+
+<h3>Description</h3>
+
+<p><code>dopar</code> and <code>combinepar</code> are interfaces primarily designed to apply some function <code>fn</code> in parallel on columns of a matrix, although other uses are possible. Depending on the <code>nb_cores</code> argument, parallel or serial computation is performed. A socket cluster is used by default for parallel computations, but a fork cluster can be requested on linux and alike operating systems by using argument <code>cluster_args=list(type="FORK")</code>.
+</p>
+<p><code>dopar</code> has been designed to provide by default a progress bar in all evaluations contexts. A drawback is that different procedures are called depending e.g. on the type of cluster, with different possible controls. In particular, <code>foreach</code> is called in some cases but not others, so non-trivial values of its <code>.combine</code> control are not always enforced. The alternative interface <code>combinepar</code> will always use <code>foreach</code>, and will still try to provide by default a progress bar but may fail to do so in some cases (see Details).     
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">dopar(newresp, fn, nb_cores = NULL, fit_env, 
+      control = list(.final=function(v) if( ! is.list(v[[1]])) {do.call(cbind,v)} else v), 
+      cluster_args = NULL, debug. = FALSE, iseed = NULL, 
+      showpbar = eval(spaMM.getOption("barstyle")), 
+      pretest_cores =NULL, ...)
+combinepar(newresp, fn, nb_cores = NULL, cluster=NULL, fit_env, 
+      control = list(.final=function(v) if( ! is.list(v[[1]])) {do.call(cbind,v)} else v), 
+      cluster_args = NULL, debug. = FALSE, iseed = NULL, 
+      showpbar = eval(spaMM.getOption("barstyle")), 
+      pretest_cores =NULL, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>newresp</code></td>
+<td>
+
+<p>A matrix on whose columns <code>fn</code> will be applied (e.g., as used internally in <span class="pkg">spaMM</span>, the return value of a <code>simulate.HLfit()</code> call); or an integer, then converted to a trivial matrix <code>matrix(seq(newresp),ncol=newresp,nrow=1)</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fn</code></td>
+<td>
+
+<p>Function whose first argument is named <code>y</code>. The function will be applied for <code>y</code> taken to be each column of <code>newresp</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nb_cores</code></td>
+<td>
+
+<p>Integer. Number of cores to use for parallel computations. If &gt;1 (and no cluster is provided by the <code>cluster</code> argument), a cluster of <code>nb_cores</code> nodes is created, used, and stopped on completion of the computation. Otherwise, no parallel computation is performed.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+
+<p>(for <code>combinepar</code> only): a cluster object (as returned by <code>parallel::makeCluster</code> or <code>parallel::makeForkCluster</code>). If this is used, the <code>nb_cores</code> and <code>cluster_args</code> arguments are ignored. The cluster is not stopped  on completion of the computation
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fit_env</code></td>
+<td>
+
+<p>(for socket clusters only:)  An environment, or a list, containing variables to be exported on the nodes of the cluster (by <code>parallel::clusterExport</code>); e.g., <code>list(bar=bar)</code> to pass object <code>bar</code> to each node. The argument <code>control(.errorhandling = "pass")</code>, below, is useful to find out missing variables.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+
+<p>A list following the <code>foreach</code> control syntax, even if <code>foreach</code> is not used. There are limitations when <code>dopar</code> (but not <code>combinepar</code>) is used, in all but the first case below:
+</p>
+
+<ol>
+<li>
+<p> for socket clusters, with <code>doSNOW</code> attached, <code>foreach</code> is called with default arguments including
+<code>i = 1:ncol(newresp), .inorder = TRUE, .errorhandling = "remove", .packages = "spaMM"</code>, and further arguments taken from the present function's <code>control</code> argument, which may also be used to override the defaults. For example, <code>.errorhandling = "pass"</code> is useful to get error messages from the nodes, and therefore <b>strongly recommended</b> when first experimenting with this function.     
+</p>
+</li>
+<li>
+<p> for socket clusters, with <code>doSNOW</code> <b>not</b> attached, <code>dopar</code> calls <code>pbapply</code> instead of <code>foreach</code> but <code>control$.packages</code> is still handled. The  result is still in the format returned in the first case, i.e. by <code>foreach</code>, taking the <code>control</code> argument into account. <code>pbapply</code> arguments may be passed through the ... argument. 
+</p>
+</li>
+<li>
+<p> if a fork cluster is used, <code>dopar</code> calls <code>mclapply</code> instead of <code>foreach</code>. <code>control$mc.silent</code> can be used to control the <code>mc.silent</code> argument of <code>mclapply</code>.
+</p>
+</li>
+<li>
+<p> (if <code>nb_cores=1</code> <code>dopar</code> calls <code>mclapply</code>).
+</p>
+</li>
+</ol>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster_args</code></td>
+<td>
+
+<p>A list of arguments passed to <code>parallel::makeCluster</code>. E.g., <code>outfile="log.txt"</code> may be useful to collect output from the nodes, and <code>type="FORK"</code> to force a fork cluster on linux(-alikes).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>debug.</code></td>
+<td>
+
+<p>(for socket clusters only:)   For debugging purposes. Effect, if any, is to be defined by the <code>fn</code> as provided by the user.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iseed</code></td>
+<td>
+
+<p>(all parallel contexts:) Integer, or NULL. If an integer, it is used as the <code>iseed</code> argument of <code>clusterSetRNGStream</code> to initialize <code>"L'Ecuyer-CMRG"</code> random-number generator (see Details). If <code>iseed</code> is <code>NULL</code>, the default generator is selected on each node, where its seed is not controlled. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>showpbar</code></td>
+<td>
+
+<p>(for socket clusters only:) Controls display of progress bar. See <code>barstyle</code> option for details.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pretest_cores</code></td>
+<td>
+
+<p>(for socket clusters only:) A function to run on the cores before running <code>fn</code>. It may be used to check that all arguments of the <code>fn</code> can be evaluated in the cores' environments (the internal function <code>.pretest_fn_on_cores</code> provides an example).   
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+
+<p>Further arguments to be passed (unevaluated) to <code>fn</code>, if not caught on the way by <code>pbapply</code> (which means that different results may in principle be obtained depending on the mode of parallelisation, which is the kind of design issues that <code>combinepar</code> aims to resolve by always calling <code>foreach</code>).
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Control of random numbers through the <code>"L'Ecuyer-CMRG"</code> generator and the <code>iseed</code> argument is not sufficient for consistent results when the <code>doSNOW</code> parallel backend is used, so if you really need such control in a <code>fn</code> using random numbers, do not use <code>doSNOW</code>. Yet, it is fine to use <code>doSNOW</code> for bootstrap procedures in spaMM, because the fitting functions do not use random numbers: only sample simulation uses them, and it is not performed in parallel.
+
+</p>
+<p><code>combinepar</code> calls <code>foreach::%dopar%</code> which assumes that a cluster has been declared using a suitable backend such as <code>doSNOW</code>, <code>doFuture</code> or <code>doParallel</code>. If only the latter is available, no progress bar is displayed. A method to render a bar when <code>doParallel</code> is used can be found on the Web, but that bar is not a valid progress bar as it is displayed only after all the processes have been run.     
+</p>
+
+
+<h3>Value</h3>
+
+<p>The result of calling <code>foreach</code>, <code>pbapply</code> or <code>mclapply</code>, as dependent on the <code>control</code> argument and the interface used. A side-effect of either interface is to show a progress bar whose character informs about the type of parallelisation performed: a <code>"F"</code> or default <code>"="</code> character for fork clusters, a <code>"P"</code> for parallel computation via <code>foreach</code> and <code>doSNOW</code>, a <code>"p"</code> for parallel computation via <code>foreach</code> and <code>doFuture</code> or via <code>pbapply</code>, and <code>"s"</code> for serial computation <code>foreach</code> and <code>doParallel</code> or via <code>pbapply</code>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>dofuture</code> is yet another interface with (essentially) the same functionalities as <code>dopar</code>. See the documentation of the <code>wrap_parallel</code> option for its differences from <code>dopar</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## See source code of spaMM_boot()
+
+## Not run: 
+# Useless function, but requiring some argument beyond the first
+foo &lt;- function(y, somearg, ...) {
+  if ( is.null(somearg) || TRUE ) length(y)
+}
+
+# Whether FORK can be used depends on OS and whether Rstudio is used:
+dopar(matrix(1,ncol=4,nrow=3), foo, fit_env=list(), somearg=NULL, 
+  nb_cores=2, cluster_args=list(type="FORK"))
+
+## End(Not run)
+
+
+</code></pre>
+
+
+</div>

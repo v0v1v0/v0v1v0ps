@@ -1,0 +1,134 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>shap.prep</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prepare SHAP values into long format for plotting</h2>
+
+<h3>Description</h3>
+
+<p>Produce a dataset of 6 columns: ID of each observation, variable name, SHAP
+value, variable values (feature value), deviation of the feature value for
+each observation (for coloring the point), and the mean SHAP values for each
+variable. You can view this example dataset included in the package:
+<code>shap_long_iris</code>
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">shap.prep(
+  xgb_model = NULL,
+  shap_contrib = NULL,
+  X_train,
+  top_n = NULL,
+  var_cat = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>xgb_model</code></td>
+<td>
+<p>an XGBoost (or LightGBM) model object, will derive the SHAP values from it</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shap_contrib</code></td>
+<td>
+<p>optional to directly supply a SHAP values dataset. If
+supplied, it will overwrite the <code>xgb_model</code> if <code>xgb_model</code> is also supplied</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_train</code></td>
+<td>
+<p>the dataset of predictors used to calculate SHAP values, it
+provides feature values to the plot, must be supplied</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>top_n</code></td>
+<td>
+<p>to choose top_n variables ranked by mean|SHAP| if needed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var_cat</code></td>
+<td>
+<p>if supplied, will provide long format data, grouped by this
+categorical variable</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The ID variable is added for each observation in the <code>shap_contrib</code> dataset
+for better tracking, it is created as <code>1:nrow(shap_contrib)</code> before melting
+<code>shap_contrib</code> into long format.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a long-format data.table, named as <code>shap_long</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("iris")
+X1 = as.matrix(iris[,-5])
+mod1 = xgboost::xgboost(
+  data = X1, label = iris$Species, gamma = 0, eta = 1,
+  lambda = 0, nrounds = 1, verbose = FALSE, nthread = 1)
+
+# shap.values(model, X_dataset) returns the SHAP
+# data matrix and ranked features by mean|SHAP|
+shap_values &lt;- shap.values(xgb_model = mod1, X_train = X1)
+shap_values$mean_shap_score
+shap_values_iris &lt;- shap_values$shap_score
+
+# shap.prep() returns the long-format SHAP data from either model or
+shap_long_iris &lt;- shap.prep(xgb_model = mod1, X_train = X1)
+# is the same as: using given shap_contrib
+shap_long_iris &lt;- shap.prep(shap_contrib = shap_values_iris, X_train = X1)
+
+# **SHAP summary plot**
+shap.plot.summary(shap_long_iris, scientific = TRUE)
+shap.plot.summary(shap_long_iris, x_bound  = 1.5, dilute = 10)
+
+# Alternatives options to make the same plot:
+# option 1: from the xgboost model
+shap.plot.summary.wrap1(mod1, X = as.matrix(iris[,-5]), top_n = 3)
+
+# option 2: supply a self-made SHAP values dataset
+# (e.g. sometimes as output from cross-validation)
+shap.plot.summary.wrap2(shap_score = shap_values_iris, X = X1, top_n = 3)
+####
+#
+# use `var_cat` to add a categorical variable, output the long-format data differently:
+library("data.table")
+data("iris")
+set.seed(123)
+iris$Group &lt;- 0
+iris[sample(1:nrow(iris), nrow(iris)/2), "Group"] &lt;- 1
+
+data.table::setDT(iris)
+X_train = as.matrix(iris[,c(colnames(iris)[1:4], "Group"), with = FALSE])
+mod1 = xgboost::xgboost(
+  data = X_train, label = iris$Species, gamma = 0, eta = 1,
+  lambda = 0, nrounds = 1, verbose = FALSE, nthread = 1)
+
+shap_long2 &lt;- shap.prep(xgb_model = mod1, X_train = X_train, var_cat = "Group")
+# **SHAP summary plot**
+shap.plot.summary(shap_long2, scientific = TRUE) +
+  ggplot2::facet_wrap(~ Group)
+</code></pre>
+
+
+</div>

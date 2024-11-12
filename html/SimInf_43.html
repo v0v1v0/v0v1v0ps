@@ -1,0 +1,128 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>pfilter</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bootstrap particle filter</h2>
+
+<h3>Description</h3>
+
+<p>The bootstrap filtering algorithm. Systematic resampling is
+performed at each observation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">pfilter(model, obs_process, data, npart)
+
+## S4 method for signature 'SimInf_model'
+pfilter(model, obs_process, data, npart)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>The <code>SimInf_model</code> object to simulate data from.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obs_process</code></td>
+<td>
+<p>Specification of the stochastic observation
+process. The <code>obs_process</code> can be specified as a
+<code>formula</code> if the model contains only one node and there
+is only one data point for each <code>time</code> in <code>data</code>.
+The left hand side of the formula must match a column name in
+the <code>data</code> data.frame and the right hand side of the
+formula is a character specifying the distribution of the
+observation process, for example, <code>Iobs ~ poisson(I)</code>.
+The following distributions are supported: <code>x ~
+binomial(size, prob)</code>, <code>x ~ poisson(rate)</code> and <code>x ~
+uniform(min, max)</code>. The observation process can also be a
+function to evaluate the probability density of the
+observations given the simulated states. The first argument
+passed to the <code>obs_process</code> function is the result from a
+run of the model and it contains one trajectory with simulated
+data for a time-point. The second argument to the
+<code>obs_process</code> function is a <code>data.frame</code> containing
+the rows for the specific time-point that the function is
+called for. Note that the function must return the log of the
+density.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A <code>data.frame</code> holding the time series data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>npart</code></td>
+<td>
+<p>An integer with the number of particles (&gt; 1) to use
+at each timestep.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>SimInf_pfilter</code> object.
+</p>
+
+
+<h3>References</h3>
+
+<p>N. J. Gordon, D. J. Salmond, and A. F. M. Smith. Novel Approach to Nonlinear/Non-Gaussian Bayesian State Estimation. <em>Radar and Signal Processing, IEE Proceedings F</em>, <strong>140</strong>(2) 107–113, 1993. <a href="https://doi.org/10.1049/ip-f-2.1993.0015">doi:10.1049/ip-f-2.1993.0015</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+## Let us consider an SIR model in a closed population with N = 100
+## individuals of whom one is initially infectious and the rest are
+## susceptible. First, generate one realisation (with a specified
+## seed) from the model with known parameters 'beta = 0.16' and
+## 'gamma = 0.077'. Then, use 'pfilter' to apply the bootstrap
+## particle algorithm on the simulated data.
+model &lt;- SIR(u0 = data.frame(S = 99, I = 1, R = 0),
+             tspan = seq(1, 100, by = 3),
+             beta = 0.16,
+             gamma = 0.077)
+
+## Run the SIR model to generate simulated observed data for the
+## number of infected individuals.
+set.seed(22)
+infected &lt;- trajectory(run(model), "I")[, c("time", "I")]
+colnames(infected) &lt;- c("time", "Iobs")
+
+## Use a Poison observation process for the infected individuals, such
+## that 'Iobs ~ poison(I + 1e-6)'. A small constant '1e-6' is added to
+## prevent numerical errors, since the simulated counts 'I' could be
+## zero, which would result in the Poisson rate parameter being zero,
+## which violates the conditions of the Poisson distribution. Use 1000
+## particles.
+pf &lt;- pfilter(model,
+              obs_process = Iobs ~ poisson(I + 1e-6),
+              data = infected,
+              npart = 1000)
+
+## Print a brief summary.
+pf
+
+## Compare the number infected 'I' in the filtered trajectory with the
+## infected 'Iobs' in the observed data.
+plot(pf, ~I)
+lines(Iobs ~ time, infected, col = "blue", lwd = 2, type = "s")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

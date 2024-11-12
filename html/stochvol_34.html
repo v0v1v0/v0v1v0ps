@@ -1,0 +1,334 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>svsample_fast_cpp</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bindings to <code>C++</code> Functions in <code>stochvol</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>All the heavy lifting in <code>stochvol</code> is implemented in <code>C++</code>
+with the help of <code>R</code> packages <code>Rcpp</code> and <code>RcppArmadillo</code>.
+These functions call the MCMC samplers in <code>C++</code> directly without any
+any validation and transformations, expert use only!
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">svsample_fast_cpp(
+  y,
+  draws = 1,
+  burnin = 0,
+  designmatrix = matrix(NA),
+  priorspec = specify_priors(),
+  thinpara = 1,
+  thinlatent = 1,
+  keeptime = "all",
+  startpara,
+  startlatent,
+  keeptau = !inherits(priorspec$nu, "sv_infinity"),
+  print_settings = list(quiet = TRUE, n_chains = 1, chain = 1),
+  correct_model_misspecification = FALSE,
+  interweave = TRUE,
+  myoffset = 0,
+  fast_sv = get_default_fast_sv()
+)
+
+svsample_general_cpp(
+  y,
+  draws = 1,
+  burnin = 0,
+  designmatrix = matrix(NA),
+  priorspec = specify_priors(),
+  thinpara = 1,
+  thinlatent = 1,
+  keeptime = "all",
+  startpara,
+  startlatent,
+  keeptau = !inherits(priorspec$nu, "sv_infinity"),
+  print_settings = list(quiet = TRUE, n_chains = 1, chain = 1),
+  correct_model_misspecification = FALSE,
+  interweave = TRUE,
+  myoffset = 0,
+  general_sv = get_default_general_sv(priorspec)
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>numeric vector of the observations</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>draws</code></td>
+<td>
+<p>single positive integer, the number of draws to
+return (after the burn-in)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>burnin</code></td>
+<td>
+<p>single positive integer, length of warm-up
+period, this number of draws are discarded from the beginning</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>designmatrix</code></td>
+<td>
+<p>numeric matrix of covariates. Dimensions:
+<code>length(y)</code> times the number of covariates. If there are
+no covariates then this should be <code>matrix(NA)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorspec</code></td>
+<td>
+<p>a <code>priorspec</code> object created by
+<code>specify_priors</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thinpara</code></td>
+<td>
+<p>single number greater or equal to 1, coercible to integer.
+Every <code>thinpara</code>th parameter draw is kept and returned. The default
+value is 1, corresponding to no thinning of the parameter draws i.e. every
+draw is stored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>thinlatent</code></td>
+<td>
+<p>single number greater or equal to 1, coercible to integer.
+Every <code>thinlatent</code>th latent variable draw is kept and returned. The
+default value is 1, corresponding to no thinning of the latent variable
+draws, i.e. every draw is kept.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keeptime</code></td>
+<td>
+<p>Either 'all' (the default) or 'last'. Indicates which latent
+volatility draws should be stored.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startpara</code></td>
+<td>
+<p>named list, containing the starting values
+for the parameter draws. It must contain
+elements
+</p>
+
+<ul>
+<li>
+<p>mu: an arbitrary numerical value
+</p>
+</li>
+<li>
+<p>phi: real number between <code>-1</code> and <code>1</code>
+</p>
+</li>
+<li>
+<p>sigma: a positive real number
+</p>
+</li>
+<li>
+<p>nu: a number larger than <code>2</code>; can be <code>Inf</code>
+</p>
+</li>
+<li>
+<p>rho: real number between <code>-1</code> and <code>1</code>
+</p>
+</li>
+<li>
+<p>beta: a numeric vector of the same length as the number of covariates
+</p>
+</li>
+<li>
+<p>latent0: a single number, the initial value for <code>h0</code></p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>startlatent</code></td>
+<td>
+<p>vector of length <code>length(y)</code>,
+containing the starting values for the latent log-volatility draws.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keeptau</code></td>
+<td>
+<p>Logical value indicating whether the 'variance inflation
+factors' should be stored (used for the sampler with conditional t
+innovations only). This may be useful to check at what point(s) in time the
+normal disturbance had to be 'upscaled' by a mixture factor and when the
+series behaved 'normally'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>print_settings</code></td>
+<td>
+<p>List of three elements:
+</p>
+
+<ul>
+<li>
+<p>quiet: logical value indicating whether the progress bar and other
+informative output during sampling should be omitted
+</p>
+</li>
+<li>
+<p>n_chains: number of independent MCMC chains
+</p>
+</li>
+<li>
+<p>chain: index of this chain</p>
+</li>
+</ul>
+<p>Please note that this function does not run multiple independent chains
+but <code>svsample</code> offers different printing functionality depending on
+whether it is executed as part of several MCMC chains in parallel
+(chain specific messages) or simply as a single chain (progress bar).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>correct_model_misspecification</code></td>
+<td>
+<p>Logical value. If <code>FALSE</code>,
+then auxiliary mixture sampling is used to sample the latent
+states. If <code>TRUE</code>, extra computations are made to correct for model
+misspecification either ex-post by reweighting or on-line using a
+Metropolis-Hastings step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interweave</code></td>
+<td>
+<p>Logical value. If <code>TRUE</code>,
+then ancillarity-sufficiency interweaving strategy (ASIS) is applied
+to improve on the sampling efficiency for the parameters.
+Otherwise one parameterization is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>myoffset</code></td>
+<td>
+<p>Single non-negative number that is used in
+<code>log(y^2 + myoffset)</code> to prevent <code>-Inf</code> values in the auxiliary
+mixture sampling scheme.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fast_sv</code></td>
+<td>
+<p>named list of expert settings. We recommend the use of <code>get_default_fast_sv</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>general_sv</code></td>
+<td>
+<p>named list of expert settings. We recommend the use of <code>get_default_general_sv</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The sampling functions are separated into fast SV and general SV. See more details
+in the sections below.
+</p>
+
+
+<h3>Fast SV</h3>
+
+<p>Fast SV was developed in Kastner and Fruehwirth-Schnatter (2014). Fast SV estimates an
+approximate SV model without leverage, where the approximation comes in through
+auxiliary mixture approximations to the exact SV model. The sampler uses
+the ancillarity-sufficiency interweaving strategy (ASIS) to improve on the sampling
+efficiency of the model parameters, and it employs all-without-a-loop (AWOL)
+for computationally efficient Kalman filtering of the conditionally Gaussian state space.
+Correction for model misspecification happens as a post-processing step.
+</p>
+<p>Fast SV employs sampling strategies that have been fine-tuned and specified for
+vanilla SV (no leverage), and hence it can be fast and efficient but also more limited
+in its feature set. The conditions for the fast SV sampler: <code>rho == 0</code>; <code>mu</code>
+has either a normal prior or it is also constant <code>0</code>; the prior for <code>phi</code>
+is a beta distribution; the prior for <code>sigma^2</code> is either a gamma distribution
+with shape <code>0.5</code> or a mean- and variance-matched inverse gamma distribution;
+either <code>keeptime == 'all'</code> or <code>correct_model_misspecification == FALSE</code>.
+These criteria are NOT VALIDATED by fast SV on the <code>C++</code> level!
+</p>
+
+
+<h3>General SV</h3>
+
+<p>General SV also estimates an
+approximate SV model without leverage, where the approximation comes in through
+auxiliary mixture approximations to the exact SV model. The sampler uses
+both ASIS and AWOL.
+</p>
+<p>General SV employs adapted random walk Metropolis-Hastings as the proposal for
+the parameters <code>mu</code>, <code>phi</code>, <code>sigma</code>, and <code>rho</code>. Therefore,
+more general prior distributions are allowed in this case.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Draw one sample using fast SV and general SV
+y &lt;- svsim(40)$y
+params &lt;- list(mu = -10, phi = 0.9, sigma = 0.1,
+               nu = Inf, rho = 0, beta = NA,
+               latent0 = -10)
+res_fast &lt;- svsample_fast_cpp(y,
+  startpara = params, startlatent = rep(-10, 40))
+res_gen &lt;- svsample_general_cpp(y,
+  startpara = params, startlatent = rep(-10, 40))
+
+# Embed SV in another sampling scheme
+## vanilla SV
+len &lt;- 40L
+draws &lt;- 1000L
+burnin &lt;- 200L
+param_store &lt;- matrix(NA, draws, 3,
+                      dimnames = list(NULL,
+                                      c("mu", "phi", "sigma")))
+startpara &lt;- list(mu = 0, phi = 0.9, sigma = 0.1,
+                  nu = Inf, rho = 0, beta = NA,
+                  latent0 = 0)
+startlatent &lt;- rep(0, len)
+for (i in seq_len(burnin+draws)) {
+  # draw the data in the bigger sampling scheme
+  # now we simulate y from vanilla SV
+  y &lt;- svsim(len, mu = 0, phi = 0.9, sigma = 0.1)$y
+  # call SV sampler
+  res &lt;- svsample_fast_cpp(y, startpara = startpara,
+                           startlatent = startlatent)
+  # administrate values
+  startpara[c("mu","phi","sigma")] &lt;-
+    as.list(res$para[, c("mu", "phi", "sigma")])
+  startlatent &lt;- drop(res$latent)
+  # store draws after the burnin
+  if (i &gt; burnin) {
+    param_store[i-burnin, ] &lt;-
+      res$para[, c("mu", "phi", "sigma")]
+  }
+}
+### quick look at the traceplots
+ts.plot(param_store, col = 1:3)
+
+</code></pre>
+
+
+</div>

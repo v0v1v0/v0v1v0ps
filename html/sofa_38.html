@@ -1,0 +1,176 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>doc_create</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create documents to a database.</h2>
+
+<h3>Description</h3>
+
+<p>Create documents to a database.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">doc_create(cushion, dbname, doc, docid = NULL, how = "rows", as = "list", ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>cushion</code></td>
+<td>
+<p>A <code>Cushion</code> object. Required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dbname</code></td>
+<td>
+<p>Database name3</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>doc</code></td>
+<td>
+<p>Document content, can be character string or a list.
+The character type can be XML as well, if embedded in JSON. When
+the document is retrieved via <code>doc_get()</code>, the XML is given back and
+you can parse it as normal.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>docid</code></td>
+<td>
+<p>Document ID</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>how</code></td>
+<td>
+<p>(character) One of rows (default) or columns. If rows, each row
+becomes a separate document; if columns, each column becomes a separate
+document.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>as</code></td>
+<td>
+<p>(character) One of list (default) or json</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Curl args passed on to <code>HttpClient</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Documents can have attachments just like email. There are two ways
+to use attachments: the first one is via a separate REST call
+(see <code>doc_attach_create()</code>); the second is inline within your
+document, you can do so with this fxn. See
+https://docs.couchdb.org/en/latest/api/document/attachments.html for help
+on formatting json appropriately.
+</p>
+<p>Note that you can create documents from a data.frame with this function,
+where each row or column is a separate document. However, this function
+does not use the bulk API
+<a href="https://couchdb.readthedocs.org/en/latest/api/database/bulk-api.html#db-bulk-docs">https://couchdb.readthedocs.org/en/latest/api/database/bulk-api.html#db-bulk-docs</a>
+</p>
+
+<ul><li>
+<p> see <code>db_bulk_create()</code> and <code>db_bulk_update()</code> to
+create or update documents with the bulk API - which should be much faster
+for a large number of documents.
+</p>
+</li></ul>
+<h3>Value</h3>
+
+<p>JSON as a character string or a list (determined by the
+<code>as</code> parameter)
+</p>
+
+
+<h3>Digits after the decimal</h3>
+
+<p>If you have any concern about number of digits after the decimal
+in your documents, make sure to look at <code>digits</code> in your R options.
+The default value is 7 (see options for more informnation). You
+can set the value you like with e.g., <code>options(digits = 10)</code>, and
+get what <code>digits</code> is set to with <code>getOption("digits")</code>.
+</p>
+<p>Note that in <code>doc_create()</code> we convert your document to JSON with
+<code>jsonlite::toJSON()</code> if given as a list, which has a <code>digits</code> parameter.
+We pass <code>getOption("digits")</code> to the <code>digits</code> parameter in
+<code>jsonlite::toJSON()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+user &lt;- Sys.getenv("COUCHDB_TEST_USER")
+pwd &lt;- Sys.getenv("COUCHDB_TEST_PWD")
+(x &lt;- Cushion$new(user=user, pwd=pwd))
+
+if ("sofadb" %in% db_list(x)) {
+  invisible(db_delete(x, dbname="sofadb"))
+}
+db_create(x, 'sofadb')
+
+# write a document WITH a name (uses PUT)
+doc1 &lt;- '{"name": "drink", "beer": "IPA", "score": 5}'
+doc_create(x, dbname="sofadb", doc1, docid="abeer")
+doc_create(x, dbname="sofadb", doc1, docid="morebeer", as='json')
+doc_get(x, dbname = "sofadb", docid = "abeer")
+## with factor class values
+doc2 &lt;- list(name = as.factor("drink"), beer = "stout", score = 4)
+doc_create(x, doc2, dbname="sofadb", docid="nextbeer", as='json')
+doc_get(x, dbname = "sofadb", docid = "nextbeer")
+
+# write a json document WITHOUT a name (uses POST)
+doc2 &lt;- '{"name": "food", "icecream": "rocky road"}'
+doc_create(x, doc2, dbname="sofadb")
+doc3 &lt;- '{"planet": "mars", "size": "smallish"}'
+doc_create(x, doc3, dbname="sofadb")
+## assigns a UUID instead of a user given name
+db_alldocs(x, dbname = "sofadb")
+
+# write an xml document WITH a name (uses PUT). xml is written as xml in
+# couchdb, just wrapped in json, when you get it out it will be as xml
+doc4 &lt;- "&lt;top&gt;&lt;a/&gt;&lt;b/&gt;&lt;c&gt;&lt;d/&gt;&lt;e&gt;bob&lt;/e&gt;&lt;/c&gt;&lt;/top&gt;"
+doc_create(x, doc4, dbname="sofadb", docid="somexml")
+doc_get(x, dbname = "sofadb", docid = "somexml")
+
+# You can pass in lists that autoconvert to json internally
+doc1 &lt;- list(name = "drink", type = "soda", score = 9)
+doc_create(x, dbname="sofadb", doc1, docid="gooddrink")
+
+# Write directly from a data.frame
+## Each row or column becomes a separate document
+### by rows
+if ("test" %in% db_list(x)) {
+  invisible(db_delete(x, dbname="test"))
+}
+db_create(x, dbname = "test")
+doc_create(x, mtcars, dbname="test", how="rows")
+doc_create(x, mtcars, dbname="test", how="columns")
+
+if ("testiris" %in% db_list(x)) {
+  invisible(db_delete(x, dbname="testiris"))
+}
+db_create(x, dbname = "testiris")
+head(iris)
+doc_create(x, iris, dbname = "testiris")
+
+## End(Not run)
+</code></pre>
+
+
+</div>

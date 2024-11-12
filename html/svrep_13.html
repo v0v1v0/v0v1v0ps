@@ -1,0 +1,137 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>estimate_boot_sim_cv</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimate the bootstrap simulation error</h2>
+
+<h3>Description</h3>
+
+<p>Estimates the bootstrap simulation error, expressed as a "simulation coefficient of variation" (CV).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">estimate_boot_sim_cv(svrepstat)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>svrepstat</code></td>
+<td>
+<p>An estimate obtained from a bootstrap replicate survey design object,
+with a function such as <code>svymean(..., return.replicates = TRUE)</code> or <code>withReplicates(..., return.replicates = TRUE)</code>.</p>
+</td>
+</tr></table>
+<h3>Value</h3>
+
+<p>A data frame with one row for each statistic.
+The column <code>STATISTIC</code> gives the name of the statistic.
+The column <code>SIMULATION_CV</code> gives the estimated simulation CV of the statistic.
+The column <code>N_REPLICATES</code> gives the number of bootstrap replicates.
+</p>
+
+
+<h3>Statistical Details</h3>
+
+<p>Unlike other replication methods such as the jackknife or balanced repeated replication,
+the bootstrap variance estimator's precision can always be improved by using a
+larger number of replicates, as the use of only a finite number of bootstrap replicates
+introduces simulation error to the variance estimation process.
+Simulation error can be measured as a "simulation coefficient of variation" (CV), which is
+the ratio of the standard error of a bootstrap estimator to the expectation of that bootstrap estimator,
+where the expectation and standard error are evaluated with respect to the bootstrapping process
+given the selected sample.
+</p>
+<p>For a statistic <code class="reqn">\hat{\theta}</code>, the simulation CV of the bootstrap variance estimator
+<code class="reqn">v_{B}(\hat{\theta})</code> based on <code class="reqn">B</code> replicate estimates <code class="reqn">\hat{\theta}^{\star}_1,\dots,\hat{\theta}^{\star}_B</code> is defined as follows:
+</p>
+<p style="text-align: center;"><code class="reqn">
+   CV_{\star}(v_{B}(\hat{\theta})) = \frac{\sqrt{var_{\star}(v_B(\hat{\theta}))}}{E_{\star}(v_B(\hat{\theta}))} = \frac{CV_{\star}(E_2)}{\sqrt{B}}
+ </code>
+</p>
+
+<p>where
+</p>
+<p style="text-align: center;"><code class="reqn">
+   E_2 = (\hat{\theta}^{\star} - \hat{\theta})^2
+ </code>
+</p>
+
+<p style="text-align: center;"><code class="reqn">
+   CV_{\star}(E_2) = \frac{\sqrt{var_{\star}(E_2)}}{E_{\star}(E_2)}
+ </code>
+</p>
+
+<p>and <code class="reqn">var_{\star}</code> and <code class="reqn">E_{\star}</code> are evaluated with respect to
+the bootstrapping process, given the selected sample.
+<br><br>
+The simulation CV, denoted <code class="reqn">CV_{\star}(v_{B}(\hat{\theta}))</code>, is estimated for a given number of replicates <code class="reqn">B</code>
+by estimating <code class="reqn">CV_{\star}(E_2)</code> using observed values and dividing this by <code class="reqn">\sqrt{B}</code>. If the bootstrap errors
+are assumed to be normally distributed, then <code class="reqn">CV_{\star}(E_2)=\sqrt{2}</code> and so <code class="reqn">CV_{\star}(v_{B}(\hat{\theta}))</code> would not need to be estimated.
+Using observed replicate estimates to estimate the simulation CV instead of assuming normality allows simulation CV to be
+used for a a wide array of bootstrap methods.
+</p>
+
+
+<h3>References</h3>
+
+<p>See Section 3.3 and Section 8 of Beaumont and Patak (2012) for details and an example where the simulation CV is used
+to determine the number of bootstrap replicates needed for various alternative bootstrap methods in an empirical illustration.
+</p>
+<p>Beaumont, J.-F. and Z. Patak. (2012),
+"On the Generalized Bootstrap for Sample Surveys with Special Attention to Poisson Sampling."
+<strong>International Statistical Review</strong>, <em>80</em>: 127-148. <a href="https://doi.org/10.1111/j.1751-5823.2011.00166.x">doi:10.1111/j.1751-5823.2011.00166.x</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Use <code>estimate_boot_reps_for_target_cv</code> to help choose the number of bootstrap replicates.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+set.seed(2022)
+
+# Create an example bootstrap survey design object ----
+library(survey)
+data('api', package = 'survey')
+
+boot_design &lt;- svydesign(id=~1,strata=~stype, weights=~pw,
+                         data=apistrat, fpc=~fpc) |&gt;
+ svrep::as_bootstrap_design(replicates = 5000)
+
+# Calculate estimates of interest and retain estimates from each replicate ----
+
+estimated_means_and_proportions &lt;- svymean(x = ~ api00 + api99 + stype, design = boot_design,
+                                           return.replicates = TRUE)
+custom_statistic &lt;- withReplicates(design = boot_design,
+                                   return.replicates = TRUE,
+                                   theta = function(wts, data) {
+                                      numerator &lt;- sum(data$api00 * wts)
+                                      denominator &lt;- sum(data$api99 * wts)
+                                      statistic &lt;- numerator/denominator
+                                      return(statistic)
+                                   })
+# Estimate simulation CV of bootstrap estimates ----
+
+  estimate_boot_sim_cv(
+    svrepstat = estimated_means_and_proportions
+  )
+
+  estimate_boot_sim_cv(
+    svrepstat = custom_statistic
+  )
+
+## End(Not run)
+</code></pre>
+
+
+</div>

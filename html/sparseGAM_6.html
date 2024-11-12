@@ -1,0 +1,196 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>grpreg.gamma</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Group-regularized Gamma Regression</h2>
+
+<h3>Description</h3>
+
+<p>This function implements group-regularized gamma regression with a known shape parameter <code class="reqn">\nu</code> and the log link. In gamma regression, we assume that <code class="reqn">y_i \sim Gamma(\mu_i, \nu)</code>, where
+</p>
+<p style="text-align: center;"><code class="reqn">f(y_i | \mu_i, \nu ) = \frac{1}{\Gamma(\nu)} (\frac{\nu}{\mu_i})^{\nu} \exp(-\frac{\nu}{\mu_i}y_i) y_i^{\nu-1}, y &gt; 0.</code>
+</p>
+
+<p>Then <code class="reqn">E(y_i) = \mu_i</code>, and we relate <code class="reqn">\mu_i</code> to a set of <code class="reqn">p</code> covariates <code class="reqn">x_i</code> through the log link,
+</p>
+<p style="text-align: center;"><code class="reqn">\log(\mu_i) = \beta_0 + x_i^T \beta, i=1,..., n</code>
+</p>
+
+<p>If the covariates in each <code class="reqn">x_i</code> are grouped according to known groups <code class="reqn">g=1, ..., G</code>, then this function may estimate some of the <code class="reqn">G</code> groups of coefficients as all zero, depending on the amount of regularization. 
+</p>
+<p>Our implementation for regularized gamma regression is based on the least squares approximation approach of Wang and Leng (2007), and hence, the function does not allow the total number of covariates <code class="reqn">p</code> to be greater than sample size.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">grpreg.gamma(y, X, X.test, groups, gamma.shape=1, 
+             penalty=c("gLASSO","gSCAD","gMCP"),
+             weights, taper, nlambda=100, lambda, max.iter=10000, tol=1e-4)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code class="reqn">n \times 1</code> vector of responses for training data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p><code class="reqn">n \times p</code> design matrix for training data, where the <code class="reqn">j</code>th column of <code>X</code> corresponds to the <code class="reqn">j</code>th overall covariate.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X.test</code></td>
+<td>
+<p><code class="reqn">n_{test} \times p</code> design matrix for test data to calculate predictions. <code>X.test</code> must have the <em>same</em> number of columns as <code>X</code>, but not necessarily the same number of rows. If <em>no</em> test data is provided or if in-sample predictions are desired, then the function automatically sets <code>X.test=X</code> in order to calculate <em>in-sample</em> predictions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>groups</code></td>
+<td>
+<p><code class="reqn">p</code>-dimensional vector of group labels. The <code class="reqn">j</code>th entry in <code>groups</code> should contain either the group number <em>or</em> the name of the factor level that the <code class="reqn">j</code>th covariate belongs to. <code>groups</code> must be either a vector of integers or factors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gamma.shape</code></td>
+<td>
+<p>known shape parameter <code class="reqn">\nu</code> in <code class="reqn">Gamma(\mu_i,\nu)</code> distribution for the responses. Default is <code>gamma.shape=1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>group regularization method to use on the groups of coefficients. The options are <code>"gLASSO"</code>, <code>"gSCAD"</code>, <code>"gMCP"</code>. To implement gamma regression with the SSGL penalty, use the <code>SSGL</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weights</code></td>
+<td>
+<p>group-specific, nonnegative weights for the penalty. Default is to use the square roots of the group sizes.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>taper</code></td>
+<td>
+<p>tapering term <code class="reqn">\gamma</code> in group SCAD and group MCP controlling how rapidly the penalty tapers off. Default is <code>taper=4</code> for group SCAD and <code>taper=3</code> for group MCP. Ignored if <code>"gLASSO"</code> is specified as the penalty.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlambda</code></td>
+<td>
+<p>number of regularization parameters <code class="reqn">L</code>. Default is <code>nlambda=100</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p>grid of <code class="reqn">L</code> regularization parameters. The user may specify either a scalar or a vector. If the user does not provide this, the program chooses the grid automatically.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max.iter</code></td>
+<td>
+<p>maximum number of iterations in the algorithm. Default is <code>max.iter=10000</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>convergence threshold for algorithm. Default is <code>tol=1e-4</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The function returns a list containing the following components:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>lambda</code></td>
+<td>
+<p><code class="reqn">L \times 1</code> vector of regularization parameters <code>lambda</code> used to fit the model. <code>lambda</code> is displayed in descending order.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta0</code></td>
+<td>
+<p><code class="reqn">L \times 1</code> vector of estimated intercepts. The <code class="reqn">k</code>th entry in <code>beta0</code> corresponds to the <code class="reqn">k</code>th regularization parameter in <code>lambda</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p><code class="reqn">p \times L</code> matrix of estimated regression coefficients. The <code class="reqn">k</code>th column in <code>beta</code> corresponds to the <code class="reqn">k</code>th regularization parameter in <code>lambda</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu.pred</code></td>
+<td>
+<p><code class="reqn">n_{test} \times L</code> matrix of predicted mean response values <code class="reqn">\mu_{test} = E(Y_{test})</code> based on the <em>test</em> data in <code>X.test</code> (or training data <code>X</code> if no argument was specified for <code>X.test</code>). The <code class="reqn">k</code>th column in <code>mu.pred</code> corresponds to the predictions for the <code class="reqn">k</code>th regularization parameter in <code>lambda</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>classifications</code></td>
+<td>
+<p><code class="reqn">G \times L</code> matrix of classifications, where <code class="reqn">G</code> is the number of groups. An entry of "1" indicates that the group was classified as nonzero, and an entry of "0" indicates that the group was classified as zero. The <code class="reqn">k</code>th column of <code>classifications</code> corresponds to the <code class="reqn">k</code>th regularization parameter in <code>lambda</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loss</code></td>
+<td>
+<p><code class="reqn">L \times 1</code> vector of negative log-likelihood of the fitted models. The <code class="reqn">k</code>th entry in <code>loss</code> corresponds to the <code class="reqn">k</code>th regularization parameter in <code>lambda</code>.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Breheny, P. and Huang, J. (2015). "Group descent algorithms for nonconvex penalized linear and logistic regression models with grouped predictors." <em>Statistics and Computing</em>, <b>25</b>:173-187.
+</p>
+<p>Wang, H. and Leng, C. (2007). "Unified LASSO estimation by least squares approximation." <em>Journal of the American Statistical Association</em>, <b>102</b>:1039-1048.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Generate data
+set.seed(12345)
+X = matrix(runif(100*11), nrow=100)
+n = dim(X)[1]
+groups = c("a","a","a","b","b","b","c","c","d","e","e")
+groups = as.factor(groups)
+true.beta = c(-1,1,1,0,0,0,0,0,0,1.5,-1.5)
+
+## Generate responses from gamma regression with known shape parameter 1
+eta = crossprod(t(X), true.beta)
+shape = 1
+y = rgamma(n, rate=shape/exp(eta), shape=shape)
+
+## Generate test data
+n.test = 50
+X.test = matrix(runif(n.test*11), nrow=n.test)
+
+## Fit gamma regression models with the group LASSO penalty
+gamma.mod = grpreg.gamma(y, X, X.test, groups, penalty="gLASSO")
+
+## Tuning parameters used to fit models 
+gamma.mod$lambda
+
+# Predicted n.test-dimensional vectors mu=E(Y.test) based on test data, X.test. 
+# The kth column of 'mu.pred' corresponds to the kth entry in 'lambda.'
+gamma.mod$mu.pred 
+
+# Classifications of the 5 groups. The kth column of 'classifications'
+# corresponds to the kth entry in 'lambda.'
+gamma.mod$classifications
+</code></pre>
+
+
+</div>

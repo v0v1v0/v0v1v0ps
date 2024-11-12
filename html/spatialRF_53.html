@@ -1,0 +1,180 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rf_evaluate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Evaluates random forest models with spatial cross-validation</h2>
+
+<h3>Description</h3>
+
+<p>Evaluates the performance of random forest on unseen data over independent spatial folds.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rf_evaluate(
+  model = NULL,
+  xy = NULL,
+  repetitions = 30,
+  training.fraction = 0.75,
+  metrics = c("r.squared", "pseudo.r.squared", "rmse", "nrmse", "auc"),
+  distance.step = NULL,
+  distance.step.x = NULL,
+  distance.step.y = NULL,
+  grow.testing.folds = FALSE,
+  seed = 1,
+  verbose = TRUE,
+  n.cores = parallel::detectCores() - 1,
+  cluster = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Model fitted with <code>rf()</code>, <code>rf_repeat()</code>, or <code>rf_spatial()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xy</code></td>
+<td>
+<p>Data frame or matrix with two columns containing coordinates and named "x" and "y". If <code>NULL</code>, the function will throw an error. Default: <code>NULL</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>repetitions</code></td>
+<td>
+<p>Integer, number of spatial folds to use during cross-validation. Must be lower than the total number of rows available in the model's data. Default: <code>30</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>training.fraction</code></td>
+<td>
+<p>Proportion between 0.5 and 0.9 indicating the proportion of records to be used as training set during spatial cross-validation. Default: <code>0.75</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>metrics</code></td>
+<td>
+<p>Character vector, names of the performance metrics selected. The possible values are: "r.squared" (<code>cor(obs, pred) ^ 2</code>), "pseudo.r.squared" (<code>cor(obs, pred)</code>), "rmse" (<code>sqrt(sum((obs - pred)^2)/length(obs))</code>), "nrmse" (<code>rmse/(quantile(obs, 0.75) - quantile(obs, 0.25))</code>), and "auc" (only for binary responses with values 1 and 0). Default: <code>c("r.squared", "pseudo.r.squared", "rmse", "nrmse")</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.step</code></td>
+<td>
+<p>Numeric, argument <code>distance.step</code> of <code>thinning_til_n()</code>. distance step used during the selection of the centers of the training folds. These fold centers are selected by thinning the data until a number of folds equal or lower than <code>repetitions</code> is reached. Its default value is 1/1000th the maximum distance within records in <code>xy</code>. Reduce it if the number of training folds is lower than expected.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.step.x</code></td>
+<td>
+<p>Numeric, argument <code>distance.step.x</code> of <code>make_spatial_folds()</code>. Distance step used during the growth in the x axis of the buffers defining the training folds. Default: <code>NULL</code> (1/1000th the range of the x coordinates).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>distance.step.y</code></td>
+<td>
+<p>Numeric, argument <code>distance.step.x</code> of <code>make_spatial_folds()</code>. Distance step used during the growth in the y axis of the buffers defining the training folds. Default: <code>NULL</code> (1/1000th the range of the y coordinates).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>grow.testing.folds</code></td>
+<td>
+<p>Logic. By default, this function grows contiguous training folds to keep the spatial structure of the data as intact as possible. However, when setting <code>grow.testing.folds = TRUE</code>, the argument <code>training.fraction</code> is set to <code>1 - training.fraction</code>, and the training and testing folds are switched. This option might be useful when the training data has a spatial structure that does not match well with the default behavior of the function. Default: <code>FALSE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Integer, random seed to facilitate reproduciblity. If set to a given number, the results of the function are always the same. Default: <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, messages and plots generated during the execution of the function are displayed, Default: <code>TRUE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.cores</code></td>
+<td>
+<p>Integer, number of cores to use for parallel execution. Creates a socket cluster with <code>parallel::makeCluster()</code>, runs operations in parallel with <code>foreach</code> and <code style="white-space: pre;">⁠%dopar%⁠</code>, and stops the cluster with <code>parallel::clusterStop()</code> when the job is done. Default: <code>parallel::detectCores() - 1</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+<p>A cluster definition generated with <code>parallel::makeCluster()</code>. If provided, overrides <code>n.cores</code>. When <code>cluster = NULL</code> (default value), and <code>model</code> is provided, the cluster in <code>model</code>, if any, is used instead. If this cluster is <code>NULL</code>, then the function uses <code>n.cores</code> instead. The function does not stop a provided cluster, so it should be stopped with <code>parallel::stopCluster()</code> afterwards. The cluster definition is stored in the output list under the name "cluster" so it can be passed to other functions via the <code>model</code> argument, or using the <code style="white-space: pre;">⁠%&gt;%⁠</code> pipe. Default: <code>NULL</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The evaluation algorithm works as follows: the number of <code>repetitions</code> and the input dataset (stored in <code>model$ranger.arguments$data</code>) are used as inputs for the function <code>thinning_til_n()</code>, that applies <code>thinning()</code> to the input data until as many cases as <code>repetitions</code> are left, and as separated as possible. Each of these remaining records will be used as a "fold center". From that point, the fold grows, until a number of points equal (or close) to <code>training.fraction</code> is reached. The indices of the records within the grown spatial fold are stored as "training" in the output list, and the remaining ones as "testing". Then, for each spatial fold, a "training model" is fitted using the cases corresponding with the training indices, and predicted over the cases corresponding with the testing indices. The model predictions on the "unseen" data are compared with the observations, and the performance measures (R squared, pseudo R squared, RMSE and NRMSE) computed.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A model of the class "rf_evaluate" with a new slot named "evaluation", that is a list with the following slots:
+</p>
+
+<ul>
+<li> <p><code>training.fraction</code>: Value of the argument <code>training.fraction</code>.
+</p>
+</li>
+<li> <p><code>spatial.folds</code>: Result of applying <code>make_spatial_folds()</code> on the data coordinates. It is a list with as many slots as <code>repetitions</code> are indicated by the user. Each slot has two slots named "training" and "testing", each one having the indices of the cases used on the training and testing models.
+</p>
+</li>
+<li> <p><code>per.fold</code>: Data frame with the evaluation results per spatial fold (or repetition). It contains the ID of each fold, it's central coordinates, the number of training and testing cases, and the training and testing performance measures: R squared, pseudo R squared (cor(observed, predicted)), rmse, and normalized rmse.
+</p>
+</li>
+<li> <p><code>per.model</code>: Same data as above, but organized per fold and model ("Training", "Testing", and "Full").
+</p>
+</li>
+<li> <p><code>aggregated</code>: Same data, but aggregated by model and performance measure.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">if(interactive()){
+
+#loading example data
+data(plant_richness_df)
+data(distance_matrix)
+
+#fitting random forest model
+rf.model &lt;- rf(
+  data = plant_richness_df,
+  dependent.variable.name = "richness_species_vascular",
+  predictor.variable.names = colnames(plant_richness_df)[5:21],
+  distance.matrix = distance_matrix,
+  distance.thresholds = 0,
+  n.cores = 1,
+  verbose = FALSE
+)
+
+#evaluation with spatial cross-validation
+rf.model &lt;- rf_evaluate(
+  model = rf.model,
+  xy = plant_richness_df[, c("x", "y")],
+  n.cores = 1
+)
+
+#checking evaluation results
+plot_evaluation(rf.model)
+print_evaluation(rf.model)
+x &lt;- get_evaluation(rf.model)
+
+}
+</code></pre>
+
+
+</div>

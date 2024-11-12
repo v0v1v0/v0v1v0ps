@@ -1,0 +1,162 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>run_files</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Read, prepare and execute .SQL files</h2>
+
+<h3>Description</h3>
+
+<p>Accepts a character vector of SQL file names and attempts to execute the
+queries in each one.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">run_files(filenames, ..., include_params = FALSE)
+
+runfiles(filenames, ..., include_params = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>filenames</code></td>
+<td>
+<p>name, or vector of names, of file(s) to be executed</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments to be passed to <code>run_queries()</code>, <code>prepare_sql()</code>, or <code>read_sql()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_params</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code>. Should the parameters be
+included in the output?</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If no default connection is supplied via <code>default.conn</code> and no
+connections have been configured using <code>connect()</code>, an attempt will be made
+to configure connections via <code>connect()</code> using the configuration search
+path. If no database connections are available after this attempt, an error
+will be raised. See <code>vignette("connections")</code> for details about the
+configuration search path.
+</p>
+<p><code>run_files()</code> calls <code>read_sql()</code> on each file, and <code>prepare_sql()</code> on the
+queries read from those files. Prepared queries are executed with <code>run_queries()</code>. The
+behaviour of those functions can be controlled by passing the relevant
+parameters to <code>run_files()</code> as the <code>...</code> argument.
+</p>
+<p><code>run_files()</code> also enables control of the arguments accepted by <code>run_queries()</code> on
+a per-query basis, by interpreting comments in SQL files as described
+for <code>read_sql()</code>. Interpreted comments precede the sql query to which they
+refer. Each interpretable comment must be on a line by itself and take the
+form:
+</p>
+<div class="sourceCode sql"><pre>-- keyword = value
+</pre></div>
+<p>Keywords and possible values for interpretable comments are:
+</p>
+
+<dl>
+<dt>qname</dt>
+<dd>
+<p>A name for this query</p>
+</dd>
+<dt>quotesql</dt>
+<dd>
+<p>"yes" or "no" - should interpolated characters be quoted?</p>
+</dd>
+<dt>interpolate</dt>
+<dd>
+<p>"yes" or "no" - should sql be interpolated?</p>
+</dd>
+<dt>execmethod</dt>
+<dd>
+<p>One of "get", "execute", "sendq", "sends" or "spatial" -
+which method should be used to execute the query? "get" means
+<code>DBI::dbGetQuery()</code>; "execute" means <code>DBI::dbExecute()</code>; "sendq" means
+<code>DBI::dbSendQuery</code>; "sends" means <code>DBI::dbSendStatement()</code>; "spatial"
+means <code>sf::st_read()</code>.</p>
+</dd>
+<dt>geometry</dt>
+<dd>
+<p>The name of a spatial column. Ignored if <code>execmethod</code> is not 'spatial'</p>
+</dd>
+<dt>conn_name</dt>
+<dd>
+<p>The name of a connection to execute this query against</p>
+</dd>
+</dl>
+<p>All interpreted comments except <code>qname</code> are cascaded <em>within their file</em>,
+meaning that if you want to use the same values throughout, you need only set
+them for the first query. See <code>read_sql()</code> for details.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of results of sql queries found in files
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>read_sql()</code>, <code>prepare_sql()</code>
+</p>
+<p>Other SQL runners: 
+<code>run_queries()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(sqlhelper)
+
+config_filename &lt;- system.file("examples/sqlhelper_db_conf.yml",
+                package="sqlhelper")
+
+readLines( config_filename ) |&gt; writeLines()
+
+connect(
+    config_filename,
+    exclusive=TRUE)
+
+DBI::dbWriteTable( default_conn(), "iris", iris)
+
+sf::st_write(spData::congruent, default_conn(), "congruent")
+sf::st_write(spData::incongruent, live_connection("pool_sqlite"), "incongruent")
+
+run_files_ex1 &lt;- system.file("examples/run_files_ex1.sql", package="sqlhelper")
+readLines( run_files_ex1 ) |&gt; writeLines()
+
+run_files_ex2 &lt;- system.file("examples/run_files_ex2.sql", package="sqlhelper")
+readLines( run_files_ex2 ) |&gt; writeLines()
+
+n_longest_petals &lt;- 5
+results &lt;- run_files( c( run_files_ex1, run_files_ex2 ) )
+
+names(results)
+
+results$how_many_irises
+
+results$n_longest_setosa_petal_lengths
+
+plot(results$get_congruent, border = "orange")
+plot(results$get_incongruent, border = "blue", add=TRUE)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,401 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>scdensity</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Shape-constrained kernel density estimation.</h2>
+
+<h3>Description</h3>
+
+<p><code>scdensity</code> computes kernel density estimates that satisfy specified shape
+restrictions. It is used in the same way as <code>stats::density()</code>, and takes
+most of that function's arguments. Its default behavior is to compute a unimodal estimate.
+Use argument <code>constraint</code> to choose different shape constraints, <code>method</code> to
+choose a different estimation method, and <code>opts</code> to specify method- and
+constraint-specific options. The result is a list of S3 class <code>scdensity</code>, which
+may be inspected via print, summary, and plot methods.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">scdensity(
+  x,
+  bw = "nrd0",
+  constraint = c("unimodal", "monotoneRightTail", "monotoneLeftTail", "twoInflections",
+    "twoInflections+", "boundedLeft", "boundedRight", "symmetric", "bimodal"),
+  method = c("adjustedKDE", "weightedKDE", "greedySharpenedKDE"),
+  opts = NULL,
+  adjust = 1,
+  n = 512,
+  na.rm = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A vector of data from which the estimate is to be computed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bw</code></td>
+<td>
+<p>The bandwidth.  It is specified as either a numerical value or as one of the
+character strings <code>"nrd0"</code>,  <code>"nrd"</code>, <code>"ucv"</code>, <code>"bcv"</code>, or
+<code>"SJ"</code>, exactly as in <code>stats::density()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraint</code></td>
+<td>
+<p>A vector of strings giving the operative shape constraints. Elements
+must partially match different alternatives among <code>"unimodal"</code>,
+<code>"monotoneRightTail"</code>,<code>"monotoneLeftTail"</code>, <code>"twoInflections"</code>,
+<code>"twoInflections+"</code>, <code>"boundedLeft"</code>, <code>"boundedRight"</code>,
+<code>"symmetric"</code>, and <code>"bimodal"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>A string giving the method of enforcing shape constraints.  It must
+paritally match one of <code>"adjustedKDE"</code>, <code>"weightedKDE"</code>, or
+<code>"greedySharpenedKDE"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opts</code></td>
+<td>
+<p>A list giving options specific to the chosen constraints and/or method. E.g.
+use <code>opts = list(modeLocation = 0)</code> to force the mode to be at zero when the
+constraint is <code>unimodal</code>. See below for lists of
+available options.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>adjust</code></td>
+<td>
+<p>A scaling factor for the bandwidth, just as in <code>stats::density()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>The number of points returned in the density estimate.  Same as in
+<code>stats::density()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.rm</code></td>
+<td>
+<p>Logical indicating whether or not to remove missing values from <code>x</code>.
+Same as in <code>stats::density()</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>All density estimates in this package use the Gaussian kernel.  It is the only common
+kernel function with three continuous derivatives everywhere.  The <code>adjustedKDE</code> and
+<code>weightedKDE</code> methods require continuous derivatives to ensure numerical stability.
+</p>
+<p>The default estimation method, <code>adjustedKDE</code>, can handle all of the available constraints.  The
+<code>weightedKDE</code> method can handle every constraint except <code>symmetric</code>, while the
+<code>greedySharpenedKDE</code> method can handle only <code>unimodal</code>, <code>monotoneRightTail</code>,
+<code>monotoneLeftTail</code>, <code>boundedLeft</code>, and <code>boundedRight</code>. The <code>opts</code> list can
+also be used to supply method-specific control parameters.  See the "Method details" section
+for more.
+</p>
+<p>Each constraint has a corresponding control parameter that can be supplied as an element of
+<code>opts</code>.  The control parameters are described in the following table.  See the "Constraint
+details" section for definitions of each constraint.
+</p>
+<p><img src="../help/figures/ConstraintsTable.svg" width="650" alt="constraints Table"></p>
+<p>More than one shape constraint can be specified simultaneously.  Certain combinations of constraints
+(e.g., <code>unimodal</code> and <code>monotoneRightTail</code>) are redundant, and will cause a warning. Other
+combinations (e.g., <code>unimodal</code> and <code>bimodal</code>) are incompatible and will cause an error.
+The figure below summarizes the valid constraint combinations.
+</p>
+<p><img src="../help/figures/ConstraintCombos.svg" width="650" alt="valid constraint combinations"></p>
+
+
+<h3>Value</h3>
+
+<p>A list with the following elements:
+</p>
+
+<ul>
+<li> <p><code>constraint</code> The constraint(s) used for estimation.  Might differ from
+the constraints supplied to the function if they included redundant constraints.
+</p>
+</li>
+<li> <p><code>method</code> The estimation method used.
+</p>
+</li>
+<li> <p><code>f0</code> A function.  Use <code>f0(v)</code> to evaluate the unconstrained KDE at the points in
+<code>v</code>.
+</p>
+</li>
+<li> <p><code>fhat</code> A function. Use <code>fhat(v)</code> to evaluate the constrained KDE at the points in
+<code>v</code>.
+</p>
+</li>
+<li> <p><code>data</code> The data used to generate the estimate.
+</p>
+</li>
+<li> <p><code>bw</code> The bandwidth used.
+</p>
+</li>
+<li> <p><code>extra</code> A list holding additional outputs that are specific to the chosen method.
+See the "method details" section.
+</p>
+</li>
+<li> <p><code>x</code> A vector of abscissa values for plotting the estimate.  Same as in
+<code>stats::density()</code>.
+</p>
+</li>
+<li> <p><code>y</code> A vector of ordinate values for plotting the estimate.  Same as in
+<code>stats::density()</code>.
+</p>
+</li>
+<li> <p><code>n</code> The sample size, not including missing values.  Note, this <code>n</code> has
+no relation to the <code>n</code> provided in the arguments.
+</p>
+</li>
+<li> <p><code>data.name</code> Deparsed name of the <code>x</code> argument, used in plotting.
+</p>
+</li>
+<li> <p><code>call</code> The call to the function.
+</p>
+</li>
+<li> <p><code>has.na</code> Always <code>FALSE</code>.  Included for consistency with
+<code>stats::density()</code>.
+</p>
+</li>
+</ul>
+<h3>Constraint details</h3>
+
+<p>All of the constraints other than <code>symmetric</code> are restrictions on the sign of the estimate, or
+its derviatives, over certain intervals.  The boundaries of the intervals may be called
+<em>important points</em>. If <code>method="greedySharpenedKDE"</code>, the important points are determined
+implicitly during estimation.  For the other methods, the locations of the important points may be
+supplied in <code>opts</code>; in most cases they are optional.  If they are not provided, estimation
+will be run iteratively inside a search routine (<code>SequentialLineMin</code>) to find good values,
+and these values will be returned in the <code>extra</code> list.
+</p>
+<p>Here is a list of the constraints with their definitions and any relevant comments about their
+usage.
+</p>
+
+<ul>
+<li> <p><code>unimodal</code>: The estimate is nondecreasing to the left of <code>opts$modeLocation</code>, and
+nonincreasing to the right.  If <code>modeLocation</code> is not supplied, it is found by search.
+</p>
+</li>
+<li> <p><code>monotoneRightTail</code>: The estimate is nonincreasing to the right of the <code>opts$rightTail</code>
+percentile of the unconstrained estimate. <code>rightTail</code> is a numeric value between 0 and 100.
+If it is not supplied, it is set to its default value, 90.
+</p>
+</li>
+<li> <p><code>monotoneLeftTail</code>: The estimate is nondecreasing to the left of the <code>opts$leftTail</code>
+percentile of the unconstrained estimate. <code>leftTail</code> is a numeric value between 0 and 100. If
+it is not supplied, it is set to its default value, 10.
+</p>
+</li>
+<li> <p><code>twoInflections</code>: The estimate has two inflection points, found at
+<code>opts$inflectionPoints[1]</code> and <code>opts$inflectionPoints[2]</code>. This constraint implies unimodality,
+but provides greater smoothness than <code>unimodal</code>. If <code>inflectionPoints</code> is not supplied, it is
+found by search.
+</p>
+</li>
+<li> <p><code>twoInflections+</code>: The <em>derivative</em> of the estimate has three inflection
+points, located at <code>opts$inflectionPoints[1]</code>, <code>opts$inflectionPoints[2]</code>, and
+<code>opts$inflectionPoints[3]</code>.  This constraint implies <code>twoInflections</code> but is even smoother.
+Most parametric densities with two tails satisfy this constraint.  If <code>inflectionPoints</code> is not
+supplied, it is found by search.
+</p>
+</li>
+<li> <p><code>boundedLeft</code>: The estimate is zero to the left of <code>opts$lowerBound</code>. The value of
+<code>lowerBound</code> must be specified in <code>opts</code>. This constraint is implemented only up to a
+numerical tolerance. Consequently it is still possible to use it with the Gaussian kernel.
+</p>
+</li>
+<li> <p><code>boundedRight</code>: The estimate is zero to the right of <code>opts$upperBound</code>. The value of
+<code>upperBound</code> must be specified in <code>opts</code>. This constraint is
+implemented only up to a numerical tolerance.  Consequently it is still possible to use
+it with the Gaussian kernel.
+</p>
+</li>
+<li> <p><code>symmetric</code>: The estimate is symmetric around <code>opts$pointOfSymmetry</code>. If
+<code>pointOfSymmetry</code> is not provided, it is found by search.
+</p>
+</li>
+<li> <p><code>bimodal</code>: The estimate has modes at <code>opts$modeLocation[1]</code> and <code>opts$modeLocation[3]</code>,
+with an antimode (local minimum) at <code>opts$modeLocation[2]</code>. If <code>modeLocation</code> is not
+specified, it is found by search.
+</p>
+</li>
+</ul>
+<h3>Method details</h3>
+
+<p>The <code>adjustedKDE</code> and <code>weightedKDE</code> methods are implemented using a common framework
+where the standard KDE is first approximated by a binning step, after which the constrained estimate
+is obtained. The <code>greedySharpenedKDE</code> method uses a different approach.
+</p>
+
+
+<h4>adjustedKDE and weightedKDE</h4>
+
+<p>The <code>adjustedKDE</code> method is based on the method of Wolters and Braun (2017).  The method
+uses the usual unconstrained kernel density estimate as a pilot estimate, and adjusts the shape of
+this estimate by adding a function to it.  The function is selected to minimally change the
+shape of the pilot estimate while ensuring the constraints are satisfied. Any of the constraints
+can be used with this method.
+</p>
+<p>The <code>weightedKDE</code> method is based on the method of Hall and Huang (2002).
+The method uses a weighted kernel density estimator, with the weights minimally
+perturbed such that the constraint is satisfied. Any of the constraints except <code>symmetric</code>
+may be used with this method.
+</p>
+<p>For either of these methods, the following optional arguments can be provided as elements of <code>opts</code>:
+</p>
+
+<ul>
+<li> <p><code>ncheck</code>:  The number of abscissa points used for constraint checking.  By default,
+this is set to <code>max(100, ceiling((diff(range(x)) + 6*h) / h))</code>, where <code>h</code> is
+the bandwidth. With this default it should be rare to encounter constraint violations large enough
+to be visible in a plot.  In the event that constraint violations are observed, re-run the estimation
+with a larger value of <code>ncheck</code>.
+</p>
+</li>
+<li> <p><code>verbose</code>: If <code>TRUE</code>, progress information will be displayed in the console.
+The main use of this is to track the progress of the search for important points. Default is <code>FALSE</code>.
+</p>
+</li>
+</ul>
+<p>When either of these methods are used, the output list <code>extra</code> contains elements giving the locations of the
+important points used in the final estimate (e.g., <code>modeLocation</code> if the estimate is unimodal or
+bimodal). Additionally, it containts the following elements:
+</p>
+
+<ul>
+<li> <p><code>conCheckGrid</code>: A vector giving the abscissa values at which the constraints were enforced.
+</p>
+</li>
+<li> <p><code>binnedCenters</code>: A vector giving the locations of the kernel centers determined in the
+binning step.
+</p>
+</li>
+<li> <p><code>binnedWeights</code>: The weights corresponding to the binned centers.
+</p>
+</li>
+<li> <p><code>finalCenters</code>: The kernel centers used for the final estimate.
+</p>
+</li>
+<li> <p><code>finalWeights</code>: The weights used for the final estimate.
+</p>
+</li>
+</ul>
+<h4>greedySharpenedKDE</h4>
+
+<p>The <code>greedySharpenedKDE</code> method is described in Wolters (2012a, 2012b). It uses a data sharpening
+(shifting the data points) approach.  Starting from an initial solution that satisfies the constraints,
+a greedy algorithm (implemented in the function <code>improve</code>) is used to move the points as close as
+possible to the observed data while maintaining feasibility.
+</p>
+<p>The following optional arguments can be provided as elements of <code>opts</code>:
+</p>
+
+<ul>
+<li> <p><code>startValue</code> — A vector of the same length as <code>x</code>, giving the feasible
+initial solution from which the algorithm is started.  If not specified, a vector with
+all data points at the location of the unconstrained estimate's highest mode will be used.
+Note, it is not guaranteed that the default will satisfy every constraint for every data
+set.
+</p>
+</li>
+<li> <p><code>verbose</code>: If <code>TRUE</code>, information about iteration progress will be printed
+to the console. Default is <code>FALSE</code>.
+</p>
+</li>
+<li> <p><code>maxpasses</code>: Each "pass" through the data points moves each point one-by-one in a greedy fasion.
+This option limits the maximum number of passes. Default is 500.
+</p>
+</li>
+<li> <p><code>tol</code>: A numerical tolerance for constraint checking.  See <code>improve</code>.
+</p>
+</li>
+<li> <p><code>ILS</code>: An integer greater than zero.  If supplied, the greedy algorithm is run inside an
+iterated local search metaheuristic, as described in Wolters (2012b, sec. 3.4). This can improve solution
+quality, but requires the greedy search to be run <code>2*ILS</code> extra times.
+</p>
+</li>
+</ul>
+<p>When this method is used, the output list <code>extra</code> contains the following elements:
+</p>
+
+<ul><li> <p><code>xstar</code>: The final vector of "sharpened" data points used to generate the
+estimate.
+</p>
+</li></ul>
+<h3>References</h3>
+
+<p>Hall and Huang (2002), Unimodal Density Estimation Using Kernel Methods, <em>Statistica Sinica</em>,
+12, 965-990.
+</p>
+<p>Wolters and Braun (2017), Enforcing Shape Constraints on a Probability Density Estimate Using an Additive
+Adjustment curve, <em>Communications in Statistics - Simulation and Computation</em>,
+47(3), 672-691.
+</p>
+<p>Wolters (2012a), A Greedy Algorithm for Unimodal Kernel Density Estimation by Data Sharpening,
+<em>Journal of Statistical Software</em>, 46(6), 1–26.
+</p>
+<p>Wolters (2012b), Methods for Shape-Constrained Kernel Density Estimation. Ph.D. Thesis, University
+of Western Ontario.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.scdensity</code> plot method, <code>print.scdensity</code> print
+method, and <code>summary.scdensity</code> summary method.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Default method gives a unimodal estimate using adjustment curve method.
+x &lt;- rlnorm(30)
+scKDE &lt;- scdensity(x)
+scKDE
+summary(scKDE)
+plot(scKDE, detail=2)
+plot(scKDE, detail=4)
+
+# Constrain the first and fourth quartiles to be monotone, using greedy sharpening method.
+x &lt;- rt(50, df=3)
+scKDE &lt;- scdensity(x, bw="SJ", adjust=0.5, constraint=c("monotoneL", "monotoneR"),
+                   opts=list(verbose=TRUE, leftTail=25, rightTail=75), method="greedy")
+plot(scKDE)
+
+# Compare unimodal, twoInflections, and twoInflections+ constraints
+x &lt;- rnorm(100)
+h &lt;- 0.5 * bw.SJ(x)
+fhat1 &lt;- scdensity(x, bw=h, constraint="unimodal")
+fhat2 &lt;- scdensity(x, bw=h, constraint="twoInflections")
+fhat3 &lt;- scdensity(x, bw=h, constraint="twoInflections+")
+plot(density(x, bw=h))
+lines(fhat1$x, fhat1$y, col="red")
+lines(fhat2$x, fhat2$y, col="blue")
+lines(fhat3$x, fhat3$y, col="green", lwd=2)
+
+</code></pre>
+
+
+</div>

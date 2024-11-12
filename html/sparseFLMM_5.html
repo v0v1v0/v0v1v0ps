@@ -1,0 +1,212 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smooth.construct.symm.smooth.spec</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Symmetric bivariate smooths constructor</h2>
+
+<h3>Description</h3>
+
+<p>The <code>symm</code> class is a smooth class that is appropriate for symmetric bivariate smooths, e.g. of covariance functions,
+using tensor-product smooths in a <code>gam</code> formula. A constraint matrix is constructed
+(see <code>make_summation_matrix</code>) to impose
+a (skew-)symmetry constraint on the (cyclic) spline coefficients,
+which considerably reduces the number of coefficients that have to be estimated.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'symm.smooth.spec'
+smooth.construct(object, data, knots)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>is a smooth specification object or a smooth object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a data frame, model frame or list containing the values
+of the (named) covariates at which the smooth term is to be evaluated.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>an optional data frame supplying any knot locations
+to be supplied for basis construction.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>By default a symmetric bivariate B-spline smooth <code class="reqn">g</code> is specified,
+in the sense that <code class="reqn">g(s, t) = g(t, s)</code>. By setting
+<code>s(..., bs = "symm", xt = list(skew = TRUE))</code>, a skew-symmetric (or anti-smmetric)
+smooth with <code class="reqn">g(s, t) = -g(t, s)</code> can be specified instead.
+In both cases, the smooth can also be constraint to be cyclic
+with the property <code class="reqn">g(s, t) = g(s + c, t) = g(s, t + c)</code>
+for some fixed constant <code class="reqn">c</code> via specifying <code>xt = list(cyclic = TRUE)</code>.
+Note that this does not correspond to specifying a tensor-product smooth from
+cyclic marginal B-splines as given by the <code>cp</code>-smooth.
+In the cyclic case, it is recommended to explicitly specify the range of the domain
+of the smooth via the <code>knots</code> argument, as this determines the period and
+often deviates from the observed range.
+</p>
+<p>The underlying procedure is the following: First, the marginal spline design matrices and the corresponding
+marginal difference penalties are built. Second, the tensor product of the marginal design matrices is built
+and the bivariate penalty matrix is set up. Third, the constraint matrix is applied
+to the tensor product design matrix and to the penalty matrix.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class "symm.smooth". See <code>smooth.construct</code> for the elements it will contain.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jona Cederbaum, Almond Stoecker
+</p>
+
+
+<h3>References</h3>
+
+<p>Cederbaum, Scheipl, Greven (2016): Fast symmetric additive covariance smoothing.
+Submitted on arXiv.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>smooth.construct</code> and <code>smoothCon</code> for details on constructors
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(sparseFLMM)
+
+# (skew-)symmetric smooths ---------------------------------------
+
+# generate random surface 
+dat1 &lt;- data.frame(arg1 = 1:50)
+dat2 &lt;- expand.grid(arg1 = 1:50, arg2 = 1:50)
+
+Bskew &lt;- Predict.matrix(
+  smooth.construct( 
+    s(arg1, arg2, bs = "symm", xt = list(skew = TRUE)),
+    data = dat2, knots = NULL ),
+  data = dat2 )
+Bsymm &lt;- Predict.matrix(
+  smooth.construct( 
+    s(arg1, arg2, bs = "symm", xt = list(skew = FALSE)),
+    data = dat2, knots = NULL ),
+  data = dat2 )
+
+set.seed(934811)
+dat2$yskew &lt;- c(Bskew %*% rnorm(ncol(Bskew)))
+dat2$ysymm &lt;- c(Bsymm %*% rnorm(ncol(Bsymm)))
+
+# fit sum of skew-symmetric and symmetric parts with corresponding smooths
+modpa &lt;- gam( I(yskew + ysymm) ~ s(arg1, arg2, bs = "symm", xt = list(skew = TRUE)) + 
+                s(arg1, arg2, bs = "symm", xt = list(skew = FALSE)), data = dat2)
+# predict surfaces
+preds &lt;- predict(modpa, type = "terms")
+dat1 &lt;- as.list(dat1)
+dat1$arg2 &lt;- dat1$arg1
+dat1$predskew &lt;- matrix(preds[,1], nrow = length(dat1$arg1))
+dat1$predsymm &lt;- matrix(preds[,2], nrow = length(dat1$arg1))
+
+cols &lt;- hcl.colors(12, "RdBu")
+opar &lt;- par(mfcol = c(2,2))
+# symm part (intercept missing)
+with(dat1, image(arg1, arg2, predsymm, asp = 1,
+                 main = "Symmetric part of y",
+                 col = cols))
+with(dat1, image(arg1, arg2, asp = 1, 
+                 main = "Fit via symm.smooth",
+                 matrix(dat2$ysymm, nrow = length(arg1)), 
+                                    col = cols))
+# skew-symm part
+with(dat1, image(arg1, arg2, predskew, asp = 1,
+                 main = "Skew-symmetric part of y",
+                 col = cols))
+with(dat1, image(arg1, arg2, asp = 1, 
+                 main = "Fit via symm.smooth",
+                 matrix(dat2$yskew, nrow = length(arg1)), 
+                 col = cols))
+par(opar)
+
+stopifnot(all.equal(dat1$predskew, - t(dat1$predskew)))
+stopifnot(all.equal(dat1$predsymm, t(dat1$predsymm)))
+
+
+
+
+# cyclic (skew-)symmetric splines ---------------------------------------
+
+# fit the above example with cyclic smooths
+modpac &lt;- gam( I(yskew + ysymm) ~ s(arg1, arg2, bs = "symm", 
+                                   xt = list(skew = TRUE, cyclic = TRUE)) + 
+                s(arg1, arg2, bs = "symm", xt = list(skew = FALSE, cyclic = TRUE)),
+              knots = list(arg1 = c(1, 50), arg2 = c(1,50)), 
+              # specify arg range to specify 'wavelength'! 
+              data = dat2)
+plot(modpac, asp = 1, se = FALSE, pages = 1)
+
+predsc &lt;- predict(modpac, type = "terms")
+dat1$predskewc &lt;- matrix(predsc[,1], nrow = length(dat1$arg1))
+dat1$predsymmc &lt;- matrix(predsc[,2], nrow = length(dat1$arg1))
+
+# check cyclic margins
+opar &lt;- par(mfrow = c(1,2))
+with(dat1, matplot(arg1, predsymmc[, c(1,10, 40)], t = "l",
+                   main = "symmetric smooth"))
+abline(h = dat1$predsymmc[1, c(1,10, 40)], col = "darkgrey")
+abline(v = c(1,50), col = "darkgrey")
+
+with(dat1, matplot(arg1, predskewc[, c(1,10, 40)], t = "l",
+                   main = "skew-symmetric smooth"))
+abline(h = dat1$predskewc[1, c(1,10, 40)], col = "darkgrey")
+abline(v = c(1,50), col = "darkgrey")
+par(opar)
+
+
+
+# 1D point symmetric B-splines --------------------------------------------
+
+# generate toy data
+dat &lt;- data.frame( x = 1:100 )
+ps_obj &lt;- with(dat, s(x, bs = "ps"))
+B &lt;- Predict.matrix(smooth.construct(ps_obj, dat, NULL), dat)               
+set.seed(3904)
+dat$y &lt;- B %*% rnorm(ncol(B))
+plot(dat, t = "l")
+
+# fit skew-symmetric spline
+mod0 &lt;- gam( y ~ s(x, bs = "symm", xt = list(skew = TRUE)), 
+             knots = list(x = c(0,100)), # specify x range to determine inversion point 
+             dat = dat )
+lines(dat$x, predict(mod0), col = "cornflowerblue", lty = "dashed")
+
+# or a symmetric spline to first part only
+mod1 &lt;- gam( y ~ s(x, bs = "symm"), 
+             knots = list(x=c(0,50)), 
+                          dat = dat[1:50, ])
+lines(dat[1:50, ]$x, predict(mod1), col = "darkred", lty = "dashed")
+</code></pre>
+
+
+</div>

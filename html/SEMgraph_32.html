@@ -1,0 +1,241 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SEMdag</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Estimate a DAG from an input (or empty) graph</h2>
+
+<h3>Description</h3>
+
+<p>Two-step extraction of the optimal DAG from an input (or empty)
+graph, using in step 1) graph topological order or bottom-up search order,
+and in step 2) parent recovery with the LASSO-based algorithm (FHT, 2010),
+implemented in <code>glmnet</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SEMdag(
+  graph,
+  data,
+  LO = "TO",
+  beta = 0,
+  eta = NULL,
+  lambdas = NA,
+  penalty = TRUE,
+  verbose = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>graph</code></td>
+<td>
+<p>An igraph object or a graph with no edges (make_empty_graph(n=0)).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A matrix whith n rows corresponding to subjects, and p columns
+to graph nodes (variables).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LO</code></td>
+<td>
+<p>character for linear order method. If LO="TO" or LO="TL" the
+topological order (resp. level) of the input graph is enabled, while LO="BU"
+the data-driven bottom-up search of vertex (resp. layer) order is performed
+using the vertices of the empty graph. By default <code>LO = "TO"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>Numeric value. Minimum absolute LASSO beta coefficient for
+a new direct link to be retained in the final model. By default,
+<code>beta = 0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>eta</code></td>
+<td>
+<p>Numeric value. Minimum fixed eta threshold for bottom-up search
+of vertex (eta = 0) or layer (eta &gt; 0) ordering. Use eta = NULL, for estimation
+of eta adaptively with half of the sample data. By default, <code>eta = 0</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambdas</code></td>
+<td>
+<p>A vector of regularization LASSO lambda values. If lambdas is
+NULL, the <code>glmnet</code> default using cross-validation lambdas
+is enabled. If lambdas is NA (default), the tuning-free scheme is enabled by
+fixing lambdas = sqrt(log(p)/n), as suggested by Janková and van de Geer
+(2015) and many others. This will both reduce computational time and provide
+the same result at each run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>penalty</code></td>
+<td>
+<p>A logical value. Separate penalty factors can be applied to
+each coefficient. This is a number that multiplies lambda to allow differential
+shrinkage. Can be 0 for some variables, which implies no shrinkage, and that
+variable is always included in the model. If TRUE (default) weights are based
+on the graph edges: 0 (i.e., edge present) and 1 (i.e., missing edge) ensures
+that the input edges will be retained in the final model. If FALSE the
+<code>glmnet</code> default is enabled (all weights equal to 1). Note:
+the penalty factors are internally rescaled to sum p (the number of variables).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>A logical value. If FALSE (default), the processed graphs
+will not be plotted to screen.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The extracted DAG is estimated using the two-step order search approach.
+First a vertex (node) or level (layer) order of p nodes is determined, and from
+this sort, the DAG can be learned using in step 2) penalized (L1) regressions
+(Shojaie and Michailidis, 2010). The estimate linear order are obtained from
+<em>a priori</em> graph topological vertex (TO) or level (TL) ordering, or with a
+data-driven Bottom-up (BU) approach, assuming a SEM whose error terms have equal
+variances (Peters and Bühlmann, 2014). The BU algorithm first estimates the last
+element (the terminal vertex) using the diagonal entries of the inverse covariance
+matrix with: t = argmin(diag(Omega)), or the terminal layer (&gt; 1 vertices) with
+d = diag(Omega)- t &lt; eta. And then, it determines its parents with L1 regression.
+After eliminating the last element (or layer) of the ordering, the algorithm applies
+the same procedure until a DAG is completely estimated. In high-dimensional data 
+(n &lt; p), the inverse covariance matrix is computed by glasso-based algorithm
+(FHT, 2008), implemented in <code>glasso</code>. If the input graph is
+not acyclic, in TO or TL, a warning message will be raised, and a cycle-breaking
+algorithm will be applied (see <code>graph2dag</code> for details).
+Output DAG will be colored: vertices in cyan, if they are source nodes, and in
+orange, if they are sink nodes, and edges in gray, if they were present in the
+input graph, and in green, if they are new edges generated by LASSO screening.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list of 3 igraph objects plus the vertex ordering:
+</p>
+
+<ol>
+<li>
+<p> "dag", the estimated DAG;
+</p>
+</li>
+<li>
+<p> "dag.new", new estimated connections;
+</p>
+</li>
+<li>
+<p> "dag.old", connections preserved from the input graph;
+</p>
+</li>
+<li>
+<p> "LO", the estimated vertex ordering.
+</p>
+</li>
+</ol>
+<h3>Author(s)</h3>
+
+<p>Mario Grassi <a href="mailto:mario.grassi@unipv.it">mario.grassi@unipv.it</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Friedman J, Hastie T, Tibshirani R (2008). Sparse inverse covariance
+estimation with the graphical lasso. Biostatistics, 9(3), 432-441.
+&lt;https://doi.org/10.1093/biostatistics/kxm045&gt;
+</p>
+<p>Friedman J, Hastie T, Tibshirani R (2010). Regularization Paths for
+Generalized Linear Models via Coordinate Descent.
+Journal of Statistical Software, Vol. 33(1), 1-22.
+&lt;https://doi.org/10.18637/jss.v033.i01&gt;
+</p>
+<p>Shojaie A, Michailidis G (2010). Penalized likelihood methods for
+estimation of sparse high-dimensional directed acyclic graphs.
+Biometrika, 97(3): 519-538. &lt;https://doi.org/10.1093/biomet/asq038&gt;
+</p>
+<p>Jankova J, van de Geer S (2015). Confidence intervals for high-dimensional
+inverse covariance estimation. Electronic Journal of Statistics,
+9(1): 1205-1229. &lt;https://doi.org/10.1214/15-EJS1031&gt;
+</p>
+<p>Peters J, Bühlmann P (2014). Identifiability of Gaussian structural equation
+models with equal error variances. Biometrika, 101(1):219–228.
+&lt;https://doi.org/10.1093/biomet/ast043&gt;
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>modelSearch</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+#Set function param
+ig &lt;- sachs$graph
+X &lt;- log(sachs$pkc)
+group &lt;- sachs$group
+
+# DAG estimation (default values)
+dag0 &lt;- SEMdag(ig, X)
+sem0 &lt;- SEMrun(ig, X, group)
+
+# Graphs
+old.par &lt;- par(no.readonly = TRUE)
+par(mfrow=c(2,2), mar=rep(1,4))
+plot(sachs$graph, layout=layout.circle, main="input graph")
+plot(dag0$dag, layout=layout.circle, main = "Output DAG")
+plot(dag0$dag.old, layout=layout.circle, main = "Inferred old edges")
+plot(dag0$dag.new, layout=layout.circle, main = "Inferred new edges")
+par(old.par)
+
+# Four DAG estimation
+dag1 &lt;- SEMdag(ig, X, LO="TO")
+dag2 &lt;- SEMdag(ig, X, LO="TL")
+dag3 &lt;- SEMdag(ig, X, LO="BU", eta=0)
+dag4 &lt;- SEMdag(ig, X, LO="BU", eta=NULL)
+
+unlist(dag1$LO)
+dag2$LO
+unlist(dag3$LO)
+dag4$LO
+
+# Graphs
+old.par &lt;- par(no.readonly = TRUE)
+par(mfrow=c(2,2), mar=rep(2,4))
+gplot(dag1$dag, main="TO")
+gplot(dag2$dag, main="TL")
+gplot(dag3$dag, main="BU")
+gplot(dag4$dag, main="TLBU")
+par(old.par)
+
+</code></pre>
+
+
+</div>

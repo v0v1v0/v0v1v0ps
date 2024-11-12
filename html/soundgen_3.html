@@ -1,0 +1,487 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>.analyze</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Analyze per sound</h2>
+
+<h3>Description</h3>
+
+<p>Internal soundgen function
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">.analyze(
+  audio,
+  dynamicRange = 80,
+  silence = 0.04,
+  windowLength = 50,
+  step = windowLength/2,
+  overlap = 50,
+  specType = c("spectrum", "reassign", "spectralDerivative")[1],
+  wn = "gaussian",
+  zp = 0,
+  cutFreq = NULL,
+  nFormants = 3,
+  formants = NULL,
+  loudness = NULL,
+  roughness = NULL,
+  novelty = NULL,
+  pitchMethods = c("dom", "autocor"),
+  pitchManual_list = NULL,
+  entropyThres = 0.6,
+  pitchFloor = 75,
+  pitchCeiling = 3500,
+  priorMean = 300,
+  priorSD = 6,
+  priorAdapt = TRUE,
+  nCands = 1,
+  minVoicedCands = NULL,
+  pitchDom = list(domThres = 0.1, domSmooth = 220),
+  pitchAutocor = list(autocorThres = 0.7, autocorSmooth = 7, autocorUpsample = 25,
+    autocorBestPeak = 0.975),
+  pitchCep = list(cepThres = 0.75, cepZp = 0),
+  pitchSpec = list(specThres = 0.05, specPeak = 0.25, specHNRslope = 0.8, specSmooth =
+    150, specMerge = 0.1, specSinglePeakCert = 0.4, specRatios = 3),
+  pitchHps = list(hpsNum = 5, hpsThres = 0.1, hpsNorm = 2, hpsPenalty = 2),
+  pitchZc = list(zcThres = 0.1, zcWin = 5),
+  harmHeight = list(harmThres = 3, harmTol = 0.25, harmPerSel = 5),
+  subh = list(method = c("cep", "pitchCands", "harm")[1], nSubh = 5, tol = 0.05, nHarm =
+    5, harmThres = 12, harmTol = 0.25, amRange = c(10, 200)),
+  flux = list(thres = 0.15, smoothWin = 100),
+  amRange = c(10, 200),
+  fmRange = c(5, 1000/step/2),
+  shortestSyl = 20,
+  shortestPause = 60,
+  interpol = NULL,
+  pathfinding = c("none", "fast", "slow")[2],
+  annealPars = list(maxit = 5000, temp = 1000),
+  certWeight = 0.5,
+  snakeStep = 0,
+  snakePlot = FALSE,
+  smooth = 1,
+  smoothVars = c("pitch", "dom"),
+  returnPitchCands = FALSE,
+  plot = TRUE,
+  showLegend = TRUE,
+  osc = "linear",
+  pitchPlot = list(col = rgb(0, 0, 1, 0.75), lwd = 3, showPrior = TRUE),
+  pitchDom_plotPars = list(),
+  pitchAutocor_plotPars = list(),
+  pitchCep_plotPars = list(),
+  pitchSpec_plotPars = list(),
+  pitchHps_plotPars = list(),
+  pitchZc_plotPars = list(),
+  extraContour = NULL,
+  ylim = NULL,
+  xlab = NULL,
+  ylab = NULL,
+  main = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>audio</code></td>
+<td>
+<p>a list returned by <code>readAudio</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dynamicRange</code></td>
+<td>
+<p>dynamic range, dB. All values more than one dynamicRange
+under maximum are treated as zero</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silence</code></td>
+<td>
+<p>(0 to 1 as proportion of max amplitude) frames with RMS
+amplitude below <code>silence * max_ampl adjusted by scale</code> are not
+analyzed at all.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength</code></td>
+<td>
+<p>length of FFT window, ms</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>step</code></td>
+<td>
+<p>you can override <code>overlap</code> by specifying FFT step, ms (NB:
+because digital audio is sampled at discrete time intervals of
+1/samplingRate, the actual step and thus the time stamps of STFT frames
+may be slightly different, eg 24.98866 instead of 25.0 ms)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>overlap between successive FFT frames, %</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specType</code></td>
+<td>
+<p>plot the original FFT ('spectrum'), reassigned spectrogram
+('reassigned'), or spectral derivative ('spectralDerivative')</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wn</code></td>
+<td>
+<p>window type accepted by <code>ftwindow</code>, currently
+gaussian, hanning, hamming, bartlett, blackman, flattop, rectangle</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>zp</code></td>
+<td>
+<p>window length after zero padding, points</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cutFreq</code></td>
+<td>
+<p>if specified, spectral descriptives (peakFreq, specCentroid,
+specSlope, and quartiles) are calculated only between <code>cutFreq[1]</code> and
+<code>cutFreq[2]</code>, Hz. If a single number is given, analyzes frequencies
+from 0 to <code>cutFreq</code>. For ex., when analyzing recordings with varying
+sampling rates, set to half the lowest sampling rate to make the spectra
+more comparable. Note that "entropyThres" applies only to this frequency
+range, which also affects which frames will not be analyzed with
+pitchAutocor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nFormants</code></td>
+<td>
+<p>the number of formants to extract per STFT frame (0 = no
+formant analysis, NULL = as many as possible)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>formants</code></td>
+<td>
+<p>a list of arguments passed to
+<code>findformants</code> - an external function called to
+perform LPC analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loudness</code></td>
+<td>
+<p>a list of parameters passed to <code>getLoudness</code> for
+measuring subjective loudness, namely <code>SPL_measured, Pref,
+spreadSpectrum</code>. NULL = skip loudness analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>roughness</code></td>
+<td>
+<p>a list of parameters passed to
+<code>modulationSpectrum</code> for measuring roughness. NULL = skip
+roughness analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>novelty</code></td>
+<td>
+<p>a list of parameters passed to <code>ssm</code> for measuring
+spectral novelty. NULL = skip novelty analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchMethods</code></td>
+<td>
+<p>methods of pitch estimation to consider for determining
+pitch contour: 'autocor' = autocorrelation (~PRAAT), 'cep' = cepstral,
+'spec' = spectral (~BaNa), 'dom' = lowest dominant frequency band, 'hps' =
+harmonic product spectrum, NULL = no pitch analysis</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>entropyThres</code></td>
+<td>
+<p>pitch tracking is only performed for frames with Weiner
+entropy below <code>entropyThres</code>, but other spectral descriptives are
+still calculated (NULL = analyze everything)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchFloor, pitchCeiling</code></td>
+<td>
+<p>absolute bounds for pitch candidates (Hz)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorMean, priorSD</code></td>
+<td>
+<p>specifies the mean (Hz) and standard deviation
+(semitones) of gamma distribution describing our prior knowledge about the
+most likely pitch values for this file. For ex., <code>priorMean = 300,
+priorSD = 6</code> gives a prior with mean = 300 Hz and SD = 6 semitones (half
+an octave). To avoid using any priors, set <code>priorMean = NA, priorAdapt
+= FALSE</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>priorAdapt</code></td>
+<td>
+<p>adaptive second-pass prior: if TRUE, optimal pitch contours
+are estimated first with a prior determined by <code>priorMean,priorSD</code>, and
+then with a new prior adjusted according to this first-pass pitch contour</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCands</code></td>
+<td>
+<p>maximum number of pitch candidates per method, normally 1...4
+(except for <code>dom</code>, which returns at most one candidate per frame)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minVoicedCands</code></td>
+<td>
+<p>minimum number of pitch candidates that have to be
+defined to consider a frame voiced (if NULL, defaults to 2 if <code>dom</code> is
+among other candidates and 1 otherwise)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchDom</code></td>
+<td>
+<p>a list of control parameters for pitch tracking using the
+lowest dominant frequency band or "dom" method; see details and
+<code>?soundgen:::getDom</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchAutocor</code></td>
+<td>
+<p>a list of control parameters for pitch tracking using the
+autocorrelation or "autocor" method; see details and
+<code>?soundgen:::getPitchAutocor</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchCep</code></td>
+<td>
+<p>a list of control parameters for pitch tracking using the
+cepstrum or "cep" method; see details and <code>?soundgen:::getPitchCep</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchSpec</code></td>
+<td>
+<p>a list of control parameters for pitch tracking using the
+BaNa or "spec" method; see details and <code>?soundgen:::getPitchSpec</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchHps</code></td>
+<td>
+<p>a list of control parameters for pitch tracking using the
+harmonic product spectrum or "hps" method; see details and
+<code>?soundgen:::getPitchHps</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchZc</code></td>
+<td>
+<p>a list of control parameters for pitch tracking based on zero
+crossings in bandpass-filtered audio or "zc" method; see
+<code>getPitchZc</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>harmHeight</code></td>
+<td>
+<p>a list of control parameters for estimating how high
+harmonics reach in the spectrum; see details and <code>?soundgen:::harmHeight</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subh</code></td>
+<td>
+<p>a list of control parameters for estimating the strength of
+subharmonics per frame - that is, spectral energy at integer ratios of f0:
+see <code>?soundgen:::subhToHarm</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>flux</code></td>
+<td>
+<p>a list of control parameters for calculating feature-based flux
+(not spectral flux) passed to <code>getFeatureFlux</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amRange</code></td>
+<td>
+<p>target range of frequencies for amplitude modulation, Hz: a
+vector of length 2 (affects both <code>amMsFreq</code> and <code>amEnvFreq</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fmRange</code></td>
+<td>
+<p>target range of frequencies for analyzing frequency
+modulation, Hz (<code>fmFreq</code>): a vector of length 2</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shortestSyl</code></td>
+<td>
+<p>the smallest length of a voiced segment (ms) that
+constitutes a voiced syllable (shorter segments will be replaced by NA, as
+if unvoiced)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>shortestPause</code></td>
+<td>
+<p>the smallest gap between voiced syllables (ms): large
+value = interpolate and merge, small value = treat as separate syllables
+separated by an unvoiced gap</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interpol</code></td>
+<td>
+<p>a list of parameters (currently <code>win, tol, cert</code>) passed
+to <code>soundgen:::pathfinder</code> for interpolating missing pitch candidates
+(NULL = no interpolation)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pathfinding</code></td>
+<td>
+<p>method of finding the optimal path through pitch
+candidates: 'none' = best candidate per frame, 'fast' = simple heuristic,
+'slow' = annealing. See <code>soundgen:::pathfinder</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>annealPars</code></td>
+<td>
+<p>a list of control parameters for postprocessing of
+pitch contour with SANN algorithm of <code>optim</code>. This is
+only relevant if <code>pathfinding = 'slow'</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>certWeight</code></td>
+<td>
+<p>(0 to 1) in pitch postprocessing, specifies how much we
+prioritize the certainty of pitch candidates vs. pitch jumps / the internal
+tension of the resulting pitch curve</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>snakeStep</code></td>
+<td>
+<p>optimized path through pitch candidates is further
+processed to minimize the elastic force acting on pitch contour. To
+disable, set <code>snakeStep = 0</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>snakePlot</code></td>
+<td>
+<p>if TRUE, plots the snake</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smooth, smoothVars</code></td>
+<td>
+<p>if <code>smooth</code> is a positive number, outliers of
+the variables in <code>smoothVars</code> are adjusted with median smoothing.
+<code>smooth</code> of 1 corresponds to a window of ~100 ms and tolerated
+deviation of ~4 semitones. To disable, set <code>smooth = 0</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, produces a spectrogram with pitch contour overlaid</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>showLegend</code></td>
+<td>
+<p>if TRUE, adds a legend with pitch tracking methods</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>osc</code></td>
+<td>
+<p>"none" = no oscillogram; "linear" = on the original scale; "dB" =
+in decibels</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pitchPlot</code></td>
+<td>
+<p>a list of graphical parameters for displaying the final
+pitch contour. Set to <code>list(type = 'n')</code> to suppress</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>extraContour</code></td>
+<td>
+<p>name of an output variable to overlap on the pitch
+contour plot, eg 'peakFreq' or 'loudness'; can also be a list with extra
+graphical parameters, eg <code>extraContour = list(x = 'harmHeight', col =
+'red')</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ylim</code></td>
+<td>
+<p>frequency range to plot, kHz (defaults to 0 to Nyquist
+frequency). NB: still in kHz, even if yScale = bark, mel, or ERB</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xlab, ylab, main</code></td>
+<td>
+<p>plotting parameters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>parameters passed to
+<code>png</code> if the plot is saved</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other graphical parameters passed to <code>spectrogram</code></p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Called by <code>analyze</code> and <code>pitch_app</code> to analyze a
+single sound.
+</p>
+
+
+</div>

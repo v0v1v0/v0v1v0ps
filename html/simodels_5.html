@@ -1,0 +1,124 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>si_calculate</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate flow using a pre-existing function</h2>
+
+<h3>Description</h3>
+
+<p>Executes a spatial interaction model based on an OD data frame
+and user-specified function
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">si_calculate(
+  od,
+  fun,
+  constraint_production,
+  constraint_attraction,
+  constraint_total,
+  output_col = "interaction",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>od</code></td>
+<td>
+<p>A data frame representing origin-destination data, e.g. as created by
+<code>si_to_od()</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fun</code></td>
+<td>
+<p>A function that calculates the interaction (e.g. the number of trips)
+between each OD pair</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraint_production</code></td>
+<td>
+<p>Character representing column in <code>od</code>.
+This argument, when set, ensures that the outputs are 'production constrained':
+the total 'interaction' (e.g. n. trips) for all OD pairs is set such that
+the total for each zone of origin cannot go above this value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraint_attraction</code></td>
+<td>
+<p>Character representing column in <code>od</code>.
+This argument, when set, ensures that the outputs are 'attraction constrained':
+the total 'interaction' (e.g. n. trips) for all OD pairs is set such that
+the sum of trips to destination is equal to the mean value per destination.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>constraint_total</code></td>
+<td>
+<p>Single number representing the total interaction.
+This argument, when set, ensures that the sum of the interaction
+calculated will equal the value given.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output_col</code></td>
+<td>
+<p>Character string containing the name of the new output
+column. <code>"interaction"</code> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Arguments passed to <code>fun</code></p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An sf data frame
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">od = si_to_od(si_zones, si_zones, max_dist = 4000)
+fun_dd = function(d = "distance_euclidean", beta = 0.3) exp(-beta * d / 1000)
+fun_dd(d = (1:5) * 1000)
+od_dd = si_calculate(od, fun = fun_dd, d = distance_euclidean)
+plot(od$distance_euclidean, od_dd$interaction)
+fun = function(O, n, d, beta) O * n * exp(-beta * d / 1000)
+od_output = si_calculate(od, fun = fun, beta = 0.3, O = origin_all, 
+  n = destination_all, d = distance_euclidean)
+head(od_output)
+plot(od$distance_euclidean, od_output$interaction)
+od_pconst = si_calculate(od, fun = fun, beta = 0.3, O = origin_all,
+  n = destination_all, d = distance_euclidean, constraint_production = origin_all)
+# Origin totals in OD data should equal origin totals in zone data
+library(dplyr)
+origin_totals_zones = od_pconst |&gt;
+  group_by(geo_code = O) |&gt;
+  summarise(all_od = sum(interaction)) |&gt;
+  sf::st_drop_geometry()
+zones_joined = left_join(si_zones, origin_totals_zones)
+plot(zones_joined$all, zones_joined$all_od)
+plot(od_pconst$distance_euclidean, od_pconst$interaction)
+plot(od_pconst["interaction"], logz = TRUE)
+od_dd = si_calculate(od, fun = fun_dd, d = distance_euclidean, output_col = "res")
+head(od_dd$res)
+od_dd = si_calculate(od, fun = fun_dd, d = distance_euclidean, constraint_total = 10)
+sum(od_dd$interaction)
+</code></pre>
+
+
+</div>

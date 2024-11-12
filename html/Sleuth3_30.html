@@ -1,0 +1,129 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>case1501</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Logging and Water Quality</h2>
+
+<h3>Description</h3>
+
+<p>Data from an observational study of nitrate levels measured at three
+week intervals for five years in two watersheds. One of the watersheds
+was undisturbed and the other had been logged with a patchwork
+pattern. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">case1501</code></pre>
+
+
+<h3>Format</h3>
+
+<p>A data frame with 88 observations on the following 3 variables.
+</p>
+
+<dl>
+<dt>Week</dt>
+<dd>
+<p>week after the start of the study</p>
+</dd>
+<dt>Patch</dt>
+<dd>
+<p>natural logarithm of nitrate level (ppm) in 
+the logged watershed (ppm)</p>
+</dd> 
+<dt>NoCut</dt>
+<dd>
+<p>natural logarithm of nitrate level in the 
+undisturbed watershed (ppm)</p>
+</dd> 
+</dl>
+<h3>Source</h3>
+
+<p>Ramsey, F.L. and Schafer, D.W. (2013). <em>The Statistical Sleuth: A
+Course in Methods of Data Analysis (3rd ed)</em>, Cengage Learnings.
+</p>
+
+
+<h3>References</h3>
+
+<p>Harr, R.D., Friderksen, R.L., and Rothacher, J. (1979). Changes in
+Streamflow Following Timber Harvests in Southwestern Oregon, USDA/USFS
+Research Paper PNW-249, Pacific NW Forest and Range Experiment
+Station, Portland, Oregon. 
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">str(case1501)
+attach(case1501)
+
+## EXPLORATION
+opar &lt;- par(no.readonly=TRUE)  # Store current graphics parameters settings
+par(mfrow=c(2,1))   # Set graphics parameters: 2 row, 1 column layout
+plot(NoCut ~ Week,  type="b", ylab="Log of Nitrate Concentration; NoCut")
+abline(h=mean(NoCut))  # Horizontal line at the mean
+plot(Patch ~ Week,  type="b", ylab="Log of Nitrate Concentration; Patch Cut")         
+abline(h=mean(Patch))
+ 
+par(opar) # Restore previous graphics settings
+lag.plot(NoCut,do.lines=FALSE)  # Lag plot for NoCut
+lag.plot(Patch,do.lines=FALSE)  # Lag plot for Patch
+pacf(NoCut)  # partial autocorrelation function plot; noCut
+pacf(Patch)  # partial autocorrelation function plot; Patch
+
+## INFERENCE  (2-sample comparison, accounting for first serial correlation)
+diff     &lt;- mean(Patch) - mean(NoCut)
+nPatch   &lt;- length(Patch)  # length of Patch series
+nNoCut   &lt;- length(NoCut)   # length of NoCut series
+acfPatch &lt;- acf(Patch, type="covariance")  # auto covariances for Patch series
+c0Patch  &lt;- acfPatch$acf[1]*nPatch/(nPatch-1) # variance; n-1 divisor (Patch) 
+c1Patch  &lt;- acfPatch$acf[2]*nPatch/(nPatch-1) # autocov; n-1 divisor (Patch)  
+acfNoCut &lt;- acf(NoCut, type="covariance") # auto covariances for NoCut series
+c0NoCut  &lt;- acfNoCut$acf[1]*nNoCut/(nNoCut - 1) # variance; n-1 divisor (NoCut)
+c1NoCut  &lt;- acfNoCut$acf[2]*nNoCut/(nNoCut - 1) # autocov; n-1 divisor (NoCut) 
+dfPatch  &lt;- nPatch - 1     # DF (n-1); Patch
+dfNoCut  &lt;- nNoCut - 1     # DF (n-1); NoCut
+
+c0Pooled   &lt;- (dfPatch*c0Patch + dfNoCut*c0NoCut)/(dfPatch + dfNoCut)
+c0Pooled   #[1] 1.413295  = pooled estimate of variance
+c1Pooled   &lt;- (dfPatch*c1Patch + dfNoCut*c1NoCut)/(dfPatch + dfNoCut)
+c1Pooled   #[1] 0.9103366 = pooled estimate of lag 1 covariance
+
+# Pooled estimate of first serial correlation coefficient:
+r1 &lt;- c1Pooled/c0Pooled                  #[1] 0.6441233
+SEdiff  &lt;- sqrt((1 + r1)/(1-r1))*sqrt(c0Pooled*(1/nPatch + 1/nNoCut))    
+
+# t-test and confidence interval
+tStat      &lt;- diff/SEdiff #[1] 0.2713923
+pValue     &lt;- 1 - pt(tStat,dfPatch + dfNoCut)     # One-sided p-value   
+halfWidth  &lt;- qt(.975,dfPatch + dfNoCut)*SEdiff   # half width of 95% CI
+diff + c(-1,1)*halfWidth  #95% CI -0.6557578  0.8648487
+
+## GRAPHICAL DISPLAY FOR PRESENTATION  
+par(mfrow=c(1,1))                   # Reset mfrow to a single plot per page
+plot(exp(Patch) ~ Week, # Use exp(Patch) to show results in original units
+  log="y", type="b", xlab="Weeks After Logging",
+  ylab="Nitrate Concentration in Watershed Runoff (ppm)",
+  main="Nitrate Series in Patch-Cut and Undisturbed Watersheds",
+  pch=21, col="dark green", lwd=3, bg="green", cex=1.3 ) 
+points(exp(NoCut) ~ Week, pch=24, col="dark blue", lwd=3, bg="orange",cex=1.3)
+lines(exp(NoCut) ~ Week, lwd=3, col="dark blue",lty=3)            
+abline(h=exp(mean(Patch)),col="dark green",lwd=2)
+abline(h=exp(mean(NoCut)),col="dark blue", lwd=2,lty=2)
+legend(205,100,legend=c("Patch Cut", "Undisturbed"),
+  pch=c(21,24), col=c("dark green","dark blue"), pt.bg = c("green","orange"),
+  pt.cex=c(1.3,1.3), lty=c(1,3), lwd=c(3,3))
+text(-1, 8.5, "Mean",col="dark green")
+text(-1,6.3,"Mean", col="dark blue")
+
+
+detach(case1501)
+</code></pre>
+
+
+</div>

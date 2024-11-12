@@ -1,0 +1,283 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>6. BLUP estimation from Linear Mixed Model</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fitting a Linear Mixed model to calculate BLUP</h2>
+
+<h3>Description</h3>
+
+<p>Solves the Linear Mixed Model and calculates the Best Linear Unbiased Predictor (BLUP)
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fitBLUP(y, X = NULL, Z = NULL, K = NULL, trn = NULL,
+        EVD = NULL, varU = NULL, varE = NULL,
+        ID_geno = NULL, ID_trait = NULL, intercept = TRUE,
+        BLUP = TRUE, method = c("REML","ML"),
+        interval = c(1E-9,1E9), tol = 1E-8, maxiter = 1000,
+        n.regions = 10, verbose = TRUE)
+            
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>(numeric vector) Response variable. It can be a matrix with each column representing a different response variable</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>(numeric matrix) Design matrix for fixed effects. When <code>X=NULL</code> a vector of ones is constructed only for the intercept (default)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Z</code></td>
+<td>
+<p>(numeric matrix) Design matrix for random effects. When <code>Z=NULL</code> an identity matrix is considered (default) thus <b>G</b> = <b>K</b>; otherwise <b>G</b> = <b>Z K Z'</b> is used</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>(numeric matrix) Kinship relationship matrix</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trn</code></td>
+<td>
+<p>(integer vector) Which elements from vector <code>y</code> are to be used for training. When <code>trn = NULL</code>, non-NA entries in vector <code>y</code> will be used as training set</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>EVD</code></td>
+<td>
+<p>(list) Eigenvectors and eigenvalues from eigenvalue decomposition (EVD) of <b>G</b> corresponding to training data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ID_geno</code></td>
+<td>
+<p>(character/integer) For within-trait analysis only, vector with either names or indices mapping entries of the vector <code>y</code> to rows/columns of matrix <code>G</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ID_trait</code></td>
+<td>
+<p>(character/integer) For within-trait analysis only, vector with either names or indices mapping entries of the vector <code>y</code> to different traits</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>varU, varE</code></td>
+<td>
+<p>(numeric) Genetic and residual variances. When both <code>varU</code> and <code>varE</code> are not <code>NULL</code> they are not calculated; otherwise, the likelihood function (REML or ML) is optimized to search for the genetic/residual variances ratio</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to whether fit an intercept. When <code>FALSE</code>, the model assumes a null intercept</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>BLUP</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to whether return the random effects estimates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>(character) Either 'REML' (Restricted Maximum Likelihood) or 'ML' (Maximum Likelihood)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>(numeric) Maximum error between two consecutive solutions (convergence tolerance) when finding the root of the log-likelihood's first derivative</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+<p>(integer) Maximum number of iterations to run before convergence is reached</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interval</code></td>
+<td>
+<p>(numeric vector) Range of values in which the root is searched</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.regions</code></td>
+<td>
+<p>(numeric) Number of regions in which the searched 'interval' is divided for local optimization</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p><code>TRUE</code> or <code>FALSE</code> to whether show progress</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The basic linear mixed model that relates phenotypes with genetic values is of the form
+</p>
+<p style="text-align:center"><b>y</b> = <b>X b</b> + <b>Z g</b> + <b>e</b></p>
+<p>where
+<b>y</b> is a vector with the response,
+<b>b</b> is the vector of fixed effects,
+<b>u</b> is the vector of the (random) genetic effects of the genotypes,
+<b>e</b> is the vector of environmental residuals (random error), and
+<b>X</b> and <b>Z</b> are design matrices for the fixed and genetic effects, respectively. Genetic effects are assumed to follow a Normal distribution as
+<b>g</b> ~ N(<b>0</b>,σ<sup>2</sup><sub>u</sub><b>K</b>), and the error terms are assumed
+<b>e</b> ~ N(<b>0</b>,σ<sup>2</sup><sub>e</sub><b>I</b>).
+</p>
+<p>The vector of total genetic values
+<b>u</b> = <b>Z g</b> will therefore follow 
+<b>u</b> ~ N(<b>0</b>,σ<sup>2</sup><sub>u</sub><b>G</b>) where
+<b>G</b> = <b>Z K Z'</b>.
+In the un-replicated case, <b>Z</b> = <b>I</b> is an identity matrix, and hence 
+<b>u</b> = <b>g</b> and
+<b>G</b> = <b>K</b>.
+</p>
+<p>The predicted values <b>u</b><sub>trn</sub> = {u<sub>i</sub>},
+i = 1,2,...,n<sub>trn</sub>, corresponding to observed data (training set) are derived as
+</p>
+<p style="text-align:center"><b>u</b><sub>trn</sub> = <b>B</b> (<b>y</b><sub>trn</sub> - <b>X</b><sub>trn</sub><b>b</b>)</p>
+<p>where <b>B</b>
+is a matrix of weights given by
+</p>
+<p style="text-align:center"><b>B</b> = σ<sup>2</sup><sub>u</sub><b>G</b><sub>trn</sub> (σ<sup>2</sup><sub>u</sub><b>G</b><sub>trn</sub> + σ<sup>2</sup><sub>e</sub><b>I</b>)<sup>-1</sup></p>
+<p>where <b>G</b><sub>trn</sub>
+is the sub-matrix corresponding to the training set. This matrix can be rewritten as
+</p>
+<p style="text-align:center"><b>B</b> = <b>G</b><sub>trn</sub> (<b>G</b><sub>trn</sub> + θ<b>I</b>)<sup>-1</sup></p>
+<p>where θ = σ<sup>2</sup><sub>e</sub>/σ<sup>2</sup><sub>u</sub> is the residual/genetic variances ratio representing a ridge-like shrinkage parameter.
+</p>
+<p>The matrix <b>H</b> = <b>G</b><sub>trn</sub> + θ<b>I</b>
+in the above equation can be used to obtain predictions corresponding to un-observed data (testing set),
+<b>u</b><sub>tst</sub> = {u<sub>i</sub>},
+i = 1,2,...,n<sub>tst</sub>, by  
+</p>
+<p style="text-align:center"><b>B</b> = <b>G</b><sub>tst,trn</sub> (<b>G</b><sub>trn</sub> + θ<b>I</b>)<sup>-1</sup></p>
+<p>where
+<b>G</b><sub>tst,trn</sub>
+is the sub-matrix of <b>G</b> corresponding to the testing set (in rows) and training set (in columns).  
+</p>
+<p>Solutions are found using the GEMMA (Genome-wide Efficient Mixed Model Analysis) approach (Zhou &amp; Stephens, 2012). First, the Brent's method is implemented to solve for the genetic/residual variances ratio (i.e., 1/θ) from the first derivative of the log-likelihood (either REML or ML). Then, variances σ<sup>2</sup><sub>u</sub> and σ<sup>2</sup><sub>e</sub> are calculated. Finally, <b>b</b> is obtained using Generalized Least Squares.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Returns a list object that contains the elements:
+</p>
+
+<ul>
+<li> <p><code>b</code>: (vector) fixed effects solutions (including the intercept).
+</p>
+</li>
+<li> <p><code>u</code>: (vector) total genetic values (<b>u</b> = <b>Z g</b>).
+</p>
+</li>
+<li> <p><code>g</code>: (vector) genetic effects solutions.
+</p>
+</li>
+<li> <p><code>varU</code>: random effect variance.
+</p>
+</li>
+<li> <p><code>varE</code>: residual variance.
+</p>
+</li>
+<li> <p><code>h2</code>: heritability.
+</p>
+</li>
+<li> <p><code>convergence</code>: (logical) whether Brent's method converged.
+</p>
+</li>
+<li> <p><code>method</code>: either 'REML' or 'ML' method used.
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Zhou X, Stephens M (2012). Genome-wide efficient mixed-model analysis for association studies. <em>Nature Genetics</em>, <b>44</b>(7), 821-824
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">  require(SFSI)
+  data(wheatHTP)
+  
+  index = which(Y$trial %in% 1:20)    # Use only a subset of data
+  Y = Y[index,]
+  M = scale(M[index,])/sqrt(ncol(M))  # Subset and scale markers
+  G = tcrossprod(M)                   # Genomic relationship matrix
+  Y0 = scale(as.matrix(Y[,4:6]))      # Response variable
+  
+  #---------------------------------------------------
+  # Single-trait model
+  #---------------------------------------------------
+  y = Y0[,1]     
+  
+  # Training and testing sets
+  tst = which(Y$trial %in% 1:3)
+  trn = seq_along(y)[-tst]
+  
+  # Kinship-based model
+  fm1 = fitBLUP(y, K=G, trn=trn)
+  
+  head(fm1$g)                  # Genetic effects
+  plot(y[tst],fm1$yHat[tst])   # Predicted vs observed values in testing set
+  cor(y[tst],fm1$yHat[tst])    # Prediction accuracy in testing set
+  cor(y[trn],fm1$yHat[trn])    # Prediction accuracy in training set
+  fm1$varU                     # Genetic variance
+  fm1$varE                     # Residual variance
+  fm1$h2                       # Heritability
+  fm1$b                        # Fixed effects
+  
+  # Markers-based model
+  fm2 = fitBLUP(y, Z=M, trn=trn)
+  head(fm2$g)                   # Marker effects
+  all.equal(fm1$yHat, fm2$yHat)
+  fm2$varU                      # Genetic variance
+  fm2$varU*sum(apply(M,2,var))
+  
+  #---------------------------------------------------
+  # Multiple response variables
+  #---------------------------------------------------
+  ID_geno = as.vector(row(Y0))
+  ID_trait = as.vector(col(Y0))
+  y = as.vector(Y0)
+  
+  # Training and testing sets
+  tst = c(which(ID_trait==1)[Y$trial %in% 1:3],
+          which(ID_trait==2)[Y$trial %in% 1:3],
+          which(ID_trait==3)[Y$trial %in% 1:3])
+  trn = seq_along(y)[-tst]
+  
+  # Across traits model
+  fm3 = fitBLUP(y, K=G, ID_geno=ID_geno, trn=trn)
+  plot(fm1$yHat,fm3$yHat[ID_trait==1])  # different from the single-trait model
+  
+  # Within traits model: pass an index for traits
+  fm4 = fitBLUP(y, K=G, ID_geno=ID_geno, ID_trait=ID_trait, trn=trn)
+  plot(fm1$yHat,fm4$yHat[ID_trait==1])  # equal to the single-trait model
+  
+</code></pre>
+
+
+</div>

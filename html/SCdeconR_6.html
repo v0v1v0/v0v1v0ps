@@ -1,0 +1,101 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>compute_metrics</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Statistical evaluations of predicted cell proportions</h2>
+
+<h3>Description</h3>
+
+<p>Compute RMSE, bias &amp; variance metrics for predicted cell proportions by comparing with expected cell proportions.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">compute_metrics(prop_pred, prop_sim)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>prop_pred</code></td>
+<td>
+<p>a matrix-like object of predicted cell proportion values with rows representing cell types, columns representing samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop_sim</code></td>
+<td>
+<p>a matrix-like object of simulated/expected cell proportion values with rows representing cell types, columns representing samples.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a list of two objects:
+</p>
+
+<ol>
+<li>
+<p> a data.fame of summary metrics containing RMSE, bias &amp; variance grouped by cell types and mixture ids (simulated samples with the same expected cell proportions).
+</p>
+</li>
+<li>
+<p> a data.frame of aggregated RMSE values across all cell types within each sample.
+</p>
+</li>
+</ol>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## generate artificial bulk samples
+ref_list &lt;- c(paste0(system.file("extdata", package = "SCdeconR"), "/refdata/sample1"),
+              paste0(system.file("extdata", package = "SCdeconR"), "/refdata/sample2"))
+phenopath1 &lt;- paste0(system.file("extdata", package = "SCdeconR"),
+"/refdata/phenodata_sample1.txt")
+phenopath2 &lt;- paste0(system.file("extdata", package = "SCdeconR"),
+"/refdata/phenodata_sample2.txt")
+phenodata_list &lt;- c(phenopath1,phenopath2)
+
+# construct integrated reference using harmony algorithm
+refdata &lt;- construct_ref(ref_list = ref_list,
+                      phenodata_list = phenodata_list,
+                      data_type = "cellranger",
+                      method = "harmony",
+                      group_var = "subjectid",
+                      nfeature_rna = 50,
+                      vars_to_regress = "percent_mt", verbose = FALSE)
+phenodata &lt;- data.frame(cellid = colnames(refdata),
+                        celltypes = refdata$celltype,
+                        subjectid = refdata$subjectid)
+prop &lt;- data.frame(celltypes = unique(refdata$celltype), 
+proportion = rep(1/length(unique(refdata$celltype)), length(unique(refdata$celltype))))                        
+bulk_sim &lt;- bulk_generator(ref = GetAssayData(refdata, slot = "data", assay = "SCT"),
+                           phenodata = phenodata,
+                           num_mixtures = 20,
+                           prop = prop,
+                           num_mixtures_sprop = 1)
+
+## perform deconvolution based on "OLS" algorithm
+decon_res &lt;- scdecon(bulk = bulk_sim[[1]],
+                     ref = GetAssayData(refdata, slot = "data", assay = "SCT"),
+                     phenodata = phenodata,
+                     filter_ref = TRUE,
+                     decon_method = "OLS",
+                     norm_method_sc = "LogNormalize",
+                     norm_method_bulk = "TMM",
+                     trans_method_sc = "none",
+                     trans_method_bulk = "log2",
+                     marker_strategy = "all")
+
+## compute metrics
+metrics_res &lt;- compute_metrics(decon_res[[1]], bulk_sim[[2]])
+
+</code></pre>
+
+
+</div>

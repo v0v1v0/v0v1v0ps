@@ -1,0 +1,322 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ca</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Empirical Classification Analysis (CA) and Inference</h2>
+
+<h3>Description</h3>
+
+<p><code>ca</code> conducts CA estimation and inference on user-specified objects of
+interest: first (weighted) moment or (weighted) distribution. Users can use
+<code>t</code> to specify variables in interest. When object of interest is
+moment, use <code>cl</code> to specify whether want to see averages or difference
+of the two groups.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ca(
+  fm,
+  data,
+  method = c("ols", "logit", "probit", "QR"),
+  var_type = c("binary", "continuous", "categorical"),
+  var,
+  compare,
+  subgroup = NULL,
+  samp_weight = NULL,
+  taus = c(5:95)/100,
+  u = 0.1,
+  interest = c("moment", "dist"),
+  t = c(1, 1, rep(0, dim(data)[2] - 2)),
+  cl = c("both", "diff"),
+  cat = NULL,
+  alpha = 0.1,
+  b = 500,
+  parallel = FALSE,
+  ncores = detectCores(),
+  seed = 1,
+  bc = TRUE,
+  range_cb = c(1:99)/100,
+  boot_type = c("nonpar", "weighted")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>fm</code></td>
+<td>
+<p>Regression formula</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The data in use: full sample or subpopulation in interset</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>Models to be used for estimating partial effects. Four
+options: <code>"logit"</code> (binary response),
+<code>"probit"</code> (binary response), <code>"ols"</code>
+(interactive linear with additive errors), <code>"QR"</code>
+(linear model with non-additive errors). Default is
+<code>"ols"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var_type</code></td>
+<td>
+<p>The type of parameter in interest. Three options:
+<code>"binary"</code>, <code>"categorical"</code>,
+<code>"continuous"</code>. Default is <code>"binary"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var</code></td>
+<td>
+<p>Variable T in interset. Should be a character.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>compare</code></td>
+<td>
+<p>If parameter in interest is categorical, then user needs
+to specify which two category to compare with. Should be
+a 1 by 2 character vector. For example, if the two levels
+to compare with is 1 and 3, then <code>c=("1", "3")</code>,
+which will calculate partial effect from 1 to 3. To use
+this option, users first need to specify <code>var</code> as
+a factor variable.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subgroup</code></td>
+<td>
+<p>Subgroup in interest. Default is <code>NULL</code>.
+Specifcation should be a logical variable. For example,
+suppose data contain indicator variable for women (female
+if 1, male if 0). If users are interested in women SPE,
+then users should specify
+<code>subgroup = data[, "female"] == 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samp_weight</code></td>
+<td>
+<p>Sampling weight of data. Input should be a n by 1 vector,
+where n denotes sample size. Default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>taus</code></td>
+<td>
+<p>Indexes for quantile regression. Default is
+<code>c(5:95)/100</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u</code></td>
+<td>
+<p>Percentile of most and least affected. Default is set to
+be 0.1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interest</code></td>
+<td>
+<p>Generic objects in the least and most affected
+subpopulations. Two options:
+(1) <code>"moment"</code>: weighted mean of Z in the
+u-least/most affected subpopulation.
+(2) <code>"dist"</code>: distribution of Z in the u-least/most
+affected subpopulation.
+Default is <code>interest = "moment"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>t</code></td>
+<td>
+<p>An index for ca object. Should be a 1 by ncol(data)
+indicator vector. Users can either (1) specify names of
+variables of interest directly, or (2) use 1 to indicate
+the variable of interest. For example, total number of
+variables is 5 and interested in the 1st and 3rd vars,
+then specify <code>t = c(1, 0, 1, 0, 0)</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cl</code></td>
+<td>
+<p>If <code>moment = "interest"</code>, <code>cl</code> allows the user
+to get the variables of interest (specified in <code>t</code>
+option) of the most and least affected groups. The
+default is <code>"both"</code>, which shows the variables of
+the two groups; the alternative is <code>"diff"</code>, which
+shows the difference of the two groups. The user can
+use the <code>summary.ca</code> to tabulate the
+results, which also contain the standard errors and p-
+values. If <code>interest = "dist"</code>, this option doesn't
+have any bearing and user can leave it to be the default
+value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cat</code></td>
+<td>
+<p>P-values in classification analysis are adjusted for
+multiplicity to account for joint testing of zero
+coefficients on for all variables within a category.
+Suppose we have selected specified 3 variables in
+interest: <code>t = c("a", "b", "c")</code>. Without loss of
+generality, assume <code>"a"</code> is not a factor, while
+<code>"b"</code> and <code>"c"</code> are two factors. Then users
+need to specify as <code>cat = c("b", "c")</code>. Default is
+<code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Size for confidence interval. Shoule be between 0 and 1.
+Default is 0.1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>Number of bootstrap draws. Default is 500.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>parallel</code></td>
+<td>
+<p>Whether the user wants to use parallel computation.
+The default is <code>FALSE</code> and only 1 CPU will be used.
+The other option is <code>TRUE</code>, and user can specify
+the number of CPUs in the <code>ncores</code> option.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p>Number of cores for computation. Default is set to be
+<code>detectCores()</code>, which is a function from package
+<code>parallel</code> that detects the number of CPUs on the
+current host. For large dataset, parallel computing is
+highly recommended since bootstrap is time-consuming.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>Pseudo-number generation for reproduction. Default is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bc</code></td>
+<td>
+<p>Whether want the estimate to be bias-corrected. Default
+is <code>TRUE</code>. If <code>FALSE</code> uncorrected estimate and
+corresponding confidence bands will be reported.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>range_cb</code></td>
+<td>
+<p>When <code>interest = "dist"</code>, we sort and unique
+variables in interest to estimate weighted CDF. For large
+dataset there can be memory problem storing very many of
+observations, and thus users can provide a Sort value and
+the package will sort and unique based on the weighted
+quantile of Sort. If users don't want this feature, set
+<code>range_cb = NULL</code>. Default is <code>c(1:99)/100</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>boot_type</code></td>
+<td>
+<p>Type of bootstrap. Default is <code>"nonpar"</code>, and the
+package implements nonparametric bootstrap. The
+alternative is <code>"weighted"</code>, and the package
+implements weighted bootstrap.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>All estimates are bias-corrected and all confidence bands are monotonized.
+The bootstrap procedures follow algorithm 2.2 as in Chernozhukov,
+Fernandez-Val and Luo (2018).
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>subgroup = NULL</code>, all outputs are whole sample. Otherwise output
+are subgroup results. When <code>interest = "moment"</code>, the output is a list
+showing
+</p>
+
+<ul>
+<li> <p><code>est</code> Estimates of variables in interest.
+</p>
+</li>
+<li> <p><code>bse</code> Bootstrap standard errors.
+</p>
+</li>
+<li> <p><code>joint_p</code> P-values that are adjusted for multiplicity to
+account for joint testing for all variables.
+</p>
+</li>
+<li> <p><code>pointwise_p</code> P-values that doesn't adjust for join testing
+</p>
+</li>
+</ul>
+<p>If users have further specified <code>cat</code> (e.g., <code>!is.null(cat)</code>), the
+fourth component will be replaced with <code>p_cat</code>: P-values that are a
+djusted for multiplicity to account for joint testing for all variables
+within a category. Users can use <code>summary.ca</code> to tabulate the
+results.
+</p>
+<p>When <code>interest = "dist"</code>, the output is a list of two components:
+</p>
+
+<ul>
+<li> <p><code>infresults</code> A list that stores estimates, upper and lower
+confidence bounds for all variables in interest for least and most
+affected groups.
+</p>
+</li>
+<li> <p><code>sortvar</code> A list that stores sorted and unique variables in
+interest.
+</p>
+</li>
+</ul>
+<p>We recommend using <code>plot.ca</code> command for result visualization.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">data("mortgage")
+### Regression Specification
+fm &lt;- deny ~ black + p_irat + hse_inc + ccred + mcred + pubrec +
+ltv_med + ltv_high + denpmi + selfemp + single + hischl
+### Specify characteristics of interest
+t &lt;- c("deny", "p_irat", "black", "hse_inc", "ccred", "mcred", "pubrec",
+"denpmi", "selfemp", "single", "hischl", "ltv_med", "ltv_high")
+### issue ca command
+CA &lt;- ca(fm = fm, data = mortgage, var = "black", method = "logit",
+cl = "diff", t = t, b = 50, bc = TRUE)
+</code></pre>
+
+
+</div>

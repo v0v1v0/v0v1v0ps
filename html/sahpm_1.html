@@ -1,0 +1,175 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sahpmlm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>This implements the stochastic search based on Simulated Anneling strategy.</h2>
+
+<h3>Description</h3>
+
+<p>Highest posterior model is widely accepted as a good model among available
+models. In terms of variable selection highest posterior model is often the true
+model. Our stochastic search process SAHPM based on simulated annealing maximization method
+tries to find the highest posterior model by maximizing the model space with
+respect to the posterior probabilities of the models. This function currently
+contains the SAHPM method only for linear models. The codes for GLM will be
+added in future.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sahpmlm(formula, data, na.action, g = n, nstep = 200, abstol = 1e-07,
+  replace = FALSE, burnin = FALSE, nburnin = 50)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>formula</code></td>
+<td>
+<p>an object of class <code>formula</code> (or one that can be
+coerced to that class): a symbolic description of the model to be fitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>an optional data frame, list or environment (or object coercible
+by <code>as.data.frame</code> to a data frame) containing the variables in the
+model. If not found in data, the variables are taken from environment(formula),
+typically the environment from which <code>lm</code> is called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>na.action</code></td>
+<td>
+<p>a function which indicates what should happen when the data contain
+<code>NA</code>s.  The default is set by the <code>na.action</code> setting of
+<code>options</code>, and is <code>na.fail</code> if that is unset.
+The “factory-fresh” default is <code>na.omit</code>.  Another possible
+value is <code>NULL</code>, no action.  Value <code>na.exclude</code> can be useful.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>g</code></td>
+<td>
+<p>value of <code class="reqn">g</code> for <code class="reqn">g</code> prior. Default is sample size <code class="reqn">n</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nstep</code></td>
+<td>
+<p>maximum number of steps for simulated annealing search.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>abstol</code></td>
+<td>
+<p>desired level of difference of marginal likelihoods between two steps.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replace</code></td>
+<td>
+<p>logical. If <code>TRUE</code> the replce step is considered in the search. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>burnin</code></td>
+<td>
+<p>logical. If <code>TRUE</code> the burnin is added. Default is FALSE. Number of burnin is specified by the next input.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nburnin</code></td>
+<td>
+<p>Number of burnin (required if burnin = TRUE). Default is 50.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The model is:
+</p>
+<p style="text-align: center;"><code class="reqn">y= \alpha + X\beta+\epsilon, \epsilon \sim N(0,\sigma^2)</code>
+</p>
+
+<p>The Zellner's <code class="reqn">g</code> prior is used with default <code class="reqn">g = n</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>final.model</code></td>
+<td>
+<p>A column vector which corresponds to the original
+variable indices.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>history</code></td>
+<td>
+<p>A history of the search process. By columns: Step number,
+temperature, current objective function value, current minimal objective
+function value, current model, posterior probability of current model.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Maity, A., K., and Basu, S. Highest Posterior Model Computation and
+Variable Selection via the Simulated Annealing
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">require(mvtnorm)     # for multivariate normal distribution
+n &lt;- 100             # sample size
+k &lt;- 40              # number of variables
+z &lt;- as.vector(rmvnorm(1, mean = rep(0, n), sigma = diag(n)))
+x &lt;- matrix(NA, nrow = n, ncol = k)
+for(i in 1:k)
+{
+x[, i] &lt;- as.vector(rmvnorm(1, mean = rep(0, n), sigma = diag(n))) + z
+}                    # this induce 0.5 correlation among the variables
+beta &lt;- c(rep(0, 10), rep(2, 10), rep(0, 10), rep(2, 10))
+                     # vector of coefficients
+sigma &lt;- 1
+sigma.square &lt;- sigma^2
+linear.pred &lt;- x %*% beta
+y &lt;- as.numeric(t(rmvnorm(1, mean = linear.pred, sigma = diag(sigma.square, n))))
+                     # response
+answer &lt;- sahpmlm(formula = y ~ x)
+answer$final.model
+answer$history
+
+
+## Not run: 
+# With small effect size
+beta &lt;- c(rep(0, 10), rep(1, 10), rep(0, 10), rep(1, 10))
+                     # vector of coefficients
+
+linear.pred &lt;- x %*% beta
+y &lt;- as.numeric(t(rmvnorm(1, mean = linear.pred, sigma = diag(sigma.square, n))))
+                     # response
+answer &lt;- sahpmlm(formula = y ~ x)
+answer$final.model  # Might miss some of the true predictors
+answer$history
+
+# Able to recover all the predictors with 50 burnin
+answer &lt;- sahpmlm(formula = y ~ x, burnin = TRUE, nburnin = 50)
+answer$final.model  # Misses some of the true predictors
+answer$history
+
+## End(Not run)
+</code></pre>
+
+
+</div>

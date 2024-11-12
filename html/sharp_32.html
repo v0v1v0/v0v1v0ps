@@ -1,0 +1,323 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ExplanatoryPerformance</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prediction performance in regression</h2>
+
+<h3>Description</h3>
+
+<p>Calculates model performance for linear (measured by Q-squared), logistic
+(AUC) or Cox (C-statistic) regression. This is done by (i) refitting the
+model on a training set including a proportion <code>tau</code> of the
+observations, and (ii) evaluating the performance on the remaining
+observations (test set). For more reliable results, the procedure can be
+repeated <code>K</code> times (default <code>K=1</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ExplanatoryPerformance(
+  xdata,
+  ydata,
+  new_xdata = NULL,
+  new_ydata = NULL,
+  stability = NULL,
+  family = NULL,
+  implementation = NULL,
+  prediction = NULL,
+  resampling = "subsampling",
+  K = 1,
+  tau = 0.8,
+  seed = 1,
+  n_thr = NULL,
+  time = 1000,
+  verbose = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>xdata</code></td>
+<td>
+<p>matrix of predictors with observations as rows and variables as
+columns.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ydata</code></td>
+<td>
+<p>optional vector or matrix of outcome(s). If <code>family</code> is set
+to <code>"binomial"</code> or <code>"multinomial"</code>, <code>ydata</code> can be a vector
+with character/numeric values or a factor.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new_xdata</code></td>
+<td>
+<p>optional test set (predictor data).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>new_ydata</code></td>
+<td>
+<p>optional test set (outcome data).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stability</code></td>
+<td>
+<p>output of <code>VariableSelection</code>. If
+<code>stability=NULL</code> (the default), a model including all variables in
+<code>xdata</code> as predictors is fitted. Argument <code>family</code> must be
+provided in this case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>type of regression model. Possible values include
+<code>"gaussian"</code> (linear regression), <code>"binomial"</code> (logistic
+regression), and <code>"cox"</code> (survival analysis). If provided, this
+argument must be consistent with input <code>stability</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>implementation</code></td>
+<td>
+<p>optional function to refit the model. If
+<code>implementation=NULL</code> and <code>stability</code> is the output of
+<code>VariableSelection</code>, <code>lm</code> (linear
+regression), <code>coxph</code> (Cox regression),
+<code>glm</code> (logistic regression), or
+<code>multinom</code> (multinomial regression) is used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prediction</code></td>
+<td>
+<p>optional function to compute predicted values from the
+model refitted with <code>implementation</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resampling</code></td>
+<td>
+<p>resampling approach to create the training set. The default
+is <code>"subsampling"</code> for sampling without replacement of a proportion
+<code>tau</code> of the observations. Alternatively, this argument can be a
+function to use for resampling. This function must use arguments named
+<code>data</code> and <code>tau</code> and return the IDs of observations to be
+included in the resampled dataset.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>number of training-test splits. Only used if <code>new_xdata</code> and
+<code>new_ydata</code> are not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tau</code></td>
+<td>
+<p>proportion of observations used in the training set. Only used if
+<code>new_xdata</code> and <code>new_ydata</code> are not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>value of the seed to ensure reproducibility of the results. Only
+used if <code>new_xdata</code> and <code>new_ydata</code> are not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_thr</code></td>
+<td>
+<p>number of thresholds to use to construct the ROC curve. If
+<code>n_thr=NULL</code>, all predicted probability values are iteratively used as
+thresholds. For faster computations on large data, less thresholds can be
+used. Only applicable to logistic regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>time</code></td>
+<td>
+<p>numeric indicating the time for which the survival probabilities
+are computed. Only applicable to Cox regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical indicating if a loading bar and messages should be
+printed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed to the function provided in
+<code>resampling</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>For a fair evaluation of the prediction performance, the data is
+split into a training set (including a proportion <code>tau</code> of the
+observations) and test set (remaining observations). The regression model
+is fitted on the training set and applied on the test set. Performance
+metrics are computed in the test set by comparing predicted and observed
+outcomes.
+</p>
+<p>For logistic regression, a Receiver Operating Characteristic (ROC) analysis
+is performed: the True and False Positive Rates (TPR and FPR), and Area
+Under the Curve (AUC) are computed for different thresholds in predicted
+probabilities.
+</p>
+<p>For Cox regression, the Concordance Index (as implemented in
+<code>concordance</code>) looking at survival probabilities up
+to a specific <code>time</code> is computed.
+</p>
+<p>For linear regression, the squared correlation between predicted and
+observed outcome in the test set (Q-squared) is reported.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with: </p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>TPR</code></td>
+<td>
+<p>True Positive Rate (for logistic regression
+only).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FPR</code></td>
+<td>
+<p>False Positive Rate (for logistic regression only).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>AUC</code></td>
+<td>
+<p>Area Under the Curve (for logistic regression only).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>concordance</code></td>
+<td>
+<p>Concordance index (for Cox regression only).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Beta</code></td>
+<td>
+<p>matrix of estimated beta coefficients across the <code>K</code>
+iterations. Coefficients are extracted using the <code>coef</code>
+function.</p>
+</td>
+</tr>
+</table>
+<h3>See Also</h3>
+
+<p><code>VariableSelection</code>, <code>Refit</code>
+</p>
+<p>Other prediction performance functions: 
+<code>Incremental()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Data simulation
+set.seed(1)
+simul &lt;- SimulateRegression(
+  n = 1000, pk = 20,
+  family = "binomial", ev_xy = 0.8
+)
+
+# Data split: selection, training and test set
+ids &lt;- Split(
+  data = simul$ydata,
+  family = "binomial",
+  tau = c(0.4, 0.3, 0.3)
+)
+xselect &lt;- simul$xdata[ids[[1]], ]
+yselect &lt;- simul$ydata[ids[[1]], ]
+xtrain &lt;- simul$xdata[ids[[2]], ]
+ytrain &lt;- simul$ydata[ids[[2]], ]
+xtest &lt;- simul$xdata[ids[[3]], ]
+ytest &lt;- simul$ydata[ids[[3]], ]
+
+# Stability selection
+stab &lt;- VariableSelection(
+  xdata = xselect,
+  ydata = yselect,
+  family = "binomial"
+)
+
+# Performances in test set of model refitted in training set
+roc &lt;- ExplanatoryPerformance(
+  xdata = xtrain, ydata = ytrain,
+  new_xdata = xtest, new_ydata = ytest,
+  stability = stab
+)
+plot(roc)
+roc$AUC
+
+# Alternative with multiple training/test splits
+roc &lt;- ExplanatoryPerformance(
+  xdata = rbind(xtrain, xtest),
+  ydata = c(ytrain, ytest),
+  stability = stab, K = 100
+)
+plot(roc)
+boxplot(roc$AUC)
+
+# Partial Least Squares Discriminant Analysis
+if (requireNamespace("sgPLS", quietly = TRUE)) {
+  stab &lt;- VariableSelection(
+    xdata = xselect,
+    ydata = yselect,
+    implementation = SparsePLS,
+    family = "binomial"
+  )
+
+  # Defining wrapping functions for predictions from PLS-DA
+  PLSDA &lt;- function(xdata, ydata, family = "binomial") {
+    model &lt;- mixOmics::plsda(X = xdata, Y = as.factor(ydata), ncomp = 1)
+    return(model)
+  }
+  PredictPLSDA &lt;- function(xdata, model) {
+    xdata &lt;- xdata[, rownames(model$loadings$X), drop = FALSE]
+    predicted &lt;- predict(object = model, newdata = xdata)$predict[, 2, 1]
+    return(predicted)
+  }
+
+  # Performances with custom models
+  roc &lt;- ExplanatoryPerformance(
+    xdata = rbind(xtrain, xtest),
+    ydata = c(ytrain, ytest),
+    stability = stab, K = 100,
+    implementation = PLSDA, prediction = PredictPLSDA
+  )
+  plot(roc)
+}
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,249 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>svb.fit</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit Approximate Posteriors to Sparse Linear and Logistic Models</h2>
+
+<h3>Description</h3>
+
+<p>Main function of the <code>sparsevb</code> package. Computes
+mean-field posterior approximations for both linear and logistic regression
+models, including variable selection via sparsity-inducing spike and slab
+priors.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">svb.fit(
+  X,
+  Y,
+  family = c("linear", "logistic"),
+  slab = c("laplace", "gaussian"),
+  mu,
+  sigma = rep(1, ncol(X)),
+  gamma,
+  alpha,
+  beta,
+  prior_scale = 1,
+  update_order,
+  intercept = FALSE,
+  noise_sd,
+  max_iter = 1000,
+  tol = 1e-05
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>A numeric design matrix, each row of which represents a vector of
+covariates/independent variables/features. Though not required, it is
+recommended to center and scale the columns to have norm
+<code>sqrt(nrow(X))</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>An <code>nrow(X)</code>-dimensional response vector, numeric if
+<code>family = "linear"</code> and binary if <code>family = "logistic"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>family</code></td>
+<td>
+<p>A character string selecting the regression model, either
+<code>"linear"</code> or <code>"logistic"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>slab</code></td>
+<td>
+<p>A character string specifying the prior slab density, either
+<code>"laplace"</code> or <code>"gaussian"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mu</code></td>
+<td>
+<p>An <code>ncol(X)</code>-dimensional numeric vector, serving as initial
+guess for the variational means. If omitted, <code>mu</code> will be estimated
+via ridge regression to initialize the coordinate ascent algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+<p>A positive <code>ncol(X)</code>-dimensional numeric vector, serving as
+initial guess for the variational standard deviations.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gamma</code></td>
+<td>
+<p>An <code>ncol(X)</code>-dimensional vector of probabilities, serving
+as initial guess for the variational inclusion probabilities. If omitted,
+<code>gamma</code> will be estimated via LASSO regression to initialize the
+coordinate ascent algorithm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>A positive numeric value, parametrizing the beta hyper-prior on
+the inclusion probabilities. If omitted, <code>alpha</code> will be chosen
+empirically via LASSO regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>A positive numeric value, parametrizing the beta hyper-prior on
+the inclusion probabilities. If omitted, <code>beta</code> will be chosen
+empirically via LASSO regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior_scale</code></td>
+<td>
+<p>A numeric value, controlling the scale parameter of the
+prior slab density. Used as the scale parameter <code class="reqn">\lambda</code> when
+<code>prior = "laplace"</code>, or as the standard deviation <code class="reqn">\sigma</code> if
+<code>prior = "gaussian"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>update_order</code></td>
+<td>
+<p>A permutation of <code>1:ncol(X)</code>, giving the update
+order of the coordinate-ascent algorithm. If omitted, a data driven
+updating order is used, see <em>Ray and Szabo (2020)</em> in <em>Journal of
+the American Statistical Association</em> for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>intercept</code></td>
+<td>
+<p>A Boolean variable, controlling if an intercept should be
+included. NB: This feature is still experimental in logistic regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>noise_sd</code></td>
+<td>
+<p>A positive numerical value, serving as estimate for the
+residual noise standard deviation in linear regression. If missing it will
+be estimated, see <code>estimateSigma</code> from the <code>selectiveInference</code>
+package for more details. Has no effect when <code>family = "logistic"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>A positive integer, controlling the maximum number of
+iterations for the variational update loop.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol</code></td>
+<td>
+<p>A small, positive numerical value, controlling the termination
+criterion for maximum absolute differences between binary entropies of
+successive iterates.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Suppose <code class="reqn">\theta</code> is the <code class="reqn">p</code>-dimensional true parameter. The
+spike-and-slab prior for <code class="reqn">\theta</code> may be represented by the
+hierarchical scheme </p>
+<p style="text-align: center;"><code class="reqn">w \sim \mathrm{Beta}(\alpha, \beta),</code>
+</p>
+ <p style="text-align: center;"><code class="reqn">z_j
+  \mid w \sim_{i.i.d.} \mathrm{Bernoulli}(w),</code>
+</p>
+ <p style="text-align: center;"><code class="reqn">\theta_j\mid z_j
+  \sim_{ind.} (1-z_j)\delta_0 + z_j g.</code>
+</p>
+<p> Here, <code class="reqn">\delta_0</code> represents the
+Dirac measure at <code class="reqn">0</code>. The slab <code class="reqn">g</code> may be taken either as a
+<code class="reqn">\mathrm{Laplace}(0,\lambda)</code> or <code class="reqn">N(0,\sigma^2)</code> density. The
+former has centered density </p>
+<p style="text-align: center;"><code class="reqn">f_\lambda(x) = \frac{\lambda}{2}
+  e^{-\lambda |x|}.</code>
+</p>
+<p> Given <code class="reqn">\alpha</code> and <code class="reqn">\beta</code>, the beta hyper-prior
+has density </p>
+<p style="text-align: center;"><code class="reqn">b(x\mid \alpha, \beta) = \frac{x^{\alpha - 1}(1 -
+  x)^{\beta - 1}}{\int_0^1 t^{\alpha - 1}(1 - t)^{\beta - 1}\ \mathrm{d}t}.</code>
+</p>
+
+<p>A straightforward integration shows that the prior inclusion probability of
+a coefficient is <code class="reqn">\frac{\alpha}{\alpha + \beta}</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The approximate mean-field posterior, given as a named list
+containing numeric vectors <code>"mu"</code>, <code>"sigma"</code>, <code>"gamma"</code>, and
+a value <code>"intercept"</code>. The latter is set to <code>NA</code> in case
+<code>intercept = FALSE</code>. In mathematical terms, the conditional
+distribution of each <code class="reqn">\theta_j</code> is given by </p>
+<p style="text-align: center;"><code class="reqn">\theta_j\mid \mu_j,
+  \sigma_j, \gamma_j \sim_{ind.} \gamma_j N(\mu_j, \sigma^2) + (1-\gamma_j)
+  \delta_0.</code>
+</p>
+
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+### Simulate a linear regression problem of size n times p, with sparsity level s ###
+
+n &lt;- 250
+p &lt;- 500
+s &lt;- 5
+
+### Generate toy data ###
+
+X &lt;- matrix(rnorm(n*p), n, p) #standard Gaussian design matrix
+
+theta &lt;- numeric(p)
+theta[sample.int(p, s)] &lt;- runif(s, -3, 3) #sample non-zero coefficients in random locations
+
+pos_TR &lt;- as.numeric(theta != 0) #true positives
+
+Y &lt;- X %*% theta + rnorm(n) #add standard Gaussian noise
+
+### Run the algorithm in linear mode with Laplace prior and prioritized initialization ###
+
+test &lt;- svb.fit(X, Y, family = "linear")
+
+posterior_mean &lt;- test$mu * test$gamma #approximate posterior mean
+
+pos &lt;- as.numeric(test$gamma &gt; 0.5) #significant coefficients
+
+### Assess the quality of the posterior estimates ###
+
+TPR &lt;- sum(pos[which(pos_TR == 1)])/sum(pos_TR) #True positive rate
+
+FDR &lt;- sum(pos[which(pos_TR != 1)])/max(sum(pos), 1) #False discovery rate
+
+L2 &lt;- sqrt(sum((posterior_mean - theta)^2)) #L_2-error
+
+MSPE &lt;- sqrt(sum((X %*% posterior_mean - Y)^2)/n) #Mean squared prediction error
+
+</code></pre>
+
+
+</div>

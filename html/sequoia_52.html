@@ -1,0 +1,461 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>PedCompare</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compare Two Pedigrees</h2>
+
+<h3>Description</h3>
+
+<p>Compare an inferred pedigree (Ped2) to a previous or simulated
+pedigree (Ped1), including comparison of sibship clusters and sibship
+grandparents.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">PedCompare(
+  Ped1 = NULL,
+  Ped2 = NULL,
+  DumPrefix = c("F0", "M0"),
+  SNPd = NULL,
+  Symmetrical = TRUE,
+  minSibSize = "1sib1GP",
+  Plot = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Ped1</code></td>
+<td>
+<p>first (e.g. original) pedigree, dataframe with columns
+id-dam-sire; only the first 3 columns will be used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ped2</code></td>
+<td>
+<p>second pedigree, e.g. newly inferred <code>SeqOUT$Pedigree</code> or
+<code>SeqOUT$PedigreePar</code>, with columns id-dam-sire.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DumPrefix</code></td>
+<td>
+<p>character vector with the prefixes identifying dummy
+individuals in <code>Ped2</code>. Use 'F0' ('M0') to avoid matching to regular
+individuals with IDs starting with 'F' ('M'), provided <code>Ped2</code> has
+fewer than 999 dummy females (males).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SNPd</code></td>
+<td>
+<p>character vector with IDs of genotyped individuals. If
+<code>NULL</code>, defaults to the IDs occurring in both <code>Ped1</code> and
+<code>Ped2</code> and not starting with any of the prefixes in <code>DumPrefix</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Symmetrical</code></td>
+<td>
+<p>when determining the category of individuals
+(Genotyped/Dummy/X), use the 'highest' category across the two pedigrees
+(<code>TRUE</code>, default) or only consider <code>Ped1</code> (<code>Symmetrical =
+FALSE</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>minSibSize</code></td>
+<td>
+<p>minimum requirements to be considered 'dummifiable',
+passed to <code>getAssignCat</code>:
+</p>
+
+<ul>
+<li>
+<p> '1sib' : sibship of size 1, with or without grandparents. The
+latter aren't really a sibship, but can be useful in some situations.
+</p>
+</li>
+<li>
+<p> '1sib1GP': sibship of size 1 with at least 1 grandparent (default)
+</p>
+</li>
+<li>
+<p> '2sib': at least 2 siblings, with or without grandparents
+(default prior to version 2.4)
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Plot</code></td>
+<td>
+<p>show square Venn diagrams of counts?</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The comparison is divided into different classes of ‘assignable’
+parents (<code>getAssignCat</code>). This includes cases where the focal
+individual and parent according to Ped1 are both Genotyped (G-G), as well
+as cases where the non-genotyped parent according to Ped1 can be lined up
+with a sibship Dummy parent in Ped2 (G-D), or where the non-genotyped focal
+individual in Ped1 can be matched to a dummy individual in Ped2 (D-G and
+D-D). If SNPd is NULL (the default), and DumPrefix is set to NULL, the
+intersect between the IDs in Pedigrees 1 and 2 is taken as the vector of
+genotyped individuals.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>Counts</code></td>
+<td>
+<p>A 7 x 5 x 2 named numeric array with the
+number of matches and mismatches, see below</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Counts.detail</code></td>
+<td>
+<p>a large numeric array with number of matches and
+mismatches, with more detail for all possible combination of categories</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>MergedPed</code></td>
+<td>
+<p>A dataframe with side-by-side comparison of the two
+pedigrees</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ConsensusPed</code></td>
+<td>
+<p>A consensus pedigree, with Pedigree 2 taking priority
+over Pedigree 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DummyMatch</code></td>
+<td>
+<p>Dataframe with all dummy IDs in Pedigree 2 (id.2), and the
+best-matching individual in Pedigree 1 (id.1). Also includes the class of the
+dam &amp; sire, as well as counts of offspring per outcome class (off.Match,
+off.Mismatch, etc.)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Mismatch</code></td>
+<td>
+<p>A subset of MergedPed with mismatches between Ped1 and Ped2,
+as defined below</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ped1only</code></td>
+<td>
+<p>as Mismatches, with parents in Ped1 that were not assigned
+in Ped2</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Ped2only</code></td>
+<td>
+<p>as Mismatches, with parents in Ped2 that were missing in
+Ped1</p>
+</td>
+</tr>
+</table>
+<p>'MergedPed', 'Mismatch', 'Ped1only' and 'Ped2only' provide the following
+columns:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+<p>All ids in both Pedigree 1 and 2. For dummy individuals, this is
+the id <em>in pedigree 2</em></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dam.1, sire.1</code></td>
+<td>
+<p>parents in Pedigree 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dam.2, sire.2</code></td>
+<td>
+<p>parents in Pedigree 2</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id.r, dam.r, sire.r</code></td>
+<td>
+<p>The <em>real</em> id of dummy individuals or parents
+in Pedigree 2, i.e. the best-matching non-genotyped individual in Pedigree 1,
+or "nomatch". If a sibship in Pedigree 1 is divided over 2 sibships in
+Pedigree 2, the smaller one will be denoted as "nomatch"</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id.dam.cat, id.sire.cat</code></td>
+<td>
+<p>the category of the individual (first letter)
+and <em>highest category</em> of the dam (sire) in Pedigree 1 or 2:
+G=Genotyped, D=(potential) dummy, X=none. Individual, one-letter categories
+are generated by <code>getAssignCat</code>. Using the 'best' category from
+both pedigrees makes comparison between two inferred pedigrees symmetrical
+and more intuitive.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dam.class, sire.class</code></td>
+<td>
+<p>classification of dam and sire: Match, Mismatch,
+P1only, P2only, or '_' when no parent is assigned in either pedigree</p>
+</td>
+</tr>
+</table>
+<p>The first dimension of <code>Counts</code> denotes the following categories:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>GG</code></td>
+<td>
+<p>Genotyped individual, assigned a genotyped parent in either
+pedigree</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>GD</code></td>
+<td>
+<p>Genotyped individual, assigned a dummy parent, or at least 1
+genotyped sibling or a genotyped grandparent in Pedigree 1)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>GT</code></td>
+<td>
+<p>Genotyped individual, total</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DG</code></td>
+<td>
+<p>Dummy individual, assigned a genotyped parent (i.e., grandparent
+of the sibship in Pedigree 2)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DD</code></td>
+<td>
+<p>Dummy individual, assigned a dummy parent (i.e., avuncular
+relationship between sibships in Pedigree 2)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DT</code></td>
+<td>
+<p>Dummy total</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>TT</code></td>
+<td>
+<p>Total total, includes all genotyped individuals, plus
+non-genotyped individuals in Pedigree 1, plus non-replaced dummy
+individuals (see below) in Pedigree 2</p>
+</td>
+</tr>
+</table>
+<p>The second dimension of <code>Counts</code> gives the outcomes:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>Total</code></td>
+<td>
+<p>The total number of individuals with a parent assigned in
+either or both pedigrees</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Match</code></td>
+<td>
+<p>The same parent is assigned in both pedigrees (non-missing).
+For dummy parents, it is considered a match if the inferred sibship
+which contains the most offspring of a non-genotyped parent, consists
+for more than half of this individual's offspring.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Mismatch</code></td>
+<td>
+<p>Different parents assigned in the two pedigrees. When
+a sibship according to Pedigree 1 is split over two sibships in Pedigree
+2, the smaller fraction is included in the count here.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P1only</code></td>
+<td>
+<p>Parent in Pedigree 1 but not 2; includes non-assignable
+parents (e.g. not genotyped and no genotyped offspring).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P2only</code></td>
+<td>
+<p>Parent in Pedigree 2 but not 1.</p>
+</td>
+</tr>
+</table>
+<p>The third dimension <code>Counts</code> separates between maternal and paternal
+assignments, where e.g. paternal 'DT' is the assignment of fathers to both
+maternal and paternal sibships (i.e., to dummies of both sexes).
+</p>
+<p>In 'ConsensusPed', the priority used is parent.r (if not "nomatch") &gt;
+parent.2 &gt; parent.1. The columns 'id.cat', dam.cat' and 'sire.cat' have two
+additional levels compared to 'MergedPed':
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>G</code></td>
+<td>
+<p>Genotyped</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>D</code></td>
+<td>
+<p>Dummy individual (in Pedigree 2)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>R</code></td>
+<td>
+<p>Dummy individual in pedigree 2 replaced by best matching
+non-genotyped individual in pedigree 1</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>U</code></td>
+<td>
+<p>Ungenotyped, Unconfirmed (parent in Pedigree 1, with no dummy
+match in Pedigree 2)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>No parent in either pedigree</p>
+</td>
+</tr>
+</table>
+<h3>Assignable</h3>
+
+<p>Note that 'assignable' may be overly optimistic. Some parents from
+<code>Ped1</code> indicated as assignable may never be assigned by sequoia, for
+example parent-offspring pairs where it cannot be determined which is the
+older of the two, or grandparents that are indistinguishable from full
+avuncular (i.e. genetics inconclusive because the candidate has no parent
+assigned, and ageprior inconclusive).
+</p>
+
+
+<h3>Dummifiable</h3>
+
+<p>Considered as potential dummy individuals are all non-genotyped individuals
+in Pedigree 1 who have, according to either pedigree, at least 2 genotyped
+offspring, or at least one genotyped offspring and a genotyped parent.
+</p>
+
+
+<h3>Mismatches</h3>
+
+<p>Perhaps unexpectedly, cases where all siblings are correct but a dummy
+parent rather than the genotyped Ped1-parent are assigned, are classified
+as a mismatch (for each of the siblings). These are typically due to a too
+low assumed genotyping error rate, a wrong parental birth year, or some
+other issue that requires user inspection. To identify these cases,
+<code>ComparePairs</code> may be of help.
+</p>
+
+
+<h3>Genotyped 'mystery samples'</h3>
+
+<p>If Pedigree 2 includes samples for which the ID is unknown, the behaviour of
+<code>PedCompare</code> depends on whether the temporary IDs for these samples are
+included in <code>SNPd</code>. If they are included, matching (actual) IDs in
+Pedigree 1 will be flagged as mismatches (because the IDs differ). If they
+are not included in <code>SNPd</code>, or <code>SNPd</code> is not explicitly provided,
+matches are accepted, as the situation is indistinguishable from comparing
+dummy parents across pedigrees.
+</p>
+<p>This is of course all conditional on relatives of the mystery sample being
+assigned in Pedigree 2.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Jisca Huisman, <a href="mailto:jisca.huisman@gmail.com">jisca.huisman@gmail.com</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>ComparePairs</code> for comparison of all pairwise
+relationships in 2 pedigrees; <code>EstConf</code> for repeated
+simulate-reconstruct-compare; <code>getAssignCat</code> for all parents in
+the reference pedigree that could have been assigned;
+<code>CalcOHLLR</code> to check how well an 'old' pedigree fits with the
+SNP data.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">compare &lt;- PedCompare(Ped_griffin, SeqOUT_griffin$Pedigree)
+compare$Counts["TT",,]  # totals only; 45 dams &amp; 47 sires non-assigned
+compare$Counts[,,"dam"]  # dams only
+
+# inspect non-assigned in Ped2, id genotyped, dam might-be-dummy
+PedM &lt;- compare$MergedPed  # for brevity
+PedM[PedM$id.dam.cat=='GD' &amp; PedM$dam.class=='P1only',]
+# zoom in on specific dam
+PedM[which(PedM$dam.1=="i011_2001_F"), ]
+# no sire for 'i034_2002_F' -&gt; impossible to tell if half-sibs or avuncular
+
+# overview of all non-genotyped -- dummy matches
+head(compare$DummyMatch)
+
+# success of paternity assignment, if genotyped mother correctly assigned
+dimnames(compare$Counts.detail)
+compare$Counts.detail["G","G",,"Match",]
+
+# default before version 3.5: minSibSize = '2sib'
+compare_2s &lt;- PedCompare(Ped_griffin, SeqOUT_griffin$Pedigree,
+                         minSibSize = '2sib')
+compare_2s$Counts[,,"dam"]  # note decrease in Total 'dummies
+with(compare_2s$MergedPed, table(id.dam.cat, dam.class))
+# some with id.cat = 'X' or dam.cat='X' are nonetheless dam.class='Match'
+</code></pre>
+
+
+</div>

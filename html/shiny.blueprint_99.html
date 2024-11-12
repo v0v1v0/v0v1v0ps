@@ -1,0 +1,205 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>Tree</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Tree</h2>
+
+<h3>Description</h3>
+
+<p>Documentation: <a href="https://blueprintjs.com/docs/#core/components/tree">https://blueprintjs.com/docs/#core/components/tree</a>
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">Tree(...)
+
+Tree.shinyInput(inputId, data, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Component props and children. See the official Blueprint docs for details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inputId</code></td>
+<td>
+<p>The <code>input</code> slot that will be used to access the value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>A list of nodes parameters:
+</p>
+
+<ul>
+<li>
+<p> required: <code>label</code>
+</p>
+</li>
+<li>
+<p> optional: <code>childNodes</code>, <code>icon</code>, <code>hasCaret</code>, <code>isExpanded</code>, <code>disabled</code>, <code>secondaryLabel</code>
+</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Object with <code>shiny.tag</code> class suitable for use in the UI of a Shiny app.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(shiny.blueprint)
+library(purrr)
+library(shiny)
+
+treeList &lt;- list(
+  list(
+    id = "0",
+    hasCaret = TRUE,
+    icon = "folder-close",
+    label = "Tree"
+  ),
+  list(
+    id = "1",
+    icon = "folder-close",
+    isExpanded = TRUE,
+    label = "Hello here",
+    childNodes = list(
+      list(
+        id = "2",
+        icon = "document",
+        label = "Item 0",
+        secondaryLabel = Icon(icon = "eye-open")
+      ),
+      list(
+        id = "3",
+        icon = "tag",
+        label = "Organic meditation gluten-free, sriracha VHS drinking vinegar beard man.",
+        childNodes = list(
+          list(
+            id = "4",
+            icon = "document",
+            label = "Item 0",
+            secondaryLabel = Icon(icon = "eye-open")
+          ),
+          list(
+            id = "5",
+            icon = "tag",
+            label = "Some other stuff"
+          )
+        )
+      )
+    )
+  ),
+  list(
+    id = "10",
+    hasCaret = TRUE,
+    icon = "folder-close",
+    label = "Super secret files",
+    disabled = TRUE
+  )
+)
+
+modifyTree &lt;- function(tree, ids, props) {
+  if (!is.null(tree)) purrr::map(tree, function(node) {
+    if (node$id %in% ids) {
+      node &lt;- purrr::list_modify(node, !!!props)
+    }
+    node$childNodes &lt;- modifyTree(node$childNodes, ids, props)
+    node
+  })
+}
+
+ui &lt;- function(id) {
+  ns &lt;- NS(id)
+  tagList(
+    reactOutput(ns("tree")),
+    Divider(),
+    reactOutput(ns("info")),
+    Divider(),
+    Tree.shinyInput(
+      inputId = ns("selected_nodes"),
+      data = list(
+        list(
+          label = "1",
+          id = "1",
+          isExpanded = TRUE,
+          childNodes = list(
+            list(
+              label = "1.1",
+              id = "1.1",
+              childNodes = list(list(label = "1.1.1", id = "1.1.1"))
+            ),
+            list(label = "1.2", id = "1.2")
+          )
+        ),
+        list(
+          label = "2",
+          id = "2",
+          childNodes = list(
+            list(label = "2.1", id = "2.1")
+          )
+        ),
+        list(label = "3", id = "3", hasCaret = TRUE)
+      )
+    ),
+    Divider(),
+    tags$span("Hold ", tags$b("shift"), " to select multiple nodes."),
+    reactOutput(ns("selected_nodes_list")),
+  )
+}
+
+server &lt;- function(id) {
+  moduleServer(id, function(input, output, session) {
+    ns &lt;- session$ns
+
+    treeReactive &lt;- reactiveVal(treeList)
+    observeEvent(input$expand, {
+      treeReactive(
+        modifyTree(treeReactive(), ids = input$expand, props = list(isExpanded = TRUE))
+      )
+    })
+    observeEvent(input$collapse, {
+      treeReactive(
+        modifyTree(treeReactive(), ids = input$collapse, props = list(isExpanded = FALSE))
+      )
+    })
+
+    output$tree &lt;- renderReact({
+      Tree(
+        contents = treeReactive(),
+        onNodeExpand = setInput(ns("expand"), jsAccessor = "[0].id"),
+        onNodeCollapse = setInput(ns("collapse"), jsAccessor = "[0].id"),
+        onNodeClick = setInput(ns("click"), jsAccessor = "[0].id")
+      )
+    })
+
+    output$info &lt;- renderReact({
+      tags$div("Clicked (id): ", input$click)
+    })
+
+    output$selected_nodes_list &lt;- renderReact({
+      UL(lapply(input$selected_nodes, function(node) tags$li(node)))
+    })
+  })
+}
+
+if (interactive()) shinyApp(ui("app"), function(input, output) server("app"))
+</code></pre>
+
+
+</div>

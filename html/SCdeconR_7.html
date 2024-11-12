@@ -1,0 +1,193 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>construct_ref</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Integration of single-cell/nuclei RNA-seq data as reference</h2>
+
+<h3>Description</h3>
+
+<p>Integration of scRNA-seq or snRNA-seq data using either harmony or seurat.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">construct_ref(
+  ref_list,
+  phenodata_list,
+  data_type = c("cellranger", "h5", "matrix"),
+  method = c("harmony", "seurat"),
+  group_var,
+  nfeature_rna = 200,
+  percent_mt = 40,
+  vars_to_regress = c("percent_mt", "phase"),
+  ex_features = NULL,
+  cluster = TRUE,
+  resolution = 0.8,
+  verbose = TRUE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ref_list</code></td>
+<td>
+<p>a character vector of data paths to scRNA-seq/snRNA-seq. See <code>data_type</code> for accepted data types.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phenodata_list</code></td>
+<td>
+<p>a character vector of data paths to metadata for elements in ref_list. All metadata within phenodata_list should have consistent column names. Columns represent
+cell attributes, such as cell type, rows represent cells. Each element in <code>phenodata_list</code> should at least contain the first two columns as:
+</p>
+
+<ol>
+<li>
+<p> cell barcodes
+</p>
+</li>
+<li>
+<p> cell types
+</p>
+</li>
+</ol>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data_type</code></td>
+<td>
+<p>data type of the input scRNA-seq/snRNA-seq data. Could be either a single character value from "cellranger", "h5", "matrix", or
+a vector/list of values with the same length as ref_list indicating the data type for each element.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>character value specifying the method to use. Has to be one of "harmony" or "seurat". See details for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group_var</code></td>
+<td>
+<p>a vector of character values indicating which variables within phenodata_list metadata to use for integration. Only applicable when method
+is set to "harmony".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nfeature_rna</code></td>
+<td>
+<p>minimum # of features with non-zero UMIs. Cells with # of features lower than nfeature_rna will be removed. Default to 200.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>percent_mt</code></td>
+<td>
+<p>maximum percentage of mitochondria (MT) mapped UMIs. Cells with MT percentage higher than percent_mt will be removed. Default to 40.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vars_to_regress</code></td>
+<td>
+<p>a list of character values indicating the variables to regress for SCTransform normalization step. Default is to regress
+out MT percentage ("percent_mt") &amp; cell cycle effects ("phase")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ex_features</code></td>
+<td>
+<p>a vector of character values indicating genes to exclude from anchor features. Those genes will not be considered as
+anchor features for integration, but will still be present in the integrated data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cluster</code></td>
+<td>
+<p>logical value indicating whether to perform clustering on the integrated data. If TRUE, unsupervised clustering will be performed, and
+the results will be saved in "seurat_clusters" metadata in the output Seurat object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resolution</code></td>
+<td>
+<p>numeric value specifying resolution to use when cluster is set to TRUE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical value indicating whether to print messages.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed to <code>SCTransform</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>data_type can be chosen from:
+</p>
+
+<dl>
+<dt>cellranger</dt>
+<dd>
+<p>path to a directory containing the matrix.mtx, genes.tsv (or features.tsv), and barcodes.tsv files outputted by 10x's cell-ranger</p>
+</dd>
+<dt>h5</dt>
+<dd>
+<p>path to .h5 file outputted by 10x's cell-ranger</p>
+</dd>
+<dt>matrix</dt>
+<dd>
+<p>path to a matrix-like file, with rows representing genes, columns representing cells.</p>
+</dd>
+</dl>
+<p>SCTransform with <code>vst.flavor = "v2"</code> is used for normalization of individual data. Integration methods can be chosen from either "harmony"
+or "seurat". Harmony typically is more memory efficient and, recommended if you have large # of cells for integration.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a <code>Seurat-class</code> object.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## random subset of two scRNA-seq datasets for breast tissue
+ref_list &lt;- c(paste0(system.file("extdata", package = "SCdeconR"), "/refdata/sample1"),
+              paste0(system.file("extdata", package = "SCdeconR"), "/refdata/sample2"))
+phenopath1 &lt;- paste0(system.file("extdata", package = "SCdeconR"),
+"/refdata/phenodata_sample1.txt")
+phenopath2 &lt;- paste0(system.file("extdata", package = "SCdeconR"),
+"/refdata/phenodata_sample2.txt")
+phenodata_list &lt;- c(phenopath1,phenopath2)
+
+## Register backend for parallel processing
+#doFuture::registerDoFuture()
+#future::plan("multisession", workers = 4)
+
+## construct integrated reference data
+refdata &lt;- construct_ref(ref_list = ref_list,
+                         phenodata_list = phenodata_list,
+                         data_type = "cellranger",
+                         method = "harmony",
+                         group_var = "subjectid",
+                         nfeature_rna = 50,
+                         vars_to_regress = "percent_mt")
+
+</code></pre>
+
+
+</div>

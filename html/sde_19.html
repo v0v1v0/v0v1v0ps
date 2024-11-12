@@ -1,0 +1,168 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>gmm</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generalized method of moments estimator</h2>
+
+<h3>Description</h3>
+
+<p>Implementation of the estimator of the generalized method of moments by Hansen.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">gmm(X, u, dim, guess, lower, upper, maxiter=30, tol1=1e-3, 
+   tol2=1e-3)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>a ts object containing a sample path of an sde.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u</code></td>
+<td>
+<p>a function of <code>x</code>, <code>y</code>, and <code>theta</code> and <code>DELTA</code>; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dim</code></td>
+<td>
+<p>dimension of parameter space; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>guess</code></td>
+<td>
+<p>initial value of the parameters; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lower</code></td>
+<td>
+<p>lower bounds for the parameters; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>upper</code></td>
+<td>
+<p>upper bounds for the parameters; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol1</code></td>
+<td>
+<p>tolerance for parameters; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tol2</code></td>
+<td>
+<p>tolerance for Q1; see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxiter</code></td>
+<td>
+<p>maximum number of iterations at the second stage; see details.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>gmm</code> minimizes at the first stage
+the  function <code>Q(theta) = t(Gn(theta)) * Gn(theta)</code> with respect to
+<code>theta</code>, where <code>Gn(theta) =  mean(u(X[i+1], X[i], theta))</code>.
+Then a  matrix of weights <code>W</code> is obtained by inverting an estimate
+of the long-run covariance and the quadratic function 
+<code>Q1(theta) = t(Gn(theta)) * W *  Gn(theta)</code> with starting value <code>theta1</code> (the solution
+at the first stage).  The second stage is iterated until the first of these
+conditions verifies: (1) that the number of iterations reaches <code>maxiter</code>; (2) that the Euclidean
+distance between <code>theta1</code> and <code>theta2 &lt; tol1</code>; (3) that <code>Q1 &lt; tol2</code>. 
+</p>
+<p>The function <code>u</code> must be a function of <code>(u,y,theta,DELTA)</code> and should
+return a vector of the same length as the dimension of the parameter space. The sanity checks
+are left to the user.
+</p>
+
+
+<h3>Value</h3>
+
+<table><tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>a list with parameter estimates, the value of <code>Q1</code> at the minimum, and the Hessian</p>
+</td>
+</tr></table>
+<h3>Author(s)</h3>
+
+<p>Stefano Maria Iacus</p>
+
+
+<h3>References</h3>
+
+<p>Hansen, L.P. (1982) Large Sample Properties of Generalized Method of Moments Estimators, 
+<em>Econometrica</em>, 50(4),  1029-1054.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+alpha &lt;- 0.5
+beta &lt;- 0.2
+sigma &lt;- sqrt(0.05)
+true &lt;- c(alpha, beta, sigma)
+names(true) &lt;- c("alpha", "beta", "sigma")
+
+x0 &lt;- rsCIR(1,theta=true)
+set.seed(123)
+sde.sim(X0=x0,model="CIR",theta=true,N=500000,delta=0.001) -&gt; X
+X &lt;- window(X, deltat=0.1)
+DELTA = deltat(X)
+n &lt;- length(X) 
+X &lt;- window(X, start=n*DELTA*0.5)
+plot(X)
+
+u &lt;- function(x, y, theta, DELTA){
+  c.mean &lt;- theta[1]/theta[2] + 
+             (y-theta[1]/theta[2])*exp(-theta[2]*DELTA)
+  c.var &lt;- ((y*theta[3]^2 * 
+     (exp(-theta[2]*DELTA)-exp(-2*theta[2]*DELTA))/theta[2] +  
+	  theta[1]*theta[3]^2*
+	  (1-exp(-2*theta[2]*DELTA))/(2*theta[2]^2)))  
+  cbind(x-c.mean,y*(x-c.mean), c.var-(x-c.mean)^2, 
+        y*(c.var-(x-c.mean)^2))  
+}
+
+CIR.lik &lt;- function(theta1,theta2,theta3) {
+ n &lt;- length(X)
+ dt &lt;- deltat(X)
+ -sum(dcCIR(x=X[2:n], Dt=dt, x0=X[1:(n-1)], 
+   theta=c(theta1,theta2,theta3), log=TRUE))
+}
+
+fit &lt;- mle(CIR.lik, start=list(theta1=.1,  theta2=.1,theta3=.3), 
+    method="L-BFGS-B",lower=c(0.001,0.001,0.001), upper=c(1,1,1))
+# maximum likelihood estimates
+coef(fit)
+
+
+gmm(X,u, guess=as.numeric(coef(fit)), lower=c(0,0,0), 
+    upper=c(1,1,1))
+
+true
+
+## End(Not run)</code></pre>
+
+
+</div>

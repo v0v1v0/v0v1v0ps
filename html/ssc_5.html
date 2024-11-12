@@ -1,0 +1,214 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>democratic</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Democratic method</h2>
+
+<h3>Description</h3>
+
+<p>Democratic Co-Learning is a semi-supervised learning algorithm with a 
+co-training style. This algorithm trains N classifiers with different learning schemes 
+defined in list <code>gen.learners</code>. During the iterative process, the multiple classifiers
+with different inductive biases label data for each other.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">democratic(x, y, x.inst = TRUE, learners, learners.pars = NULL,
+  preds = rep("predict", length(learners)), preds.pars = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A object that can be coerced as matrix. This object has two possible 
+interpretations according to the value set in the <code>x.inst</code> argument:
+a matrix with the training instances where each row represents a single instance
+or a precomputed (distance or kernel) matrix between the training examples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>A vector with the labels of the training instances. In this vector 
+the unlabeled instances are specified with the value <code>NA</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x.inst</code></td>
+<td>
+<p>A boolean value that indicates if <code>x</code> is or not an instance matrix.
+Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learners</code></td>
+<td>
+<p>A list of functions or strings naming the functions for 
+training the different supervised base classifiers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>learners.pars</code></td>
+<td>
+<p>A list with the set of additional parameters for each
+learner functions if necessary.
+Default is <code>NULL</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>preds</code></td>
+<td>
+<p>A list of functions or strings naming the functions for
+predicting the probabilities per classes,
+using the base classifiers trained with the functions defined in <code>learners</code>.
+Default is <code>"predict"</code> function for each learner in <code>learners</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>preds.pars</code></td>
+<td>
+<p>A list with the set of additional parameters for each
+function in <code>preds</code> if necessary.
+Default is <code>NULL</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This method trains an ensemble of diverse classifiers. To promote the initial diversity 
+the classifiers must represent different learning schemes.
+When x.inst is <code>FALSE</code> all <code>learners</code> defined must be able to learn a classifier
+from the precomputed matrix in <code>x</code>.
+The iteration process of the algorithm ends when no changes occurs in 
+any model during a complete iteration.
+The generation of the final hypothesis is 
+produced via a weigthed majority voting.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list object of class "democratic" containing:
+</p>
+
+<dl>
+<dt>W</dt>
+<dd>
+<p>A vector with the confidence-weighted vote assigned to each classifier.</p>
+</dd>
+<dt>model</dt>
+<dd>
+<p>A list with the final N base classifiers trained using the 
+enlarged labeled set.</p>
+</dd>
+<dt>model.index</dt>
+<dd>
+<p>List of N vectors of indexes related to the training instances 
+used per each classifier. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of all training instances used to
+train the N <code>models</code>. These indexes include the initial labeled instances
+and the newly labeled instances. These indexes are relative to the <code>y</code> argument.</p>
+</dd>
+<dt>model.index.map</dt>
+<dd>
+<p>List of three vectors with the same information in <code>model.index</code>
+but the indexes are relative to <code>instances.index</code> vector.</p>
+</dd>
+<dt>classes</dt>
+<dd>
+<p>The levels of <code>y</code> factor.</p>
+</dd>
+<dt>preds</dt>
+<dd>
+<p>The functions provided in the <code>preds</code> argument.</p>
+</dd>
+<dt>preds.pars</dt>
+<dd>
+<p>The set of lists provided in the <code>preds.pars</code> argument.</p>
+</dd>
+<dt>x.inst</dt>
+<dd>
+<p>The value provided in the <code>x.inst</code> argument.</p>
+</dd>
+</dl>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+library(ssc)
+
+## Load Wine data set
+data(wine)
+
+cls &lt;- which(colnames(wine) == "Wine")
+x &lt;- wine[, -cls] # instances without classes
+y &lt;- wine[, cls] # the classes
+x &lt;- scale(x) # scale the attributes
+
+## Prepare data
+set.seed(20)
+# Use 50% of instances for training
+tra.idx &lt;- sample(x = length(y), size = ceiling(length(y) * 0.5))
+xtrain &lt;- x[tra.idx,] # training instances
+ytrain &lt;- y[tra.idx]  # classes of training instances
+# Use 70% of train instances as unlabeled set
+tra.na.idx &lt;- sample(x = length(tra.idx), size = ceiling(length(tra.idx) * 0.7))
+ytrain[tra.na.idx] &lt;- NA # remove class information of unlabeled instances
+
+# Use the other 50% of instances for inductive testing
+tst.idx &lt;- setdiff(1:length(y), tra.idx)
+xitest &lt;- x[tst.idx,] # testing instances
+yitest &lt;- y[tst.idx] # classes of testing instances
+
+## Example: Training from a set of instances with 
+# 1-NN and C-svc (SVM) as base classifiers.
+# knn3 learner
+library(caret)
+knn &lt;- knn3             # learner function
+knn.pars &lt;- list(k = 1) # parameters for learner function
+knn.prob &lt;- predict     # function to predict probabilities
+knn.prob.pars &lt;- NULL   # parameters for prediction function
+
+# ksvm learner
+library(kernlab)
+svm &lt;- ksvm             # learner function
+svm.pars &lt;- list(       # parameters for learner function
+  type = "C-svc",  C = 1, 
+  kernel = "rbfdot", kpar = list(sigma = 0.048),
+  prob.model = TRUE,
+  scaled = FALSE
+)
+svm.prob &lt;- predict     # function to predict probabilities
+svm.prob.pars &lt;- list(  # parameters for prediction function
+  type = "probabilities"
+)
+
+# train a model
+m &lt;- democratic(x = xtrain, y = ytrain, 
+                learners = list(knn, svm), 
+                learners.pars = list(knn.pars, svm.pars), 
+                preds = list(knn.prob, svm.prob), 
+                preds.pars = list(knn.prob.pars, svm.prob.pars))
+# predict classes
+m.pred &lt;- predict(m, xitest)
+table(m.pred, yitest)
+
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

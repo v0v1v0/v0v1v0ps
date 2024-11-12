@@ -1,0 +1,147 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>fetchLDM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Query data from Kellogg Soil Survey Laboratory Data Mart via Soil Data Access or local SQLite snapshot</h2>
+
+<h3>Description</h3>
+
+<p>LDM model diagram: <a href="https://jneme910.github.io/Lab_Data_Mart_Documentation/Documents/SDA_KSSL_Data_model.html">https://jneme910.github.io/Lab_Data_Mart_Documentation/Documents/SDA_KSSL_Data_model.html</a>
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">fetchLDM(
+  x = NULL,
+  what = "pedlabsampnum",
+  bycol = "pedon_key",
+  tables = c("lab_physical_properties", "lab_chemical_properties",
+    "lab_calculations_including_estimates_and_default_values", "lab_rosetta_Key"),
+  WHERE = NULL,
+  chunk.size = 1000,
+  ntries = 3,
+  layer_type = c("horizon", "layer", "reporting layer"),
+  area_type = c("ssa", "country", "state", "county", "mlra", "nforest", "npark"),
+  prep_code = c("S", ""),
+  analyzed_size_frac = c("&lt;2 mm", ""),
+  dsn = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A vector of values to find in column specified by <code>what</code>, default <code>NULL</code> uses no constraints on <code>what</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>what</code></td>
+<td>
+<p>A single column name from tables: <code>lab_combine_nasis_ncss</code>, <code>lab_webmap</code>, <code>lab_site</code>, <code>lab_pedon</code> or <code>lab_area</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bycol</code></td>
+<td>
+<p>A single column name from <code>lab_layer</code> used for processing chunks; default: <code>"pedon_key"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tables</code></td>
+<td>
+<p>A vector of table names; Default is <code>"lab_physical_properties"</code>, <code>"lab_chemical_properties"</code>, <code>"lab_calculations_including_estimates_and_default_values"</code>, and <code>"lab_rosetta_Key"</code>. May also include one or more of: <code>"lab_mir"</code>, <code>"lab_mineralogy_glass_count"</code>, <code>"lab_major_and_trace_elements_and_oxides"</code>, <code>"lab_xray_and_thermal"</code> but it will be necessary to select appropriate <code>prep_code</code> and <code>analyzed_size_frac</code> for your analysis (see <em>Details</em>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>WHERE</code></td>
+<td>
+<p>character. A custom SQL WHERE clause, which overrides <code>x</code>, <code>what</code>, and <code>bycol</code>, such as <code style="white-space: pre;">⁠CASE WHEN corr_name IS NOT NULL THEN LOWER(corr_name) ELSE LOWER(samp_name) END = 'musick'⁠</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>chunk.size</code></td>
+<td>
+<p>Number of pedons per chunk (for queries that may exceed <code>maxJsonLength</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ntries</code></td>
+<td>
+<p>Number of tries (times to halve <code>chunk.size</code>) before returning <code>NULL</code>; default <code>3</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>layer_type</code></td>
+<td>
+<p>Default: <code>"horizon"</code>, <code>"layer"</code>, and <code>"reporting layer"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>area_type</code></td>
+<td>
+<p>Default: <code>"ssa"</code> (Soil Survey Area). Other options include (choose one): <code>"country"</code>, <code>"state"</code>, <code>"county"</code>, <code>"mlra"</code> (Major Land Resource Area), <code>"nforest"</code> (National Forest), <code>"npark"</code> (National Park)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prep_code</code></td>
+<td>
+<p>Default: <code>"S"</code> and <code>""</code>. May also include one or more of: <code>"F"</code>, <code>"HM"</code>, <code>"HM_SK"</code> <code>"GP"</code>, <code>"M"</code>, <code>"N"</code>, or <code>"S"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>analyzed_size_frac</code></td>
+<td>
+<p>Default: <code>"&lt;2 mm"</code> and <code>""</code>. May also include one or more of: <code>"&lt;0.002 mm"</code>, <code>"0.02-0.05 mm"</code>, <code>"0.05-0.1 mm"</code>, <code>"0.1-0.25 mm"</code>, <code>"0.25-0.5 mm"</code>, <code>"0.5-1 mm"</code>, <code>"1-2 mm"</code>, <code>"0.02-2 mm"</code>, <code>"0.05-2 mm"</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dsn</code></td>
+<td>
+<p>Data source name; either a path to a SQLite database, an open DBIConnection or (default) <code>NULL</code> (to use <code>soilDB::SDA_query</code>)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If the <code>chunk.size</code> parameter is set too large and the Soil Data Access request fails, the algorithm will re-try the query with a smaller (halved) <code>chunk.size</code> argument. This will be attempted up to 3 times before returning <code>NULL</code>
+</p>
+<p>Currently the <code>lab_area</code> tables are joined only for the "Soil Survey Area" related records.
+</p>
+<p>When requesting data from <code>"lab_major_and_trace_elements_and_oxides"</code>, <code>"lab_mineralogy_glass_count"</code>, or <code>"lab_xray_and_thermal"</code> multiple preparation codes (<code>prep_code</code>) or size fractions (<code>analyzed_size_frac</code>) are possible. The default behavior of <code>fetchLDM()</code> is to attempt to return a topologically valid (minimal overlaps) <em>SoilProfileCollection</em>. This is achieved by setting <code>prep_code="S"</code> ("sieved") and <code>analyzed_size_frac="&lt;2 mm"</code>. You may specify alternate or additional preparation codes or fractions as needed, but note that this may cause "duplication" of some layers where measurements were made with different preparation or on fractionated samples
+</p>
+
+
+<h3>Value</h3>
+
+<p>a <code>SoilProfileCollection</code> for a successful query, a <code>try-error</code> if no site/pedon locations can be found or <code>NULL</code> for an empty <code>lab_layer</code> (within sites/pedons) result
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+  # fetch by ssa_key
+  res &lt;- fetchLDM(8297, what = "ssa_key")
+
+  # physical properties correlated as taxonomic subgroup "Typic Argialbolls"
+  res &lt;- fetchLDM(x = "Typic Argialbolls", 
+                  what = "corr_taxsubgrp", 
+                  tables = "lab_physical_properties")
+
+  # fetch by area_code (SSA only)  
+  res &lt;- fetchLDM("CA630", what = "area_code")
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

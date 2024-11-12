@@ -1,0 +1,136 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>MaternCorr</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Matern correlation function and Matern formula term.
+</h2>
+
+<h3>Description</h3>
+
+<p>The Matérn correlation function describes realizations of Gaussian spatial processes with different smoothnesses 
+(i.e. either smooth or rugged surfaces, controlled by the <code class="reqn">\nu</code> parameter). It also includes a <code class="reqn">\rho</code> scaling parameter and an optional 'nugget' parameter. A random effect specified in a model formula as <code>Matern(1|</code><em>&lt;...&gt;</em><code>)</code> has pairwise correlations given by the Matérn function at the scaled Euclidean distance between coordinates specified in <em>&lt;...&gt;</em>, using “+” as separator (e.g., <code>Matern(1|longitude+latitude)</code>). The Matern family can be used in Euclidean spaces of any dimension; and also for correlations on a sphere (with maximum smoothness <code>nu=0.5</code>). 
+</p>
+<p>A syntax of the form <code>Matern(1|longitude+latitude %in% grp)</code> can be used to specify a Matern random effect with independent realizations (but identical correlation parameters) for each level of the grouping variable <code>grp</code>. Alternatively, the <code>Matern(&lt;T/F factor&gt;|longitude+latitude)</code> may be used to specify Matern effects specific to individuals identified by the <code>&lt;T/F factor&gt;</code> (see Example with females and males). In that case distinct correlation parameters are fitted for each such Matern term.
+</p>
+<p>When group-specific autocorrelated random effects are fitted, it may be wise to allow for different means for each group in the Intercept (a message will point this out if the fit results for Matern or Cauchy terms suggest so). 
+</p>
+<p>By default, <code>fitme</code> and <code>corrHLfit</code> performs optimization over the <code class="reqn">\rho</code> and <code class="reqn">\nu</code> parameters. It is possible to estimate different scaling parameters for the different Euclidean dimensions: see examples in <code>make_scaled_dist</code>.
+</p>
+<p>The <code>MaternCorr</code> function may be used to vizualise these correlations, using distances as input. 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## Default S3 method:
+MaternCorr(d, rho = 1, smoothness, nu = smoothness, Nugget = NULL)
+# Matern(1|...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>d</code></td>
+<td>
+<p>A distance or a distance matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>A scaling factor for distance. The 'range' considered in some 
+formulations is the reciprocal of this scaling factor</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>smoothness</code></td>
+<td>
+<p>The smoothness parameter, &gt;0. <code class="reqn">\nu=0.5</code> corresponds to the exponential correlation function, 
+and the limit function when <code class="reqn">\mu</code> goes to <code class="reqn">\infty</code> is the squared exponential function (as in a Gaussian).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nu</code></td>
+<td>
+<p>Same as smoothness</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Nugget</code></td>
+<td>
+<p>(Following the jargon of Kriging) a parameter describing a discontinuous decrease in 
+correlation at zero distance. Correlation will always be 1 at <code class="reqn">d=0</code>, and from which it immediately drops to 
+(1-Nugget)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Names of coordinates, using “+” as separator (e.g., <code>Matern(1|longitude+latitude)</code>. The coordinates are numeric values found in the <code>data</code> data frame provided to the fitting function. No additional declaration of groups, factors, or other specific formatting is required.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The correlation at distance <code class="reqn">d&gt;0</code> is 
+</p>
+<p style="text-align: center;"><code class="reqn">(1-\textrm{Nugget}) \frac{(\rho d)^\nu  K_\nu(\rho d)}{2^{(\nu - 1)} \Gamma(\nu)}</code>
+</p>
+ 
+<p>where
+<code class="reqn">K_\nu</code> is the <code>besselK</code> function of order <code class="reqn">\nu</code>.
+</p>
+<p>By default the Nugget is set to 0. See one of the examples on data set <code>Loaloa</code> 
+for a fit including the estimation of the Nugget.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Scalar/vector/matrix depending on input.</p>
+
+
+<h3>References</h3>
+
+<p>Stein, M.L. (1999) Statistical Interpolation of Spatial Data: Some Theory for Kriging. Springer, New York.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>See <code>corMatern</code> for an implementation of this correlation function as a <code>corSpatial</code> object for use with <code>lme</code> or <code>glmmPQL</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## See examples in help("HLCor"), help("Loaloa"),  help("make_scaled_dist"), etc.
+## Matern correlations in 4-dimensional space:
+set.seed(123)
+randpts &lt;- matrix(rnorm(20),nrow=5)
+distMatrix &lt;- as.matrix(proxy::dist(randpts))
+MaternCorr(distMatrix,nu=2)
+
+## Group-specific random effects: 
+if (spaMM.getOption("example_maxtime")&gt;1.6) {
+  data(Leuca)
+  subLeuca &lt;- Leuca[c(1:10,79:88),] # subset of 10 females and 10 males, for faster examples.
+
+  # Independent Matern random effect with different covariance parameters for each sex:
+  fitme(fec_div ~ sex + Matern(female|x + y) + Matern(male|x + y),  data = subLeuca) 
+
+  # Independent Matern random effect with the same covariance parameters for each sex:
+  fitme(fec_div ~ sex + Matern(1|x+y %in% sex),data=subLeuca)
+
+  # Matern models with random-effects distinct but correlated across sexes 
+  # can also be fitted: see Matern examples in help("composite-ranef").   
+} 
+</code></pre>
+
+
+</div>

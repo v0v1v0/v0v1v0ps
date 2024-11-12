@@ -1,0 +1,218 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>DST_SlidingWindow</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>DST_SlidingWindow – Call R Functions on a Sliding Window</h2>
+
+<h3>Description</h3>
+
+<p>Keeps a sliding window of the data stream an calls a function at regular
+intervals with the contents of the window.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">DST_SlidingWindow(f, window, rebuild, ...)
+
+## S3 method for class 'DST_SlidingWindow'
+update(
+  object,
+  dsd,
+  n = 1L,
+  return = c("nothing", "model"),
+  rebuild = FALSE,
+  ...
+)
+
+## S3 method for class 'DST_SlidingWindow'
+predict(object, newdata, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>f</code></td>
+<td>
+<p>the function to be called.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>window</code></td>
+<td>
+<p>size of the sliding window.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rebuild</code></td>
+<td>
+<p>logical; perform a rebuild after the update.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters passed on to the <code>predict()</code> function of the underlying model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>the updated <code>DST_SlidingWindow</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dsd</code></td>
+<td>
+<p>A DSD object with the data stream.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>number of points from <code>dsd</code> to use for the update.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>return</code></td>
+<td>
+<p>a character string indicating what update returns. The default is <code>"nothing"</code>
+and <code>"model"</code> returns the aggregated data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p>dataframe with the new data.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Keeps a sliding window of the data stream an calls a function at regular
+intervals with the contents of the window.
+The function needs to have the form
+</p>
+<p><code>f &lt;- function(data, ...) {...}</code>
+</p>
+<p>where <code>data</code> is the data.frame
+with the points in the sliding window (See <code>get_points()</code> in DSAggregate_Window). The
+function will be executed at regular intervals after <code>update()</code> was called with fixed
+number of points. <code>update(..., rebuild = TRUE)</code> can be used to force recomputing the function.
+This can be used with <code>n = 0</code> to recompute it even without adding more points.
+The last valid function result can be retrieved/
+</p>
+<p>Many modelling functions provide a formula interface which lets them be directly used
+inside a <code>DST_SlidingWindow</code> (see Examples section).
+</p>
+<p>If the function returns a model that supports <code>predict()</code>, then predict can directly be
+called on the <code>DST_SlidingWindow</code> object.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>DST_SlidingWindow</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Michael Hahsler
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other DST: 
+<code>DSAggregate()</code>,
+<code>DSC()</code>,
+<code>DSClassifier()</code>,
+<code>DSOutlier()</code>,
+<code>DSRegressor()</code>,
+<code>DST()</code>,
+<code>DST_WriteStream()</code>,
+<code>evaluate</code>,
+<code>predict()</code>,
+<code>stream_pipeline</code>,
+<code>update()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(stream)
+
+# create a data stream for the iris dataset
+data &lt;- iris[sample(nrow(iris)), ]
+stream &lt;- DSD_Memory(data)
+stream
+
+## Example 1: Use a function on the sliding window
+summarizer &lt;- function(data) summary(data)
+
+s &lt;- DST_SlidingWindow(summarizer,
+  window = 100, rebuild = 50)
+s
+
+# update window with 49 points. The function is not yet called
+update(s, stream, 49)
+get_model(s)
+
+# updating with the 50th point will trigger a function call (see rebuild parameter)
+# note that the window is only 1/2 full and we have 50 NAs
+update(s, stream, 1)
+get_model(s)
+
+# 50 more points and the function will be recomputed
+update(s, stream, 50)
+get_model(s)
+
+
+## Example 2: Use classifier on the sliding window
+reset_stream(stream)
+
+# rpart, like most models in R, already have a formula interface that uses a
+# data parameter. We can use these types of models directly
+library(rpart)
+cl &lt;- DST_SlidingWindow(
+  rpart, formula = Species ~ Petal.Length + Petal.Width,
+  window = 100, rebuild = 50)
+cl
+
+# update window with 50 points so the model is built
+update(cl, stream, 50)
+get_model(cl)
+
+# update with 40 more points and force the function to be recomputed even though it would take
+#  50 points to automatically rebuild.
+update(cl, stream, 40, rebuild = TRUE)
+get_model(cl)
+
+# rpart supports predict, so we can use it directly with the DST_SlidingWindow
+new_points &lt;- get_points(stream, n = 5)
+predict(cl, new_points, type = "class")
+
+## Example 3: Regression using a sliding window
+reset_stream(stream)
+
+## lm can be directly used
+reg &lt;- DST_SlidingWindow(
+  lm, formula = Sepal.Length ~ Petal.Width + Petal.Length,
+  window = 100, rebuild = 50)
+reg
+
+update(reg, stream, 100)
+get_model(reg)
+
+# lm supports predict, so we can use it directly with the DST_SlidingWindow
+new_points &lt;- get_points(stream, n = 5)
+predict(reg, new_points)
+</code></pre>
+
+
+</div>

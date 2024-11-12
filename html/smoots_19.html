@@ -1,0 +1,481 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>rollCast</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Backtesting Semi-ARMA Models with Rolling Forecasts</h2>
+
+<h3>Description</h3>
+
+<p>A simple backtest of Semi-ARMA models via rolling forecasts can be
+implemented.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">rollCast(
+  y,
+  p = NULL,
+  q = NULL,
+  K = 5,
+  method = c("norm", "boot"),
+  alpha = 0.95,
+  np.fcast = c("lin", "const"),
+  it = 10000,
+  n.start = 1000,
+  pb = TRUE,
+  cores = future::availableCores(),
+  argsSmoots = list(),
+  plot = TRUE,
+  argsPlot = list()
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>a numeric vector that represents the equidistant time series assumed
+to follow a Semi-ARMA model; must be ordered from past to present.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>an integer value <code class="reqn">\geq 0</code> that defines the AR order
+<code class="reqn">p</code> of the underlying ARMA(<code class="reqn">p,q</code>) model within <code>X</code>; is set to
+<code>NULL</code> by default; if no value is passed to <code>p</code> but one is passed
+to <code>q</code>, <code>p</code> is set to <code>0</code>; if both <code>p</code> and <code>q</code> are
+<code>NULL</code>, optimal orders following the BIC for
+<code class="reqn">0 \leq p,q \leq 5</code> are chosen; is set to <code>NULL</code> by
+default; decimal numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>q</code></td>
+<td>
+<p>an integer value <code class="reqn">\geq 0</code> that defines the MA order
+<code class="reqn">q</code> of the underlying ARMA(<code class="reqn">p,q</code>) model within <code>X</code>; is set to
+<code>NULL</code> by default; if no value is passed to <code>q</code> but one is passed
+to <code>p</code>, <code>q</code> is set to <code>0</code>; if both <code>p</code> and <code>q</code> are
+<code>NULL</code>, optimal orders following the BIC for
+<code class="reqn">0 \leq p,q \leq 5</code> are chosen; is set to <code>NULL</code> by
+default; decimal numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>K</code></td>
+<td>
+<p>a single, positive integer value that defines the number of
+out-of-sample observations; the last <code>K</code> observations in <code>y</code> are
+treated as the out-of-sample observations, whereas the rest of the
+observations in <code>y</code> are the in-sample values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a character object; defines the method used for the calculation
+of the forecasting intervals; with <code>"norm"</code> the intervals are obtained
+under the assumption of normally distributed innovations; with <code>"boot"</code>
+the intervals are obtained via a bootstrap; is set to <code>"norm"</code> by
+default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>a numeric vector of length 1 with <code class="reqn">0 &lt; </code> <code>alpha</code>
+<code class="reqn"> &lt; 1</code>; the forecasting intervals will be obtained based on the
+confidence level (<code class="reqn">100</code><code>alpha</code>)-percent; is set to
+<code>alpha = 0.95</code> by default, i.e., a <code class="reqn">95</code>-percent confidence level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>np.fcast</code></td>
+<td>
+<p>a character object; defines the forecasting method used
+for the nonparametric trend; for <code>np.fcast = "lin"</code> the trend is
+is extrapolated linearly based on the last two trend estimates; for
+<code>np.fcast = "const"</code>, the last trend estimate is used as a constant
+estimate for future values; is set to <em>"lin"</em> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>it</code></td>
+<td>
+<p>an integer that represents the total number of iterations, i.e.,
+the number of simulated series; is set to <code>10000</code> by default; only
+necessary, if <code>method = "boot"</code>; decimal
+numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.start</code></td>
+<td>
+<p>an integer that defines the 'burn-in' number
+of observations for the simulated ARMA series via bootstrap; is set to
+<code>1000</code> by default; only necessary, if <code>method = "boot"</code>;decimal
+numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pb</code></td>
+<td>
+<p>a logical value; for <code>pb = TRUE</code>, a progress bar will be shown
+in the console, if <code>method = "boot"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>an integer value &gt;0 that states the number of (logical) cores to
+use in the bootstrap (or <code>NULL</code>); the default is the maximum number of
+available cores
+(via <code>future::availableCores</code>); for
+<code>cores = NULL</code>, parallel computation is disabled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>argsSmoots</code></td>
+<td>
+<p>a list that contains arguments that will be passed to
+<code>msmooth</code> for the estimation of the nonparametric trend
+function; by default, the default values of <code>msmooth</code> are used.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>a logical value that controls the graphical output; for the
+default (<code>plot = TRUE</code>), the original series with the obtained point
+forecasts as well as the forecasting intervals will be plotted; for
+<code>plot = FALSE</code>, no plot will be created.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>argsPlot</code></td>
+<td>
+<p>a list; additional arguments for the standard plot function,
+e.g., <code>xlim</code>, <code>type</code>, ..., can be passed to it; arguments with
+respect to plotted graphs, e.g., the argument <code>col</code>, only affect the
+original series <code>y</code>; please note that in accordance with the argument
+<code>x</code> (lower case) of the standard plot function, an additional numeric
+vector with time points can be implemented via the argument <code>x</code> (lower
+case).</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Define that an observed, equidistant time series <code class="reqn">y_t</code>, with
+<code class="reqn">t = 1, 2, ..., n</code>, follows
+</p>
+<p style="text-align: center;"><code class="reqn">y_t = m(x_t) + \epsilon_t,</code>
+</p>
+
+<p>where <code class="reqn">x_t = t/n</code> is the rescaled time on the closed
+interval <code class="reqn">[0,1]</code> and <code class="reqn">m(x_t)</code> is a nonparametric and
+deterministic trend function (see Beran and Feng, 2002, and Feng, Gries and
+Fritz, 2020).
+<code class="reqn">\epsilon_t</code>, on the other hand, is a stationary process
+with <code class="reqn">E(\epsilon_t) = 0</code> and short-range dependence.
+For the purpose of this function, <code class="reqn">\epsilon_t</code> is assumed
+to follow an autoregressive-moving-average (ARMA) model with
+</p>
+<p style="text-align: center;"><code class="reqn">\epsilon_t = \zeta_t + \beta_1 \epsilon_{t-1} + ... + \beta_p
+\epsilon_{t-p} + \alpha_1 \zeta_{t-1} + ... +
+\alpha_q \zeta_{t-q}.</code>
+</p>
+
+<p>Here, the random variables <code class="reqn">\zeta_t</code> are identically and
+independently distributed (i.i.d.) with zero-mean and a constant variance
+and the coefficients <code class="reqn">\alpha_j</code> and <code class="reqn">\beta_i</code>,
+<code class="reqn">i = 1, 2, ..., p</code> and <code class="reqn">j = 1, 2, ..., q</code>, are real numbers.
+The combination of both previous formulas will be called a semiparametric
+ARMA (Semi-ARMA) model.
+</p>
+<p>An explicit forecasting method of Semi-ARMA models is described in
+<code>modelCast</code>. To backtest a selected model, a slightly adjusted
+procedure is used. The data is divided into in-sample and an
+out-of-sample values (usually the last <code class="reqn">K = 5</code> observations in the data
+are reserved for the out-of-sample observations). A model is fitted to the
+in-sample data, whereas one-step rolling point forecasts and forecasting
+intervals are obtained for the out-of-sample time points. The proposed
+forecasts of the trend are either a linear or a constant extrapolation of
+the trend with negligible forecasting intervals, whereas the point forecasts
+of the stationary rest term are obtained via the selected ARMA(<code class="reqn">p,q</code>)
+model (see Fritz et al., 2020). The corresponding forecasting intervals
+are calculated under the assumption that the innovations
+<code class="reqn">\zeta_t</code> are either normally distributed (see e.g. pp.
+93-94 in Brockwell and Davis, 2016) or via a forward bootstrap (see Lu and
+Wang, 2020). For a one-step forecast for time point <code class="reqn">t</code>, all observations
+until time point <code class="reqn">t-1</code> are assumed to be known.
+</p>
+<p>The function calculates three important values for backtesting: the number
+of breaches, i.e. the number of true observations that lie outside of the
+forecasting intervals, the mean absolute scaled error (MASE, see Hyndman
+and Koehler, 2006) and the root mean squared scaled error (RMSSE, see
+Hyndman and Koehler, 2006) are obtained. For the MASE, a value <code class="reqn">&lt; 1</code>
+indicates a better average forecasting potential than a naive forecasting
+approach.
+Furthermore, it is independent from the scale of the data and can thus be
+used to compare forecasts of different datasets. Closely related is the
+RMSSE, however here, the mean of the squared forecasting errors is computed
+and scaled by the mean of the squared naive forecasting approach. Then the
+root of that value is the RMSSE. Due to the close relation, the
+interpretation of the RMSSE is similarly but not identically to the
+interpretation of the MASE. Of course, a value close to zero is preferred
+in both cases.
+</p>
+<p>To make use of the function, a numeric vector with the values of a time
+series that is assumed to follow a Semi-ARMA model needs to be passed to
+the argument <code>y</code>. Moreover, the arguments <code>p</code> and <code>q</code>
+represent the AR and MA orders, respectively, of the underlying ARMA
+process in the parametric part of the model. If both values are set to
+<code>NULL</code>, an optimal order in accordance with the Bayesian Information
+Criterion (BIC) will be selected. If only one of the values is <code>NULL</code>,
+it will be changed to zero instead. <code>K</code> defines the number of the
+out-of-sample observations; these will be cut off the end of <code>y</code>, while
+the remaining observations are treated as the in-sample observations. For the
+<code class="reqn">K</code> out-of-sample time points, rolling forecasts will be obtained.
+<code>method</code> describes the method to use for the computation of the
+prediction intervals. Under the normality assumption for the innovations
+<code class="reqn">\zeta_t</code>, intervals can be obtained via
+<em>method</em> = "norm". However, if the assumption does not hold, a
+bootstrap can be implemented as well (<em>method = "boot"</em>). Both
+approaches are explained in more detail in <code>normCast</code> and
+<code>bootCast</code>, respectively. With <code>alpha</code>, the confidence
+level of the forecasting intervals can be adjusted, as the
+(<code class="reqn">100</code><code>alpha</code>)-percent forecasting intervals will be computed. By
+means of the argument <code>np.fcast</code>, the forecasting method for the
+nonparametric trend function can be defined. Selectable are a linear
+(<code>np.fcast = "lin"</code>) and a constant (<code>np.fcast = "const"</code>)
+extrapolation. For more information on these methods, we refer the reader to
+<code>trendCast</code>.
+</p>
+<p><code>it</code>, <code>n.start</code>, <code>pb</code> and <code>cores</code> are only
+relevant for <code>method = "boot"</code>. With <code>it</code> the total number of
+bootstrap iterations is defined, whereas <code>n.start</code> regulates, how
+many 'burn-in' observations are generated for each simulated ARMA process
+in the bootstrap. Since a bootstrap may take a longer computation time,
+with the argument <code>cores</code> the number of cores for parallel computation
+of the bootstrap iterations can be defined. Nonetheless, for
+<code>cores = NULL</code>, no cluster is created and therefore
+the parallel computation is disabled. Note that the bootstrapped results are
+fully reproducible for all cluster sizes. Moreover, for <code>pb = TRUE</code>,
+the progress of the bootstrap approach can be observed in the R console via
+a progress bar. Additional information on these four function arguments can
+be found in <code>bootCast</code>.
+</p>
+<p>The argument <code>argsSmoots</code> is a list. In this list, different arguments
+of the function <code>msmooth</code> can be implemented to adjust the
+estimation of the nonparametric part of the complete model. The arguments
+of the smoothing function are described in <code>msmooth</code>.
+</p>
+<p><code>rollCast</code> allows for a quick plot of the results. If the logical
+argument <code>plot</code> is set to <code>TRUE</code>, a graphic with default
+settings is created. Nevertheless, users are allowed to implement further
+arguments of the standard plot function in the list <code>argsPlot</code>. For
+example, the limits of the plot can be adjusted by <code>xlim</code> and
+<code>ylim</code>. Furthermore, an argument <code>x</code> can be included in
+<code>argsPlot</code> with the actual equidistant time points of the whole series
+(in-sample &amp; out-of-sample observations). Otherwise, simply <code>1:n</code> is
+used as the in-sample time points by default.
+</p>
+<p>NOTE:
+</p>
+<p>Within this function, the <code>arima</code> function of the
+<code>stats</code> package with its method <code>"CSS-ML"</code> is used throughout for
+the estimation of ARMA models. Furthermore, to increase the performance,
+C++ code via the <code>Rcpp</code> and
+<code>RcppArmadillo</code> packages
+was implemented. Also, the <code>future</code> and
+<code>future.apply</code> packages are
+considered for parallel computation of bootstrap iterations. The progress
+of the bootstrap is shown via the
+<code>progressr</code> package.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A list with different elements is returned. The elements are as follows.
+</p>
+
+<dl>
+<dt>alpha</dt>
+<dd>
+<p>a single numeric value; it describes, what confidence level
+(<code class="reqn">100</code><code>alpha</code>)-percent has been considered for the forecasting
+intervals.</p>
+</dd>
+<dt>breach</dt>
+<dd>
+<p>a logical vector that states whether the <code class="reqn">K</code> true
+out-of-sample observations lie outside of the forecasting intervals,
+respectively; a breach is denoted by <code>TRUE</code>.</p>
+</dd>
+<dt>breach.val</dt>
+<dd>
+<p>a numeric vector that contains the margin of the breaches
+(in absolute terms) for the <code class="reqn">K</code> out-of-sample time points; if a breach
+did not occur, the respective element is set to zero.</p>
+</dd>
+<dt>error</dt>
+<dd>
+<p>a numeric vector that contains the simulated empirical
+values of the forecasting error for <code>method = "boot"</code>; otherwise,
+it is set to <code>NULL</code>.</p>
+</dd>
+<dt>fcast.rest</dt>
+<dd>
+<p>a numeric vector that contains the <code class="reqn">K</code> point forecasts
+of the parametric part of the model.</p>
+</dd>
+<dt>fcast.roll</dt>
+<dd>
+<p>a numeric matrix that contains the <code class="reqn">K</code> rolling point
+forecasts as well as the values of the bounds of the respective forecasting
+intervals for the complete model;
+the first row contains the point forecasts, the lower bounds of the
+forecasting intervals are in the second row and the upper bounds
+can be found in the third row.</p>
+</dd>
+<dt>fcast.trend</dt>
+<dd>
+<p>a numeric vector that contains the <code class="reqn">K</code> obtained trend
+forecasts.</p>
+</dd>
+<dt>K</dt>
+<dd>
+<p>a positive integer; states the number of out-of-sample observations
+as well as the number of forecasts for the out-of-sample time points.</p>
+</dd>
+<dt>MASE</dt>
+<dd>
+<p>the obtained value of the mean average scaled error for the
+selected model.</p>
+</dd>
+<dt>method</dt>
+<dd>
+<p>a character object that states, whether the forecasting
+intervals were obtained via a bootstrap (<code>method = "boot"</code>) or under
+the normality assumption for the innovations (<code>method = "norm"</code>).</p>
+</dd>
+<dt>model.nonpar</dt>
+<dd>
+<p>the output (usually a list) of the nonparametric
+trend estimation via <code>msmooth</code>.</p>
+</dd>
+<dt>model.par</dt>
+<dd>
+<p>the output (usually a list) of the parametric ARMA
+estimation of the detrended series via <code>arima</code>.</p>
+</dd>
+<dt>n</dt>
+<dd>
+<p>the number of observations (in-sample &amp; out-of-sample
+observations).</p>
+</dd>
+<dt>n.in</dt>
+<dd>
+<p>the number of in-sample observations (<code>n - n.out</code>).</p>
+</dd>
+<dt>n.out</dt>
+<dd>
+<p>the number of out-of-sample observations (equals <code>K</code>).</p>
+</dd>
+<dt>np.fcast</dt>
+<dd>
+<p>a character object that states the applied forecasting
+method for the nonparametric trend function; either a linear (
+<code>np.fcast = "lin"</code>) or a constant <code>np.fcast = "const"</code> are
+possible.</p>
+</dd>
+<dt>quants</dt>
+<dd>
+<p>a numeric vector of length 2 with the
+<code class="reqn">[100(1 -</code> <code>alpha</code><code class="reqn">)/2]</code>-percent and
+{<code class="reqn">100</code><code class="reqn">[1 - (1 -</code> <code>alpha</code><code class="reqn">)/2]</code>}-percent quantiles of
+the forecasting error distribution.</p>
+</dd>
+<dt>RMSSE</dt>
+<dd>
+<p>the obtained value of the root mean squared scaled error for
+the selected model.</p>
+</dd>
+<dt>y</dt>
+<dd>
+<p>a numeric vector that contains all true observations (in-sample &amp;
+out-of-sample observations).</p>
+</dd>
+<dt>y.in</dt>
+<dd>
+<p>a numeric vector that contains all in-sample observations.</p>
+</dd>
+<dt>y.out</dt>
+<dd>
+<p>a numeric vector that contains the <code class="reqn">K</code> out-of-sample
+observations.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+
+<ul>
+<li>
+<p> Yuanhua Feng (Department of Economics, Paderborn University), <br>
+Author of the Algorithms <br>
+Website: <a href="https://wiwi.uni-paderborn.de/en/dep4/feng/">https://wiwi.uni-paderborn.de/en/dep4/feng/</a>
+</p>
+</li>
+<li>
+<p> Dominik Schulz (Research Assistant) (Department of Economics, Paderborn
+University), <br>
+Package Creator and Maintainer
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Beran, J., and Feng, Y. (2002). Local polynomial fitting with long-memory,
+short-memory and antipersistent errors. Annals of the Institute of
+Statistical Mathematics, 54, 291-311.
+</p>
+<p>Brockwell, P. J., and Davis, R. A. (2016). Introduction to time series
+and forecasting, 3rd edition. Springer.
+</p>
+<p>Fritz, M., Forstinger, S., Feng, Y., and Gries, T. (2020). Forecasting
+economic growth processes for developing economies. Unpublished.
+</p>
+<p>Feng, Y., Gries, T. and Fritz, M. (2020). Data-driven
+local polynomial for the trend and its derivatives in economic time
+series. Journal of Nonparametric Statistics, 32:2, 510-533.
+</p>
+<p>Hyndman, R. J., and Koehler, A. B. (2006). Another look at measures of
+forecast accuracy. International Journal of Forecasting, 22:4, 679-688.
+</p>
+<p>Lu, X., and Wang, L. (2020). Bootstrap prediction interval for ARMA models
+with unknown orders. REVSTAT–Statistical Journal, 18:3, 375-396.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">lgdp &lt;- log(smoots::gdpUS$GDP)
+time &lt;- seq(from = 1947.25, to = 2019.5, by = 0.25)
+backtest &lt;- rollCast(lgdp, K = 5,
+ argsPlot = list(x = time, xlim = c(2012, 2019.5), col = "forestgreen",
+ type = "b", pch = 20, lty = 2, main = "Example"))
+backtest
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,162 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>roll_stalta</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Rolling STA/LTA</h2>
+
+<h3>Description</h3>
+
+<p>Fast rolling STA/LTA using C++/Rcpp.  Additional performance gains can be achieved by 
+skipping <code>increment</code> values between calculations.
+</p>
+<p>The STA/LTA ratio method is used for automatic detection of seismic signal arrival times.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">roll_stalta(x, n_sta, n_lta, increment = 1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> numeric vector</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_sta</code></td>
+<td>
+<p>integer STA window size</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_lta</code></td>
+<td>
+<p>integer LTA window size</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>increment</code></td>
+<td>
+<p>integer shift to use when sliding the window to the next location</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The <code>roll_stalta</code> function described here does no preprocessing of the incoming 
+data and merely calculates the ratio of the average value in the STA window to the average value 
+in the LTA window. Windows are aligned so that the index is at the left edge of the STA window and 
+at the right edge of the LTA window.
+</p>
+<p style="text-align: center;"><code class="reqn"> STA(x_i) = \frac{1}{ns}\sum_{j=i}^{i+ns}{x_i} </code>
+</p>
+
+<p style="text-align: center;"><code class="reqn"> LTA(x_i) = \frac{1}{nl}\sum_{j=i-nl}^{i}{x_i} </code>
+</p>
+
+<p style="text-align: center;"><code class="reqn"> r_i = \frac{STA_i}{LTA_i} </code>
+</p>
+ 
+
+<p><code>[---------- LTA --------*]........</code>
+</p>
+<p><code>.......................[*- STA --]</code>
+</p>
+<p>For proper use of this algorithm seismic data should be preprocessed as in the example below with:
+</p>
+
+<ul>
+<li>
+<p>demean, detrend and taper the raw signal
+</p>
+</li>
+<li>
+<p>square the processed signal to get power
+</p>
+</li>
+</ul>
+<p>With <code>increment=1</code>, this function is equivalent to, eg:
+</p>
+<p><code>sta &lt;- roll_mean(x,3,1,"left")</code>
+</p>
+<p><code>lta &lt;- roll_mean(x,30,1,"right")</code>
+</p>
+<p><code>r &lt;- sta/lta</code>
+</p>
+<p>For increments greater than one, the rolling means above will not align properly,
+hence the need for a dedicated <code>roll_stalta</code> function.
+</p>
+<p>Values within <code>n_lta-1</code> of the beginning or
+<code>n_sta-1</code> of the end of <code>x</code> are set to <code>NA</code>.
+</p>
+<p>Setting <code>increment</code> to a value greater than one will result in <code>NA</code>s for
+all skipped-over indices.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A vector of values of the same length as <code>x</code> with each point containing the STA/LTA
+ratio at that point.
+</p>
+
+
+<h3>References</h3>
+
+<p><a href="https://en.wikipedia.org/wiki/First_break_picking">First Break Picking</a>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Contrived example
+x &lt;- rep(c(1,5,3,2,1),each=20)
+p &lt;- roll_stalta(x,3,6)
+plot(x, pch=17, cex=0.8, ylim=c(0,max(x)),
+     main="Test of roll_stalta on artificial data")
+points(p,cex=1.5,col='red',type='b')
+legend('topleft',
+       legend=c('data','STA/LTA'),
+       pch=c(17,1),
+       col=c('black','red'))
+
+# Real example requiring the 'seismic' package
+## Not run: 
+require(seismic)
+ 
+# Create a new IrisClient
+iris &lt;- new("IrisClient")
+  
+# Seismic data with a large quake
+starttime &lt;- as.POSIXct("2010-02-27 06:30:00", tz="GMT")
+endtime &lt;- as.POSIXct("2010-02-27 07:00:00", tz="GMT")
+st &lt;- getDataselect(iris,"IU","ANMO","00","BHZ",starttime,endtime)
+tr &lt;- st@traces[[1]]
+ 
+# Preprocess the data
+x &lt;- DDT(tr)@data
+ 
+# Calculate the first break 'picker'
+n_sta &lt;- 3 * tr@stats@sampling_rate
+n_lta &lt;- 10 * n_sta
+p &lt;- roll_stalta(x^2,n_sta,n_lta)
+ 
+first_break &lt;- which(p == max(p,na.rm=TRUE))
+
+plot(x,type='l',
+     main='Test of STA/LTA first break picker on raw seismic data')
+abline(v=first_break,col='red')  
+
+## End(Not run)
+</code></pre>
+
+
+</div>

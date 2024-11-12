@@ -1,0 +1,167 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>synsq_cwt_fw</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Synchrosqueezing Transform</h2>
+
+<h3>Description</h3>
+
+<p>This function calculates the synchrosqueezing transform. 
+</p>
+<p>This code is translated from MATLAB Synchrosqueezing Toolbox, version 1.1 developed by Eugene Brevdo (http://www.math.princeton.edu/~ebrevdo/).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">synsq_cwt_fw(tt, x, nv=16, opt=NULL) 
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>tt</code></td>
+<td>
+<p>vector of times samples are taken (e.g. <code>seq(0, 1,length=2)</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>vector of signal samples (e.g. <code>x = cos(20*pi*tt)</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nv</code></td>
+<td>
+<p>number of voices (default: 16, recommended: 32 or 64)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt</code></td>
+<td>
+<p>list of options. <code>opt.type</code>: type of wavelet (see <code>wfiltfn</code>), <code>opt$s</code>, <code>opt$mu</code>, etc (wavelet parameters: see <code>opt</code> from <code>wfiltfn</code>),
+<code>opt.disp</code>: display debug information?,
+<code>opt.gamma</code>: wavelet hard thresholding value (see <code>cwt_freq_direct</code>, default: sqrt(machine epsilon))
+<code>opt.dtype</code>: direct or numerical differentiation (default: 1, uses direct).  if <code>dtype=0</code>, uses differentiation algorithm 
+instead (see <code>cwt_freq</code>), which is faster and
+uses less memory, but may be less accurate.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function
+calculates the synchrosqueezing transform of vector <code>x</code>, with
+samples taken at times given in vector <code>tt</code>.  Uses <code>nv</code> voices.  <code>opt</code>
+is a struct of options for the way synchrosqueezing is done, the
+type of wavelet used, and the wavelet parameters.  This
+implements the algorithm described in Sec. III of [1].
+</p>
+<p>Note that <code>Wx</code> itself is not thresholded by <code>opt$gamma</code>.
+The instantaneoues frequency <code>w</code> is calculated using <code>Wx</code> by <code>cwt_freq_direct</code> and
+<code>cwt_freq</code>. After the calculation, instantaneoues frequency <code>w</code> is treated as <code>NA</code> where <code>abs(Wx) &lt; opt$gamma</code>.
+</p>
+
+
+<h3>Value</h3>
+
+ 
+<table>
+<tr style="vertical-align: top;">
+<td><code>Tx</code></td>
+<td>
+<p>synchrosqueezed output of <code>x</code> (columns associated with time <code>tt</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fs</code></td>
+<td>
+<p>frequencies associated with rows of <code>Tx</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Wx</code></td>
+<td>
+<p>wavelet transform of <code>x</code> (see <code>cwt_fw</code>)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asc</code></td>
+<td>
+<p>scales associated with rows of <code>Wx</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w</code></td>
+<td>
+<p>instantaneous frequency estimates for each element of <code>Wx</code>
+(see <code>cwt_freq_direct</code>)</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>[1] Thakur, G., Brevdo, E., Fuckar, N. S. and Wu, H-T. (2013) The Synchrosqueezing algorithm for time-varying spectral analysis: 
+Robustness properties and new paleoclimate applications. 
+<em>Signal Processing</em>, <b>93</b>, 1079–1094.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>cwt_fw</code>, <code>est_riskshrink_thresh</code>, <code>wfiltfn</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">tt &lt;- seq(0, 10, , 1024)
+nv &lt;- 32
+f0 &lt;- (1+0.6*cos(2*tt))*cos(4*pi*tt+1.2*tt^2)
+sigma &lt;- 0.5
+f &lt;- f0 + sigma*rnorm(length(tt))
+
+# Continuous wavelet transform
+opt &lt;- list(type = "bump")
+cwtfit &lt;- cwt_fw(f, opt$type, nv, tt[2]-tt[1], opt)
+
+# Hard thresholing
+thresh &lt;- est_riskshrink_thresh(cwtfit$Wx, nv)
+cwtfit$Wx[which(abs(cwtfit$Wx) &lt; thresh)] &lt;- 0.0
+
+# Reconstruction
+opt$gamma &lt;- thresh
+#[1] 0.0593984
+#opt$gamma &lt;- 10^-5
+cwtrec &lt;- cwt_iw(cwtfit$Wx, opt$type, opt)
+
+par(mfrow=c(1,1))
+plot(tt, f, type="p", lty=2, xlab="time", ylab="f", col="red", cex=0.1)
+lines(tt, f0, col="blue")
+lines(tt, cwtrec)
+
+# Synchrosqueezed wavelet transform
+sstfit &lt;- synsq_cwt_fw(tt, f, nv, opt)
+
+#par(mfrow=c(2,2))
+#plot(tt, f, type="p", lty=2, xlab="time", ylab="f", col="red", cex=0.1)
+#lines(tt, f0, col="blue")
+
+#image.plot(list(x=tt, y=sstfit$asc, z=t(abs(sstfit$Wx))), log="y", 
+#    xlab="Time", ylab="Scale", main="Time-Scale Representation by CWT",  
+#    col=designer.colors(64, c("azure", "cyan", "blue", "darkblue")), ylim=rev(range(sstfit$asc)))
+#image.plot(list(x=tt, y=sstfit$fs, z=t(abs(sstfit$Tx))), log="y", 
+#    xlab="Time", ylab="Frequency", main="Time-Frequency Representation by SST", 
+#    col=designer.colors(64, c("azure", "cyan", "blue", "darkblue")), ylim=c(0.5, 25))
+#image.plot(list(x=tt, y=sstfit$asc, z=t(sstfit$w)), log="y", 
+#    xlab="Time", ylab="Scale", main="Instantaneous Frequency",  
+#    col=designer.colors(64, c("azure", "cyan", "blue", "darkblue")), ylim=rev(range(sstfit$asc)))
+</code></pre>
+
+
+</div>

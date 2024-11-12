@@ -1,0 +1,205 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>saemix.bootstrap</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Bootstrap for saemix fits</h2>
+
+<h3>Description</h3>
+
+<p>This function provides bootstrap estimates for a saemixObject run. Different bootstrap approaches have been
+implemented (see below for details), with the default method being the conditional non-parametric bootstrap ()
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">saemix.bootstrap(
+  saemixObject,
+  method = "conditional",
+  nboot = 200,
+  nsamp = 100,
+  saemix.options = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>saemixObject</code></td>
+<td>
+<p>an object returned by the <code>saemix</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>the name of the bootstrap algorithm to use (one of: "case", "residual", "parametric" or "conditional") (defaults to "conditional")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nboot</code></td>
+<td>
+<p>number of bootstrap samples</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nsamp</code></td>
+<td>
+<p>number of samples from the conditional distribution (for method="conditional")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saemix.options</code></td>
+<td>
+<p>list of options to run the saemix algorithm. Defaults to the options in the object, but suppressing the estimation of individual parameters (map=FALSE) and likelihood (ll.is=FALSE), and the options to print out intermediate results and graphs (displayProgress=FALSE,save.graphs=FALSE,print=FALSE)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Different bootstrap algorithms have been proposed for non-linear mixed effect models,
+to account for the hierarchical nature of these models (see review in Thai et al. 2013, 2014)
+In saemix, we implemented the following bootstrap algorithms, which can be selected using the "method" argument:
+</p>
+
+<ul>
+<li>
+<p> case refers to case bootstrap, where resampling is performed at the level of the individual and the bootstrap sample consists in sampling with replacement from the observed individuals
+</p>
+</li>
+<li>
+<p> residual refers to non-parametric residual bootstrap, where for each individual the residuals for the random effects and for the residual error are resampled from the individual estimates after the fit
+</p>
+</li>
+<li>
+<p> parametric refers to parametric residual bootstrap, where these residuals are sampled from their theoretical distributions. In
+saemix, random effects are drawn from a normal distribution using the estimated variance in saemixObject, and transformed
+to the distribution specified by the transform.par component of the model, and the residual error is drawn from a normal distribution
+using the estimated residual variance.
+</p>
+</li>
+<li>
+<p> conditional refers to the conditional non-parametric bootstrap, where the random effects are resampled from the individual
+conditional distributions as in (Comets et al. 2021) and the residual errors resampled from the corresponding residuals
+</p>
+</li>
+</ul>
+<p><strong>Important note:</strong> for discrete data models, all residual-based bootstraps (residual, parametric and conditional) need
+a simulate.function slot to be included in the model object, as the algorithm will need to generate predictions with the
+resampled individual parameters in order to generate bootstrap samples. See <code>SaemixModel</code> and the examples
+provided as notebooks for details.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Emmanuelle Comets <a href="mailto:emmanuelle.comets@inserm.fr">emmanuelle.comets@inserm.fr</a>
+</p>
+
+
+<h3>References</h3>
+
+<p>Thai H, Mentré F, Holford NH, Veyrat-Follet C, Comets E.
+A comparison of bootstrap approaches for estimating uncertainty of parameters in
+linear mixed-effects models. Pharmaceutical Statistics, 2013 ;12:129–40.
+</p>
+<p>Thai H, Mentré F, Holford NH, Veyrat-Follet C, Comets E.
+Evaluation of bootstrap methods for estimating uncertainty of parameters in
+nonlinear mixed-effects models : a simulation study in population pharmacokinetics.
+Journal of Pharmacokinetics and Pharmacodynamics, 2014; 41:15–33.
+</p>
+<p>Comets E, Rodrigues C, Jullien V, Moreno U. Conditional non-parametric bootstrap for
+non-linear mixed effect models. Pharmaceutical Research, 2021; 38, 1057–66.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Bootstrap for the theophylline data 
+data(theo.saemix)
+
+saemix.data&lt;-saemixData(name.data=theo.saemix,header=TRUE,sep=" ",na=NA, 
+  name.group=c("Id"),name.predictors=c("Dose","Time"),
+  name.response=c("Concentration"),name.covariates=c("Weight","Sex"),
+  units=list(x="hr",y="mg/L",covariates=c("kg","-")), name.X="Time")
+
+model1cpt&lt;-function(psi,id,xidep) { 
+	  dose&lt;-xidep[,1]
+	  tim&lt;-xidep[,2]  
+	  ka&lt;-psi[id,1]
+	  V&lt;-psi[id,2]
+	  CL&lt;-psi[id,3]
+	  k&lt;-CL/V
+	  ypred&lt;-dose*ka/(V*(ka-k))*(exp(-k*tim)-exp(-ka*tim))
+	  return(ypred)
+}
+
+saemix.model&lt;-saemixModel(model=model1cpt,
+  description="One-compartment model with first-order absorption", 
+  psi0=matrix(c(1.,20,0.5,0.1,0,-0.01),ncol=3, byrow=TRUE,
+  dimnames=list(NULL, c("ka","V","CL"))),transform.par=c(1,1,1),
+  covariate.model=matrix(c(0,1,0,0,0,0),ncol=3,byrow=TRUE),fixed.estim=c(1,1,1),
+  covariance.model=matrix(c(1,0,0,0,1,0,0,0,1),ncol=3,byrow=TRUE),
+  omega.init=matrix(c(1,0,0,0,1,0,0,0,1),ncol=3,byrow=TRUE),error.model="constant")
+
+saemix.options&lt;-list(algorithm=c(1,0,0),seed=632545,save=FALSE,save.graphs=FALSE, 
+displayProgress=FALSE)
+
+# Not run (strict time constraints for CRAN)
+
+saemix.fit&lt;-saemix(saemix.model,saemix.data,saemix.options)
+# Only 10 bootstrap samples here for speed, please increase to at least 200
+theo.case &lt;- saemix.bootstrap(saemix.fit, method="case", nboot=10)
+theo.cond &lt;- saemix.bootstrap(saemix.fit, nboot=10)
+
+
+# Bootstrap for the toenail data
+data(toenail.saemix)
+saemix.data&lt;-saemixData(name.data=toenail.saemix,name.group=c("id"), name.predictors=c("time","y"), 
+ name.response="y", name.covariates=c("treatment"),name.X=c("time"))
+ 
+binary.model&lt;-function(psi,id,xidep) {
+  tim&lt;-xidep[,1]
+  y&lt;-xidep[,2]
+  inter&lt;-psi[id,1]
+  slope&lt;-psi[id,2]
+  logit&lt;-inter+slope*tim
+  pevent&lt;-exp(logit)/(1+exp(logit))
+  pobs = (y==0)*(1-pevent)+(y==1)*pevent
+  logpdf &lt;- log(pobs)
+  return(logpdf)
+}
+simulBinary&lt;-function(psi,id,xidep) {
+    tim&lt;-xidep[,1]
+    y&lt;-xidep[,2]
+    inter&lt;-psi[id,1]
+    slope&lt;-psi[id,2]
+    logit&lt;-inter+slope*tim
+    pevent&lt;-1/(1+exp(-logit))
+    ysim&lt;-rbinom(length(tim),size=1, prob=pevent)
+    return(ysim)
+    }
+
+saemix.model&lt;-saemixModel(model=binary.model,description="Binary model",
+     modeltype="likelihood", simulate.function=simulBinary,
+     psi0=matrix(c(-5,-.1,0,0),ncol=2,byrow=TRUE,dimnames=list(NULL,c("inter","slope"))),
+     transform.par=c(0,0))
+     
+
+saemix.options&lt;-list(seed=1234567,save=FALSE,save.graphs=FALSE, displayProgress=FALSE, 
+   nb.chains=10, fim=FALSE)
+binary.fit&lt;-saemix(saemix.model,saemix.data,saemix.options)
+# Only 10 bootstrap samples here for speed, please increase to at least 200
+toenail.case &lt;- saemix.bootstrap(binary.fit, method="case", nboot=10)
+toenail.cond &lt;- saemix.bootstrap(binary.fit, nboot=10)
+
+
+</code></pre>
+
+
+</div>

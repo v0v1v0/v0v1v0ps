@@ -1,0 +1,139 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>snnrce</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>General Interface for SNNRCE model</h2>
+
+<h3>Description</h3>
+
+<p>SNNRCE (Self-training Nearest Neighbor Rule using Cut Edges) is a variant
+of the self-training classification method (<code>selfTraining</code>) with a different
+addition mechanism and a fixed learning scheme (1-NN). SNNRCE uses an amending scheme
+to avoid the introduction of noisy examples into the enlarged labeled set.
+The mislabeled examples are identified using the local information provided
+by the neighborhood graph. A statistical test using cut edge weight is used to modify
+the labels of the missclassified examples.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">snnrce(x.inst = TRUE, dist = "Euclidean", alpha = 0.1)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x.inst</code></td>
+<td>
+<p>A boolean value that indicates if <code>x</code> is or not an instance matrix.
+Default is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dist</code></td>
+<td>
+<p>A distance function available in the <code>proxy</code> package to compute
+the distance matrix in the case that <code>x.inst</code> is <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>Rejection threshold to test the critical region. Default is 0.1.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>SNNRCE initiates the self-labeling process by training a 1-NN from the original
+labeled set. This method attempts to reduce the noise in examples by labeling those instances
+with no cut edges in the initial stages of self-labeling learning.
+These highly confident examples are added into the training set.
+The remaining examples follow the standard self-training process until a minimum number
+of examples will be labeled for each class. A statistical test using cut edge weight is used
+to modify the labels of the missclassified examples The value of the <code>alpha</code> argument
+defines the critical region where the candidates examples are tested. The higher this value
+is, the more relaxed it is the selection of the examples that are considered mislabeled.
+</p>
+
+
+<h3>Value</h3>
+
+<p>(When model fit) A list object of class "snnrce" containing:
+</p>
+
+<dl>
+<dt>model</dt>
+<dd>
+<p>The final base classifier trained using the enlarged labeled set.</p>
+</dd>
+<dt>instances.index</dt>
+<dd>
+<p>The indexes of the training instances used to
+train the <code>model</code>. These indexes include the initial labeled instances
+and the newly labeled instances.
+Those indexes are relative to <code>x</code> argument.</p>
+</dd>
+<dt>classes</dt>
+<dd>
+<p>The levels of <code>y</code> factor.</p>
+</dd>
+<dt>x.inst</dt>
+<dd>
+<p>The value provided in the <code>x.inst</code> argument.</p>
+</dd>
+<dt>dist</dt>
+<dd>
+<p>The value provided in the <code>dist</code> argument when x.inst is <code>TRUE</code>.</p>
+</dd>
+<dt>xtrain</dt>
+<dd>
+<p>A matrix with the subset of training instances referenced by the indexes
+<code>instances.index</code> when x.inst is <code>TRUE</code>.</p>
+</dd>
+</dl>
+<h3>References</h3>
+
+<p>Yu Wang, Xiaoyan Xu, Haifeng Zhao, and Zhongsheng Hua.<br><em>Semisupervised learning based on nearest neighbor rule and cut edges.</em><br>
+Knowledge-Based Systems, 23(6):547-554, 2010. ISSN 0950-7051. doi: http://dx.doi.org/10.1016/j.knosys.2010.03.012.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(tidyverse)
+library(tidymodels)
+library(caret)
+library(SSLR)
+
+data(wine)
+set.seed(1)
+train.index &lt;- createDataPartition(wine$Wine, p = .7, list = FALSE)
+train &lt;- wine[ train.index,]
+test  &lt;- wine[-train.index,]
+
+cls &lt;- which(colnames(wine) == "Wine")
+
+#% LABELED
+labeled.index &lt;- createDataPartition(wine$Wine, p = .2, list = FALSE)
+train[-labeled.index,cls] &lt;- NA
+
+
+m &lt;- snnrce(x.inst = TRUE,
+            dist = "Euclidean",
+            alpha = 0.1) %&gt;% fit(Wine ~ ., data = train)
+
+
+
+predict(m,test) %&gt;%
+  bind_cols(test) %&gt;%
+  metrics(truth = "Wine", estimate = .pred_class)
+</code></pre>
+
+
+</div>

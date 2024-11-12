@@ -1,0 +1,406 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>modelCast</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Forecasting Function for Trend-Stationary Time Series</h2>
+
+<h3>Description</h3>
+
+<p>Point forecasts and the respective forecasting intervals for
+trend-stationary time series are calculated.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">modelCast(
+  obj,
+  p = NULL,
+  q = NULL,
+  h = 1,
+  method = c("norm", "boot"),
+  alpha = 0.95,
+  it = 10000,
+  n.start = 1000,
+  pb = TRUE,
+  cores = future::availableCores(),
+  np.fcast = c("lin", "const"),
+  export.error = FALSE,
+  plot = FALSE,
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>an object of class <code>smoots</code>; must be the output of a trend
+estimation process and not of a first or second derivative estimation
+process.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>an integer value <code class="reqn">&gt;= 0</code> that defines the AR order <code class="reqn">p</code> of the
+underlying ARMA(<code class="reqn">p,q</code>) model within the rest term (see the section
+<em>Details</em> for more information); is set to <code>NULL</code> by default; if no
+value is passed to <code>p</code> but one is passed to <code>q</code>, <code>p</code> is set to
+<code>0</code>; if both <code>p</code> and <code>q</code> are <code>NULL</code>, optimal orders
+following the BIC for <code class="reqn">0 \leq p,q \leq 5</code> are chosen; is
+set to <code>NULL</code> by default; decimal numbers will be rounded off to
+integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>q</code></td>
+<td>
+<p>an integer value <code class="reqn">\geq 0</code> that defines the MA order
+<code class="reqn">q</code> of the underlying ARMA(<code class="reqn">p,q</code>) model within <code>X</code>; is set to
+<code>NULL</code> by default; if no value is passed to <code>q</code> but one is passed
+to <code>p</code>, <code>q</code> is set to <code>0</code>; if both <code>p</code> and <code>q</code> are
+<code>NULL</code>, optimal orders following the BIC for
+<code class="reqn">0 \leq p,q \leq 5</code> are chosen; is set to <code>NULL</code> by
+default; decimal numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>an integer that represents the forecasting horizon; if <code class="reqn">n</code> is
+the number of observations, point forecasts and forecasting intervals will be
+obtained for the time points <code class="reqn">n + 1</code> to <code class="reqn">n + h</code>; is set to
+<code>h = 1</code> by default; decimal numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>method</code></td>
+<td>
+<p>a character object; defines the method used for the calculation
+of the forecasting intervals; with <code>"norm"</code> the intervals are obtained
+under the assumption of normally distributed innovations; with <code>"boot"</code>
+the intervals are obtained via a bootstrap; is set to <code>"norm"</code> by
+default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>a numeric vector of length 1 with <code class="reqn">0 &lt; </code> <code>alpha</code>
+<code class="reqn"> &lt; 1</code>; the forecasting intervals will be obtained based on the
+confidence level (<code class="reqn">100</code><code>alpha</code>)-percent; is set to
+<code>alpha = 0.95</code> by default, i.e., a <code class="reqn">95</code>-percent confidence level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>it</code></td>
+<td>
+<p>an integer that represents the total number of iterations, i.e.,
+the number of simulated series; is set to <code>10000</code> by default; only
+necessary, if <code>method = "boot"</code>; decimal
+numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.start</code></td>
+<td>
+<p>an integer that defines the 'burn-in' number
+of observations for the simulated ARMA series via bootstrap; is set to
+<code>1000</code> by default; only necessary, if <code>method = "boot"</code>;decimal
+numbers will be rounded off to integers.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pb</code></td>
+<td>
+<p>a logical value; for <code>pb = TRUE</code>, a progress bar will be shown
+in the console, if <code>method = "boot"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>an integer value &gt;0 that states the number of (logical) cores to
+use in the bootstrap (or <code>NULL</code>); the default is the maximum number of
+available cores
+(via <code>future::availableCores</code>); for
+<code>cores = NULL</code>, parallel computation is disabled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>np.fcast</code></td>
+<td>
+<p>a character object; defines the forecasting method used
+for the nonparametric trend; for <code>np.fcast = "lin"</code> the trend is
+is extrapolated linearly based on the last two trend estimates; for
+<code>np.fcast = "const"</code>, the last trend estimate is used as a constant
+estimate for future values; is set to <em>"lin"</em> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>export.error</code></td>
+<td>
+<p>a single logical value; if the argument is set to
+<code>TRUE</code> and if also <code>method = "boot"</code>, a list is returned instead
+of a matrix (<code>FALSE</code>); the first element of the list is the usual
+forecasting matrix whereas the second element is a matrix with <code>h</code>
+columns, where each column represents the calculated forecasting errors for
+the respective future time point <code class="reqn">n + 1, n + 2, ..., n + h</code>; is set to
+<code>FALSE</code> by default.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>a logical value that controls the graphical output; for
+<code>plot = TRUE</code>, the original series with the obtained point forecasts
+as well as the forecasting intervals will be plotted; for the default
+<code>plot = FALSE</code>, no plot will be created.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional arguments for the standard plot function, e.g.,
+<code>xlim</code>, <code>type</code>, ... ; arguments with respect to plotted graphs,
+e.g., the argument <code>col</code>, only affect the original series <code>X</code>;
+please note that in accordance with the argument <code>x</code> (lower case) of the
+standard plot function, an additional numeric vector with time points can be
+implemented via the argument <code>x</code> (lower case). <code>x</code> should be
+valid for the sample observations only, i.e.
+<code>length(x) == length(obj$orig)</code> should be <code>TRUE</code>, as future time
+points will be calculated automatically.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function is part of the <em>smoots</em> package and was implemented under
+version 1.1.0. The point forecasts and forecasting intervals are obtained
+based on the additive nonparametric regression model
+</p>
+<p style="text-align: center;"><code class="reqn">y_t = m(x_t) + \epsilon_t,</code>
+</p>
+
+<p>where <code class="reqn">y_t</code> is the observed time series with equidistant design,
+<code class="reqn">x_t</code> is the rescaled time on the interval <code class="reqn">[0, 1]</code>,
+<code class="reqn">m(x_t)</code> is a smooth trend function and
+<code class="reqn">\epsilon_t</code> are stationary errors with
+<code class="reqn">E(\epsilon_t) = 0</code> and
+short-range dependence (see also Beran and Feng, 2002). Thus, we assume
+<code class="reqn">y_t</code> to be a trend-stationary time series. Furthermore, we assume
+that the rest term <code class="reqn">\epsilon_t</code> follows an ARMA(<code class="reqn">p,q</code>)
+model
+</p>
+<p style="text-align: center;"><code class="reqn">\epsilon_t = \zeta_t + \beta_1 \epsilon_{t-1} + ... + \beta_p
+\epsilon_{t-p} + \alpha_1 \zeta_{t-1} + ... +
+\alpha_q \zeta_{t-q},</code>
+</p>
+
+<p>where <code class="reqn">\alpha_j</code>, <code class="reqn">j = 1, 2, ..., q</code>, and
+<code class="reqn">\beta_i</code>, <code class="reqn">i = 1, 2, ..., p</code>, are real numbers and
+the random variables <code class="reqn">\zeta_t</code> are
+i.i.d. (identically and independently distributed) with
+zero mean and constant variance.
+</p>
+<p>The point forecasts and forecasting intervals for the future periods
+<code class="reqn">n + 1, n + 2, ..., n + h</code> will be obtained. With respect to the point
+forecasts of <code class="reqn">\epsilon_t</code>, i.e.,
+<code class="reqn">\hat{\epsilon}_{n+k}</code>, where
+<code class="reqn">k = 1, 2, ..., h</code>,
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{\epsilon}_{n+k} = \sum_{i=1}^{p} \hat{\beta}_i \epsilon_{n+k-i} +
+\sum_{j=1}^{q} \hat{\alpha}_j \hat{\zeta}_{n+k-j}</code>
+</p>
+
+<p>with <code class="reqn">\epsilon_{n+k-i} = \hat{\epsilon}_{n+k-i}</code> for <code class="reqn">n+k-i &gt; n</code> and
+<code class="reqn">\hat{\zeta}_{n+k-j} = E(\zeta_t) = 0</code> for <code class="reqn">n+k-j &gt; n</code> will be applied. In practice, this procedure will
+not be applied directly to <code class="reqn">\epsilon_t</code> but to
+<code class="reqn">y_t - \hat{m}(x_t)</code>.
+</p>
+<p>The point forecasts of the nonparametric trend are simply obtained following
+the proposal by Fritz et al. (forthcoming) by
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{m}(x_{n+k}) = \hat{m}(x_n) + Dk(\hat{m}(x_n) -
+\hat{m}(x_{n-1})),</code>
+</p>
+
+<p>where <code class="reqn">D</code> is a dummy variable that is either equal to the constant value
+<code class="reqn">1</code> or <code class="reqn">0</code>. Consequently, if <code class="reqn">D = 0</code>,
+<code class="reqn">\hat{m}(x_{n})</code>, i.e., the last trend estimate, is
+used as a constant estimate for the future. However, if <code class="reqn">D = 1</code>, the
+trend is extrapolated linearly. The point forecast for the whole component
+model is then given by
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{y}_{n+k} = \hat{m}(x_{n+k}) + \hat{\epsilon}_{n+k},</code>
+</p>
+
+<p>i.e., it is equal to the sum of the point forecasts of the individual
+components.
+</p>
+<p>Equivalently to the point forecasts, the forecasting intervals are the sum
+of the forecasting intervals of the individual components. To simplify the
+process, the forecasting error in <code class="reqn">\hat{m}(x_{n+k})</code>,
+which is of order <code class="reqn">O(-2/5)</code>, is not considered (see Fritz et al.
+(forthcoming)), i.e., only the forecasting intervals with respect to the
+rest term <code class="reqn">\epsilon_t</code> will be calculated.
+</p>
+<p>If the distribution of the innovations is non-normal or generally not further
+specified, bootstrapping the forecasting intervals is recommended. If they
+are however normally distributed or if it is at least assumed that they are,
+the forecasting errors are also approximately normally distributed with a
+quickly obtainable variance. For further details on the bootstrapping
+method, we refer the readers to <code>bootCast</code>, whereas more
+information on the calculation under normality can be found at
+<code>normCast</code>.
+</p>
+<p>In order to apply the function, a <code>smoots</code> object that was generated as
+the result of a trend estimation process needs to be passed to the argument
+<code>obj</code>. The arguments <code>p</code> and <code>q</code> represent the orders of the
+of the ARMA(<code class="reqn">p,q</code>) model that the error term
+<code class="reqn">\epsilon_t</code> is assumed to follow. If both arguments are
+set to <code>NULL</code>, which is the default setting, orders will be selected
+according to the Bayesian Information Criterion (BIC) for all possible
+combinations of <code class="reqn">p,q = 0, 1, ..., 5</code>. Furthermore, the forecasting
+horizon can be adjusted by means of the argument <code>h</code>, so that point
+forecasts and forecasting intervals will be obtained for all time points
+<code class="reqn">n + 1, n + 2, ..., n + h</code>.
+</p>
+<p>The function also allows for two calculation approaches for the forecasting
+intervals. Via the argument <code>method</code>, intervals
+can be obtained under the assumption that the ARMA innovations are normally
+distributed (<code>method = "norm"</code>). Alternatively, bootstrapped intervals
+can be obtained for unknown innovation distributions that are clearly
+non-Gaussian (<code>method = "boot"</code>).
+</p>
+<p>Another argument is <code>alpha</code>. By passing a value
+to this argument, the (<code class="reqn">100</code><code>alpha</code>)-percent confidence level for
+the forecasting intervals can be defined. If <code>method = "boot"</code> is
+selected, the additional arguments <code>it</code> and <code>n.start</code> can be
+adjusted. More specifically, <code>it</code> regulates the number of iterations of
+the bootstrap, whereas <code>n.start</code> sets the number of 'burn-in'
+observations in the simulated ARMA processes within the bootstrap that are
+omitted.
+</p>
+<p>Since this bootstrap approach for <code>method = "boot"</code> generally needs a
+lot of computation time, especially for
+series with high numbers of observations and when fitting models with many
+parameters, parallel computation of the bootstrap iterations is enabled.
+With <code>cores</code>, the number of cores can be defined with an integer.
+Nonetheless, for <code>cores = NULL</code>, no cluster is created and therefore
+the parallel computation is disabled. Note that the bootstrapped results are
+fully reproducible for all cluster sizes. The progress of the bootstrap can
+be observed in the R console, where a progress bar and the estimated
+remaining time are displayed for <code>pb = TRUE</code>.
+</p>
+<p>Moreover, the argument <code>np.fcast</code> allows to set the forecasting method
+for the nonparametric trend function. As previously discussed, the two
+options are a linear extrapolation of the trend (<code>np.fcast = "lin"</code>) and
+a constant continuation of the last estimated value of the trend
+(<code>np.fcast = "const"</code>).
+</p>
+<p>The function also implements the option to automatically create a plot of
+the forecasting results for <code>plot = TRUE</code>. This includes the feature
+to pass additional arguments of the standard plot function to
+<code>modelCast</code> (see also the section 'Examples').
+</p>
+<p>NOTE:
+</p>
+<p>Within this function, the <code>arima</code> function of the
+<code>stats</code> package with its method <code>"CSS-ML"</code> is used throughout
+for the estimation of ARMA models. Furthermore, to increase the performance,
+C++ code via the <code>Rcpp</code> and
+<code>RcppArmadillo</code> packages was
+implemented. Also, the <code>future</code> and
+<code>future.apply</code> packages are
+considered for parallel computation of bootstrap iterations. The progress
+of the bootstrap is shown via the
+<code>progressr</code> package.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The function returns a <code class="reqn">3</code> by <code class="reqn">h</code> matrix with its columns
+representing the future time points and the point forecasts, the lower
+bounds of the forecasting intervals and the upper bounds of the
+forecasting intervals as the rows. If the argument <code>plot</code> is set to
+<code>TRUE</code>, a plot of the forecasting results is created.
+</p>
+<p>#'If <code>export.error = TRUE</code> is selected, a list with the following
+elements is returned instead.
+</p>
+
+<dl>
+<dt>fcast</dt>
+<dd>
+<p>the <code class="reqn">3</code> by <code class="reqn">h</code> forecasting matrix with point forecasts
+and bounds of the forecasting intervals.</p>
+</dd>
+<dt>error</dt>
+<dd>
+<p>an <code>it</code> by <code class="reqn">h</code> matrix, where each column
+represents a future time point <code class="reqn">n + 1, n + 2, ..., n + h</code>; in each column
+the respective <code>it</code> simulated forecasting errors are saved.</p>
+</dd>
+</dl>
+<h3>Author(s)</h3>
+
+
+<ul>
+<li>
+<p> Yuanhua Feng (Department of Economics, Paderborn University), <br>
+Author of the Algorithms <br>
+Website: <a href="https://wiwi.uni-paderborn.de/en/dep4/feng/">https://wiwi.uni-paderborn.de/en/dep4/feng/</a>
+</p>
+</li>
+<li>
+<p> Dominik Schulz (Research Assistant) (Department of Economics, Paderborn
+University), <br>
+Package Creator and Maintainer
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Beran, J. and Feng, Y. (2002). Local polynomial fitting with long-memory,
+short-memory and antipersistent errors. Annals of the Institute of
+Statistical Mathematics, 54(2), 291-311.
+</p>
+<p>Feng, Y., Gries, T. and Fritz, M. (2020). Data-driven
+local polynomial for the trend and its derivatives in economic time
+series. Journal of Nonparametric Statistics, 32:2, 510-533.
+</p>
+<p>Feng, Y., Gries, T., Letmathe, S. and Schulz, D. (2019). The smoots package
+in R for semiparametric modeling of trend stationary time series. Discussion
+Paper. Paderborn University. Unpublished.
+</p>
+<p>Feng, Y., Gries, T., Fritz, M., Letmathe, S. and Schulz, D. (2020).
+Diagnosing the trend and bootstrapping the forecasting intervals using a
+semiparametric ARMA. Discussion Paper. Paderborn University. Unpublished.
+</p>
+<p>Fritz, M., Forstinger, S., Feng, Y., and Gries, T. (forthcoming).
+Forecasting economic growth processes for developing economies.
+Unpublished.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+X &lt;- log(smoots::gdpUS$GDP)
+NPest &lt;- smoots::msmooth(X)
+modelCast(NPest, h = 5, plot = TRUE, xlim = c(261, 295), type = "b",
+ col = "deepskyblue4", lty = 3, pch = 20, main = "Exemplary title")
+
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,215 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>quickStewart</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Create Polygons of Potentials Contours</h2>
+
+<h3>Description</h3>
+
+<p>This function is a wrapper around stewart, and isopoly functions. 
+Providing only the main parameters of these functions, it simplifies a lot the computation of potentials. 
+This function creates polygons of potential values. 
+It also allows to compute directly the ratio between the potentials of two variables.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">quickStewart(
+  x,
+  spdf,
+  df,
+  spdfid = NULL,
+  dfid = NULL,
+  var,
+  var2,
+  typefct = "exponential",
+  span,
+  beta,
+  resolution,
+  mask,
+  nclass = 8,
+  breaks,
+  bypassctrl = FALSE,
+  returnclass = "sp"
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>sp or sf object; this is the set of known observations to 
+estimate the potentials from.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spdf</code></td>
+<td>
+<p>a SpatialPolygonsDataFrame.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>df</code></td>
+<td>
+<p>a data frame that contains the values to compute</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spdfid</code></td>
+<td>
+<p>name of the identifier field in spdf, default to the first column 
+of the spdf data frame. (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dfid</code></td>
+<td>
+<p>name of the identifier field in df, default to the first column 
+of df. (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var</code></td>
+<td>
+<p>name of the numeric field in df used to compute potentials.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>var2</code></td>
+<td>
+<p>name of the numeric field in df used to compute potentials. 
+This field is used for ratio computation (see Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>typefct</code></td>
+<td>
+<p>character; spatial interaction function. Options are "pareto" 
+(means power law) or "exponential".
+If "pareto" the interaction is defined as: (1 + alpha * mDistance) ^ (-beta).
+If "exponential" the interaction is defined as: 
+exp(- alpha * mDistance ^ beta).
+The alpha parameter is computed from parameters given by the user 
+(<code>beta</code> and <code>span</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>span</code></td>
+<td>
+<p>numeric; distance where the density of probability of the spatial 
+interaction function equals 0.5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta</code></td>
+<td>
+<p>numeric; impedance factor for the spatial interaction function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>resolution</code></td>
+<td>
+<p>numeric; resolution of the output SpatialPointsDataFrame
+(in map units). If resolution is not set, the grid will contain around 7250 
+points. (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>mask</code></td>
+<td>
+<p>sp or sf object; the spatial extent of this object is used to 
+create the regularly spaced points output. (optional)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nclass</code></td>
+<td>
+<p>numeric; a targeted number of classes (default to 8). Not used 
+if breaks is set.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>breaks</code></td>
+<td>
+<p>numeric; a vector of values used to discretize the potentials.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bypassctrl</code></td>
+<td>
+<p>logical; bypass the distance matrix size control (see 
+<code>CreateDistMatrix</code> Details).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnclass</code></td>
+<td>
+<p>"sp" or "sf"; class of the returned object.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If var2 is provided, the ratio between the potentials of var (numerator) 
+and var2 (denominator) is computed.
+</p>
+
+
+<h3>Value</h3>
+
+<p>A polyfon object is returned ("sp" or "sf", see isopoly Value).
+</p>
+
+
+<h3>See Also</h3>
+
+<p>stewart, isopoly
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># load data
+data("hospital")
+# Compute potentials
+pot &lt;- quickStewart(x = hospital,
+                    var = "capacity",
+                    span = 1000,
+                    beta = 2, mask = paris, 
+                    returnclass = "sf")
+# cartography
+if(require("cartography")){
+  breaks &lt;- sort(c(unique(pot$min), max(pot$max)), decreasing = FALSE)
+  choroLayer(x = pot,
+             var = "center", breaks = breaks,
+             legend.pos = "topleft",
+             legend.title.txt = "Nb. of Beds")
+}
+
+# Compute a ratio of potentials
+hospital$dummy &lt;- hospital$capacity + c(rep(50, 18))
+pot2 &lt;- quickStewart(x = hospital,
+                     var = "capacity",
+                     var2 = "dummy",
+                     span = 1000,
+                     beta = 2, 
+                     mask = paris, 
+                     returnclass = "sf")
+# cartography
+if(require("cartography")){
+  breaks &lt;- sort(c(unique(pot2$min), max(pot2$max)), decreasing = FALSE)
+  choroLayer(x = pot2,
+             var = "center", breaks = breaks,
+             legend.pos = "topleft",legend.values.rnd = 3,
+             legend.title.txt = "Nb. of DummyBeds")
+}
+</code></pre>
+
+
+</div>

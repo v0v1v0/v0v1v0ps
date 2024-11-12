@@ -1,0 +1,725 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>spread2</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate a contagious spread process on a landscape, with <code>data.table</code> internals</h2>
+
+<h3>Description</h3>
+
+<p>This can be used to simulate fires, seed dispersal, calculation of iterative,
+concentric, symmetric (currently) landscape values and many other things.
+Essentially, it starts from a collection of cells (<code>start</code>, called "events")
+and spreads to neighbours, according to the <code>directions</code>
+and <code>spreadProb</code> with modifications due to other arguments. <strong>NOTE:</strong>
+the <code>spread</code> function is similar, but sometimes slightly faster, but less
+robust, and more difficult to use iteratively.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">spread2(
+  landscape,
+  start = ncell(landscape)/2 - ncol(landscape)/2,
+  spreadProb = 0.23,
+  persistProb = NA_real_,
+  asRaster = TRUE,
+  maxSize,
+  exactSize,
+  directions = 8L,
+  iterations = 1000000L,
+  returnDistances = FALSE,
+  returnDirections = FALSE,
+  returnFrom = FALSE,
+  maxRetriesPerID = 10,
+  spreadProbRel = NA_real_,
+  plot.it = FALSE,
+  circle = FALSE,
+  asymmetry = NA_real_,
+  asymmetryAngle = NA_real_,
+  allowOverlap = 0,
+  neighProbs = NA_real_,
+  oneNeighbourOnly = FALSE,
+  skipChecks = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>landscape</code></td>
+<td>
+<p>Required. A <code>RasterLayer</code> object. This defines the possible
+locations for spreading events to start and <code>spread2</code> into. Required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Required. Either a vector of pixel numbers to initiate spreading, or a
+<code>data.table</code> that is the output of a previous <code>spread2</code>.
+If a vector, they should be cell indices (pixels) on the <code>landscape</code>.
+If user has x and y coordinates, these can be converted with
+<code>cellFromXY()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spreadProb</code></td>
+<td>
+<p>Numeric of length 1 or length <code>ncell(landscape)</code> or
+a <code>RasterLayer</code> that is the identical dimensions as
+<code>landscape</code>.
+If numeric of length 1, then this is the global (absolute)
+probability of spreading into each cell from a neighbour.
+If a numeric of length <code>ncell(landscape)</code> or a raster,
+then this must be the cell-specific (absolute)
+probability of a "receiving" potential cell. Default is <code>0.23</code>.
+If relative probabilities are required, use <code>spreadProbRel</code>.
+If used together, then the relative probabilities will be
+re-scaled so that the mean relative probability of potential
+neighbours is equal to the mean of <code>spreadProb</code> of
+the potential neighbours.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>persistProb</code></td>
+<td>
+<p>Numeric of length 1 or <code>RasterLayer</code>.
+If numeric of length 1, then this is the global (absolute)
+probability of cell continuing to burn per time step.
+If a raster, then this must be the cell-specific (absolute)
+probability of a fire persisting.
+Default is <code>NA</code>, which is the same as 0, i.e. a cell only burns
+for one time step.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asRaster</code></td>
+<td>
+<p>Logical, length 1. If <code>TRUE</code>, the function will return a <code>Raster</code>
+where raster non NA values indicate the cells that were "active", and the
+value is the initial starting pixel.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxSize</code></td>
+<td>
+<p>Numeric. Maximum number of cells for a single or all events to be <code>spread2</code>.
+Recycled to match <code>start</code> length, if it is not as long as <code>start</code>.
+This will be overridden if <code>exactSize</code> also provided.
+See section on 'Breaking out of <code>spread2</code> events'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>exactSize</code></td>
+<td>
+<p>Numeric vector, length 1 or <code>length(start)</code>.
+Similar to <code>maxSize</code>, but these will be the exact
+final sizes of the events.  i.e., the <code>spread2</code> events
+will continue until they are <code>floor(exactSize)</code>.
+This will override <code>maxSize</code> if both provided.
+See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>directions</code></td>
+<td>
+<p>The number adjacent cells in which to look;
+default is 8 (Queen case). Can only be 4 or 8.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>iterations</code></td>
+<td>
+<p>Number of iterations to <code>spread2</code>.
+Leaving this <code>NULL</code> allows the <code>spread2</code> to continue
+until stops spreading itself (i.e., exhausts itself).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnDistances</code></td>
+<td>
+<p>Logical. Should the function include a column with the
+individual cell distances from the locus where that event
+started. Default is FALSE. See Details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnDirections</code></td>
+<td>
+<p>Logical. Should the function include a column with the
+individual directions (in radians) from the locus where
+that event started. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>returnFrom</code></td>
+<td>
+<p>Logical. Should the function return a column with the
+source, i.e, the lag 1 "from" pixel, for each iteration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxRetriesPerID</code></td>
+<td>
+<p>Only active if <code>exactSize</code> is used. This is the number of attempts
+that will be made per event ID, before abandoning, therefore completing
+the <code>spread2</code> for that event with a size that is smaller than
+<code>exactSize</code>. Default 10 times.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spreadProbRel</code></td>
+<td>
+<p>Optional <code>RasterLayer</code> indicating a surface of relative
+probabilities useful when using <code>neighProbs</code> (which
+provides a mechanism for selecting a specific number of
+cells at each iteration).
+This indicates the relative probabilities for the selection
+of successful neighbours.
+<code>spreadProb</code> will still be evaluated <em>after</em>
+the relative probabilities and <code>neighProbs</code> has been
+evaluated, i.e., potential cells will be identified, then
+some could be rejected via <code>spreadProb</code>.
+If absolute <code>spreadProb</code> is not desired,
+<em>be sure to set</em> <code>spreadProb = 1</code>.
+Ignored if <code>neighProbs</code> is not provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot.it</code></td>
+<td>
+<p>If <code>TRUE</code>, then plot the raster at every iteration,
+so one can watch the <code>spread2</code> event grow.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>circle</code></td>
+<td>
+<p>Logical. If TRUE, then outward <code>spread2</code> will be by equidistant rings,
+rather than solely by adjacent cells (via <code>directions</code> arg.).
+Default is <code>FALSE</code>.
+Using <code>circle = TRUE</code> can be dramatically slower for large problems.
+Note, this will likely create unexpected results if <code>spreadProb &lt; 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asymmetry</code></td>
+<td>
+<p>A numeric or <code>RasterLayer</code> indicating the ratio of the
+asymmetry to be used. i.e., 1 is no asymmetry; 2 means that the
+angles in the direction of the <code>asymmetryAngle</code> are 2x the
+<code>spreadProb</code>
+of the angles opposite tot he <code>asymmetryAngle</code>  Default is
+NA, indicating no asymmetry. See details. This is still experimental.
+Use with caution.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>asymmetryAngle</code></td>
+<td>
+<p>A numeric or <code>RasterLayer</code> indicating the angle in degrees
+(0 is "up", as in North on a map),
+that describes which way the <code>asymmetry</code> is.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allowOverlap</code></td>
+<td>
+<p><code>numeric</code> (<code>logical</code> will work for backwards compatibility).
+See details.  Default is 0, i.e., no overlapping.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>neighProbs</code></td>
+<td>
+<p>An optional numeric vector, whose sum is 1.
+It indicates the probabilities that an individual spread iteration
+will spread to <code style="white-space: pre;">⁠1, 2, ..., length(neighProbs)⁠</code> neighbours, respectively.
+If this is used (i.e., something other than <code>NA</code>), <code>circle</code> and
+<code>returnDistances</code> will not work currently.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>oneNeighbourOnly</code></td>
+<td>
+<p>Logical. Default is <code>FALSE</code>. If <code>TRUE</code>, then this
+spread algorithm will allow exactly one neighbour to be
+spread to (not fewer or more). This could be used, e.g.,
+for an animal moving. If this is <code>TRUE</code>, then <code>allowOverlap</code>
+will be set to <code>2</code> if it is <code>0</code> or <code>1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>skipChecks</code></td>
+<td>
+<p>Logical. If TRUE, the argument checking (i.e., assertions) will be
+skipped. This should likely only be used once it is clear that the function
+arguments are well understood and function speed is of the primary importance.
+This is likely most useful in repeated iteration cases i.e., if this call
+is using the previous output from this same function.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>There are 2 main underlying algorithms for active cells to "spread" to
+nearby cells (adjacent cells): <code>spreadProb</code> and <code>neighProb</code>.
+Using <code>spreadProb</code>, every "active" pixel will assess all
+neighbours (either 4 or 8, depending on  <code>directions</code>), and will "activate"
+whichever neighbours successfully pass independent calls to
+<code>runif(1,0,1) &lt; spreadProb</code>.
+The algorithm will iterate again and again, each time starting from the newly
+"activated" cells. Several built-in decisions are as follows.
+</p>
+
+<ol><li>
+<p> no active cell can activate a cell that was already activated by
+the same event (i.e., "it won't go backwards"). 2. If <code>allowOverlap</code> is
+<code>FALSE</code>, then the previous rule will also apply, regardless of which
+"event" caused the pixels to be previously active.
+</p>
+</li></ol>
+<p>This function can be interrupted before all active cells are exhausted if
+the <code>iterations</code> value is reached before there are no more active
+cells to <code>spread2</code> into. The interrupted output (a <code>data.table</code>) can be passed
+subsequently as an input to this same function (as <code>start</code>).
+This is intended to be used for situations where external events happen during
+a <code>spread2</code> event, or where one or more arguments to the <code>spread2</code> function
+change before a <code>spread2</code> event is completed.
+For example, if it is desired that the <code>spreadProb</code> change before a
+<code>spread2</code> event is completed because, for example, a fire is spreading, and a
+new set of conditions arise due to a change in weather.
+</p>
+<p><code>asymmetry</code> here is slightly different than in the <code>spread</code> function,
+so that it can deal with a <code>RasterLayer</code> of <code>asymmetryAngle</code>.
+Here, the <code>spreadProb</code> values of a given set of neighbours around each active pixel
+are adjusted to create <code>adjustedSpreadProb</code> which is calculated maintain the
+following two qualities: </p>
+<p style="text-align: center;"><code class="reqn">mean(spreadProb) = mean(ajustedSpreadProb)</code>
+</p>
+<p> and
+</p>
+<p style="text-align: center;"><code class="reqn">max(spreadProb)/min(spreadProb) = asymmetry</code>
+</p>
+<p> along the axis of
+<code>asymmetryAngle</code>. NOTE: this means that the 8 neighbours around an active
+cell may not fulfill the preceeding equality if <code>asymmetryAngle</code> is not
+exactly one of the 8 angles of the 8 neighbours. This means that
+</p>
+<p style="text-align: center;"><code class="reqn">max(spreadProb)/min(spreadProb)</code>
+</p>
+<p> will generally be less than
+<code>asymmetry</code>, for the 8 neighbours. The exact adjustment to the spreadProb
+is calculated with:
+</p>
+<p style="text-align: center;"><code class="reqn">angleQuality &lt;- (cos(angles - rad2(asymmetryAngle))+1)/2</code>
+</p>
+
+<p>which is multiplied to get an angle-adjusted spreadProb:
+</p>
+<p style="text-align: center;"><code class="reqn">spreadProbAdj &lt;- actualSpreadProb * angleQuality</code>
+</p>
+
+<p>which is then rescaled:
+</p>
+<p style="text-align: center;"><code class="reqn">adjustedSpreadProb = (spreadProbAdj - min(spreadProbAdj)) * par2 + par1</code>
+</p>
+<p>,
+where <code>par1</code> and <code>par2</code> are parameters calculated internally to make the 2 conditions above true.
+</p>
+<p>If <code>maxSize</code> or <code>exactSize</code> are used, then spreading will continue and stop
+before or at <code>maxSize</code> or at <code>exactSize</code>, respectively.
+If <code>iterations</code> is specified, then the function will end, and the returned <code>data.table</code>
+may (if <code>maxSize</code>) or will (if <code>exactSize</code>) have at least one active
+cell per event that did not already achieve <code>maxSize</code> or <code>exactSize</code>.
+This will be very useful to build new, customized higher-level wrapper functions that
+iteratively call <code>spread2</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Either a <code>data.table</code> (<code>asRaster=FALSE</code>) or a <code>RasterLayer</code>
+(<code>asRaster=TRUE</code>, the default).
+The <code>data.table</code> will have one attribute named <code>spreadState</code>, which
+is a list containing a <code>data.table</code> of current cluster-level information
+about the spread events.
+If <code>asRaster=TRUE</code>, then the <code>data.table</code> (with its <code>spreadState</code>
+attribute) will be attached to the <code>Raster</code> as an attribute named <code>pixel</code> as it
+provides pixel-level information about the spread events.
+</p>
+<p>The <code>RasterLayer</code> represents every cell in which a successful <code>spread2</code> event occurred.
+For the case of, say, a fire this would represent every cell that burned.
+If <code>allowOverlap</code> is <code>TRUE</code>, the return will always be a <code>data.table</code>.
+</p>
+<p>If <code>asRaster</code> is <code>FALSE</code>, then this function returns a
+<code>data.table</code> with 3 (or 4 if <code>returnFrom</code> is <code>TRUE</code>) columns:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>initialPixels</code> </td>
+<td style="text-align: left;"> the initial cell number of that particular
+<code>spread2</code> event.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>pixels</code> </td>
+<td style="text-align: left;"> The cell indices of cells that have
+been touched by the <code>spread2</code> algorithm.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>state</code> </td>
+<td style="text-align: left;"> a logical indicating whether the cell is active (i.e.,
+could still be a source for spreading) or not (no
+spreading will occur from these cells).</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>from</code> </td>
+<td style="text-align: left;"> The pixel indices that were the immediately preceding
+"source" for each <code>pixels</code>, i.e., the lag 1 pixels.
+Only returned if <code>returnFrom</code> is <code>TRUE</code> </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>The attribute saved with the name <code>"spreadState"</code> (e.g., <code>attr(output, "spreadState")</code>)
+includes a <code>data.table</code> with columns:
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>id</code> </td>
+<td style="text-align: left;"> An arbitrary code, from 1 to <code>length(start)</code> for each "event".</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>initialPixels</code> </td>
+<td style="text-align: left;"> the initial cell number of that particular
+<code>spread2</code> event.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>numRetries</code> </td>
+<td style="text-align: left;"> The number of re-starts the event did because it got
+stuck (normally only because <code>exactSize</code> was used
+and was not achieved.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>maxSize</code> </td>
+<td style="text-align: left;"> The number of pixels that were provided as inputs via
+<code>maxSize</code> or <code>exactSize</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>size</code> </td>
+<td style="text-align: left;"> The current size, in pixels, of each event.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>and several other objects that provide significant speed ups in iterative calls to
+<code>spread2</code>. If the user runs <code>spread2</code> iteratively, there will likely be significant
+speed gains if the <code>data.table</code> passed in to <code>start</code> should have the attribute
+attached, or re-attached if it was lost, e.g., via
+<code>setattr(outInput, "spreadState", attr(out, "spreadState"))</code>, where <code>out</code> is the
+returned <code>data.table</code> from the previous call to <code>spread2</code>, and <code>outInput</code> is
+the modified <code>data.table</code>. Currently, the modified <code>data.table</code> <strong>must</strong> have the
+same order as <code>out</code>.
+</p>
+
+
+<h3>Breaking out of <code>spread2</code> events</h3>
+
+<p>There are 3 ways for the <code>spread2</code> to "stop" spreading.
+Here, each "event" is defined as all cells that are spawned from each unique
+<code>start</code> location.
+The ways outlined below are all acting at all times, i.e., they are not
+mutually exclusive.
+Therefore, it is the user's responsibility to make sure the different rules
+are interacting with each other correctly.
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+<code>spreadProb</code> </td>
+<td style="text-align: left;"> Probabilistically, if <code>spreadProb</code> is low enough,
+active spreading events will stop.
+In practice, this number generally should be below 0.3
+to actually see an event stop.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>maxSize</code> </td>
+<td style="text-align: left;"> This is the number of cells that are "successfully" turned
+on during a spreading event. <code>spreadProb</code> will still
+be active, so, it is possible that the end size of each event
+is smaller than <code>maxSize</code>, but they will not be greater
+than <code>maxSize</code>
+</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>exactSize</code> </td>
+<td style="text-align: left;"> This is the number of cells that are "successfully" turned
+on during a spreading event. This will override an event that
+stops probabilistically via <code>spreadProb</code>, but forcing
+its last set of active cells to try again to find neighbours.
+It will try <code>maxRetriesPerID</code> times per event, before giving up.
+During those <code>maxRetriesPerID</code> times, it will try to "jump" up to
+4 cells outwards from each of the active cells, every 5 retries.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+<code>iterations</code> </td>
+<td style="text-align: left;"> This is a hard cap on the number of internal iterations to
+complete before returning the current state of the system
+as a <code>data.table</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<h3>Building custom spreading events</h3>
+
+<p>This function can be used iteratively, with relatively little overhead compared to using
+it non-iteratively. In general, this function can be called with arguments set as user
+needs, and with specifying e.g., <code>iterations = 1</code>. This means that the function will spread
+outwards 1 iteration, then stop. The returned object will be a <code>data.table</code> or
+<code>RasterLayer</code> that can be passed immediately back as the start argument into a subsequent
+call to <code>spread2</code>. This means that every argument can be updated at each iteration.
+</p>
+<p>When using this function iteratively, there are several things to keep in mind.
+The output will likely be sorted differently than the input (i.e., the
+order of start, if a vector, may not be the same order as that returned).
+This means that when passing the same object back into the next iteration of the
+function call, <code>maxSize</code> or <code>exactSize</code> may not be in the same order.
+To get the same order, the easiest thing to do is sort the initial <code>start</code>
+objects by their pixel location, increasing.
+Then, of course, sorting any vectorized arguments (e.g., <code>maxSize</code>) accordingly.
+</p>
+<p><strong>NOTE</strong>: the <code>data.table</code> or <code>RasterLayer</code> should not be altered
+when passed back into <code>spread2</code>.
+</p>
+
+
+<h3><code>allowOverlap</code></h3>
+
+<p>If <code>1</code> (or <code>TRUE</code>),
+then individual events can overlap with one another, i.e., allow
+overlap between events. If <code>2</code> (or <code>NA</code>), then each pixel
+is essentially independent, allowing overlap between and within
+events. This likely requires a user to intervene as it is possible
+to spread back onto itself. If <code>3</code> (did not exist previously),
+individual events can overlap, and there can be overlap within an
+event, but only within an iteration, i.e., once an iteration is
+finished, and a pixel was activated, then the spreading will not
+return onto these pixels. If <code>0</code> (or <code>FALSE</code>), then once a
+pixel is activated, it cannot be re-activated, within or between event.
+This allows events to not interfere with one another i.e.,
+they do not interact (this is slower than if
+<code>allowOverlap = FALSE</code>). Default is 0. In the case of 2 or 3,
+this would be, perhaps, useful for dispersal of,
+say, insect swarms.
+</p>
+
+
+<h3>Note</h3>
+
+<p><code>exactSize</code> may not be achieved if there aren't enough cells in the map.
+Also, <code>exactSize</code> may not be achieved because the active cells are "stuck",
+i.e., they have no inactivated cells to move to; or the <code>spreadProb</code> is low.
+In the latter two cases, the algorithm will retry again, but it will only
+retry from the last iteration's active cells.
+The algorithm will only retry 10 times before quitting.
+Currently, there will also be an attempt to "jump" up to four cells away from
+the active cells to try to continue spreading.
+</p>
+<p>A common way to use this function is to build wrappers around this, followed
+by iterative calls in a <code>while</code> loop. See example.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Eliot McIntire and Steve Cumming
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>spread()</code> for a different implementation of the same algorithm.
+<code>spread</code> is less robust but it is often slightly faster.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">library(terra)
+
+origDTThreads &lt;- data.table::setDTthreads(2L)
+origNcpus &lt;- options(Ncpus = 2L)
+
+a &lt;- rast(ext(0, 10, 0, 10), res = 1)
+sams &lt;- sort(sample(ncell(a), 3))
+
+# Simple use -- similar to spread(...)
+out &lt;- spread2(a, start = sams, 0.225)
+if (interactive()) {
+  terra::plot(out)
+}
+
+# Use maxSize -- this gives an upper limit
+maxSizes &lt;- sort(sample(1:10, size = length(sams)))
+out &lt;- spread2(a, start = sams, 0.225, maxSize = maxSizes, asRaster = FALSE)
+# check TRUE using data.table .N
+out[, .N, by = "initialPixels"]$N &lt;= maxSizes
+
+# Use exactSize -- gives an exact size, if there is enough space on the Raster
+exactSizes &lt;- maxSizes
+out &lt;- spread2(a, start = sams, spreadProb = 0.225,
+               exactSize = exactSizes, asRaster = FALSE)
+out[, .N, by = "initialPixels"]$N == maxSizes # should be TRUE TRUE TRUE
+
+# Use exactSize -- but where it can't be achieved
+exactSizes &lt;- sort(sample(100:110, size = length(sams)))
+out &lt;- spread2(a, start = sams, 1, exactSize = exactSizes)
+
+# Iterative calling -- create a function with a high escape probability
+spreadWithEscape &lt;- function(ras, start, escapeProb, spreadProb) {
+  out &lt;- spread2(ras, start = sams, spreadProb = escapeProb, asRaster = FALSE)
+  while (any(out$state == "sourceActive")) {
+    # pass in previous output as start
+    out &lt;- spread2(ras, start = out, spreadProb = spreadProb,
+                    asRaster = FALSE, skipChecks = TRUE) # skipChecks for speed
+  }
+  out
+}
+
+set.seed(421)
+out1 &lt;- spreadWithEscape(a, sams, escapeProb = 0.25, spreadProb = 0.225)
+set.seed(421)
+out2 &lt;- spread2(a, sams, 0.225, asRaster = FALSE)
+# The one with high escape probability is larger (most of the time)
+NROW(out1) &gt; NROW(out2) ## TODO: not true
+
+## Use neighProbs, with a spreadProb that is a RasterLayer
+# Create a raster of different values, which will be the relative probabilities
+#   i.e., they are rescaled to relative probabilities within the 8 neighbour choices.
+#   The neighProbs below means 70% of the time, 1 neighbour will be chosen,
+#   30% of the time 2 neighbours.
+#   The cells with spreadProb of 5 are 5 times more likely than cells with 1 to be chosen,
+#   when they are both within the 8 neighbours
+sp &lt;- rast(ext(0, 3, 0, 3), res = 1, vals = 1:9) #small raster, simple values
+# Check neighProbs worked
+out &lt;- list()
+
+# enough replicates to see stabilized probabilities
+for (i in 1:100) {
+  out[[i]] &lt;- spread2(sp, spreadProbRel = sp, spreadProb = 1,
+                      start = 5, iterations = 1,
+                      neighProbs = c(1), asRaster = FALSE)
+}
+out &lt;- data.table::rbindlist(out)[pixels != 5] # remove starting cell
+table(sp[out$pixels])
+# should be non-significant -- note no 5 because that was the starting cell
+#  This tests whether the null model is true ... there should be proportions
+#  equivalent to 1:2:3:4:6:7:8:9 ... i.e,. cell 9 should have 9x as many events
+#  spread to it as cell 1. This comes from sp object above which is providing
+#  the relative spread probabilities
+keep &lt;- c(1:4, 6:9)
+chisq.test(keep, unname(tabulate(sp[out$pixels]$lyr.1, 9)[keep]),
+           simulate.p.value = TRUE)
+
+## Example showing asymmetry
+sams &lt;- ncell(a) / 4 - ncol(a) / 4 * 3
+circs &lt;- spread2(a, spreadProb = 0.213, start = sams,
+                 asymmetry = 2, asymmetryAngle = 135,
+                 asRaster = TRUE)
+## ADVANCED: Estimate spreadProb when using asymmetry, such that the expected
+##   event size is the same as without using asymmetry
+
+  if (interactive()) {
+    # Still using `raster` as it works more easily with parallelism due to not using pointers
+    #   This will updated at a later release
+    if (requireNamespace("raster", quietly = TRUE)) {
+      ras &lt;- raster::raster(a)
+      ras[] &lt;- 1
+
+      n &lt;- 100
+      sizes &lt;- integer(n)
+      for (i in 1:n) {
+        circs &lt;- spread2(ras, spreadProb = 0.225,
+                         start = round(ncell(ras) / 4 - ncol(ras) / 4 * 3),
+                         asRaster = FALSE)
+        sizes[i] &lt;- circs[, .N]
+      }
+      goalSize &lt;- mean(sizes)
+
+      if (requireNamespace("DEoptim", quietly = TRUE)) {
+        library(parallel)
+        library(DEoptim)
+
+        # need 10 cores for 10 populations in DEoptim
+        cl &lt;- makeCluster(pmin(10, detectCores() - 2))
+        parallel::clusterEvalQ(cl, {
+          library(SpaDES.tools)
+          library(terra)
+          library(raster)
+          library(fpCompare)
+        })
+
+        objFn &lt;- function(sp, n = 20, ras, goalSize) {
+          sizes &lt;- integer(n)
+          for (i in 1:n) {
+            circs &lt;- spread2(ras, spreadProb = sp, start = ncell(ras) / 4 - ncol(ras) / 4 * 3,
+                             asymmetry = 2, asymmetryAngle = 135,
+                             asRaster = FALSE)
+            sizes[i] &lt;- circs[, .N]
+          }
+          abs(mean(sizes) - goalSize)
+        }
+        aa &lt;- DEoptim(objFn, lower = 0.2, upper = 0.23,
+                      control =
+                        DEoptim.control(
+                          cluster = cl, NP = 10, VTR = 0.02,
+                          # imposing itermax simply for example; should let go to completion
+                          itermax = 5,
+                          initialpop = as.matrix(rnorm(10, 0.213, 0.001))),
+                      ras = ras, goalSize = goalSize)
+
+        # The value of spreadProb that will give the
+        #    same expected event sizes to spreadProb = 0.225 is:
+        sp &lt;- aa$optim$bestmem
+        circs &lt;- spread2(ras, spreadProb = sp, start = ncell(ras) / 4 - ncol(ras) / 4 * 3,
+                         asymmetry = 2, asymmetryAngle = 135, asRaster = FALSE)
+
+        stopCluster(cl)
+      }
+    }
+  }
+
+  # clean up
+  data.table::setDTthreads(origDTThreads)
+  options(Ncpus = origNcpus)
+
+</code></pre>
+
+
+</div>

@@ -1,0 +1,637 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SeqDesign</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>A Sequential Design</h2>
+
+<h3>Description</h3>
+
+<p>An R6 Class encapsulating the data and functionality for a sequential experimental design.
+This class takes care of data intialization and sequential assignments. The class object
+should be saved securely after each assignment e.g. on an encrypted cloud server.
+</p>
+
+
+<h3>Public fields</h3>
+
+<div class="r6-fields">
+
+<dl>
+<dt><code>t</code></dt>
+<dd>
+<p>The current number of subjects in this sequential experiment (begins at zero).</p>
+</dd>
+<dt><code>design</code></dt>
+<dd>
+<p>The type of sequential experimental design (see constructor's documentation).</p>
+</dd>
+<dt><code>X</code></dt>
+<dd>
+<p>A numeric matrix of subject data with number of rows n (the number of subjects) and number of 
+columns p (the number of characteristics measured for each subject). This matrix is filled in
+sequentially and thus will have data present for rows 1...t (i.e. the number of subjects in the
+experiment currently) but otherwise will be missing.</p>
+</dd>
+<dt><code>y</code></dt>
+<dd>
+<p>A numeric vector of subject responses with number of entries n (the number of subjects). During
+the KK21 designs this must be filled in sequentially (similar to X) and will have data present for
+entries 1...t (i.e. the number of subjects in the experiment currently) but otherwise will be missing.
+For non-KK21 designs, this vector can be set at anytime (but must be set before inference is desired).</p>
+</dd>
+<dt><code>w</code></dt>
+<dd>
+<p>A binary vector of subject assignments with number of entries n (the number of subjects). 
+This vector is filled in sequentially (similar to X) and will have assignments present for
+entries 1...t (i.e. the number of subjects in the experiment currently) but otherwise will be missing.</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>A flag that indicates whether messages should be displayed to the user</p>
+</dd>
+</dl>
+</div>
+
+
+<h3>Methods</h3>
+
+
+
+<h4>Public methods</h4>
+
+
+<ul>
+<li> <p><a href="#method-new"><code>SeqDesign$new()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-add_subject_to_experiment"><code>SeqDesign$add_subject_to_experiment()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-print_current_subject_assignment"><code>SeqDesign$print_current_subject_assignment()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-add_current_subject_response"><code>SeqDesign$add_current_subject_response()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-add_all_subject_responses"><code>SeqDesign$add_all_subject_responses()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-matching_statistics"><code>SeqDesign$matching_statistics()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-assert_experiment_completed"><code>SeqDesign$assert_experiment_completed()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-check_experiment_completed"><code>SeqDesign$check_experiment_completed()</code></a>
+</p>
+</li>
+<li> <p><a href="#method-clone"><code>SeqDesign$clone()</code></a>
+</p>
+</li>
+</ul>
+<hr>
+<a id="method-new"></a>
+
+
+
+<h4>Method <code>new()</code>
+</h4>
+
+<p>Initialize a sequential experimental design
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$new(n, p, design, verbose = TRUE, ...)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>n</code></dt>
+<dd>
+<p>Number of subjects fixed beforehand. A future version of this software will allow
+for sequential stopping and thus n will not need to be prespecified.</p>
+</dd>
+<dt><code>p</code></dt>
+<dd>
+<p>Number of characteristics measured for each subject. If measurement j are 
+categorical with L_j levels, you must select a reference level and convert this information
+to L_j-1 dummies. Thus p := # of numeric variables + sum_j (L_j - 1).</p>
+</dd>
+<dt><code>design</code></dt>
+<dd>
+<p>The type of sequential experimental design. This must be one of the following
+"CRD" for the completely randomized design / Bernoulli design, 
+"BCRD" for the balanaced completely randomized design with n/2 T's and n/2 C's,
+"Efron" for Efron's (1971) Biased Coin Design
+"Atkinson" for Atkinson's (1982) Covariate-Adjusted Biased Coin Design
+"KK14" for Kapelner and Krieger's (2014) Covariate-Adjusted Matching on the Fly Design
+"KK21" for Kapelner and Krieger's (2021) CARA Matching on the Fly with Differential Covariate Weights Design
+"KK21stepwise" for Kapelner and Krieger's (2021) CARA Matching on the Fly with Differential Covariate Weights Stepwise Design</p>
+</dd>
+<dt><code>verbose</code></dt>
+<dd>
+<p>A flag indicating whether messages should be displayed to the user. Default is <code>TRUE</code>.</p>
+</dd>
+<dt><code>...</code></dt>
+<dd>
+<p>Design-specific parameters:
+"Efron" requires "weighted_coin_prob" which is the probability of the weighted coin for assignment. If unspecified, default is 2/3.
+All "KK" designs require "lambda", the quantile cutoff of the subject distance distribution for determining matches. If unspecified, default is 10
+All "KK" designs require "t_0_pct", the percentage of total sample size n where matching begins. If unspecified, default is 35
+All "KK21" designs further require "num_boot" which is the number of bootstrap samples taken to approximate the subject-distance distribution. If unspecified, default is 500.</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Returns</h5>
+
+<p>A new 'SeqDesign' object.
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 100, p = 10, design = "KK21stepwise")
+ 
+</pre>
+</div>
+
+
+<hr>
+<a id="method-add_subject_to_experiment"></a>
+
+
+
+<h4>Method <code>add_subject_to_experiment()</code>
+</h4>
+
+<p>Add subject-specific measurements for the next subject entrant
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$add_subject_to_experiment(x_vec)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>x_vec</code></dt>
+<dd>
+<p>A p-length numeric vector</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 100, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+</pre>
+</div>
+
+
+<hr>
+<a id="method-print_current_subject_assignment"></a>
+
+
+
+<h4>Method <code>print_current_subject_assignment()</code>
+</h4>
+
+<p>Prints the current assignment to screen. Should be called after <code>add_subject_to_experiment</code>.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$print_current_subject_assignment()</pre></div>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 100, p = 10, design = "CRD")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$print_current_subject_assignment()
+
+</pre>
+</div>
+
+
+<hr>
+<a id="method-add_current_subject_response"></a>
+
+
+
+<h4>Method <code>add_current_subject_response()</code>
+</h4>
+
+<p>For CARA designs, add subject response for the current subject entrant
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$add_current_subject_response(y)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>y</code></dt>
+<dd>
+<p>The response as a numeric scalar</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 100, p = 10, design = "KK21")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+seq_des$add_current_subject_response(4.71)
+
+</pre>
+</div>
+
+
+<hr>
+<a id="method-add_all_subject_responses"></a>
+
+
+
+<h4>Method <code>add_all_subject_responses()</code>
+</h4>
+
+<p>For non-CARA designs, add all subject responses
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$add_all_subject_responses(y)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>y</code></dt>
+<dd>
+<p>The responses as a numeric vector of length n</p>
+</dd>
+</dl>
+</div>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+				
+</pre>
+</div>
+
+
+<hr>
+<a id="method-matching_statistics"></a>
+
+
+
+<h4>Method <code>matching_statistics()</code>
+</h4>
+
+<p>For KK designs only, this returns a list with useful matching statistics.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$matching_statistics()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p>A list with the following data: <code>num_matches</code>, <code>prop_subjects_matched</code>, 
+<code>num_subjects_remaining_in_reservoir</code>, <code>prop_subjects_remaining_in_reservoir</code>.
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "KK14")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des$matching_statistics()
+
+</pre>
+</div>
+
+
+<hr>
+<a id="method-assert_experiment_completed"></a>
+
+
+
+<h4>Method <code>assert_experiment_completed()</code>
+</h4>
+
+<p>Asserts if the experiment is completed (all n assignments are assigned
+in the w vector and all n responses in the y vector are recorded), i.e. throws 
+descriptive error if the experiment is incomplete.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$assert_experiment_completed()</pre></div>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+#if run, it would throw an error since all of the covariate vectors are not yet recorded
+#seq_des$assert_experiment_completed() 
+
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+#if run, it would throw an error since the responses are not yet recorded
+#seq_des$assert_experiment_completed() 
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des$assert_experiment_completed() #no response means the assert is true
+</pre>
+</div>
+
+
+<hr>
+<a id="method-check_experiment_completed"></a>
+
+
+
+<h4>Method <code>check_experiment_completed()</code>
+</h4>
+
+<p>Checks if the experiment is completed (all n assignments are assigned
+in the w vector and all n responses in the y vector are recorded).
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$check_experiment_completed()</pre></div>
+
+
+
+<h5>Returns</h5>
+
+<p><code>TRUE</code> if experiment is complete, <code>FALSE</code> otherwise.
+</p>
+
+
+
+<h5>Examples</h5>
+
+<div class="r example copy">
+<pre>seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+#returns FALSE since all of the covariate vectors are not yet recorded
+seq_des$check_experiment_completed() 
+
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+#returns FALSE since the responses are not yet recorded
+seq_des$check_experiment_completed() 
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des$check_experiment_completed() #returns TRUE
+
+</pre>
+</div>
+
+
+<hr>
+<a id="method-clone"></a>
+
+
+
+<h4>Method <code>clone()</code>
+</h4>
+
+<p>The objects of this class are cloneable with this method.
+</p>
+
+
+<h5>Usage</h5>
+
+<div class="r"><pre>SeqDesign$clone(deep = FALSE)</pre></div>
+
+
+
+<h5>Arguments</h5>
+
+<div class="arguments">
+
+<dl>
+<dt><code>deep</code></dt>
+<dd>
+<p>Whether to make a deep clone.</p>
+</dd>
+</dl>
+</div>
+
+
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## ------------------------------------------------
+## Method `SeqDesign$new`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 100, p = 10, design = "KK21stepwise")
+ 
+
+## ------------------------------------------------
+## Method `SeqDesign$add_subject_to_experiment`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 100, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+
+## ------------------------------------------------
+## Method `SeqDesign$print_current_subject_assignment`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 100, p = 10, design = "CRD")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$print_current_subject_assignment()
+
+
+## ------------------------------------------------
+## Method `SeqDesign$add_current_subject_response`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 100, p = 10, design = "KK21")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+seq_des$add_current_subject_response(4.71)
+
+
+## ------------------------------------------------
+## Method `SeqDesign$add_all_subject_responses`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+				
+
+## ------------------------------------------------
+## Method `SeqDesign$matching_statistics`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "KK14")
+
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des$matching_statistics()
+
+
+## ------------------------------------------------
+## Method `SeqDesign$assert_experiment_completed`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+#if run, it would throw an error since all of the covariate vectors are not yet recorded
+#seq_des$assert_experiment_completed() 
+
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+#if run, it would throw an error since the responses are not yet recorded
+#seq_des$assert_experiment_completed() 
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des$assert_experiment_completed() #no response means the assert is true
+
+## ------------------------------------------------
+## Method `SeqDesign$check_experiment_completed`
+## ------------------------------------------------
+
+seq_des = SeqDesign$new(n = 6, p = 10, design = "CRD")
+seq_des$add_subject_to_experiment(c(1, 38, 142, 71, 5.3, 0, 0, 0, 1, 0))
+
+#returns FALSE since all of the covariate vectors are not yet recorded
+seq_des$check_experiment_completed() 
+
+seq_des$add_subject_to_experiment(c(0, 27, 127, 60, 5.5, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 42, 169, 74, 5.1, 0, 1, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(0, 59, 105, 62, 5.9, 0, 0, 0, 1, 0))
+seq_des$add_subject_to_experiment(c(1, 32, 186, 66, 5.6, 1, 0, 0, 0, 0))
+seq_des$add_subject_to_experiment(c(1, 37, 178, 75, 6.5, 0, 0, 0, 0, 1))
+
+#returns FALSE since the responses are not yet recorded
+seq_des$check_experiment_completed() 
+
+seq_des$add_all_subject_responses(c(4.71, 1.23, 4.78, 6.11, 5.95, 8.43))
+
+seq_des$check_experiment_completed() #returns TRUE
+
+</code></pre>
+
+
+</div>

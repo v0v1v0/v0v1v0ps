@@ -1,0 +1,202 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sar</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fit a SAR model</h2>
+
+<h3>Description</h3>
+
+<p>Fit a SAR model
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sar(...)
+
+## S3 method for class 'data.frame'
+sar(
+  x,
+  user = "user",
+  item = "item",
+  time = "time",
+  event = "event",
+  weight = "weight",
+  ...
+)
+
+## Default S3 method:
+sar(
+  user,
+  item,
+  time,
+  event = NULL,
+  weight = NULL,
+  support_threshold = 1,
+  allowed_items = NULL,
+  allowed_events = c(Click = 1, RecommendationClick = 2, AddShopCart = 3,
+    RemoveShopCart = -1, Purchase = 4),
+  by_user = TRUE,
+  similarity = c("jaccard", "lift", "count"),
+  half_life = 30,
+  catalog_data = NULL,
+  catalog_formula = item ~ .,
+  cold_to_cold = FALSE,
+  cold_item_model = NULL,
+  ...
+)
+
+## S3 method for class 'sar'
+print(x, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>For <code>sar()</code>, further arguments to pass to the cold-items feature model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A data frame. For the <code>print</code> method, a SAR model object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>user, item, time, event, weight</code></td>
+<td>
+<p>For the default method, vectors to use as the user IDs, item IDs, timestamps, event types, and transaction weights for SAR. For the <code>data.frame</code> method, the names of the columns in the data frame <code>x</code> to use for these variables.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>support_threshold</code></td>
+<td>
+<p>The SAR support threshold. Items that do not occur at least this many times in the data will be considered "cold".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allowed_items</code></td>
+<td>
+<p>A character or factor vector of allowed item IDs to use in the SAR model. If supplied, this will be used to categorise the item IDs in the data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>allowed_events</code></td>
+<td>
+<p>The allowed values for <code>events</code>, if that argument is supplied. Other values will be discarded.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>by_user</code></td>
+<td>
+<p>Should the analysis be by user ID, or by user ID and timestamp? Defaults to userID only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>similarity</code></td>
+<td>
+<p>Similarity metric to use; defaults to Jaccard.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>half_life</code></td>
+<td>
+<p>The decay period to use when weighting transactions by age.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>catalog_data</code></td>
+<td>
+<p>A dataset to use for building the cold-items feature model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>catalog_formula</code></td>
+<td>
+<p>A formula for the feature model used to compute similarities for cold items.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cold_to_cold</code></td>
+<td>
+<p>Whether the cold-items feature model should include the cold items themselves in the training data, or only warm items.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cold_item_model</code></td>
+<td>
+<p>The type of model to use for cold item features.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Smart Adaptive Recommendations (SAR) is a fast, scalable, adaptive algorithm for personalized recommendations based on user transaction history and item descriptions. It produces easily explainable/interpretable recommendations and handles "cold item" and "semi-cold user" scenarios.
+</p>
+<p>Central to how SAR works is an item-to-item <em>co-occurrence matrix</em>, which is based on how many times two items occur for the same users. For example, if a given user buys items <code class="reqn">i_1</code> and <code class="reqn">i_2</code>, then the cell <code class="reqn">(i_1, i_2)</code> is incremented by 1. From this, an item <em>similarity matrix</em> can be obtained by rescaling the co-occurrences according to a given metric. Options for the metric include Jaccard (the default), lift, and counts (which means no rescaling).
+</p>
+<p>Note that the similarity matrix in SAR thus only includes information on which users transacted which items. It does not include any other information such as item ratings or features, which may be used by other recommender algorithms.
+</p>
+<p>#' The SAR implementation in R should be usable on datasets with up to a few million rows and several thousand items. The main constraint is the size of the similarity matrix, which in turn depends (quadratically) on the number of unique items. The implementation has been successfully tested on the MovieLens 20M dataset, which contains about 138,000 users and 27,000 items. For larger datasets, it is recommended to use the Azure web service API.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An S3 object representing the SAR model. This is essentially the item-to-item similarity matrix in sparse format, along with the original transaction data used to fit the model.
+</p>
+
+
+<h3>Cold items</h3>
+
+<p>SAR has the ability to handle cold items, meaning those which have not been seen by any user, or which have only been seen by a number of users less than <code>support_threshold</code>. This is done by using item features to predict similarities. The method used for this is set by the <code>cold_items_model</code> argument:
+</p>
+
+<ul>
+<li>
+<p> If this is <code>NULL</code> (the default), a manual algorithm is used that correlates each feature in turn with similarity, and produces a predicted similarity based on which features two items have in common.
+</p>
+</li>
+<li>
+<p> If this is the name of a modelling function, such as <code>"lm"</code> or <code>"randomForest"</code>, a model of that type is fit on the features and used to predict similarity. In particular, use <code>"lm"</code> to get a model that is (approximately) equivalent to that used by the Azure web service API.
+</p>
+</li>
+</ul>
+<p>The data frame and features used for cold items are given by the <code>catalog_data</code> and <code>catalog_formula</code> arguments. <code>catalog_data</code> should be a data frame whose first column is item ID. <code>catalog_formula</code> should be a one-sided formula (no LHS).
+</p>
+<p>This feature is currently experimental, and subject to change.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><a href="https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md">Description of SAR</a> at the <a href="https://github.com/Microsoft/Product-Recommendations">Product Recommendations API repo</a> on GitHub
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data(ms_usage)
+
+## all of these fit the same model:
+
+# fit a SAR model from a series of vectors
+mod1 &lt;- sar(user=ms_usage$user, item=ms_usage$item, time=ms_usage$time)
+
+# fit a model from a data frame, naming the variables to use
+mod2 &lt;- sar(ms_usage, user="user", item="item", time="time")
+
+# fit a model from a data frame, using default variable names
+mod3 &lt;- sar(ms_usage)
+
+</code></pre>
+
+
+</div>

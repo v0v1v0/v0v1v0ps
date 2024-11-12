@@ -1,0 +1,317 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>region.N</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Population Size</h2>
+
+<h3>Description</h3>
+
+<p>Estimate the expected and realised populations in a region,
+using a fitted spatially explicit capture–recapture model. Density is
+assumed to follow an inhomogeneous Poisson process in two
+dimensions. Expected <code class="reqn">N</code> is the volume under a fitted density
+surface; realised <code class="reqn">N</code> is the number of individuals within the region
+for the current realisation of the process (cf Johnson et al. 2010; see
+Note). 
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">
+region.N(object, ...)
+
+## S3 method for class 'secr'
+region.N(object, region = NULL, spacing = NULL, session = NULL,
+    group = NULL, se.N = TRUE, alpha = 0.05, loginterval = TRUE,
+    keep.region = FALSE, nlowerbound = TRUE, RN.method = "poisson",
+    pooled.RN = FALSE, ncores = NULL, ...)
+    
+## S3 method for class 'secrlist'
+region.N(object, region = NULL, spacing = NULL, session = NULL,
+    group = NULL, se.N = TRUE, alpha = 0.05, loginterval = TRUE,
+    keep.region = FALSE, nlowerbound = TRUE, RN.method = "poisson",
+    pooled.RN = FALSE, ncores = NULL, ...)
+
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+ <p><code>secr</code> object output from <code>secr.fit</code> </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>region</code></td>
+<td>
+<p> mask object defining the possibly non-contiguous region
+for which population size is required, or vector polygon(s) (see
+Details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spacing</code></td>
+<td>
+<p> spacing between grid points (metres) if region mask is
+constructed on the fly </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>session</code></td>
+<td>
+<p> character session </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>group</code></td>
+<td>
+<p> group – for future use </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>se.N</code></td>
+<td>
+<p> logical for whether to estimate SE(<code class="reqn">\hat{N}</code>)
+and confidence interval </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p> alpha level for confidence intervals </p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>loginterval</code></td>
+<td>
+<p> logical for whether to base interval on log(N)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>keep.region</code></td>
+<td>
+<p> logical for whether to save the raster region</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nlowerbound</code></td>
+<td>
+<p> logical for whether to use n as lower bound when
+computing log interval for realised N</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>RN.method</code></td>
+<td>
+<p> character string for method used to calculate
+realised N (RN) and its sampling variance. ‘poisson’ or ‘MSPE’.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pooled.RN</code></td>
+<td>
+<p> logical; if TRUE the estimate of realised N for a multi-session
+model is computed as if for combined sampling with all detectors (see Details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ncores</code></td>
+<td>
+<p> integer number of threads to be used for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p> other arguments (not used)</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If the density surface of the fitted model is flat
+(i.e. <code>object$model$D == ~1</code> or <code>object$CL == TRUE</code>) then
+<code class="reqn">E(N)</code> is simply the density multiplied by the area of <code>region</code>,
+and the standard error is also a simple product. In the conditional
+likelihood case, the density and standard error are obtained by first
+calling <code>derived</code>.
+</p>
+<p>If, on the other hand, the density has been modelled then the density
+surface is predicted at each point in <code>region</code> and <code class="reqn">E(N)</code> is
+obtained by discrete summation. Pixel size may have a minor effect on
+the result - check by varying <code>spacing</code>. Sampling variance is
+determined by the delta method, using a numerical approximation to the
+gradient of <code class="reqn">E(N)</code> with respect to each beta parameter.
+</p>
+<p>The region may be defined as a mask object (if omitted, the mask
+component of <code>object</code> will be used). Alternatively, <code>region</code>
+may be a SpatialPolygonsDataFrame object (see package <span class="pkg">sp</span>), and a
+raster mask will be constructed on the fly using the specified
+spacing. See <code>make.mask</code> for an example importing a
+shapefile to a SpatialPolygonsDataFrame.
+</p>
+<p>Note: The option of specifying a polygon rather than a mask for
+<code>region</code> does not work if the density model in <code>object</code> uses
+spatial covariates: these must be passed in a mask.
+</p>
+<p>Group-specific N has yet to be implemented.
+</p>
+<p>Population size is adjusted automatically for the number of clusters
+in ‘mashed’ models (see <code>mash</code>). However, the population
+size reported is that associated with a single cluster unless
+<code>regionmask</code> is specified.
+</p>
+<p><code>pooled.RN = TRUE</code> handles the special case of a multi-session
+model in which the region of interest spans several patches (i.e.,
+sampling in each session is localised within <code>region</code>. This is not
+yet fully implemented.
+</p>
+<p>Setting <code>ncores = NULL</code> uses the existing value from the environment variable 
+RCPP_PARALLEL_NUM_THREADS (see <code>setNumThreads</code>).
+</p>
+<p>Use <code>par.region.N</code> to apply <code>region.N</code> in parallel to
+several models.
+</p>
+
+
+<h3>Value</h3>
+
+<p>If <code>se.N = FALSE</code>, the numeric value of expected population size,
+otherwise, a dataframe with rows ‘E.N’ and ‘R.N’, and columns as
+below.
+</p>
+
+<table>
+<tr>
+<td style="text-align: left;">
+estimate    </td>
+<td style="text-align: left;"> estimate of N (expected or realised, depending on row)</td>
+</tr>
+<tr>
+<td style="text-align: left;">
+SE.estimate </td>
+<td style="text-align: left;"> standard error of estimated N </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+lcl         </td>
+<td style="text-align: left;"> lower 100(1--alpha)% confidence limit </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+ucl         </td>
+<td style="text-align: left;"> upper 100(1--alpha)% confidence limit </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+n           </td>
+<td style="text-align: left;"> total number of individuals detected </td>
+</tr>
+<tr>
+<td style="text-align: left;">
+</td>
+</tr>
+</table>
+<p>For multiple sessions, the value is a list with one component per
+session, each component as above.
+</p>
+<p>If <code>keep.region = TRUE</code> then the mask object for the region is
+saved as the attribute ‘region’ (see Examples).
+</p>
+<p>The area in hectares of the region is saved as attribute ‘regionarea’.
+</p>
+
+
+<h3>Note</h3>
+
+<p>The estimates of expected and realised <code class="reqn">N</code> are generally very
+similar, or identical, but realised <code class="reqn">N</code> usually has lower
+estimated variance, especially if the <code class="reqn">n</code> detected animals
+comprise a large fraction. 
+</p>
+<p>Realised <code class="reqn">N</code> is given by <code class="reqn">R(N) = n + \int_B (1 - p.(X))D(X)
+  dX</code> (the second term
+represents undetected animals). This definition strictly holds only
+when region B is at least as large as the region of integration used
+to fit the model; only with this condition can we be sure all <code class="reqn">n</code>
+detected animals have centres within B. The sampling variance of
+<code class="reqn">R(N)</code>, technically a mean square prediction error (Johnson et al.
+2010), is approximated by summing the expected Poisson variance of the
+true number of undetected animals and a delta-method estimate of its
+sampling variance, obtained as for <code class="reqn">E(N)</code>.
+</p>
+<p>By default, a shortcut is used to compute the sampling variance of
+realised <code class="reqn">N</code>. With this option (RN.method = ‘poisson’) the
+sampling variance is the sampling variance of <code class="reqn">E(N)</code> minus the
+estimate of <code class="reqn">E(N)</code> (representing Poisson process variance). This
+has been found to give reliable confidence intervals in simulations
+(Efford and Fewster 2013).
+</p>
+<p>If RN.method is neither ‘MSPE’ nor ‘poisson’ (ignoring case) then
+the estimate of expected <code class="reqn">N</code> is also used for realised <code class="reqn">N</code>,
+and the ‘poisson’ shortcut variance is used.
+</p>
+<p>Johnson et al. (2010) use the notation <code class="reqn">\mu(B)</code> for expected
+<code class="reqn">N</code> and <code class="reqn">N(B)</code> for realised <code class="reqn">N</code> in region <code class="reqn">B</code>.
+</p>
+<p>In our case, the relative SE (CV) of <code class="reqn">\mu(B)</code> is the same as that
+for the estimated density <code class="reqn">D</code> if <code class="reqn">D</code> has been estimated using
+the Poisson distribution option in <code>secr.fit</code> or
+<code>derived()</code>. If <code class="reqn">D</code> has been estimated with the binomial
+distribution option, its relative SE for simple models will be the
+same as that of <code class="reqn">N(B)</code>, assuming that <code class="reqn">B</code> is the full extent
+of the original mask.
+</p>
+
+
+<h3>References</h3>
+
+<p>Borchers, D. L. and Efford, M. G. (2008) Spatially explicit maximum
+likelihood methods for capture–recapture studies. <em>Biometrics</em>
+<b>64</b>, 377–385.
+</p>
+<p>Efford, M. G. and Fewster, R. M. (2013) Estimating population size by
+spatially explicit capture–recapture. <em>Oikos</em> <b>122</b>, 918–928.
+</p>
+<p>Johnson, D. S., Laake, J. L. and Ver Hoef, J. M. (2010) A model-based
+approach for making ecological inference from distance sampling
+data. <em>Biometrics</em> <b>66</b>, 310–318.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>secr.fit</code>, <code>derived</code>, <code>make.mask</code>,
+<code>expected.n</code>, <code>closedN</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+
+## routine examples using arbitrary mask from model fit
+region.N(secrdemo.0)
+region.N(secrdemo.CL)
+region.N(ovenbird.model.D)
+
+## region defined as vector polygon
+## retain and plot region mask
+temp &lt;- region.N(possum.model.0, possumarea, spacing = 40,
+    keep.region = TRUE)
+temp
+plot (attr(temp, "region"), type = "l")
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

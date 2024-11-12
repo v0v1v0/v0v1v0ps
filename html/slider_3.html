@@ -1,0 +1,196 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>hop</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Hop</h2>
+
+<h3>Description</h3>
+
+<p><code>hop()</code> is the lower level engine that powers <code>slide()</code> (at least in theory).
+It has slightly different invariants than <code>slide()</code>, and is useful
+when you either need to hand craft boundary locations, or want to compute a
+result with a size that is different from <code>.x</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">hop(.x, .starts, .stops, .f, ...)
+
+hop_vec(.x, .starts, .stops, .f, ..., .ptype = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>.x</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[vector]⁠</code>
+</p>
+<p>The vector to iterate over and apply <code>.f</code> to.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.starts, .stops</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[integer]⁠</code>
+</p>
+<p>Vectors of boundary locations that make up the windows to bucket <code>.x</code> with.
+Both <code>.starts</code> and <code>.stops</code> will be recycled to their common size, and
+that common size will be the size of the result. Both vectors should be
+integer locations along <code>.x</code>, but out-of-bounds values are allowed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.f</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[function / formula]⁠</code>
+</p>
+<p>If a <strong>function</strong>, it is used as is.
+</p>
+<p>If a <strong>formula</strong>, e.g. <code>~ .x + 2</code>, it is converted to a function. There
+are three ways to refer to the arguments:
+</p>
+
+<ul>
+<li>
+<p> For a single argument function, use <code>.</code>
+</p>
+</li>
+<li>
+<p> For a two argument function, use <code>.x</code> and <code>.y</code>
+</p>
+</li>
+<li>
+<p> For more arguments, use <code>..1</code>, <code>..2</code>, <code>..3</code> etc
+</p>
+</li>
+</ul>
+<p>This syntax allows you to create very compact anonymous functions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Additional arguments passed on to the mapped function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>.ptype</code></td>
+<td>
+<p><code style="white-space: pre;">⁠[vector(0) / NULL]⁠</code>
+</p>
+<p>A prototype corresponding to the type of the output.
+</p>
+<p>If <code>NULL</code>, the default, the output type is determined by computing the
+common type across the results of the calls to <code>.f</code>.
+</p>
+<p>If supplied, the result of each call to <code>.f</code> will be cast to that type,
+and the final output will have that type.
+</p>
+<p>If <code>getOption("vctrs.no_guessing")</code> is <code>TRUE</code>, the <code>.ptype</code> must be
+supplied. This is a way to make production code demand fixed types.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>hop()</code> is very close to being a faster version of:
+</p>
+<div class="sourceCode"><pre>map2(
+  .starts,
+  .stops,
+  function(start, stop) {
+    x_slice &lt;- vec_slice(.x, start:stop)
+    .f(x_slice, ...)
+  }
+)
+</pre></div>
+<p>Because of this, <code>hop_index()</code> is often the more useful function. <code>hop()</code>
+mainly exists for API completeness.
+</p>
+<p>The main difference is that the start and stop values make up ranges of
+<em>possible</em> locations along <code>.x</code>, and it is not enforced that these locations
+actually exist along <code>.x</code>. As an example, with <code>hop()</code> you can do the
+following, which would be an error with <code>vec_slice()</code> because <code>0L</code> is
+out of bounds.
+</p>
+<div class="sourceCode"><pre>hop(c("a", "b"), .starts = 0L, .stops = 1L, ~.x)
+#&gt; [[1]]
+#&gt; [1] "a"
+</pre></div>
+<p><code>hop()</code> allows these out of bounds values to be fully compatible with
+<code>slide()</code>. It is always possible to construct a <code>hop()</code> call from a <code>slide()</code>
+call. For example, the following are equivalent:
+</p>
+<div class="sourceCode"><pre>slide(1:2, ~.x, .before = 1)
+
+hop(1:2, .starts = c(0, 1), .stops = c(1, 2), ~.x)
+
+#&gt; [[1]]
+#&gt; [1] 1
+#&gt;
+#&gt; [[2]]
+#&gt; [1] 1 2
+</pre></div>
+
+
+<h3>Value</h3>
+
+<p>A vector fulfilling the following invariants:
+</p>
+
+
+<h4><code>hop()</code></h4>
+
+
+<ul>
+<li> <p><code>vec_size(hop(.x, .starts, .stops)) == vec_size_common(.starts, .stops)</code>
+</p>
+</li>
+<li> <p><code>vec_ptype(hop(.x, .starts, .stops)) == list()</code>
+</p>
+</li>
+</ul>
+<h4><code>hop_vec()</code></h4>
+
+
+<ul>
+<li> <p><code>vec_size(hop_vec(.x, .starts, .stops)) == vec_size_common(.starts, .stops)</code>
+</p>
+</li>
+<li> <p><code>vec_size(hop_vec(.x, .starts, .stops)[[1]]) == 1L</code>
+</p>
+</li>
+<li> <p><code>vec_ptype(hop_vec(.x, .starts, .stops, .ptype = ptype)) == ptype</code>
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>hop2()</code>, <code>hop_index()</code>, <code>slide()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># `hop()` let's you manually specify locations to apply `.f` at.
+hop(1:3, .starts = c(1, 3), .stops = 3, ~.x)
+
+# `hop()`'s start/stop locations are allowed to be out of bounds relative
+# to the size of `.x`.
+hop(
+  mtcars,
+  .starts = c(-1, 3),
+  .stops  = c(2, 6),
+  ~.x
+)
+
+</code></pre>
+
+
+</div>

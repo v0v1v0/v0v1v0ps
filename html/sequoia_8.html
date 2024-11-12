@@ -1,0 +1,175 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>CheckGeno</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Check Genotype Matrix</h2>
+
+<h3>Description</h3>
+
+<p>Check that the provided genotype matrix is in the correct
+format, and check for low call rate samples and SNPs.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">CheckGeno(
+  GenoM,
+  quiet = FALSE,
+  Plot = FALSE,
+  Return = "GenoM",
+  Strict = TRUE,
+  DumPrefix = c("F0", "M0")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>GenoM</code></td>
+<td>
+<p>the genotype matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quiet</code></td>
+<td>
+<p>suppress messages.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Plot</code></td>
+<td>
+<p>display the plots of <code>SnpStats</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Return</code></td>
+<td>
+<p>either 'GenoM' to return the cleaned-up genotype matrix, or
+'excl' to return a list with excluded SNPs and individuals (see Value).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Strict</code></td>
+<td>
+<p>Exclude any individuals genotyped for &lt;5
+genotyped for &lt;5
+up to version 2.4.1. Otherwise only excluded are (very nearly) monomorphic
+SNPs, SNPs scored for fewer than 2 individuals, and individuals scored for
+fewer than 2 SNPs.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>DumPrefix</code></td>
+<td>
+<p>length 2 vector, to check if these don't occur among
+genotyped individuals.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>If <code>Return='excl'</code> a list with, if any are found:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>ExcludedSNPs</code></td>
+<td>
+<p>SNPs scored for &lt;10
+excluded when running <code>sequoia</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ExcludedSnps-mono</code></td>
+<td>
+<p>monomorphic (fixed) SNPs; automatically excluded
+when running <code>sequoia</code>. This includes nearly-fixed SNPs with
+MAF <code class="reqn">= 1/2N</code>. Column numbers are *after* removal of
+<code>ExcludedSNPs</code>, if any.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ExcludedIndiv</code></td>
+<td>
+<p>Individuals scored for &lt;5
+reliably included during pedigree reconstruction. Individual call rate is
+calculated after removal of 'Excluded SNPs'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Snps-LowCallRate</code></td>
+<td>
+<p>SNPs scored for 10
+recommended to be filtered out</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Indiv-LowCallRate</code></td>
+<td>
+<p>individuals scored for &lt;50
+recommended to be filtered out</p>
+</td>
+</tr>
+</table>
+<p>When <code>Return='excl'</code> the return is <code>invisible</code>, i.e. a check
+is run and warnings or errors are always displayed, but nothing may be
+returned.
+</p>
+
+
+<h3>Thresholds</h3>
+
+<p>Appropriate call rate thresholds for SNPs and
+individuals depend on the total number of SNPs, distribution of call rates,
+genotyping errors, and the proportion of candidate parents that are SNPd
+(sibship clustering is more prone to false positives). Note that filtering
+first on SNP call rate tends to keep more individuals in.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SnpStats</code> to calculate SNP call rates;
+<code>CalcOHLLR</code> to count the number of SNPs scored in both focal
+individual and parent.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">GenoM &lt;- SimGeno(Ped_HSg5, nSnp=400, CallRate = runif(400, 0.2, 0.8))
+# the quick way:
+GenoM.checked &lt;- CheckGeno(GenoM, Return="GenoM")
+
+# the user supervised way:
+Excl &lt;- CheckGeno(GenoM, Return = "excl")
+GenoM.orig &lt;- GenoM   # make a 'backup' copy
+if ("ExcludedSnps" %in% names(Excl))
+  GenoM &lt;- GenoM[, -Excl[["ExcludedSnps"]]]
+if ("ExcludedSnps-mono" %in% names(Excl))
+  GenoM &lt;- GenoM[, -Excl[["ExcludedSnps-mono"]]]
+if ("ExcludedIndiv" %in% names(Excl))
+  GenoM &lt;- GenoM[!rownames(GenoM) %in% Excl[["ExcludedIndiv"]], ]
+
+# warning about  SNPs scored for &lt;50% of individuals ?
+# note: this is not necessarily a problem, and sometimes unavoidable.
+SnpCallRate &lt;- apply(GenoM, MARGIN=2,
+                     FUN = function(x) sum(x!=-9)) / nrow(GenoM)
+hist(SnpCallRate, breaks=50, col="grey")
+GenoM &lt;- GenoM[, SnpCallRate &gt; 0.6]
+
+# to filter out low call rate individuals: (also not necessarily a problem)
+IndivCallRate &lt;- apply(GenoM, MARGIN=1,
+                       FUN = function(x) sum(x!=-9)) / ncol(GenoM)
+hist(IndivCallRate, breaks=50, col="grey")
+GoodSamples &lt;- rownames(GenoM)[ IndivCallRate &gt; 0.8]
+
+</code></pre>
+
+
+</div>

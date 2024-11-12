@@ -1,0 +1,153 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>obj.nbs</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Shared borders of raster objects</h2>
+
+<h3>Description</h3>
+
+<p>Identify the shared borders of neighboring raster objects.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">obj.nbs(grp.bord, ngbList, only_grp = NULL, silent = FALSE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>grp.bord</code></td>
+<td>
+<p>named list, the list of borders returned by the function
+<code>obj.border</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ngbList</code></td>
+<td>
+<p>list, the list of neighborhoods returned by the function
+<code>ngbList</code>. The list of neighborhoods has to be computed setting
+the argument <code>rNumb=TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>only_grp</code></td>
+<td>
+<p>character vector. If <code>NULL</code>, all IDs in <code>grp.bord</code>
+are considered. If IDs are provided, then they are the only ones
+considered.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>logic, progress bar is not printed on the console.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>The function returns a named list. Each element represents a raster
+object as identified by the list names and contains a nested named list.
+The names of the nested lists are the IDs of neighboring raster objects and
+their values identify the raster cells comprising the shared borders.
+</p>
+
+
+<h3>Note</h3>
+
+<p>If there are NA values on the raster surface, raster cells are
+identified by attribute table row indices (each corresponding to a raster
+cell). Row indices can be converted into raster cells using the <code>Cell</code>
+column of the attribute table (e.g. <code>attTbl$Cell[indices]</code>) (see
+<code>attTbl</code>).
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>attTbl()</code>, <code>ngbList()</code>, <code>obj.border()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># DUMMY DATA
+######################################################################################
+# LOAD LIBRARIES
+library(scapesClassification)
+library(terra)
+
+# LOAD THE DUMMY RASTER
+r &lt;- list.files(system.file("extdata", package = "scapesClassification"),
+                pattern = "dummy_raster\\.tif", full.names = TRUE)
+r &lt;- terra::rast(r)
+
+# ADD ONE NA VALUE
+r[11] &lt;- NA
+
+# COMPUTE THE ATTRIBUTE TABLE
+at &lt;- attTbl(r, "dummy_var")
+
+# COMPUTE THE LIST OF NEIGBORHOODS
+nbs &lt;- ngbList(r, rNumb=TRUE, attTbl=at) # rnumb MUST be true to use obj.nbs
+
+################################################################################
+# COMPUTE RASTER OBJECTS
+################################################################################
+at$cv &lt;- anchor.seed(at, nbs, silent=TRUE, class = NULL, rNumb=TRUE,
+                     cond.filter = "dummy_var &gt; 1",
+                     cond.seed   = "dummy_var==max(dummy_var)",
+                     cond.growth = "dummy_var&lt;dummy_var[]",
+                     lag.growth  = 0)
+
+RO &lt;- split(1:NROW(at), at$cv)
+
+print(RO)
+
+################################################################################
+# COMPUTE BORDERS
+################################################################################
+RO_bd &lt;- obj.border(RO, nbs, silent = TRUE)
+
+################################################################################
+# COMPUTE SHARED BORDERS
+################################################################################
+RO_sbd &lt;- obj.nbs(RO_bd, nbs, silent = TRUE)
+
+# Convert row indices to cell numbers
+RO_sbd1 &lt;- RO_sbd[["1"]]
+RO_sbd1 &lt;- at$Cell[unlist(RO_sbd1)]
+
+RO_sbd2 &lt;- RO_sbd[["2"]]
+RO_sbd2 &lt;- at$Cell[unlist(RO_sbd2)]
+
+# Borders in `RO_sbd` are identified by row indices
+print(RO_sbd[["1"]]) # Row indices
+print(RO_sbd1) # Cell numbers
+
+print(RO_sbd[["2"]])  # Row indices
+print(RO_sbd2) # Cell numbers
+
+# Neighbor objects
+names(RO_sbd[["1"]]) # RO1 has one neighbor, RO2
+names(RO_sbd[["2"]]) # RO2 has one neighbor, RO1
+
+################################################################################
+# PLOT BORDERS
+################################################################################
+plot(cv.2.rast(r,at$cv), type="classes", col=c("#E6E600","#00A600"),
+     main="Shared borders")
+points(terra::xyFromCell(r, RO_sbd1), pch=20, col="blue")
+points(terra::xyFromCell(r, RO_sbd2), pch=20, col="red")
+text(xyFromCell(r, 11), "NA\nvalue")
+</code></pre>
+
+
+</div>

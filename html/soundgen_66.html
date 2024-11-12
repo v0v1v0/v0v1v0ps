@@ -1,0 +1,311 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>filterSoundByMS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Filter sound by modulation spectrum</h2>
+
+<h3>Description</h3>
+
+<p>Manipulates the modulation spectrum (MS) of a sound so as to remove certain
+frequencies of amplitude modulation (AM) and frequency modulation (FM).
+Algorithm: produces a modulation spectrum with
+<code>modulationSpectrum</code>, modifies it with <code>filterMS</code>,
+converts the modified MS to a spectrogram with <code>msToSpec</code>, and
+finally inverts the spectrogram with <code>invertSpectrogram</code>, thus
+producing a sound with (approximately) the desired characteristics of the MS.
+Note that the last step of inverting the spectrogram introduces some noise,
+so the resulting MS is not precisely the same as the intermediate filtered
+version. In practice this means that some residual energy will still be
+present in the filtered-out frequency range (see examples).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">filterSoundByMS(
+  x,
+  samplingRate = NULL,
+  from = NULL,
+  to = NULL,
+  logSpec = FALSE,
+  windowLength = 25,
+  step = NULL,
+  overlap = 80,
+  wn = "hamming",
+  zp = 0,
+  amCond = NULL,
+  fmCond = NULL,
+  jointCond = NULL,
+  action = c("remove", "preserve")[1],
+  initialPhase = c("zero", "random", "spsi")[3],
+  nIter = 50,
+  reportEvery = NULL,
+  cores = 1,
+  play = FALSE,
+  saveAudio = NULL,
+  plot = TRUE,
+  savePlots = NULL,
+  width = 900,
+  height = 500,
+  units = "px",
+  res = NA
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>path to a folder, one or more wav or mp3 files c('file1.wav',
+'file2.mp3'), Wave object, numeric vector, or a list of Wave objects or
+numeric vectors</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>samplingRate</code></td>
+<td>
+<p>sampling rate of <code>x</code> (only needed if <code>x</code> is a
+numeric vector)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>from, to</code></td>
+<td>
+<p>if NULL (default), analyzes the whole sound, otherwise
+from...to (s)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logSpec</code></td>
+<td>
+<p>if TRUE, the spectrogram is log-transformed prior to taking 2D
+FFT</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>windowLength, step, wn, zp</code></td>
+<td>
+<p>parameters for extracting a spectrogram if
+<code>specType = 'STFT'</code>. Window length and step are specified in ms (see
+<code>spectrogram</code>). If <code>specType = 'audSpec'</code>, these settings
+have no effect</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overlap</code></td>
+<td>
+<p>overlap between successive FFT frames, %</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>amCond, fmCond</code></td>
+<td>
+<p>character strings with valid conditions on amplitude and
+frequency modulation (see examples)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>jointCond</code></td>
+<td>
+<p>character string with a valid joint condition amplitude and
+frequency modulation</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>action</code></td>
+<td>
+<p>should the defined AM-FM region be removed ('remove') or
+preserved, while everything else is removed ('preserve')?</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>initialPhase</code></td>
+<td>
+<p>initial phase estimate: "zero" = set all phases to zero;
+"random" = Gaussian noise; "spsi" (default) = single-pass spectrogram
+inversion (Beauregard et al., 2015)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nIter</code></td>
+<td>
+<p>the number of iterations of the GL algorithm (Griffin &amp; Lim,
+1984), 0 = don't run</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>reportEvery</code></td>
+<td>
+<p>when processing multiple inputs, report estimated time
+left every ... iterations (NULL = default, NA = don't report)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores for parallel processing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>play</code></td>
+<td>
+<p>if TRUE, plays back the reconstructed audio</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>saveAudio</code></td>
+<td>
+<p>full (!) path to folder for saving the processed audio; NULL
+= don't save, ” = same as input folder (NB: overwrites the originals!)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>if TRUE, produces a triple plot: original MS, filtered MS, and
+the MS of the output sound</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>savePlots</code></td>
+<td>
+<p>if a valid path is specified, a plot is saved in this folder
+(defaults to NA)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>width, height, units, res</code></td>
+<td>
+<p>parameters passed to
+<code>png</code> if the plot is saved</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns the filtered audio as a numeric vector normalized to [-1, 1]
+with the same sampling rate as input.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>invertSpectrogram</code> <code>filterMS</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Create a sound to be filtered
+s = soundgen(pitch = rnorm(n = 20, mean = 200, sd = 25),
+  amFreq = 25, amDep = 50, samplingRate = 16000,
+  addSilence = 50, plot = TRUE, osc = TRUE)
+# playme(s, 16000)
+
+# Filter
+s_filt = filterSoundByMS(s, samplingRate = 16000,
+  amCond = 'abs(am) &gt; 15', fmCond = 'abs(fm) &gt; 5',
+  nIter = 10,  # increase nIter for best results!
+  action = 'remove', plot = TRUE)
+# playme(s_filt, samplingRate = 16000)
+
+## Not run: 
+# Process all files in a folder, save filtered audio and plots
+s_filt = filterSoundByMS('~/Downloads/temp2',
+  saveAudio = '~/Downloads/temp2/ms', savePlots = '',
+  amCond = 'abs(am) &gt; 15', fmCond = 'abs(fm) &gt; 5',
+  action = 'remove', nIter = 10)
+
+# Download an example - a bit of speech (sampled at 16000 Hz)
+download.file('http://cogsci.se/soundgen/audio/speechEx.wav',
+              destfile = '~/Downloads/speechEx.wav')  # modify as needed
+target = '~/Downloads/speechEx.wav'
+samplingRate = tuneR::readWave(target)@samp.rate
+playme(target)
+spectrogram(target, osc = TRUE)
+
+# Remove AM above 3 Hz from a bit of speech (remove most temporal details)
+s_filt1 = filterSoundByMS(target, amCond = 'abs(am) &gt; 3',
+                          action = 'remove', nIter = 15)
+playme(s_filt1, samplingRate)
+spectrogram(s_filt1, samplingRate = samplingRate, osc = TRUE)
+
+# Intelligigble when AM in 5-25 Hz is preserved:
+s_filt2 = filterSoundByMS(target, amCond = 'abs(am) &gt; 5 &amp; abs(am) &lt; 25',
+                          action = 'preserve', nIter = 15)
+playme(s_filt2, samplingRate)
+spectrogram(s_filt2, samplingRate = samplingRate, osc = TRUE)
+
+# Remove slow AM/FM (prosody) to achieve a "robotic" voice
+s_filt3 = filterSoundByMS(target, jointCond = 'am^2 + (fm*3)^2 &lt; 300',
+                          nIter = 15)
+playme(s_filt3, samplingRate)
+spectrogram(s_filt3, samplingRate = samplingRate, osc = TRUE)
+
+
+## An alternative manual workflow w/o calling filterSoundByMS()
+# This way you can modify the MS directly and more flexibly
+# than with the filterMS() function called by filterSoundByMS()
+
+# (optional) Check that the target spectrogram can be successfully inverted
+spec = spectrogram(s, 16000, windowLength = 50, step = NULL, overlap = 80,
+  wn = 'hanning', osc = TRUE, padWithSilence = FALSE)
+s_rev = invertSpectrogram(spec, samplingRate = 16000,
+  windowLength = 50, overlap = 80, wn = 'hamming', play = FALSE)
+# playme(s_rev, 16000)  # should be close to the original
+spectrogram(s_rev, 16000, osc = TRUE)
+
+# Get modulation spectrum starting from the sound...
+ms = modulationSpectrum(s, samplingRate = 16000, windowLength = 25,
+  overlap = 80, wn = 'hanning', amRes = NULL, maxDur = Inf, logSpec = FALSE,
+  power = NA, returnComplex = TRUE, plot = FALSE)$complex
+# ... or starting from the spectrogram:
+# ms = specToMS(spec)
+plotMS(abs(ms))  # this is the original MS
+
+# Filter as needed - for ex., remove AM &gt; 10 Hz and FM &gt; 3 cycles/kHz
+# (removes f0, preserves formants)
+am = as.numeric(colnames(ms))
+fm = as.numeric(rownames(ms))
+idx_row = which(abs(fm) &gt; 3)
+idx_col = which(abs(am) &gt; 10)
+ms_filt = ms
+ms_filt[idx_row, ] = 0
+ms_filt[, idx_col] = 0
+plotMS(abs(ms_filt))  # this is the filtered MS
+
+# Convert back to a spectrogram
+spec_filt = msToSpec(ms_filt)
+image(t(log(abs(spec_filt))))
+
+# Invert the spectrogram
+s_filt = invertSpectrogram(abs(spec_filt), samplingRate = 16000,
+  windowLength = 25, overlap = 80, wn = 'hanning')
+# NB: use the same settings as in "spec = spectrogram(s, ...)" above
+
+# Compare with the original
+playme(s, 16000)
+spectrogram(s, 16000, osc = TRUE)
+playme(s_filt, 16000)
+spectrogram(s_filt, 16000, osc = TRUE)
+
+ms_new = modulationSpectrum(s_filt, samplingRate = 16000,
+  windowLength = 25, overlap = 80, wn = 'hanning', maxDur = Inf,
+  plot = TRUE, returnComplex = TRUE)$complex
+image(x = as.numeric(colnames(ms_new)), y = as.numeric(rownames(ms_new)),
+  z = t(log(abs(ms_new))))
+plot(as.numeric(colnames(ms)), log(abs(ms[nrow(ms) / 2, ])), type = 'l')
+points(as.numeric(colnames(ms_new)), log(ms_new[nrow(ms_new) / 2, ]), type = 'l',
+  col = 'red', lty = 3)
+# AM peaks at 25 Hz are removed, but inverting the spectrogram adds a lot of noise
+
+## End(Not run)
+</code></pre>
+
+
+</div>

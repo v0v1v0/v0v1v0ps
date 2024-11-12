@@ -1,0 +1,560 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>epidataCS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Continuous Space-Time Marked Point Patterns with Grid-Based Covariates
+</h2>
+
+<h3>Description</h3>
+
+<p>Data structure for <strong>c</strong>ontinuous <strong>s</strong>patio-temporal event
+data, e.g. individual case reports of an infectious disease.
+Apart from the actual <code>events</code>, the class simultaneously
+holds a spatio-temporal grid of endemic covariates (similar to
+disease mapping) and a representation of the observation region.
+</p>
+<p>The <code>"epidataCS"</code> class is the basis for fitting 
+spatio-temporal endemic-epidemic intensity models with the function
+<code>twinstim</code> (Meyer et al., 2012).
+The implementation is described in Meyer et al. (2017, Section 3),
+see <code>vignette("twinstim")</code>.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">as.epidataCS(events, stgrid, W, qmatrix = diag(nTypes),
+             nCircle2Poly = 32L, T = NULL,
+             clipper = "polyclip", verbose = interactive())
+
+## S3 method for class 'epidataCS'
+print(x, n = 6L, digits = getOption("digits"), ...)
+
+## S3 method for class 'epidataCS'
+nobs(object, ...)
+## S3 method for class 'epidataCS'
+head(x, n = 6L, ...)
+## S3 method for class 'epidataCS'
+tail(x, n = 6L, ...)
+## S3 method for class 'epidataCS'
+x[i, j, ..., drop = TRUE]
+## S3 method for class 'epidataCS'
+subset(x, subset, select, drop = TRUE, ...)
+
+## S3 method for class 'epidataCS'
+marks(x, coords = TRUE, ...)
+
+## S3 method for class 'epidataCS'
+summary(object, ...)
+## S3 method for class 'summary.epidataCS'
+print(x, ...)
+
+## S3 method for class 'epidataCS'
+as.stepfun(x, ...)
+
+getSourceDists(object, dimension = c("space", "time"))
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>events</code></td>
+<td>
+
+<p>a <code>"SpatialPointsDataFrame"</code> of cases with the
+following obligatory columns (in the <code>events@data</code>
+<code>data.frame</code>): 
+</p>
+
+<dl>
+<dt>time</dt>
+<dd>
+<p>time point of event. Will be converted to a numeric
+variable by <code>as.numeric</code>. There should be no concurrent
+events (but see <code>untie</code> for an ex post adjustment)
+and there cannot be events beyond <code>stgrid</code>
+(i.e., <code>time&lt;=T</code> is required). Events at or before time
+<code class="reqn">t_0</code> = <code>min(stgrid$start)</code> are allowed and form the
+prehistory of the process.</p>
+</dd>
+<dt>tile</dt>
+<dd>
+<p>the spatial region (tile) where the event is located.
+This links to the tiles of <code>stgrid</code>.</p>
+</dd>
+<dt>type</dt>
+<dd>
+<p>optional type of event in a marked <code>twinstim</code>
+model. Will be converted to a factor variable dropping unused
+levels. If missing, all events will be attribute the single type
+<code>"1"</code>.</p>
+</dd>
+<dt>eps.t</dt>
+<dd>
+<p>maximum <em>temporal</em> influence radius (e.g. length of
+infectious period, time to culling, etc.); must be positive and
+may be <code>Inf</code>.</p>
+</dd> 
+<dt>eps.s</dt>
+<dd>
+<p>maximum <em>spatial</em> influence radius (e.g. 100 [km]);
+must be positive and may be <code>Inf</code>. A compact influence
+region mainly has computational advantages, but might also be
+plausible for specific applications.</p>
+</dd>
+</dl>
+<p>The <code>data.frame</code> may contain columns with further marks of
+the events, e.g. sex, age of infected individuals, which may
+be used as epidemic covariates influencing infectiousness.
+Note that some auxiliary columns will be added at conversion
+whose names are reserved: <code>".obsInfLength"</code>,
+<code>".bdist"</code>, <code>".influenceRegion"</code>, and <code>".sources"</code>,
+as well as <code>"start"</code>, <code>"BLOCK"</code>, and all endemic
+covariates' names from <code>stgrid</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stgrid</code></td>
+<td>
+
+<p>a <code>data.frame</code> describing endemic covariates on a full
+spatio-temporal region x interval grid (e.g., district x week),
+which is a decomposition of the observation region <code>W</code> and
+period <code class="reqn">t_0,T</code>. This means that for every combination of spatial
+region and time interval there must be exactly one row in this
+<code>data.frame</code>, that the union of the spatial tiles equals
+<code>W</code>, the union of the time intervals equals <code class="reqn">t_0,T</code>, and
+that regions (and intervals) are non-overlapping.
+There are the following obligatory columns: 
+</p>
+
+<dl>
+<dt>tile</dt>
+<dd>
+<p>ID of the spatial region (e.g., district ID). It will
+be converted to a factor variable (dropping unused levels if it
+already was one).</p>
+</dd>
+<dt>start, stop</dt>
+<dd>
+<p>columns describing the consecutive temporal
+intervals (converted to numeric variables by <code>as.numeric</code>).
+The <code>start</code> time of an interval must be equal to the
+<code>stop</code> time of the previous interval. The <code>stop</code> column may
+be missing, in which case it will be auto-generated from the set
+of <code>start</code> values and <code>T</code>.</p>
+</dd>
+<dt>area</dt>
+<dd>
+<p>area of the spatial region (<code>tile</code>).
+Be aware that the unit of this area (e.g., square km) must be consistent
+with the units of <code>W</code> and <code>events</code> (as specified in
+their <code>proj4string</code>s).</p>
+</dd>
+</dl>
+<p>The remaining columns are endemic covariates.
+Note that the column name <code>"BLOCK"</code> is reserved
+(a column which will be added automatically for indexing the time
+intervals of <code>stgrid</code>).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+
+<p>an object of class <code>"SpatialPolygons"</code>
+representing the observation region.
+It must have the same <code>proj4string</code> as <code>events</code>
+and all events must be within <code>W</code>.
+Prior simplification of <code>W</code> may considerably reduce the
+computational burden of likelihood evaluations in
+<code>twinstim</code> models with non-trivial spatial
+interaction functions (see the “Note” section below).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>qmatrix</code></td>
+<td>
+
+<p>a square indicator matrix (0/1 or <code>FALSE</code>/<code>TRUE</code>) for possible
+transmission between the event types. The matrix will be internally
+converted to <code>logical</code>. Defaults to an independent spread of the event
+types, i.e. the identity matrix. 
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCircle2Poly</code></td>
+<td>
+
+<p>accuracy (number of edges) of the polygonal approximation of a circle,
+see <code>discpoly</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>T</code></td>
+<td>
+
+<p>end of observation period (i.e. last <code>stop</code> time of
+<code>stgrid</code>). Must be specified if the start but not the stop
+times are supplied in <code>stgrid</code> (=&gt; auto-generation of
+<code>stop</code> times).
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>clipper</code></td>
+<td>
+<p>polygon clipping engine to use for calculating the
+<code>.influenceRegion</code>s of events (see the Value section below).
+Default is the <a href="https://CRAN.R-project.org/package=polyclip"><span class="pkg">polyclip</span></a> package (called via
+<code>intersect.owin</code> from package <a href="https://CRAN.R-project.org/package=spatstat.geom"><span class="pkg">spatstat.geom</span></a>).
+In <span class="pkg">surveillance</span> &lt;= 1.6-0, package <span class="pkg">gpclib</span> was used;
+this is no longer supported, neither is <span class="pkg">rgeos</span>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>logical indicating if status messages should be printed
+during input checking and <code>"epidataCS"</code> generation. The default
+is to do so in interactive <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> sessions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>an object of class <code>"epidataCS"</code> or
+<code>"summary.epidataCS"</code>, respectively.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>a single integer. If positive, the first (<code>head</code>, <code>print</code>)
+/ last (<code>tail</code>) <code>n</code> events are extracted. If negative,
+all but the <code>n</code> first/last events are extracted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>digits</code></td>
+<td>
+<p>minimum number of significant digits to be printed in
+values.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>i,j,drop</code></td>
+<td>
+
+<p>arguments passed to the
+<code>[-method</code> for
+<code>SpatialPointDataFrame</code>s for subsetting the <code>events</code> while
+retaining <code>stgrid</code> and <code>W</code>.<br>
+If <code>drop=TRUE</code> (the default), event types that completely
+disappear due to <code>i</code>-subsetting will be dropped, which reduces
+<code>qmatrix</code> and the factor levels of the <code>type</code> column.<br>
+By the <code>j</code> index, epidemic covariates can be removed from
+<code>events</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>unused (arguments of the generics) with a few exceptions:
+The <code>print</code> method for <code>"epidataCS"</code> passes
+<code>...</code> to the <code>print.data.frame</code> method, and the
+<code>print</code> method for <code>"summary.epidataCS"</code> passes additional
+arguments to <code>print.table</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>subset, select</code></td>
+<td>
+<p>arguments used to subset the <code>events</code> from
+an <code>"epidataCS"</code> object like in <code>subset.data.frame</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>logical indicating if the data frame of event marks
+returned by <code>marks(x)</code> should have the event
+coordinates appended as last columns. This defaults to <code>TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class <code>"epidataCS"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dimension</code></td>
+<td>
+<p>the distances of all events to their potential source
+events can be computed in either the <code>"space"</code> or <code>"time"</code>
+dimension.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The function <code>as.epidataCS</code> is used to generate objects of class
+<code>"epidataCS"</code>, which is the data structure required for
+<code>twinstim</code> models.
+</p>
+<p>The <code>[</code>-method for class <code>"epidataCS"</code>
+ensures that the subsetted object will be valid, for instance, it
+updates the auxiliary list of potential transmission paths stored
+in the object. The <code>[</code>-method is used in
+<code>subset.epidataCS</code>, which is implemented similar to
+<code>subset.data.frame</code>.
+</p>
+<p>The <code>print</code> method for <code>"epidataCS"</code> prints some metadata
+of the epidemic, e.g., the observation period, the dimensions of the
+spatio-temporal grid, the types of events, and the total number of
+events. By default, it also prints the first <code>n = 6</code> rows of the
+<code>events</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class <code>"epidataCS"</code> is a list containing the
+following components: 
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>events</code></td>
+<td>
+<p>a <code>"SpatialPointsDataFrame"</code> (see the
+description of the argument). 
+The input <code>events</code> are checked for requirements and sorted
+chronologically. The columns are in the following
+order: obligatory event columns, event marks, the columns <code>BLOCK</code>,
+<code>start</code> and endemic covariates copied from <code>stgrid</code>,
+and finally, hidden auxiliary columns. 
+The added auxiliary columns are:
+</p>
+
+<dl>
+<dt><code>.obsInfLength</code></dt>
+<dd>
+<p>observed length of the infectious period
+(possibly truncated at <code>T</code>), i.e., <code>pmin(T-time, eps.t)</code>.</p>
+</dd>
+<dt><code>.sources</code></dt>
+<dd>
+<p>a list of numeric vectors of potential sources of
+infection (wrt the interaction ranges eps.s and eps.t) for each
+event. Row numbers are used as index.</p>
+</dd>
+<dt><code>.bdist</code></dt>
+<dd>
+<p>minimal distance of the event locations to the
+polygonal boundary <code>W</code>.</p>
+</dd>
+<dt><code>.influenceRegion</code></dt>
+<dd>
+<p>a list of influence regions represented by
+objects of the <span class="pkg">spatstat.geom</span> class <code>"owin"</code>. For each
+event, this is the intersection of <code>W</code> with a (polygonal)
+circle of radius <code>eps.s</code> centered at the event's location,
+shifted such that the event location becomes the origin.
+The list has <code>nCircle2Poly</code> set as an attribute.</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>stgrid</code></td>
+<td>
+<p>a <code>data.frame</code> (see description of the argument).
+The spatio-temporal grid of endemic covariates is sorted by time
+interval (indexed by the added variable <code>BLOCK</code>) and region
+(<code>tile</code>). It is a full <code>BLOCK</code> x <code>tile</code> grid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>W</code></td>
+<td>
+<p>a <code>"SpatialPolygons"</code> object representing
+the observation region.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>qmatrix</code></td>
+<td>
+<p>see the above description of the argument. The
+<code>storage.mode</code> of the indicator matrix is set to logical
+and the <code>dimnames</code> are set to the levels of the event types.</p>
+</td>
+</tr>
+</table>
+<p>The <code>nobs</code>-method returns the number of events.
+</p>
+<p>The <code>head</code> and <code>tail</code> methods subset the epidemic data using
+the extraction method (<code>[</code>), i.e. they return an object of class
+<code>"epidataCS"</code>, which only contains (all but) the first/last
+<code>n</code> events.
+</p>
+<p>For the <code>"epidataCS"</code> class, the method of the generic function
+<code>marks</code> defined by the <span class="pkg">spatstat.geom</span> package
+returns a <code>data.frame</code> of the event marks (actually also
+including time and location of the events), disregarding endemic
+covariates and the auxiliary columns from the <code>events</code> component
+of the <code>"epidataCS"</code> object.
+</p>
+<p>The <code>summary</code> method (which has again a <code>print</code> method)
+returns a list of metadata, event data, the tables of tiles and types,
+a step function of the number of infectious individuals over time
+(<code>$counter</code>), i.e., the result of the
+<code>as.stepfun</code>-method for <code>"epidataCS"</code>, and the number
+of potential sources of transmission for each event (<code>$nSources</code>)
+which is based on the given maximum interaction ranges <code>eps.t</code>
+and <code>eps.s</code>.
+</p>
+
+
+<h3>Note</h3>
+
+<p>Since the observation region <code>W</code> defines the integration domain
+in the point process likelihood,
+the more detailed the polygons of <code>W</code> are the longer it will
+take to fit a <code>twinstim</code>. You are advised to
+sacrifice some shape details for speed by reducing the polygon
+complexity, for example via the <code>mapshaper</code> JavaScript library
+wrapped by the R package <a href="https://CRAN.R-project.org/package=rmapshaper"><span class="pkg">rmapshaper</span></a>, or via
+<code>simplify.owin</code>.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+<p>Contributions to this documentation by Michael
+Höhle and Mayeul Kauffmann.
+</p>
+
+
+<h3>References</h3>
+
+<p>Meyer, S., Elias, J. and Höhle, M. (2012):
+A space-time conditional intensity model for invasive meningococcal
+disease occurrence. <em>Biometrics</em>, <b>68</b>, 607-616.
+<a href="https://doi.org/10.1111/j.1541-0420.2011.01684.x">doi:10.1111/j.1541-0420.2011.01684.x</a>
+</p>
+<p>Meyer, S., Held, L. and Höhle, M. (2017):
+Spatio-temporal analysis of epidemic phenomena using the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package
+<span class="pkg">surveillance</span>.
+<em>Journal of Statistical Software</em>, <b>77</b> (11), 1-55.
+<a href="https://doi.org/10.18637/jss.v077.i11">doi:10.18637/jss.v077.i11</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>vignette("twinstim")</code>.
+</p>
+<p><code>plot.epidataCS</code> for plotting, and
+<code>animate.epidataCS</code> for the animation of such an epidemic.
+There is also an <code>update</code> method for the
+<code>"epidataCS"</code> class.
+</p>
+<p>To re-extract the <code>events</code> point pattern from <code>"epidataCS"</code>,
+use <code>as(object, "SpatialPointsDataFrame")</code>.
+</p>
+<p>It is possible to convert an <code>"epidataCS"</code> point pattern to
+an <code>"epidata"</code> object (<code>as.epidata.epidataCS</code>),
+or to aggregate the events into an <code>"sts"</code> object
+(<code>epidataCS2sts</code>).
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## load "imdepi" example data (which is an object of class "epidataCS")
+data("imdepi")
+
+## print and summary
+print(imdepi, n=5, digits=2)
+print(s &lt;- summary(imdepi))
+plot(s$counter,  # same as 'as.stepfun(imdepi)'
+     xlab = "Time [days]", ylab="Number of infectious individuals",
+     main=paste("Time course of the number of infectious individuals",
+                "assuming an infectious period of 30 days", sep="\n"))
+plot(table(s$nSources), xlab="Number of \"close\" infective individuals",
+     ylab="Number of events",
+     main=paste("Distribution of the number of potential sources",
+                "assuming an interaction range of 200 km and 30 days",
+                sep="\n"))
+## the summary object contains further information
+str(s)
+
+## a histogram of the spatial distances to potential source events
+## (i.e., to events of the previous eps.t=30 days within eps.s=200 km)
+sourceDists_space &lt;- getSourceDists(imdepi, "space")
+hist(sourceDists_space); rug(sourceDists_space)
+
+## internal structure of an "epidataCS"-object
+str(imdepi, max.level=4)
+## see help("imdepi") for more info on the data set
+
+## extraction methods subset the 'events' component
+imdepi[101:200,]
+head(imdepi, n=1)           # only first event
+tail(imdepi, n=4)           # only last 4 events
+subset(imdepi, type=="B")   # only events of type B
+
+## see help("plot.epidataCS") for convenient plot-methods for "epidataCS"
+
+
+###
+### reconstruct the "imdepi" object
+###
+
+## observation region
+load(system.file("shapes", "districtsD.RData", package="surveillance"),
+     verbose = TRUE)
+
+## extract point pattern of events from the "imdepi" data
+## a) as a data frame with coordinate columns via marks()
+eventsData &lt;- marks(imdepi)
+## b) as a Spatial object via the coerce-method
+events &lt;- as(imdepi, "SpatialPointsDataFrame")
+
+## plot observation region with events
+
+plot(stateD, axes=TRUE); title(xlab="x [km]", ylab="y [km]")
+points(events, pch=unclass(events$type), cex=0.5, col=unclass(events$type))
+legend("topright", legend=levels(events$type), title="Type", pch=1:2, col=1:2)
+
+summary(events)
+
+## space-time grid with endemic covariates
+head(stgrid &lt;- imdepi$stgrid[,-1])
+
+## reconstruct the "imdepi" object from its components
+myimdepi &lt;- as.epidataCS(events = events, stgrid = stgrid,
+                         W = stateD, qmatrix = diag(2), nCircle2Poly = 16)
+
+## This reconstructed object should be equal to 'imdepi' as long as the internal
+## structures of the embedded classes ("owin", "SpatialPolygons", ...), and
+## the calculation of the influence regions by "polyclip" have not changed:
+all.equal(imdepi, myimdepi)
+
+</code></pre>
+
+
+</div>

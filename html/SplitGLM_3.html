@@ -1,0 +1,203 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>cv.SplitGLM</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Cross Validation - Split Generalized Linear Model</h2>
+
+<h3>Description</h3>
+
+<p><code>cv.SplitGLM</code> performs the CV procedure for split generalized linear models.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">cv.SplitGLM(
+  x,
+  y,
+  glm_type = "Linear",
+  G = 10,
+  include_intercept = TRUE,
+  alpha_s = 3/4,
+  alpha_d = 1,
+  n_lambda_sparsity = 50,
+  n_lambda_diversity = 50,
+  tolerance = 0.001,
+  max_iter = 1e+05,
+  n_folds = 10,
+  active_set = FALSE,
+  full_diversity = FALSE,
+  n_threads = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>Design matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p>Response vector.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>glm_type</code></td>
+<td>
+<p>Description of the error distribution and link function to be used for the model. Must be one of "Linear", "Logistic",
+"Gamma" or "Poisson".</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>G</code></td>
+<td>
+<p>Number of groups into which the variables are split. Can have more than one value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>include_intercept</code></td>
+<td>
+<p>Boolean variable to determine if there is intercept (default is TRUE) or not.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_s</code></td>
+<td>
+<p>Elastic net mixing parmeter. Default is 3/4.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha_d</code></td>
+<td>
+<p>Mixing parameter for diversity penalty. Default is 1.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_lambda_sparsity</code></td>
+<td>
+<p>Number of candidates for the sparsity penalty parameter. Default is 100.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_lambda_diversity</code></td>
+<td>
+<p>Number of candidates for the sparsity penalty parameter. Default is 100.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolerance</code></td>
+<td>
+<p>Convergence criteria for the coefficients. Default is 1e-3.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>Maximum number of iterations in the algorithm. Default is 1e5.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_folds</code></td>
+<td>
+<p>Number of cross-validation folds. Default is 10.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>active_set</code></td>
+<td>
+<p>Active set convergence for the algorithm. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>full_diversity</code></td>
+<td>
+<p>Full diversity between the groups. Default is FALSE.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_threads</code></td>
+<td>
+<p>Number of threads. Default is 1.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>An object of class cv.SplitGLM.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Anthony-Alexander Christidis, <a href="mailto:anthony.christidis@stat.ubc.ca">anthony.christidis@stat.ubc.ca</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>coef.cv.SplitGLM</code>, <code>predict.cv.SplitGLM</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# Data simulation
+set.seed(1)
+n &lt;- 50
+N &lt;- 2000
+p &lt;- 1000
+beta.active &lt;- c(abs(runif(p, 0, 1/2))*(-1)^rbinom(p, 1, 0.3))
+# Parameters
+p.active &lt;- 100
+beta &lt;- c(beta.active[1:p.active], rep(0, p-p.active))
+Sigma &lt;- matrix(0, p, p)
+Sigma[1:p.active, 1:p.active] &lt;- 0.5
+diag(Sigma) &lt;- 1
+
+# Train data
+x.train &lt;- mvnfast::rmvn(n, mu = rep(0, p), sigma = Sigma) 
+prob.train &lt;- exp(x.train %*% beta)/
+              (1+exp(x.train %*% beta))
+y.train &lt;- rbinom(n, 1, prob.train)
+mean(y.train)
+# Test data
+x.test &lt;- mvnfast::rmvn(N, mu = rep(0, p), sigma = Sigma)
+prob.test &lt;- exp(x.test %*% beta)/
+             (1+exp(x.test %*% beta))
+y.test &lt;- rbinom(N, 1, prob.test)
+mean(y.test)
+
+# SplitGLM - CV (Multiple Groups)
+split.out &lt;- cv.SplitGLM(x.train, y.train,
+                         glm_type="Logistic",
+                         G=10, include_intercept=TRUE,
+                         alpha_s=3/4, alpha_d=1,
+                         n_lambda_sparsity=50, n_lambda_diversity=50,
+                         tolerance=1e-3, max_iter=1e3,
+                         n_folds=5,
+                         active_set=FALSE,
+                         n_threads=1)
+split.coef &lt;- coef(split.out)
+# Predictions
+split.prob &lt;- predict(split.out, newx=x.test, type="prob", group_index=NULL)
+split.class &lt;- predict(split.out, newx=x.test, type="class", group_index=NULL)
+plot(prob.test, split.prob, pch=20)
+abline(h=0.5,v=0.5)
+mean((prob.test-split.prob)^2)
+mean(abs(y.test-split.class))
+
+
+
+</code></pre>
+
+
+</div>

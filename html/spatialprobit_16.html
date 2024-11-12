@@ -1,0 +1,289 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>marginal.effects</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Marginal effects for spatial probit and Tobit models (SAR probit, SAR Tobit)</h2>
+
+<h3>Description</h3>
+
+<p>Estimate marginal effects (average direct, indirect and total impacts)
+for the SAR probit and SAR Tobit model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'sarprobit'
+marginal.effects(object, o = 100, ...)
+## S3 method for class 'sartobit'
+marginal.effects(object, o = 100, ...)
+## S3 method for class 'sarprobit'
+impacts(obj, file=NULL, 
+  digits = max(3, getOption("digits")-3), ...)
+## S3 method for class 'sartobit'
+impacts(obj, file=NULL, 
+  digits = max(3, getOption("digits")-3), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>Estimated model of class <code>sarprobit</code> or <code>sartobit</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>obj</code></td>
+<td>
+<p>Estimated model of class <code>sarprobit</code> or <code>sartobit</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>o</code></td>
+<td>
+<p>maximum value for the power <code class="reqn">tr(W^i), i=1,...,o</code> to be estimated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>digits</code></td>
+<td>
+<p>number of digits for printing</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>file</code></td>
+<td>
+<p>Output to file or console</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>additional parameters</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p><code>impacts()</code> will extract and print the marginal effects from a fitted model,
+while <code>marginal.effects(x)</code> will estimate the marginal effects anew for a fitted
+model.
+</p>
+<p>In spatial models, a change in some explanatory variable <code class="reqn">x_{ir}</code> for observation <code class="reqn">i</code> 
+will not only affect the observations <code class="reqn">y_i</code> directly (direct impact), 
+but also affect neighboring observations <code class="reqn">y_j</code> (indirect impact). 
+These impacts potentially also include feedback loops from observation 
+<code class="reqn">i</code> to observation <code class="reqn">j</code> and back to <code class="reqn">i</code>. 
+(see LeSage (2009), section 2.7 for interpreting parameter estimates in spatial models).
+</p>
+<p>For the <code class="reqn">r</code>-th non-constant explanatory variable, 
+let <code class="reqn">S_r(W)</code> be the <code class="reqn">n \times n</code> matrix 
+that captures the impacts from observation <code class="reqn">i</code> to <code class="reqn">j</code>.
+</p>
+<p>The direct impact of a change in <code class="reqn">x_{ir}</code> on its own observation <code class="reqn">y_i</code> can be written as
+</p>
+<p style="text-align: center;"><code class="reqn">
+  \frac{\partial y_i}{\partial x_{ir}} = S_r(W)_{ii}
+</code>
+</p>
+ 
+<p>and the indirect impact from observation <code class="reqn">j</code> to observation <code class="reqn">i</code> as
+</p>
+<p style="text-align: center;"><code class="reqn">
+  \frac{\partial y_i}{\partial x_{jr}} = S_r(W)_{ij}
+</code>
+</p>
+<p>.
+</p>
+<p>LeSage(2009) proposed summary measures for direct, indirect and total effects, 
+e.g. averaged direct impacts across all <code class="reqn">n</code> observations.
+See LeSage(2009), section 5.6.2., p.149/150 for marginal effects estimation in general spatial models
+and section 10.1.6, p.293 for marginal effects in SAR probit models.
+</p>
+<p>We implement these three summary measures:
+</p>
+
+<ol>
+<li>
+<p> average direct impacts:   
+</p>
+<p style="text-align: center;"><code class="reqn">M_r(D) = \bar{S_r(W)_{ii}} = n^{-1} tr(S_r(W))</code>
+</p>
+
+</li>
+<li>
+<p> average total impacts:    
+</p>
+<p style="text-align: center;"><code class="reqn">M_r(T) = n^{-1} 1'_n S_r(W) 1_n</code>
+</p>
+
+</li>
+<li>
+<p> average indirect impacts: 
+</p>
+<p style="text-align: center;"><code class="reqn">M_r(I) = M_r(T) - M_r(D)</code>
+</p>
+
+</li>
+</ol>
+<p>The average direct impact is the average of the diagonal elements, the average total
+impacts is the mean of the row (column) sums.
+</p>
+<p>For the average direct impacts <code class="reqn">M_r(D)</code>, 
+there are efficient approaches available, see LeSage (2009), chapter 4, pp.114/115.
+</p>
+<p>The computation of the average total effects <code class="reqn">M_r(T)</code> and hence 
+also the average indirect effects <code class="reqn">M_r(I)</code> are more subtle, 
+as <code class="reqn">S_r(W)</code> is a dense <code class="reqn">n \times n</code> matrix.
+In the LeSage Spatial Econometrics Toolbox for MATLAB (March 2010), 
+the implementation in <code>sarp_g</code> computes the matrix inverse of <code class="reqn">S= (I_n -  \rho W)</code>
+which all the negative consequences for large n.
+We implemented <code class="reqn">n^{-1} 1'_n S_r(W) 1_n</code> via a QR decomposition of 
+<code class="reqn">S = (I_n -  \rho W)</code> (already available from a previous step) and solving a linear equation, 
+which is less costly and will work better for large <code class="reqn">n</code>.
+</p>
+<p><b>SAR probit model</b><br></p>
+<p>Specifically, for the SAR probit model the <code class="reqn">n \times n</code> matrix of marginal effects is
+</p>
+<p style="text-align: center;"><code class="reqn">
+  S_r(W) = \frac{\partial E[y | x_r]}{\partial x_{r}'} = \phi\left((I_n -  \rho W)^{-1} \bar{x}_r \beta_r \right) \odot (I_n -  \rho W)^{-1} I_n \beta_r 
+</code>
+</p>
+
+<p><b>SAR Tobit model</b><br></p>
+<p>Specifically, for the SAR Tobit model the <code class="reqn">n \times n</code> matrix of marginal effects is
+</p>
+<p style="text-align: center;"><code class="reqn">
+  S_r(W) = \frac{\partial E[y | x_r]}{\partial x_{r}'} = \Phi\left((I_n -  \rho W)^{-1} \bar{x}_r \beta_r / \sigma \right) \odot (I_n -  \rho W)^{-1} I_n \beta_r 
+</code>
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>This function returns a list with 6 elements: 'direct' for direct effects, 'indirect' for indirect effects, 
+'total' for total effects, and 'summary_direct', 'summary_indirect', 'summary_total' for the summary of direct, indirect and total effects.
+</p>
+
+
+<h3>Warning</h3>
+
+<p>1. Although the direct impacts can be efficiently estimated, the computation
+of the indirect effects require the inversion of a <code class="reqn">n \times n</code> matrix
+and will break down for large <code class="reqn">n</code>.
+</p>
+<p>2. <code class="reqn">tr(W^i)</code> is determined with simulation, 
+so different calls to this method will produce different estimates.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Stefan Wilhelm &lt;wilhelm@financial.com&gt;
+</p>
+
+
+<h3>References</h3>
+
+<p>LeSage, J. and Pace, R. K. (2009), <em>Introduction to Spatial Econometrics</em>, CRC Press 
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>marginal.effects.sartobit</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+require(spatialprobit)
+
+# number of observations
+n &lt;- 100
+
+# true parameters
+beta &lt;- c(0, 1, -1)
+rho &lt;- 0.75
+
+# design matrix with two standard normal variates as "covariates"
+X &lt;- cbind(intercept=1, x=rnorm(n), y=rnorm(n))
+
+# sparse identity matrix
+I_n &lt;- sparseMatrix(i=1:n, j=1:n, x=1)
+
+# number of nearest neighbors in spatial weight matrix W
+m &lt;- 6
+
+# spatial weight matrix with m=6 nearest neighbors
+# W must not have non-zeros in the main diagonal!
+W &lt;- kNearestNeighbors(x = rnorm(n), y = rnorm(n), k = m)
+
+# innovations
+eps &lt;- rnorm(n=n, mean=0, sd=1)
+
+# generate data from model 
+S &lt;- I_n - rho * W
+z &lt;- solve(qr(S), X %*% beta + eps)
+y &lt;- as.vector(z &gt;= 0)  # 0 or 1, FALSE or TRUE
+
+# estimate SAR probit model
+set.seed(12345)
+sarprobit.fit1 &lt;- sar_probit_mcmc(y, X, W, ndraw=500, burn.in=100, 
+  thinning=1, prior=NULL, computeMarginalEffects=TRUE)
+summary(sarprobit.fit1)
+
+# print impacts
+impacts(sarprobit.fit1)
+
+################################################################################
+#
+# Example from LeSage/Pace (2009), section 10.3.1, p. 302-304
+#
+################################################################################
+
+# Value of "a" is not stated in book! 
+# Assuming a=-1 which gives approx. 50% censoring
+ library(spatialprobit)
+
+a &lt;- -1   # control degree of censored observation
+n &lt;- 1000
+rho &lt;- 0.7
+beta &lt;- c(0, 2)
+sige &lt;- 0.5
+I_n &lt;- sparseMatrix(i=1:n, j=1:n, x=1)
+x &lt;- runif(n, a, 1)
+X &lt;- cbind(1, x)
+eps &lt;- rnorm(n, sd=sqrt(sige))
+param &lt;- c(beta, sige, rho)
+
+# random locational coordinates and 6 nearest neighbors
+lat &lt;- rnorm(n)
+long &lt;- rnorm(n)
+W &lt;- kNearestNeighbors(lat, long, k=6)
+
+y &lt;- as.double(solve(I_n - rho * W) %*% (X %*% beta + eps))
+table(y &gt; 0)
+
+# set negative values to zero to reflect sample truncation
+ind &lt;- which(y &lt;=0)
+y[ind] &lt;- 0
+
+# Fit SAR Tobit (with approx. 50% censored observations)
+fit_sartobit &lt;- sartobit(y ~ x, W, ndraw=1000, burn.in=200, 
+  computeMarginalEffects=TRUE, showProgress=TRUE)
+
+# print impacts
+impacts(fit_sartobit)
+
+</code></pre>
+
+
+</div>

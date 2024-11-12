@@ -1,0 +1,494 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>SCA</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Statistical catch-at-age (SCA) model</h2>
+
+<h3>Description</h3>
+
+<p>A generic statistical catch-at-age model (single fleet, single season) that uses catch, index, and catch-at-age composition
+data. <code>SCA</code> parameterizes R0 and steepness as leading productivity parameters in the assessment model. Recruitment is estimated
+as deviations from the resulting stock-recruit relationship. In <code>SCA2</code>, the mean recruitment in the time series is estimated and
+recruitment deviations around this mean are estimated as penalized parameters (<code>SR = "none"</code>, similar to Cadigan 2016). The standard deviation is set high
+so that the recruitment is almost like free parameters. Unfished and MSY reference points are not estimated, it is recommended to use yield per recruit
+or spawning potential ratio in harvest control rules. <code>SCA_Pope</code> is a variant of <code>SCA</code> that fixes the expected catch to the observed
+catch, and Pope's approximation is used to calculate the annual exploitation rate (U; i.e., <code>catch_eq = "Pope"</code>).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">SCA(
+  x = 1,
+  Data,
+  AddInd = "B",
+  SR = c("BH", "Ricker", "none"),
+  vulnerability = c("logistic", "dome"),
+  catch_eq = c("Baranov", "Pope"),
+  CAA_dist = c("multinomial", "lognormal"),
+  CAA_multiplier = 50,
+  rescale = "mean1",
+  max_age = Data@MaxAge,
+  start = NULL,
+  prior = list(),
+  fix_h = TRUE,
+  fix_F_equilibrium = TRUE,
+  fix_omega = TRUE,
+  fix_tau = TRUE,
+  LWT = list(),
+  early_dev = c("comp_onegen", "comp", "all"),
+  late_dev = "comp50",
+  integrate = FALSE,
+  silent = TRUE,
+  opt_hess = FALSE,
+  n_restart = ifelse(opt_hess, 0, 1),
+  control = list(iter.max = 2e+05, eval.max = 4e+05),
+  inner.control = list(),
+  ...
+)
+
+SCA2(
+  x = 1,
+  Data,
+  AddInd = "B",
+  vulnerability = c("logistic", "dome"),
+  CAA_dist = c("multinomial", "lognormal"),
+  CAA_multiplier = 50,
+  rescale = "mean1",
+  max_age = Data@MaxAge,
+  start = NULL,
+  prior = list(),
+  fix_h = TRUE,
+  fix_F_equilibrium = TRUE,
+  fix_omega = TRUE,
+  fix_tau = TRUE,
+  LWT = list(),
+  common_dev = "comp50",
+  integrate = FALSE,
+  silent = TRUE,
+  opt_hess = FALSE,
+  n_restart = ifelse(opt_hess, 0, 1),
+  control = list(iter.max = 2e+05, eval.max = 4e+05),
+  inner.control = list(),
+  ...
+)
+
+SCA_Pope(
+  x = 1,
+  Data,
+  AddInd = "B",
+  SR = c("BH", "Ricker", "none"),
+  vulnerability = c("logistic", "dome"),
+  CAA_dist = c("multinomial", "lognormal"),
+  CAA_multiplier = 50,
+  rescale = "mean1",
+  max_age = Data@MaxAge,
+  start = NULL,
+  prior = list(),
+  fix_h = TRUE,
+  fix_U_equilibrium = TRUE,
+  fix_tau = TRUE,
+  LWT = list(),
+  early_dev = c("comp_onegen", "comp", "all"),
+  late_dev = "comp50",
+  integrate = FALSE,
+  silent = TRUE,
+  opt_hess = FALSE,
+  n_restart = ifelse(opt_hess, 0, 1),
+  control = list(iter.max = 2e+05, eval.max = 4e+05),
+  inner.control = list(),
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A position in the Data object (by default, equal to one for assessments).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Data</code></td>
+<td>
+<p>An object of class Data</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>AddInd</code></td>
+<td>
+<p>A vector of integers or character strings indicating the indices to be used in the model. Integers assign the index to
+the corresponding index in Data@AddInd, "B" (or 0) represents total biomass in Data@Ind, "VB" represents vulnerable biomass in
+Data@VInd, and "SSB" represents spawning stock biomass in Data@SpInd. Vulnerability to the survey is fixed in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>SR</code></td>
+<td>
+<p>Stock-recruit function (either <code>"BH"</code> for Beverton-Holt, <code>"Ricker"</code>, or <code>"none"</code> for constant mean recruitment).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vulnerability</code></td>
+<td>
+<p>Whether estimated vulnerability is <code>"logistic"</code> or <code>"dome"</code> (double-normal).
+See details for parameterization.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>catch_eq</code></td>
+<td>
+<p>Whether to use the Baranov equation or Pope's approximation to calculate the predicted catch at age in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CAA_dist</code></td>
+<td>
+<p>Whether a multinomial or lognormal distribution is used for likelihood of the catch-at-age matrix. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CAA_multiplier</code></td>
+<td>
+<p>Numeric for data weighting of catch-at-age matrix if <code>CAA_hist = "multinomial"</code>. Otherwise ignored. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rescale</code></td>
+<td>
+<p>A multiplicative factor that rescales the catch in the assessment model, which
+can improve convergence. By default, <code>"mean1"</code> scales the catch so that time series mean is 1, otherwise a numeric.
+Output is re-converted back to original units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_age</code></td>
+<td>
+<p>Integer, the maximum age (plus-group) in the model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>Optional list of starting values. Entries can be expressions that are evaluated in the function. See details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prior</code></td>
+<td>
+<p>A named list for the parameters of any priors to be added to the model. See below.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_h</code></td>
+<td>
+<p>Logical, whether to fix steepness to value in <code>Data@steep</code> in the model for <code>SCA</code>. This only affects
+calculation of reference points for <code>SCA2</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_F_equilibrium</code></td>
+<td>
+<p>Logical, whether the equilibrium fishing mortality prior to the first year of the model
+is estimated. If <code>TRUE</code>, <code>F_equilibrium</code> is fixed to value provided in <code>start</code> (if provided),
+otherwise, equal to zero (assumes unfished conditions).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_omega</code></td>
+<td>
+<p>Logical, whether the standard deviation of the catch is fixed. If <code>TRUE</code>,
+omega is fixed to value provided in <code>start</code> (if provided), otherwise, value based on <code>Data@CV_Cat</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_tau</code></td>
+<td>
+<p>Logical, the standard deviation of the recruitment deviations is fixed. If <code>TRUE</code>,
+tau is fixed to value provided in <code>start</code> (if provided), otherwise, value based on <code>Data@sigmaR</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LWT</code></td>
+<td>
+<p>A named list (Index, CAA, Catch) of likelihood weights for the data components. For the index, a vector of length survey. For
+CAL and Catch, a single value.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>early_dev</code></td>
+<td>
+<p>Numeric or character string describing the years for which recruitment deviations are estimated in <code>SCA</code>. By default,
+equal to <code>"comp_onegen"</code>, where rec devs are estimated one full generation prior to the first year when catch-at-age (CAA) data are available.
+With <code>"comp"</code>, rec devs are estimated starting in the first year with CAA. With <code>"all"</code>, rec devs start at the beginning of the model.
+If numeric, the number of years after the first year of the model for which to start estimating rec devs. Use negative numbers for years prior to the first year.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>late_dev</code></td>
+<td>
+<p>Typically, a numeric for the number of most recent years in which recruitment deviations will
+not be estimated in <code>SCA</code> (recruitment in these years will be based on the mean predicted by stock-recruit relationship).
+By default, <code>"comp50"</code> uses the number of ages (smaller than the mode)
+for which the catch-at-age matrix has less than half the abundance than that at the mode.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>integrate</code></td>
+<td>
+<p>Logical, whether the likelihood of the model integrates over the likelihood
+of the recruitment deviations (thus, treating it as a random effects/state-space variable).
+Otherwise, recruitment deviations are penalized parameters.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>silent</code></td>
+<td>
+<p>Logical, passed to <code>TMB::MakeADFun()</code>, whether TMB
+will print trace information during optimization. Used for diagnostics for model convergence.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opt_hess</code></td>
+<td>
+<p>Logical, whether the hessian function will be passed to <code>stats::nlminb()</code> during optimization
+(this generally reduces the number of iterations to convergence, but is memory and time intensive and does not guarantee an increase
+in convergence rate). Ignored if <code>integrate = TRUE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_restart</code></td>
+<td>
+<p>The number of restarts (calls to <code>stats::nlminb()</code>) in the optimization procedure, so long as the model
+hasn't converged. The optimization continues from the parameters from the previous (re)start.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>control</code></td>
+<td>
+<p>A named list of arguments for optimization to be passed to
+<code>stats::nlminb()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>inner.control</code></td>
+<td>
+<p>A named list of arguments for optimization of the random effects, which
+is passed on to <code>TMB::newton()</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Other arguments to be passed.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>common_dev</code></td>
+<td>
+<p>Typically, a numeric for the number of most recent years in which a common recruitment deviation will
+be estimated (in <code>SCA2</code>, uninformative years will have a recruitment closer to the mean, which can be very misleading,
+especially near the end of the time series). By default, <code>"comp50"</code> uses the number of ages (smaller than the mode)
+for which the catch-at-age matrix has less than half the abundance than that at the mode.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fix_U_equilibrium</code></td>
+<td>
+<p>Logical, same as <code>fix_F_equilibrium</code> for <code>SCA_Pope</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>The basic data inputs are catch (by weight), index (by weight/biomass), and catch-at-age matrix (by numbers).
+</p>
+<p>With <code>catch_eq = "Baranov"</code> (default in SCA and SCA2), annual F's are estimated parameters assuming continuous fishing over the year, while
+an annual exploitation rate from pulse fishing in the middle of the year is estimated in <code>SCA_Pope</code> or <code>SCA(catch_eq = "Pope")</code>.
+</p>
+<p>The annual sample sizes of the catch-at-age matrix is provided to the model (used in the likelihood for catch-at-age assuming
+a multinomial distribution) and is manipulated via argument <code>CAA_multiplier</code>. This argument is
+interpreted in two different ways depending on the value provided. If <code>CAA_multiplier &gt; 1</code>, then this value will cap the annual sample sizes
+to that number. If <code>CAA_multiplier &lt;= 1</code>, then all the annual samples sizes will be re-scaled by that number, e.g. <code>CAA_multiplier = 0.1</code>
+multiplies the sample size to 10% of the original number. By default, sample sizes are capped at 50.
+</p>
+<p>Alternatively, a lognormal distribution with inverse proportion variance can be used for the catch at age (Punt and Kennedy, 1994, as
+cited by Maunder 2011).
+</p>
+<p>For <code>start</code> (optional), a named list of starting values of estimates can be provided for:
+</p>
+
+<ul>
+<li> <p><code>R0</code> Unfished recruitment, except when <code>SR = "none"</code> where it is mean recruitment.
+By default, 150% <code>Data@OM$R0[x]</code> is used as the start value in closed-loop simulation, and 400% of mean catch otherwise.
+</p>
+</li>
+<li> <p><code>h</code> Steepness. Otherwise, <code>Data@steep[x]</code> is used, or 0.9 if empty.
+</p>
+</li>
+<li> <p><code>M</code> Natural mortality. Otherwise, <code>Data@Mort[x]</code> is used.
+</p>
+</li>
+<li> <p><code>vul_par</code> Vulnerability parameters, see next paragraph.
+</p>
+</li>
+<li> <p><code>F</code> A vector of length <code>nyears</code> for year-specific fishing mortality.
+</p>
+</li>
+<li> <p><code>F_equilibrium</code> Equilibrium fishing mortality leading into first year of the model (to determine initial depletion). By default, 0.
+</p>
+</li>
+<li> <p><code>U_equilibrium</code> Same as F_equilibrium when <code>catch_eq = "Pope"</code>. By default, 0.
+</p>
+</li>
+<li> <p><code>omega</code> Lognormal SD of the catch (observation error) when <code>catch_eq = "Baranov"</code>. By default, <code>Data@CV_Cat[x]</code>.
+</p>
+</li>
+<li> <p><code>tau</code> Lognormal SD of the recruitment deviations (process error). By default, <code>Data@sigmaR[x]</code>.
+</p>
+</li>
+</ul>
+<p>Vulnerability can be specified to be either logistic or dome. If logistic, then the parameter
+vector <code>vul_par</code> is of length 2:
+</p>
+
+<ul>
+<li> <p><code>vul_par[1]</code> corresponds to <code>a_95</code>, the age of 95% vulnerability. <code>a_95</code> is a transformed parameter via logit transformation to constrain <code>a_95</code> to less than 75%
+of the maximum age: <code>a_95 = 0.75 * max_age * plogis(x[1])</code>, where <code>x</code> is the estimated vector.
+</p>
+</li>
+<li> <p><code>vul_par[2]</code> corresponds to <code>a_50</code>, the age of 50% vulnerability. Estimated as an offset, i.e., <code>a_50 = a_95 - exp(x[2])</code>.
+</p>
+</li>
+</ul>
+<p>With dome vulnerability, a double Gaussian parameterization is used, where <code>vul_par</code>
+is an estimated vector of length 4:
+</p>
+
+<ul>
+<li> <p><code>vul_par[1]</code> corresponds to  <code>a_asc</code>, the first age of full vulnerability for the ascending limb. In the model, <code>a_asc</code> is estimated via logit transformation
+to constrain <code>a_95</code> to less than 75% of the maximum age: <code>a_asc = 0.75 * maxage * plogis(x[1])</code>, where <code>x</code> is the estimated vector.
+</p>
+</li>
+<li> <p><code>vul_par[2]</code> corresponds to <code>a_50</code>, the age of 50% vulnerability for the ascending limb. Estimated as an offset, i.e.,
+<code>a_50 = a_asc - exp(x[2])</code>.
+</p>
+</li>
+<li> <p><code>vul_par[3]</code> corresponds to <code>a_des</code>, the last age of full vulnerability (where the descending limb starts). Generated via logit transformation
+to constrain between <code>a_asc</code> and <code>max_age</code>, i.e., <code>a_des = (max_age - a_asc) * plogis(x[3]) + a_asc</code>. By default, fixed to a small value so that the dome is effectively
+a three-parameter function.
+</p>
+</li>
+<li> <p><code>vul_par[4]</code> corresponds to <code>vul_max</code>, the vulnerability at the maximum age. Estimated in logit space: <code>vul_max = plogis(x[4])</code>.
+</p>
+</li>
+</ul>
+<p>Vague priors of <code>vul_par[1] ~ N(0, sd = 3)</code>, <code>vul_par[2] ~ N(0, 3)</code>, <code>vul_par[3] ~ Beta(1.01, 1.01)</code> are used to aid convergence when parameters may not be well estimated,
+for example, when vulnerability &gt;&gt; 0.5 for the youngest age class.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of class Assessment.
+</p>
+
+
+<h3>Priors</h3>
+
+<p>The following priors can be added as a named list, e.g., <code style="white-space: pre;">⁠prior = list(M = c(0.25, 0.15), h = c(0.7, 0.1)⁠</code>.
+For each parameter below, provide a vector of values as described:
+</p>
+
+<ul>
+<li> <p><code>R0</code> - A vector of length 3. The first value indicates the distribution of the prior: <code>1</code> for lognormal, <code>2</code> for uniform
+on <code>log(R0)</code>, <code>3</code> for uniform on R0. If lognormal, the second and third values are the prior mean (in normal space) and SD (in log space).
+Otherwise, the second and third values are the lower and upper bounds of the uniform distribution (values in normal space).
+</p>
+</li>
+<li> <p><code>h</code> - A vector of length 2 for the prior mean and SD, both in normal space. Beverton-Holt steepness uses a beta distribution,
+while Ricker steepness uses a normal distribution.
+</p>
+</li>
+<li> <p><code>M</code> - A vector of length 2 for the prior mean (in normal space) and SD (in log space). Lognormal prior.
+</p>
+</li>
+<li> <p><code>q</code> - A matrix for nsurvey rows and 2 columns. The first column is the prior mean (in normal space) and the second column
+for the SD (in log space). Use <code>NA</code> in rows corresponding to indices without priors.
+</p>
+</li>
+</ul>
+<p>See online documentation for more details.
+</p>
+
+
+<h3>Online Documentation</h3>
+
+<p>Model description and equations are available on the openMSE
+<a href="https://openmse.com/features-assessment-models/2-sca/">website</a>.
+</p>
+
+
+<h3>Required Data</h3>
+
+
+<ul><li> <p><code>SCA</code>, <code>SCA_Pope</code>, and <code>SCA_Pope</code>: Cat, Ind, Mort, L50, L95, CAA, vbK, vbLinf, vbt0, wla, wlb, MaxAge
+</p>
+</li></ul>
+<h3>Optional Data</h3>
+
+
+<ul>
+<li> <p><code>SCA</code>: Rec, steep, sigmaR, CV_Ind, CV_Cat
+</p>
+</li>
+<li> <p><code>SCA2</code>: Rec, steep, CV_Ind, CV_Cat
+</p>
+</li>
+<li> <p><code>SCA_Pope</code>: Rec, steep, sigmaR, CV_Ind
+</p>
+</li>
+</ul>
+<h3>Author(s)</h3>
+
+<p>Q. Huynh
+</p>
+
+
+<h3>References</h3>
+
+<p>Cadigan, N.G. 2016. A state-space stock assessment model for northern cod, including under-reported catches and
+variable natural mortality rates. Canadian Journal of Fisheries and Aquatic Science 72:296-308.
+</p>
+<p>Maunder, M.N. 2011. Review and evaluation of likelihood functions for composition data in
+stock-assessment models: Estimating the effective sample size. Fisheries Research 209:311-319.
+</p>
+<p>Punt, A.E. and Kennedy, R.B. 1997. Population modelling of Tasmanian rock lobster, Jasus edwardsii, resources. Marine and Freshwater
+Research 48:967-980.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>plot.Assessment summary.Assessment retrospective profile make_MP
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">res &lt;- SCA(Data = MSEtool::SimulatedData)
+res2 &lt;- SCA2(Data = MSEtool::SimulatedData)
+
+# Downweight the index
+res3 &lt;- SCA(Data = MSEtool::SimulatedData, LWT = list(Index = 0.1, CAA = 1))
+
+compare_models(res, res2)
+</code></pre>
+
+
+</div>

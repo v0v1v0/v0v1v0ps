@@ -1,0 +1,916 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>scpi</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prediction Intervals for Synthetic Control Methods</h2>
+
+<h3>Description</h3>
+
+<p>The command implements estimation and inference procedures for Synthetic Control (SC) methods using least squares, lasso, ridge, or simplex-type constraints. Uncertainty is quantified using prediction
+intervals according to <a href="https://nppackages.github.io/references/Cattaneo-Feng-Titiunik_2021_JASA.pdf">Cattaneo, Feng, and Titiunik (2021)</a>. <code>scpi</code> returns the estimated
+post-treatment series for the synthetic unit through the command <code>scest</code> and quantifies in-sample and out-of-sample uncertainty to provide confidence intervals
+for each point estimate.
+</p>
+<p>Companion <a href="https://www.stata.com/">Stata</a> and <a href="https://www.python.org/">Python</a> packages are described in <a href="https://arxiv.org/abs/2202.05984">Cattaneo, Feng, Palomba, and Titiunik (2022)</a>.
+</p>
+<p>Companion commands are:  scdata and scdataMulti for data preparation in the single and multiple treated unit(s) cases, respectively,
+scest for point estimation, scplot and scplotMulti for plots in the single and multiple treated unit(s) cases, respectively.
+</p>
+<p>Related Stata, R, and Python packages useful for inference in SC designs are described in the following website:
+</p>
+<p><a href="https://nppackages.github.io/scpi/"> https://nppackages.github.io/scpi/</a>
+</p>
+<p>For an introduction to synthetic control methods, see <a href="https://www.aeaweb.org/articles?id=10.1257/jel.20191450">Abadie (2021)</a> and references therein.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">scpi(
+  data,
+  w.constr = NULL,
+  V = "separate",
+  V.mat = NULL,
+  solver = "ECOS",
+  P = NULL,
+  u.missp = TRUE,
+  u.sigma = "HC1",
+  u.order = 1,
+  u.lags = 0,
+  u.design = NULL,
+  u.alpha = 0.05,
+  e.method = "all",
+  e.order = 1,
+  e.lags = 0,
+  e.design = NULL,
+  e.alpha = 0.05,
+  sims = 200,
+  rho = NULL,
+  rho.max = 0.2,
+  lgapp = "generalized",
+  cores = 1,
+  plot = FALSE,
+  plot.name = NULL,
+  w.bounds = NULL,
+  e.bounds = NULL,
+  save.data = NULL,
+  verbose = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>a class 'scdata' object, obtained by calling <code>scdata</code>, or class 'scdataMulti' obtained via <code>scdataMulti</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.constr</code></td>
+<td>
+<p>a list specifying the constraint set the estimated weights of the donors must belong to.
+<code>w.constr</code> can contain up to five elements:
+</p>
+
+<ul>
+<li>
+<p> '<code>p</code>', a scalar indicating the norm to be used (<code>p</code> should be one of "no norm", "L1", and "L2")
+</p>
+</li>
+<li>
+<p> '<code>dir</code>', a string indicating whether the constraint on the norm is an equality ("==") or inequality ("&lt;=")
+</p>
+</li>
+<li>
+<p> '<code>Q</code>', a scalar defining the value of the constraint on the norm
+</p>
+</li>
+<li>
+<p> '<code>lb</code>', a scalar defining the lower bound on the weights. It can be either 0 or <code>-Inf</code>.
+</p>
+</li>
+<li>
+<p> '<code>name</code>', a character selecting one of the default proposals
+See the <strong>Details</strong> section for more.
+</p>
+</li>
+</ul>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>specifies the type of weighting matrix to be used when minimizing the sum of squared residuals
+</p>
+<p style="text-align: center;"><code class="reqn">(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r})'\mathbf{V}(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r})</code>
+</p>
+
+<p>The default is the identity matrix, so equal weight is given to all observations. In the case of multiple treated observations
+(you used <code>scdataMulti</code> to prepare the data), the user can specify <code>V</code> as a string equal to either "separate" or "pooled".
+If <code>scdata()</code> was used to prepare the data, <code>V</code> is automatically set to "separate" as the two options are
+equivalent. See the <strong>Details</strong> section for more.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V.mat</code></td>
+<td>
+<p>A conformable weighting matrix <code class="reqn">\mathbf{V}</code> to be used in the minimization of the sum of squared residuals
+</p>
+<p style="text-align: center;"><code class="reqn">(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r})'\mathbf{V}(\mathbf{A}-\mathbf{B}\mathbf{w}-\mathbf{C}\mathbf{r}).</code>
+</p>
+
+<p>See the <strong>Details</strong> section for more information on how to prepare this matrix.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>solver</code></td>
+<td>
+<p>a string containing the name of the solver used by <code>CVXR</code> when computing the weights. You can check which solvers are available
+on your machine by running <code>CVXR::installed_solvers()</code>. More information on what different solvers do can be found
+at the following link https://cvxr.rbind.io/cvxr_examples/cvxr_using-other-solvers/. "OSQP" is the default solver when 'lasso'
+is the constraint type, whilst "ECOS" is the default in all other cases.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P</code></td>
+<td>
+<p>a <code class="reqn">I\cdot T_1\times I\cdot (J+KM)</code> matrix containing the design matrix to be used to obtain the predicted.
+post-intervention outcome of the synthetic control unit. <code class="reqn">T_1</code> is the number of post-treatment periods,
+<code class="reqn">J</code> is the size of the donor pool, and <code class="reqn">K_1</code> is the number of covariates used for adjustment in the outcome equation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.missp</code></td>
+<td>
+<p>a logical indicating if misspecification should be taken into account when dealing with <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.sigma</code></td>
+<td>
+<p>a string specifying the type of variance-covariance estimator to be used when estimating
+the conditional variance of <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.order</code></td>
+<td>
+<p>a scalar that sets the order of the polynomial in <code class="reqn">\mathbf{B}</code> when predicting moments of <code class="reqn">\mathbf{u}</code>.
+The default is <code>u.order = 1</code>, however if there is risk of over-fitting, the command automatically sets it
+to <code>u.order = 0</code>. See the <strong>Details</strong> section for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.lags</code></td>
+<td>
+<p>a scalar that sets the number of lags of <code class="reqn">\mathbf{B}</code> when predicting moments of <code class="reqn">\mathbf{u}</code>.
+The default is <code>u.lags = 0</code>, however if there is risk of over-fitting, the command automatically sets it
+to <code>u.lags = 0</code>. See the <strong>Details</strong> section for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.design</code></td>
+<td>
+<p>a matrix with the same number of rows of <code class="reqn">\mathbf{A}</code> and <code class="reqn">\mathbf{B}</code> and whose columns specify the design matrix
+to be used when modeling the estimated pseudo-true residuals <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.alpha</code></td>
+<td>
+<p>a scalar specifying the confidence level for in-sample uncertainty, i.e. 1 - <code>u.alpha</code> is the confidence level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.method</code></td>
+<td>
+<p>a string selecting the method to be used in quantifying out-of-sample uncertainty among:
+"gaussian" which uses conditional subgaussian bounds; "ls" which specifies a location-scale model for <code class="reqn">\mathbf{u}</code>; "qreg" which employs a
+quantile regressions to get the conditional bounds; "all" uses each one of the previous methods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.order</code></td>
+<td>
+<p>a scalar that sets the order of the polynomial in <code class="reqn">\mathbf{B}</code> when predicting moments of <code class="reqn">\mathbf{e}</code>.
+The default is <code>e.order = 1</code>, however if there is risk of over-fitting, the command automatically sets it
+to <code>e.order = 0</code>. See the <strong>Details</strong> section for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.lags</code></td>
+<td>
+<p>a scalar that sets the number of lags of <code class="reqn">\mathbf{B}</code> when predicting moments of <code class="reqn">\mathbf{e}</code>.
+The default is <code>e.order = 1</code>, however if there is risk of over-fitting, the command automatically sets it
+to <code>e.order = 0</code>. See the <strong>Details</strong> section for more information.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.design</code></td>
+<td>
+<p>a matrix with the same number of rows of <code class="reqn">\mathbf{A}</code> and <code class="reqn">\mathbf{B}</code> and whose columns specify the design matrix
+to be used when modeling the estimated out-of-sample residuals <code class="reqn">\mathbf{e}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.alpha</code></td>
+<td>
+<p>a scalar specifying the confidence level for out-of-sample uncertainty, i.e. 1 - <code>e.alpha</code> is the confidence level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sims</code></td>
+<td>
+<p>a scalar providing the number of simulations to be used in quantifying in-sample uncertainty.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>a string specifying the regularizing parameter that imposes sparsity on the estimated vector of weights. If
+<code>rho = 'type-1'</code> (the default), then the tuning parameter is computed based on optimization inequalities. Users can provide a scalar
+with their own value for <code>rho</code>. Other options are described in the <strong>Details</strong> section.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho.max</code></td>
+<td>
+<p>a scalar indicating the maximum value attainable by the tuning parameter <code>rho</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lgapp</code></td>
+<td>
+<p>selects the way local geometry is approximated in simulation. The options are "generalized"
+and "linear". The first one accommodates for possibly non-linear constraints, whilst the second one is valid
+with linear constraints only.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>cores</code></td>
+<td>
+<p>number of cores to be used by the command. The default is one.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot</code></td>
+<td>
+<p>a logical specifying whether <code>scplot</code> should be called and a plot saved in the current working
+directory. For more options see <code>scplot</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>plot.name</code></td>
+<td>
+<p>a string containing the name of the plot (the format is by default .png). For more options see <code>scplot</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.bounds</code></td>
+<td>
+<p>a <code class="reqn">N_1\cdot T_1\times 2</code> matrix with the user-provided bounds on <code class="reqn">\beta</code>. If <code>w.bounds</code> is provided, then
+the quantification of in-sample uncertainty is skipped. It is possible to provide only the lower bound or the upper bound
+by filling the other column with <code>NA</code>s.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.bounds</code></td>
+<td>
+<p>a <code class="reqn">N_1\cdot T_1\times 2</code> matrix with the user-provided bounds on <code class="reqn">(\widehat{\mathbf{w}},
+\widehat{\mathbf{r}})^{\prime}</code>. If <code>e.bounds</code> is provided, then
+the quantification of out-of-sample uncertainty is skipped. It is possible to provide only the lower bound or the upper bound
+by filling the other column with <code>NA</code>s.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>save.data</code></td>
+<td>
+<p>a character specifying the name and the path of the saved dataframe containing the processed data used to produce the plot.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>if <code>TRUE</code> prints additional information in the console.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Information is provided for the simple case in which <code class="reqn">N_1=1</code> if not specified otherwise.
+</p>
+
+<ul>
+<li>
+<p><strong>Estimation of Weights.</strong> <code>w.constr</code> specifies the constraint set on the weights. First, the element
+<code>p</code> allows the user to choose between imposing a constraint on either the L1 (<code>p = "L1"</code>)
+or the L2 (<code>p = "L2"</code>) norm of the weights and imposing no constraint on the norm (<code>p = "no norm"</code>).
+Second, <code>Q</code> specifies the value of the constraint on the norm of the weights.
+Third, <code>lb</code> sets the lower bound of each component of the vector of weights.
+Fourth, <code>dir</code> sets the direction of the constraint on the norm in case <code>p = "L1"</code>
+or <code>p = "L2"</code>. If <code>dir = "=="</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_p = Q,\:\:\: w_j \geq lb,\:\: j =1,\ldots,J</code>
+</p>
+
+<p>If instead <code>dir = "&lt;="</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_p \leq Q,\:\:\: w_j \geq lb,\:\: j =1,\ldots,J</code>
+</p>
+
+<p>If instead <code>dir = "NULL"</code> no constraint on the norm of the weights is imposed.
+</p>
+<p>An alternative to specifying an ad-hoc constraint set on the weights would be
+choosing among some popular types of constraints. This can be done by including the element
+'<code>name</code>' in the list <code>w.constr</code>. The following are available options:
+</p>
+
+<ul>
+<li> <p>If <code>name == "simplex"</code> (the default), then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_1 = 1,\:\:\: w_j \geq 0,\:\: j =1,\ldots,J.</code>
+</p>
+
+</li>
+<li> <p>If <code>name == "lasso"</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_1 \leq Q,</code>
+</p>
+
+<p>where <code>Q</code> is by default equal to 1 but it can be provided as an element of the list (eg. <code>w.constr =
+list(name = "lasso", Q = 2)</code>).
+</p>
+</li>
+<li>
+<p>If <code>name == "ridge"</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_2 \leq Q,</code>
+</p>
+
+<p>where <code class="reqn">Q</code> is a tuning parameter that is by default computed as
+</p>
+<p style="text-align: center;"><code class="reqn">(J+KM) \widehat{\sigma}_u^{2}/||\widehat{\mathbf{w}}_{OLS}||_{2}^{2}</code>
+</p>
+
+<p>where <code class="reqn">J</code> is the number of donors and <code class="reqn">KM</code> is the total number of covariates used for adjustment.
+The user can provide <code>Q</code> as an element of the list (eg. <code>w.constr =
+list(name = "ridge", Q = 1)</code>).
+</p>
+</li>
+<li>
+<p>If <code>name == "ols"</code>, then the problem is unconstrained and the vector of weights
+is estimated via ordinary least squares.
+</p>
+</li>
+<li>
+<p>If <code>name == "L1-L2"</code>, then
+</p>
+<p style="text-align: center;"><code class="reqn">||\mathbf{w}||_1 = 1,\:\:\: ||\mathbf{w}||_2 \leq Q,</code>
+</p>
+
+<p>where <code class="reqn">Q</code> is a tuning parameter computed as in the "ridge" case.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Weighting Matrix.</strong>
+</p>
+
+<ul>
+<li>
+<p>if <code>V &lt;- "separate"</code>, then <code class="reqn">\mathbf{V} = \mathbf{I}</code> and the minimized objective function is
+</p>
+<p style="text-align: center;"><code class="reqn">\sum_{i=1}^{N_1} \sum_{l=1}^{M} \sum_{t=1}^{T_{0}}\left(a_{t, l}^{i}-\mathbf{b}_{t, l}^{{i \prime }} \mathbf{w}^{i}-\mathbf{c}_{t, l}^{{i \prime}} \mathbf{r}_{l}^{i}\right)^{2},</code>
+</p>
+
+<p>which optimizes the separate fit for each treated unit.
+</p>
+</li>
+<li>
+<p>if <code>V &lt;- "pooled"</code>, then <code class="reqn">\mathbf{V} = \mathbf{1}\mathbf{1}'\otimes \mathbf{I}</code> and the minimized objective function is
+</p>
+<p style="text-align: center;"><code class="reqn">\sum_{l=1}^{M} \sum_{t=1}^{T_{0}}\left(\frac{1}{N_1^2} \sum_{i=1}^{N_1}\left(a_{t, l}^{i}-\mathbf{b}_{t, l}^{i \prime} \mathbf{w}^{i}-\mathbf{c}_{t, l}^{i\prime} \mathbf{r}_{l}^{i}\right)\right)^{2},</code>
+</p>
+
+<p>which optimizes the pooled fit for the average of the treated units.
+</p>
+</li>
+<li>
+<p>if the user wants to provide their own weighting matrix, then it must use the option <code>V.mat</code> to input a <code class="reqn">v\times v</code> positive-definite matrix, where <code class="reqn">v</code> is the
+number of rows of <code class="reqn">\mathbf{B}</code> (or <code class="reqn">\mathbf{C}</code>) after potential missing values have been removed. In case the user
+wants to provide their own <code>V</code>, we suggest to check the appropriate dimension <code class="reqn">v</code> by inspecting the output
+of either <code>scdata</code> or <code>scdataMulti</code> and check the dimensions of <code class="reqn">\mathbf{B}</code> (and <code class="reqn">\mathbf{C}</code>). Note that
+the weighting matrix could cause problems to the optimizer if not properly scaled. For example, if <code class="reqn">\mathbf{V}</code> is diagonal
+we suggest to divide each of its entries by <code class="reqn">\|\mathrm{diag}(\mathbf{V})\|_1</code>.
+</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Regularization.</strong> <code>rho</code> is estimated through the formula
+</p>
+<p style="text-align: center;"><code class="reqn">\varrho = \mathcal{C}\frac{\log (T_0)^c}{T_0^{1/2}}</code>
+</p>
+
+<p>where <code class="reqn">\mathcal{C} = \widehat{\sigma}_u / \min_j \widehat{\sigma}_{b_j}</code> if <code>rho = 'type-1'</code>,
+<code class="reqn">\mathcal{C} = \max_{j}\widehat{\sigma}_{b_j}\widehat{\sigma}_{u} / \min_j \widehat{\sigma}_{b_j}^2</code> if <code>rho = 'type-2'</code>, and
+<code class="reqn">\mathcal{C} = \max_{j}\widehat{\sigma}_{b_ju} / \min_j \widehat{\sigma}_{b_j}^2</code> if <code>rho = 'type-3'</code>,
+</p>
+<p><code>rho</code> defines a new sparse weight vector as
+</p>
+<p style="text-align: center;"><code class="reqn">\widehat{w}^\star_j = \mathbf{1}(\widehat{w}_j\geq \varrho)</code>
+</p>
+
+
+</li>
+<li>
+<p><strong>In-sample uncertainty.</strong> To quantify in-sample uncertainty it is necessary to model the pseudo-residuals <code class="reqn">\mathbf{u}</code>.
+First of all, estimation of the first moment of <code class="reqn">\mathbf{u}</code> can be controlled through
+the option <code>u.missp</code>. When <code>u.missp = FALSE</code>, then <code class="reqn">\mathbf{E}[u\: |\: \mathbf{D}_u]=0</code>. If instead <code>u.missp = TRUE</code>,
+then <code class="reqn">\mathbf{E}[\mathbf{u}\: |\: \mathbf{D}_u]</code> is estimated using a linear regression of
+<code class="reqn">\widehat{\mathbf{u}}</code> on <code class="reqn">\mathbf{D}_u</code>. The default set of variables in <code class="reqn">\mathbf{D}_u</code> is composed of <code class="reqn">\mathbf{B}</code>,
+<code class="reqn">\mathbf{C}</code> and, if required, it is augmented with lags (<code>u.lags</code>) and polynomials (<code>u.order</code>) of <code class="reqn">\mathbf{B}</code>.
+The option <code>u.design</code> allows the user to provide an ad-hoc set of variables to form <code class="reqn">\mathbf{D}_u</code>.
+Regarding the second moment of <code class="reqn">\mathbf{u}</code>, different estimators can be chosen:
+HC0, HC1, HC2, HC3, and HC4 using the option <code>u.sigma</code>.
+</p>
+</li>
+<li>
+<p><strong>Out-of-sample uncertainty.</strong> To quantify out-of-sample uncertainty it is necessary to model the out-of-sample residuals
+<code class="reqn">\mathbf{e}</code> and estimate relevant moments. By default, the design matrix used during estimation <code class="reqn">\mathbf{D}_e</code> is composed of the blocks in
+<code class="reqn">\mathbf{B}</code> and <code class="reqn">\mathbf{C}</code> corresponding to the outcome variable. Moreover, if required by the user, <code class="reqn">\mathbf{D}_e</code>
+is augmented with lags (<code>e.lags</code>) and polynomials (<code>e.order</code>) of <code class="reqn">\mathbf{B}</code>. The option <code>e.design</code> allows the user to provide an
+ad-hoc set of variables to form <code class="reqn">\mathbf{D}_e</code>. Finally, the option <code>e.method</code> allows the user to select one of three
+estimation methods: "gaussian" relies on conditional sub-Gaussian bounds; "ls" estimates conditional bounds using a location-scale
+model; "qreg" uses conditional quantile regression of the residuals <code class="reqn">\mathbf{e}</code> on <code class="reqn">\mathbf{D}_e</code>.
+</p>
+</li>
+<li>
+<p><strong>Residual Estimation Over-fitting.</strong> To estimate conditional moments of <code class="reqn">\mathbf{u}</code> and <code class="reqn">e_t</code>
+we rely on two design matrices, <code class="reqn">\mathbf{D}_u</code> and <code class="reqn">\mathbf{D}_e</code> (see above). Let <code class="reqn">d_u</code> and <code class="reqn">d_e</code> be the number of
+columns in <code class="reqn">\mathbf{D}_u</code> and <code class="reqn">\mathbf{D}_e</code>, respectively. Assuming no missing values and balanced features, the
+number of observation used to estimate moments of <code class="reqn">\mathbf{u}</code> is <code class="reqn">N_1\cdot T_0\cdot M</code>, whilst for moments of <code class="reqn">e_t</code> is <code class="reqn">T_0</code>.
+Our rule of thumb to avoid over-fitting is to check if <code class="reqn">N_1\cdot T_0\cdot M \geq d_u + 10</code> or <code class="reqn">T_0 \geq d_e + 10</code>. If the
+former condition is not satisfied we automatically set <code>u.order = u.lags = 0</code>, if instead the latter is not met
+we automatically set <code>e.order = e.lags = 0</code>.
+</p>
+</li>
+</ul>
+<h3>Value</h3>
+
+<p>The function returns an object of class 'scpi' containing three lists. The first list is labeled 'data' and contains used
+data as returned by <code>scdata</code> and some other values.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>A</code></td>
+<td>
+<p>a matrix containing pre-treatment features of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>B</code></td>
+<td>
+<p>a matrix containing pre-treatment features of the control units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>C</code></td>
+<td>
+<p>a matrix containing covariates for adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>P</code></td>
+<td>
+<p>a matrix whose rows are the vectors used to predict the out-of-sample series for the synthetic unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.pre</code></td>
+<td>
+<p>a matrix containing the pre-treatment outcome of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.post</code></td>
+<td>
+<p>a matrix containing the post-treatment outcome of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.pre.agg</code></td>
+<td>
+<p>a matrix containing the aggregate pre-treatment outcome of the treated unit(s). This differs from
+Y.pre only in the case 'effect' in <code>scdataMulti()</code> is set to either 'unit' or 'time'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.post.agg</code></td>
+<td>
+<p>a matrix containing the aggregate post-treatment outcome of the treated unit(s). This differs from
+Y.post only in the case 'effect' in <code>scdataMulti()</code> is set to either 'unit' or 'time'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.donors</code></td>
+<td>
+<p>a matrix containing the pre-treatment outcome of the control units.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>specs</code></td>
+<td>
+<p>a list containing some specifics of the data:
+</p>
+
+<ul>
+<li>
+<p><code>J</code>, the number of control units
+</p>
+</li>
+<li>
+<p><code>K</code>, a numeric vector with the number of covariates used for adjustment for each feature
+</p>
+</li>
+<li>
+<p><code>M</code>, number of features
+</p>
+</li>
+<li>
+<p><code>KM</code>, the total number of covariates used for adjustment
+</p>
+</li>
+<li>
+<p><code>KMI</code>, the total number of covariates used for adjustment
+</p>
+</li>
+<li>
+<p><code>I</code>, number of treated unit(s)
+</p>
+</li>
+<li>
+<p><code>period.pre</code>, a numeric vector with the pre-treatment period
+</p>
+</li>
+<li>
+<p><code>period.post</code>, a numeric vector with the post-treatment period
+</p>
+</li>
+<li>
+<p><code>T0.features</code>, a numeric vector with the number of periods used in estimation for each feature
+</p>
+</li>
+<li>
+<p><code>T1.outcome</code>, the number of post-treatment periods
+</p>
+</li>
+<li>
+<p><code>constant</code>, for internal use only
+</p>
+</li>
+<li>
+<p><code>effect</code>, for internal use only
+</p>
+</li>
+<li>
+<p><code>anticipation</code>, number of periods of potential anticipation effects
+</p>
+</li>
+<li>
+<p><code>out.in.features</code>, for internal use only
+</p>
+</li>
+<li>
+<p><code>treated.units</code>, list containing the IDs of all treated units
+</p>
+</li>
+<li>
+<p><code>donors.list</code>, list containing the IDs of the donors of each treated unit</p>
+</li>
+</ul>
+</td>
+</tr>
+</table>
+<p>The second list is labeled 'est.results' containing all the results from <code>scest</code>.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>w</code></td>
+<td>
+<p>a matrix containing the estimated weights of the donors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>r</code></td>
+<td>
+<p>a matrix containing the values of the covariates used for adjustment.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>b</code></td>
+<td>
+<p>a matrix containing <code class="reqn">\mathbf{w}</code> and <code class="reqn">\mathbf{r}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.pre.fit</code></td>
+<td>
+<p>a matrix containing the estimated pre-treatment outcome of the SC unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y.post.fit</code></td>
+<td>
+<p>a matrix containing the estimated post-treatment outcome of the SC unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>A.hat</code></td>
+<td>
+<p>a matrix containing the predicted values of the features of the treated unit(s).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>res</code></td>
+<td>
+<p>a matrix containing the residuals <code class="reqn">\mathbf{A}-\widehat{\mathbf{A}}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>V</code></td>
+<td>
+<p>a matrix containing the weighting matrix used in estimation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>w.constr</code></td>
+<td>
+<p>a list containing the specifics of the constraint set used on the weights.</p>
+</td>
+</tr>
+</table>
+<p>The third list is labeled 'inference.results' and contains all the inference-related results.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>CI.in.sample</code></td>
+<td>
+<p>a matrix containing the prediction intervals taking only in-sample uncertainty in to account.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI.all.gaussian</code></td>
+<td>
+<p>a matrix containing the prediction intervals estimating out-of-sample uncertainty with sub-Gaussian bounds.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI.all.ls</code></td>
+<td>
+<p>a matrix containing the prediction intervals estimating out-of-sample uncertainty with a location-scale model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>CI.all.qreg</code></td>
+<td>
+<p>a matrix containing the prediction intervals estimating out-of-sample uncertainty with quantile regressions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bounds</code></td>
+<td>
+<p>a list containing the estimated bounds (in-sample and out-of-sample uncertainty).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Sigma</code></td>
+<td>
+<p>a matrix containing the estimated (conditional) variance-covariance <code class="reqn">\boldsymbol{\Sigma}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.mean</code></td>
+<td>
+<p>a matrix containing the estimated (conditional) mean of the pseudo-residuals <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.var</code></td>
+<td>
+<p>a matrix containing the estimated (conditional) variance-covariance of the pseudo-residuals <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.mean</code></td>
+<td>
+<p>a matrix containing the estimated (conditional) mean of the out-of-sample error <code class="reqn">e</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.var</code></td>
+<td>
+<p>a matrix containing the estimated (conditional) variance of the out-of-sample error <code class="reqn">e</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.missp</code></td>
+<td>
+<p>a logical indicating whether the model has been treated as misspecified or not.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.lags</code></td>
+<td>
+<p>an integer containing the number of lags in B used in predicting moments of the pseudo-residuals <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.order</code></td>
+<td>
+<p>an integer containing the order of the polynomial in B used in predicting moments of the pseudo-residuals <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.sigma</code></td>
+<td>
+<p>a string indicating the estimator used for <code>Sigma</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.user</code></td>
+<td>
+<p>a logical indicating whether the design matrix to predict moments of <code class="reqn">\mathbf{u}</code> was user-provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.T</code></td>
+<td>
+<p>a scalar indicating the number of observations used to predict moments of <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.params</code></td>
+<td>
+<p>a scalar indicating the number of parameters used to predict moments of <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.D</code></td>
+<td>
+<p>the design matrix used to predict moments of <code class="reqn">\mathbf{u}</code>,</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>u.alpha</code></td>
+<td>
+<p>a scalar determining the confidence level used for in-sample uncertainty, i.e. 1-<code>u.alpha</code> is the confidence level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.method</code></td>
+<td>
+<p>a string indicating the specification used to predict moments of the out-of-sample error <code class="reqn">e</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.lags</code></td>
+<td>
+<p>an integer containing the number of lags in B used in predicting moments of the out-of-sample error <code class="reqn">e</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.order</code></td>
+<td>
+<p>an integer containing the order of the polynomial in B used in predicting moments of the out-of-sample error <code class="reqn">e</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.user</code></td>
+<td>
+<p>a logical indicating whether the design matrix to predict moments of <code class="reqn">e</code> was user-provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.T</code></td>
+<td>
+<p>a scalar indicating the number of observations used to predict moments of <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.params</code></td>
+<td>
+<p>a scalar indicating the number of parameters used to predict moments of <code class="reqn">\mathbf{u}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.alpha</code></td>
+<td>
+<p>a scalar determining the confidence level used for out-of-sample uncertainty, i.e. 1-<code>e.alpha</code> is the confidence level.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>e.D</code></td>
+<td>
+<p>the design matrix used to predict moments of <code class="reqn">\mathbf{u}</code>,</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rho</code></td>
+<td>
+<p>an integer specifying the estimated regularizing parameter that imposes sparsity on the estimated vector of weights.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Q.star</code></td>
+<td>
+<p>a list containing the regularized constraint on the norm.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>epskappa</code></td>
+<td>
+<p>a vector containing the estimates for <code class="reqn">\epsilon_{\kappa}</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sims</code></td>
+<td>
+<p>an integer indicating the number of simulations used in quantifying in-sample uncertainty.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>failed.sims</code></td>
+<td>
+<p>a matrix containing the number of failed simulations per post-treatment period to estimate lower and upper bounds.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Matias Cattaneo, Princeton University. <a href="mailto:cattaneo@princeton.edu">cattaneo@princeton.edu</a>.
+</p>
+<p>Yingjie Feng, Tsinghua University. <a href="mailto:fengyj@sem.tsinghua.edu.cn">fengyj@sem.tsinghua.edu.cn</a>.
+</p>
+<p>Filippo Palomba, Princeton University (maintainer). <a href="mailto:fpalomba@princeton.edu">fpalomba@princeton.edu</a>.
+</p>
+<p>Rocio Titiunik, Princeton University. <a href="mailto:titiunik@princeton.edu">titiunik@princeton.edu</a>.
+</p>
+
+
+<h3>References</h3>
+
+
+<ul>
+<li>
+<p><a href="https://www.aeaweb.org/articles?id=10.1257/jel.20191450">Abadie, A. (2021)</a>. Using synthetic controls: Feasibility, data requirements, and methodological aspects.
+<em>Journal of Economic Literature</em>, 59(2), 391-425.
+</p>
+</li>
+<li>
+<p><a href="https://nppackages.github.io/references/Cattaneo-Feng-Titiunik_2021_JASA.pdf">Cattaneo, M. D., Feng, Y., and Titiunik, R.
+(2021)</a>. Prediction intervals for synthetic control methods. <em>Journal of the American Statistical Association</em>, 116(536), 1865-1880.
+</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/2202.05984">Cattaneo, M. D., Feng, Y., Palomba F., and Titiunik, R. (2022).</a>
+scpi: Uncertainty Quantification for Synthetic Control Methods, <em>arXiv</em>:2202.05984.
+</p>
+</li>
+<li>
+<p><a href="https://arxiv.org/abs/2210.05026">Cattaneo, M. D., Feng, Y., Palomba F., and Titiunik, R. (2022).</a>
+Uncertainty Quantification in Synthetic Controls with Staggered Treatment Adoption, <em>arXiv</em>:2210.05026.
+</p>
+</li>
+</ul>
+<h3>See Also</h3>
+
+<p><code>scdata</code>, <code>scdataMulti</code>, <code>scest</code>, <code>scplot</code>, <code>scplotMulti</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+data &lt;- scpi_germany
+
+df &lt;- scdata(df = data, id.var = "country", time.var = "year",
+             outcome.var = "gdp", period.pre = (1960:1990),
+             period.post = (1991:2003), unit.tr = "West Germany",
+             unit.co = setdiff(unique(data$country), "West Germany"),
+             constant = TRUE, cointegrated.data = TRUE)
+
+result &lt;- scpi(df, w.constr = list(name = "simplex", Q = 1), cores = 1, sims = 10)
+result &lt;- scpi(df, w.constr = list(lb = 0, dir = "==", p = "L1", Q = 1),
+               cores = 1, sims = 10)
+                           
+</code></pre>
+
+
+</div>

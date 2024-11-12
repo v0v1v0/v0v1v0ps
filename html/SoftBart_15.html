@@ -1,0 +1,158 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>softbart</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Fits the SoftBart model</h2>
+
+<h3>Description</h3>
+
+<p>Runs the Markov chain for the semiparametric Gaussian model </p>
+<p style="text-align: center;"><code class="reqn">Y = r(X) +
+\epsilon</code>
+</p>
+<p> and collects the output, where <code class="reqn">r(x)</code>
+is modeled using a soft BART model.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">softbart(X, Y, X_test, hypers = NULL, opts = Opts(), verbose = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>X</code></td>
+<td>
+<p>A matrix of training data covariates.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Y</code></td>
+<td>
+<p>A vector of training data responses.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>X_test</code></td>
+<td>
+<p>A matrix of test data covariates</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hypers</code></td>
+<td>
+<p>A ;ist of hyperparameter values obtained from <code>Hypers</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>opts</code></td>
+<td>
+<p>A list of MCMC chain settings obtained from <code>Opts</code> function</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>If <code>TRUE</code>, progress of the chain will be printed to the console.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns a list with the following components:
+</p>
+
+<ul>
+<li> <p><code>y_hat_train</code>: predicted values for the training data for each iteration of the chain.
+</p>
+</li>
+<li> <p><code>y_hat_test</code>: predicted values for the test data for each iteration of the chain.
+</p>
+</li>
+<li> <p><code>y_hat_train_mean</code>: predicted values for the training data, averaged over iterations.
+</p>
+</li>
+<li> <p><code>y_hat_test_mean</code>: predicted values for the test data, averaged over iterations.
+</p>
+</li>
+<li> <p><code>sigma</code>: posterior samples of the error standard deviations.
+</p>
+</li>
+<li> <p><code>sigma_mu</code>: posterior samples of <code>sigma_mu</code>, the standard deviation of the leaf node parameters.
+</p>
+</li>
+<li> <p><code>s</code>: posterior samples of <code>s</code>.
+</p>
+</li>
+<li> <p><code>alpha</code>: posterior samples of <code>alpha</code>.
+</p>
+</li>
+<li> <p><code>beta</code>: posterior samples of <code>beta</code>.
+</p>
+</li>
+<li> <p><code>gamma</code>: posterior samples of <code>gamma</code>.
+</p>
+</li>
+<li> <p><code>k</code>: posterior samples of <code>k = 0.5 / (sqrt(num_tree) * sigma_mu)</code>
+</p>
+</li>
+<li> <p><code>num_leaves_final</code>: the number of leaves for each tree at the final iteration.
+</p>
+</li>
+</ul>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## NOTE: SET NUMBER OF BURN IN AND SAMPLE ITERATIONS HIGHER IN PRACTICE
+
+num_burn &lt;- 10 ## Should be ~ 5000
+num_save &lt;- 10 ## Should be ~ 5000
+
+set.seed(1234)
+f_fried &lt;- function(x) 10 * sin(pi * x[,1] * x[,2]) + 20 * (x[,3] - 0.5)^2 + 
+  10 * x[,4] + 5 * x[,5]
+
+gen_data &lt;- function(n_train, n_test, P, sigma) {
+  X &lt;- matrix(runif(n_train * P), nrow = n_train)
+  mu &lt;- f_fried(X)
+  X_test &lt;- matrix(runif(n_test * P), nrow = n_test)
+  mu_test &lt;- f_fried(X_test)
+  Y &lt;- mu + sigma * rnorm(n_train)
+  Y_test &lt;- mu_test + sigma * rnorm(n_test)
+  
+  return(list(X = X, Y = Y, mu = mu, X_test = X_test, Y_test = Y_test, mu_test = mu_test))
+}
+
+## Simiulate dataset
+sim_data &lt;- gen_data(250, 100, 1000, 1)
+
+## Fit the model
+fit &lt;- softbart(X = sim_data$X, Y = sim_data$Y, X_test = sim_data$X_test, 
+                hypers = Hypers(sim_data$X, sim_data$Y, num_tree = 50, temperature = 1),
+                opts = Opts(num_burn = num_burn, num_save = num_save, update_tau = TRUE))
+
+## Plot the fit (note: interval estimates are not prediction intervals, 
+## so they do not cover the predictions at the nominal rate)
+plot(fit)
+
+## Look at posterior model inclusion probabilities for each predictor. 
+
+plot(posterior_probs(fit)[["post_probs"]], 
+     col = ifelse(posterior_probs(fit)[["post_probs"]] &gt; 0.5, scales::muted("blue"), 
+                  scales::muted("green")), 
+     pch = 20)
+
+
+rmse(fit$y_hat_test_mean, sim_data$mu_test)
+rmse(fit$y_hat_train_mean, sim_data$mu)
+
+</code></pre>
+
+
+</div>

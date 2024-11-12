@@ -1,0 +1,192 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>build_polys</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Build Polygons</h2>
+
+<h3>Description</h3>
+
+<p><code>build_polys</code> generates a simple feature collection with POLYGONs from a
+<code>data.table</code>. The function accepts a <code>data.table</code> with
+relocation data, individual identifiers, a projection,
+home range type and parameters. The relocation
+data is transformed into POLYGONs using either adehabitatHR::mcp or
+adehabitatHR::kernelUD for each individual and, optionally,
+combination of columns listed in <code>splitBy</code>. Relocation data should be in two
+columns representing the X and Y coordinates.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">build_polys(
+  DT = NULL,
+  projection = NULL,
+  hrType = NULL,
+  hrParams = NULL,
+  id = NULL,
+  coords = NULL,
+  splitBy = NULL,
+  spPts = NULL
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>DT</code></td>
+<td>
+<p>input data.table</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>projection</code></td>
+<td>
+<p>numeric or character defining the coordinate reference
+system to be passed to sf::st_crs. For example, either
+<code>projection = "EPSG:32736"</code> or <code>projection = 32736</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hrType</code></td>
+<td>
+<p>type of HR estimation, either 'mcp' or 'kernel'</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>hrParams</code></td>
+<td>
+<p>a named list of parameters for <code>adehabitatHR</code> functions</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>id</code></td>
+<td>
+<p>Character string of ID column name</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>coords</code></td>
+<td>
+<p>Character vector of X coordinate and Y coordinate column names</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>splitBy</code></td>
+<td>
+<p>(optional) character string or vector of grouping column
+name(s) upon which the grouping will be calculated</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>spPts</code></td>
+<td>
+<p>alternatively, provide solely a SpatialPointsDataFrame with one
+column representing the ID of each point, as specified by adehabitatHR::mcp
+or adehabitatHR::kernelUD</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>group_polys uses <code>build_polys</code> for grouping overlapping
+polygons created from relocations.
+</p>
+
+
+<h4>R-spatial evolution</h4>
+
+<p>Please note, spatsoc has followed updates from R spatial, GDAL and PROJ for
+handling projections, see more below and  details at
+<a href="https://r-spatial.org/r/2020/03/17/wkt.html">https://r-spatial.org/r/2020/03/17/wkt.html</a>.
+</p>
+<p>In addition, <code>build_polys</code> previously used sp::SpatialPoints but has been
+updated to use sf::st_as_sf according to the R-spatial evolution, see more
+at <a href="https://r-spatial.org/r/2022/04/12/evolution.html">https://r-spatial.org/r/2022/04/12/evolution.html</a>.
+</p>
+
+
+
+<h4>Notes on arguments</h4>
+
+<p>The <code>DT</code> must be a <code>data.table</code>. If your data is a <code>data.frame</code>, you can
+convert it by reference using data.table::setDT.
+</p>
+<p>The <code>id</code>, <code>coords</code> (and optional <code>splitBy</code>) arguments
+expect the names of respective columns in <code>DT</code> which correspond
+to the individual identifier, X and Y coordinates, and additional
+grouping columns.
+</p>
+<p>The <code>projection</code> argument expects a character string or numeric
+defining the coordinate reference system to be passed to sf::st_crs.
+For example, for UTM zone 36S (EPSG 32736), the projection
+argument is <code>projection = "EPSG:32736"</code> or <code>projection = 32736</code>.
+See <a href="https://spatialreference.org">https://spatialreference.org</a>
+for a list of EPSG codes.
+</p>
+<p>The <code>hrType</code> must be either one of "kernel" or "mcp". The
+<code>hrParams</code> must be a named list of arguments matching those
+of adehabitatHR::kernelUD and adehabitatHR::getverticeshr
+or adehabitatHR::mcp.
+</p>
+<p>The <code>splitBy</code> argument offers further control building
+POLYGONs. If in your <code>DT</code>, you have multiple
+temporal groups (e.g.: years) for example, you can provide the
+name of the column which identifies them and build POLYGONs
+for each individual in each year.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p><code>build_polys</code> returns a simple feature collection with POLYGONs
+for each individual (and optionally <code>splitBy</code> combination).
+</p>
+<p>An error is returned when <code>hrParams</code> do not match the arguments
+of the respective <code>hrType</code> <code>adehabitatHR</code> function.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>group_polys
+</p>
+<p>Other Build functions: 
+<code>build_lines()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Load data.table
+library(data.table)
+
+
+# Read example data
+DT &lt;- fread(system.file("extdata", "DT.csv", package = "spatsoc"))
+
+# Cast the character column to POSIXct
+DT[, datetime := as.POSIXct(datetime, tz = 'UTC')]
+
+# EPSG code for example data
+utm &lt;- 32736
+
+# Build polygons for each individual using kernelUD and getverticeshr
+build_polys(DT, projection = utm, hrType = 'kernel',
+            hrParams = list(grid = 60, percent = 95),
+            id = 'ID', coords = c('X', 'Y'))
+
+# Build polygons for each individual by year
+DT[, yr := year(datetime)]
+build_polys(DT, projection = utm, hrType = 'mcp',
+            hrParams = list(percent = 95),
+            id = 'ID', coords = c('X', 'Y'), splitBy = 'yr')
+</code></pre>
+
+
+</div>

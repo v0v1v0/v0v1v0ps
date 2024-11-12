@@ -1,0 +1,109 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sample_ctree</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Sample ctree variables from a given conditional inference tree</h2>
+
+<h3>Description</h3>
+
+<p>Sample ctree variables from a given conditional inference tree
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sample_ctree(tree, n_samples, x_test, x_train, p, sample)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>tree</code></td>
+<td>
+<p>List. Contains tree which is an object of type ctree built from the party package.
+Also contains given_ind, the features to condition upon.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n_samples</code></td>
+<td>
+<p>Numeric. Indicates how many samples to use for MCMC.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x_test</code></td>
+<td>
+<p>Matrix, data.frame or data.table with the features of the observation whose
+predictions ought to be explained (test data). Dimension <code>1xp</code> or <code>px1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>x_train</code></td>
+<td>
+<p>Matrix, data.frame or data.table with training data.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>p</code></td>
+<td>
+<p>Positive integer. The number of features.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sample</code></td>
+<td>
+<p>Boolean. True indicates that the method samples from the terminal node
+of the tree whereas False indicates that the method takes all the observations if it is
+less than n_samples.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>data.table with <code>n_samples</code> (conditional) Gaussian samples
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Annabelle Redelmeier
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if (requireNamespace("MASS", quietly = TRUE) &amp; requireNamespace("party", quietly = TRUE)) {
+  m &lt;- 10
+  n &lt;- 40
+  n_samples &lt;- 50
+  mu &lt;- rep(1, m)
+  cov_mat &lt;- cov(matrix(rnorm(n * m), n, m))
+  x_train &lt;- data.table::data.table(MASS::mvrnorm(n, mu, cov_mat))
+  x_test &lt;- MASS::mvrnorm(1, mu, cov_mat)
+  x_test_dt &lt;- data.table::setDT(as.list(x_test))
+  given_ind &lt;- c(4, 7)
+  dependent_ind &lt;- (1:dim(x_train)[2])[-given_ind]
+  x &lt;- x_train[, given_ind, with = FALSE]
+  y &lt;- x_train[, dependent_ind, with = FALSE]
+  df &lt;- data.table::data.table(cbind(y, x))
+  colnames(df) &lt;- c(paste0("Y", 1:ncol(y)), paste0("V", given_ind))
+  ynam &lt;- paste0("Y", 1:ncol(y))
+  fmla &lt;- as.formula(paste(paste(ynam, collapse = "+"), "~ ."))
+  datact &lt;- party::ctree(fmla, data = df, controls = party::ctree_control(
+    minbucket = 7,
+    mincriterion = 0.95
+  ))
+  tree &lt;- list(tree = datact, given_ind = given_ind, dependent_ind = dependent_ind)
+  shapr:::sample_ctree(
+    tree = tree, n_samples = n_samples, x_test = x_test_dt, x_train = x_train,
+    p = length(x_test), sample = TRUE
+  )
+}
+</code></pre>
+
+
+</div>

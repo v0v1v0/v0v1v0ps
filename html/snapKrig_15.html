@@ -1,0 +1,224 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sk</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Make a snapKrig grid list object</h2>
+
+<h3>Description</h3>
+
+<p>Constructs snapKrig ("sk") class list, representing a 2-dimensional regular spatial grid
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sk(..., vals = TRUE)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>raster, matrix, numeric vector, or list of named arguments (see details)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>vals</code></td>
+<td>
+<p>logical indicating to include the data vector <code>gval</code> in return list</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function accepts 'RasterLayer' and 'RasterStack' inputs from the <code>raster</code> package,
+'SpatRaster' objects from <code>terra</code>, as well as any non-complex matrix, or a set of arguments
+defining the vectorization of one. It returns a sk class list containing at least the
+following three elements:
+</p>
+
+<ul>
+<li> <p><code>gdim</code>: vector of two positive integers, the number of grid lines (n = their product)
+</p>
+</li>
+<li> <p><code>gres</code>: vector of two positive scalars, the resolution (in distance between grid lines)
+</p>
+</li>
+<li> <p><code>gyx</code>: list of two numeric vectors (lengths matching gdim), the grid line intercepts
+</p>
+</li>
+</ul>
+<p>and optionally,
+</p>
+
+<ul>
+<li> <p><code>crs</code>: character, the WKT representation of the CRS for the grid (optional)
+</p>
+</li>
+<li> <p><code>gval</code>: numeric vector or matrix, the grid data
+</p>
+</li>
+<li> <p><code>is_obs</code>: logical vector indicating non-NA entries in the grid data
+</p>
+</li>
+<li> <p><code>idx_grid</code>: length-n numeric vector mapping rows of <code>gval</code> to grid points
+</p>
+</li>
+</ul>
+<p>Supply some/all of these elements (including at least one of <code>gdim</code> or <code>gyx</code>) as named
+arguments to <code>...</code>. The function will fill in missing entries wherever possible.
+</p>
+<p>If <code>gres</code> is missing, it is computed from the first two grid lines in <code>gyx</code>; If <code>gyx</code> is
+missing, it is assigned the sequence <code>1:n</code> (scaled by <code>gres</code>, if available) for each <code>n</code>
+in <code>gdim</code>; and if <code>gdim</code> is missing, it is set to the number of grid lines specified in
+<code>gyx</code>. <code>gyx</code> should be sorted (ascending order), regularly spaced (with spacing <code>gres</code>),
+and have lengths matching <code>gdim</code>.
+</p>
+<p>Scalar inputs to <code>gdim</code>, <code>gres</code> are duplicated for both dimensions. For example the call
+<code>sk(gdim=c(5,5))</code> can be simplified to <code>sk(gdim=5)</code>, or <code>sk(5)</code>.
+</p>
+<p>For convenience, arguments can also be supplied together in a named list passed to <code>...</code>.
+If a single unnamed argument is supplied (and it is not a list) the function expects it to
+be either a numeric vector (<code>gdim</code>), a matrix, or a raster object.
+</p>
+<p>Alternatively, you can supply an <code>sk</code> object as (unnamed) first argument, followed by
+individual named arguments. This replaces the named elements in the <code>sk</code> object then does
+a validity check.
+</p>
+<p>Empty grids - with all data <code>NA</code> - can be initialized by setting <code>vals=FALSE</code>, in which case
+<code>gval</code> will be absent from the returned list). Otherwise <code>gval</code> is the
+column-vectorized grid data, either as a numeric vector (single layer case only) or as a
+matrix with grid data in columns. <code>gval</code> is always accompanied by <code>is_obs</code>, which supplies
+an index of <code>NA</code> entries (or rows)
+</p>
+<p>A sparse representation is used when <code>gval</code> is a matrix, where only the non-<code>NA</code> entries (or
+rows) are stored. <code>idx_grid</code> in this case contains <code>NA</code>'s were <code>is_obs</code> is <code>FALSE</code>, and
+otherwise contains the integer index of the corresponding row in <code>gval</code>. In the matrix case
+it is assumed that each layer (ie column) has the same <code>NA</code> structure. <code>idx_grid</code> is only
+computed for the first layer. If a point is missing from one layer, it should be missing
+from all layers.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a "sk" class list object
+</p>
+
+
+<h3>See Also</h3>
+
+<p>Other sk constructors: 
+<code>sk_rescale()</code>,
+<code>sk_snap()</code>,
+<code>sk_sub()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+# simple grid construction from dimensions
+gdim = c(12, 10)
+g = sk(gdim)
+summary(g)
+
+# pass result to sk and get the same thing back
+identical(g, sk(g))
+
+# supply grid lines as named argument instead and get the same result
+all.equal(g, sk(gyx=lapply(gdim, function(x) seq(x)-1L)))
+
+# display coordinates and grid line indices
+plot(g)
+plot(g, ij=TRUE)
+
+# same dimensions, different resolution, affecting aspect ratio in plot
+gres_new = c(3, 4)
+plot(sk(gdim=gdim, gres=gres_new))
+
+# single argument (unnamed) can be grid dimensions, with shorthand for square grids
+all.equal(sk(gdim=c(2,2)), sk(c(2,2)))
+all.equal(sk(2), sk(gdim=c(2,2)))
+
+# example with matrix data
+gdim = c(25, 25)
+gyx = as.list(expand.grid(lapply(gdim, seq)))
+eg_vec = as.numeric( gyx[[2]] %% gyx[[1]] )
+eg_mat = matrix(eg_vec, gdim)
+g = sk(eg_mat)
+plot(g, ij=TRUE, zlab='j mod i')
+
+# y is in descending order
+plot(g, xlab='x = j', ylab='y = 26 - i', zlab='j mod i')
+
+# this is R's default matrix vectorization order
+all.equal(eg_vec, as.vector(eg_mat))
+all.equal(g, sk(gdim=gdim, gval=as.vector(eg_mat)))
+
+# multi-layer example from matrix
+n_pt = prod(gdim)
+n_layer = 3
+mat_multi = matrix(stats::rnorm(n_pt*n_layer), n_pt, n_layer)
+g_multi = sk(gdim=gdim, gval=mat_multi)
+summary(g_multi)
+
+# repeat with missing data (note all columns must have consistent NA structure)
+mat_multi[sample.int(n_pt, 0.5*n_pt),] = NA
+g_multi_miss = sk(gdim=gdim, gval=mat_multi)
+summary(g_multi_miss)
+
+# only observed data points are stored, idx_grid maps them to the full grid vector
+max(abs( g_multi[['gval']] - g_multi_miss[['gval']][g_multi_miss[['idx_grid']],] ), na.rm=TRUE)
+
+# single bracket indexing magic does the mapping automatically
+max(abs( g_multi[] - g_multi_miss[] ), na.rm=TRUE)
+
+# vals=FALSE drops multi-layer information
+sk(gdim=gdim, gval=mat_multi, vals=FALSE)
+
+# raster import examples skipped to keep CMD check time &lt; 5s on slower machines
+
+if( requireNamespace('raster') ) {
+
+# open example file as RasterLayer
+r_path = system.file('external/rlogo.grd', package='raster')
+r = raster::raster(r_path)
+
+# convert to sk (notice only first layer was loaded by raster)
+g = sk(r)
+summary(g)
+plot(g)
+
+# open a RasterStack - gval becomes a matrix with layers in columns
+r_multi = raster::stack(r_path)
+g_multi = sk(r_multi)
+summary(g_multi)
+plot(g_multi, layer=1)
+plot(g_multi, layer=2)
+plot(g_multi, layer=3)
+
+# repeat with terra
+if( requireNamespace('terra') ) {
+
+# open example file as SpatRaster (all layers loaded by default)
+r_multi = terra::rast(r_path)
+g_multi = sk(r_multi)
+summary(g_multi)
+
+# open first layer only
+g = sk(r[[1]])
+summary(g)
+
+}
+}
+
+</code></pre>
+
+
+</div>

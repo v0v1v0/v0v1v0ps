@@ -1,0 +1,424 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>twinstim_iaf</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>
+Temporal and Spatial Interaction Functions for <code>twinstim</code>
+</h2>
+
+<h3>Description</h3>
+
+<p>A <code>twinstim</code> model as described in Meyer et al. (2012) requires
+the specification of the spatial and temporal interaction functions
+(<code class="reqn">f</code> and <code class="reqn">g</code>, respectively), 
+i.e. how infectivity decays with increasing spatial and temporal
+distance from the source of infection.
+Own such functions can be specified (see
+<code>siaf</code> and <code>tiaf</code>, respectively), but the
+package already predefines some common dispersal kernels returned by
+the constructor functions documented here.
+See Meyer and Held (2014) for various spatial interaction functions,
+and Meyer et al. (2017, Section 3, available as <code>vignette("twinstim")</code>)
+for an illustration of the implementation.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R"># predefined spatial interaction functions
+siaf.constant()
+siaf.step(knots, maxRange = Inf, nTypes = 1, validpars = NULL)
+siaf.gaussian(nTypes = 1, logsd = TRUE, density = FALSE,
+              F.adaptive = FALSE, F.method = "iso",
+              effRangeMult = 6, validpars = NULL)
+siaf.exponential(nTypes = 1, validpars = NULL, engine = "C")
+siaf.powerlaw(nTypes = 1, validpars = NULL, engine = "C")
+siaf.powerlaw1(nTypes = 1, validpars = NULL, sigma = 1)
+siaf.powerlawL(nTypes = 1, validpars = NULL, engine = "C")
+siaf.student(nTypes = 1, validpars = NULL, engine = "C")
+
+# predefined temporal interaction functions
+tiaf.constant()
+tiaf.step(knots, maxRange = Inf, nTypes = 1, validpars = NULL)
+tiaf.exponential(nTypes = 1, validpars = NULL)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>knots</code></td>
+<td>
+<p>numeric vector of distances at which the step function
+switches to a new height. The length of this vector determines the
+number of parameters to estimate. For identifiability, the step
+function has height 1 in the first interval <code class="reqn">[0,knots_1)</code>. Note
+that the implementation is right-continuous, i.e., intervals are
+<code class="reqn">[a,b)</code>.<br>
+An initial choice of knots could be based on quantiles of the
+observed distances between events and their potential source events.
+For instance, an identifiable spatial step function could be
+<code>siaf.step(quantile(getSourceDists(myepi, "space"), c(1,2,4)/10))</code>,
+where <code>myepi</code> is the <code>"epidataCS"</code> data to be modelled.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>maxRange</code></td>
+<td>
+<p>a scalar larger than any of <code>knots</code>.
+Per default (<code>maxRange=Inf</code>), the step function
+never drops to 0 but keeps the last height for any distance larger
+than the last knot. However, this might not work in some cases,
+where the last parameter value would become very small and lead to
+numerical problems. It is then possible to truncate
+interaction at a distance <code>maxRange</code> (just like what the
+variables <code>eps.s</code> and <code>eps.t</code> do in the
+<code>"epidataCS"</code> object).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nTypes</code></td>
+<td>
+
+<p>determines the number of parameters ((log-)scales or (log-)shapes)
+of the kernels. In a multitype epidemic, the different types may
+share the same spatial interaction function, in which case
+<code>nTypes=1</code>. Otherwise <code>nTypes</code> should equal the number of
+event types of the epidemic, in which case every type has its own
+(log-)scale or (log-)shape, respectively.<br>
+Currently, <code>nTypes &gt; 1</code> is only implemented for
+<code>siaf.gaussian(F.adaptive = TRUE)</code>,
+<code>tiaf.step</code>, and <code>tiaf.exponential</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>logsd,density</code></td>
+<td>
+
+<p>logicals affecting the parametrization of the Gaussian kernel.
+Settings different from the defaults are deprecated.
+The default is to use only the kernel of the bivariate, isotropic
+normal distribution (<code>density=FALSE</code>, see Details below),
+parametrized with the log-standard deviation (<code>logsd=TRUE</code>) to
+avoid constrained optimisation (L-BFGS-B) or <code>validpars</code>.<br>
+The power-law kernels always employ the log-scale for their scale
+and shape parameters.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>F.adaptive,F.method</code></td>
+<td>
+
+<p>If <code>F.adaptive = TRUE</code>, then an adaptive bandwidth of
+<code>adapt*sd</code> will be used in the midpoint-cubature
+(<code>polyCub.midpoint</code> in package <span class="pkg">polyCub</span>)
+of the Gaussian interaction
+kernel, where <code>adapt</code> is an extra parameter of the returned
+<code>siaf$F</code> function and defaults to 0.1. It can be customized
+either by the <code>control.siaf$F</code> argument list of
+<code>twinstim</code>, or by a numeric specification of <code>F.adaptive</code>
+in the constructing call, e.g., <code>F.adaptive = 0.05</code> to achieve
+higher accuracy.<br>
+Otherwise, if <code>F.adaptive = FALSE</code>, the <code>F.method</code>
+argument determines which <code>polyCub</code> method to
+use in <code>siaf$F</code>. The accuracy (controlled via, e.g.,
+<code>nGQ</code>, <code>rel.tol</code>, or <code>eps</code>, depending on the cubature
+method) can then be adjusted in <code>twinstim</code>'s
+<code>control.siaf$F</code> argument.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>effRangeMult</code></td>
+<td>
+
+<p>determines the effective range for numerical integration
+in terms of multiples of the standard deviation <code class="reqn">\sigma</code> of the
+Gaussian kernel, i.e. with <code>effRangeMult=6</code>
+the <code class="reqn">6 \sigma</code> region around the event is considered as
+the relevant integration domain instead
+of the whole observation region <code>W</code>.
+Setting <code>effRangeMult=NULL</code> will disable
+the integral approximation with an effective integration range.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>validpars</code></td>
+<td>
+
+<p>function taking one argument, the parameter vector, indicating if it
+is valid (see also <code>siaf</code>).
+If <code>logsd=FALSE</code> and one prefers not to use
+<code>method="L-BFGS-B"</code> for fitting the <code>twinstim</code>, then
+<code>validpars</code> could be set to <code>function (pars) pars &gt; 0</code>.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>engine</code></td>
+<td>
+
+<p>character string specifying the implementation to use.
+Prior to <span class="pkg">surveillance</span> 0.14.0, the <code>intrfr</code> functions for
+<code>polyCub.iso</code> were evaluated in <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> (and this
+implementation is available via <code>engine = "R"</code>).
+The new C-implementation, ‘<span class="samp">⁠LinkingTo⁠</span>’ the newly exported
+<code>polyCub_iso</code> C-implementation in <span class="pkg">polyCub</span> 0.6.0,
+is considerably faster.
+</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>sigma</code></td>
+<td>
+
+<p>Fixed value of <code class="reqn">\sigma</code> for the one-parameter power-law kernel.
+</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>Evaluation of <code>twinstim</code>'s likelihood involves cubature of the
+spatial interaction function over polygonal domains. Various
+approaches have been compared by Meyer (2010, Section 3.2) and a new
+efficient method, which takes advantage of the assumed isotropy, has
+been proposed by Meyer and Held (2014, Supplement B, Section 2) for
+evaluation of the power-law kernels.
+These cubature methods are available in the dedicated <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package
+<span class="pkg">polyCub</span> and used by the kernels implemented in <span class="pkg">surveillance</span>.
+</p>
+<p>The readily available spatial interaction functions are defined as
+follows:
+</p>
+
+<dl>
+<dt>
+<code>siaf.constant</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = 1</code>
+</p>
+</dd>
+<dt>
+<code>siaf.step</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = \sum_{k=0}^K \exp(\alpha_k) I_k(||s||)</code>,<br>
+where <code class="reqn">\alpha_0 = 0</code>, and <code class="reqn">\alpha_1, \dots, \alpha_K</code> are
+the parameters (heights) to estimate. <code class="reqn">I_k(||s||)</code> indicates
+if distance <code class="reqn">||s||</code> belongs to the <code class="reqn">k</code>th interval
+according to <code>c(0,knots,maxRange)</code>, where <code class="reqn">k=0</code> indicates
+the interval <code>c(0,knots[1])</code>.<br>
+Note that <code>siaf.step</code> makes use of the <span class="pkg">memoise</span> package
+if it is available – and that is highly recommended to speed up
+calculations. Specifically, the areas of the intersection of a
+polygonal domain (influence region) with the “rings” of the
+two-dimensional step function will be cached such that they are
+only calculated once for every <code>polydomain</code> (in the first
+iteration of the <code>twinstim</code> optimization). They are used in
+the integration components <code>F</code> and <code>Deriv</code>.
+See Meyer and Held (2014) for a use case and further details.
+</p>
+</dd>
+<dt>
+<code>siaf.gaussian</code>:</dt>
+<dd>
+<p><code class="reqn">f(s|\kappa) = \exp(-||s||/2/\sigma_\kappa^2)</code><br>
+If <code>nTypes=1</code> (single-type epidemic or type-invariant
+<code>siaf</code> in multi-type epidemic), then
+<code class="reqn">\sigma_\kappa = \sigma</code> for all types <code class="reqn">\kappa</code>.
+If <code>density=TRUE</code> (deprecated), then the kernel formula above is
+additionally divided by <code class="reqn">2 \pi \sigma_\kappa^2</code>, yielding the
+density of the bivariate, isotropic Gaussian distribution with
+zero mean and covariance matrix <code class="reqn">\sigma_\kappa^2 I_2</code>.
+The standard deviation is optimized on the log-scale
+(<code>logsd = TRUE</code>, not doing so is deprecated).
+</p>
+</dd>
+<dt>
+<code>siaf.exponential</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = exp(-||s||/sigma)</code><br>
+The scale parameter <code class="reqn">sigma</code> is estimated on the log-scale,
+i.e., <code class="reqn">\sigma = \exp(\tilde{\sigma})</code>, and <code class="reqn">\tilde{\sigma}</code>
+is the actual model parameter.
+</p>
+</dd>
+<dt>
+<code>siaf.powerlaw</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = (||s|| + \sigma)^{-d}</code><br>
+The parameters are optimized on the log-scale to ensure positivity, i.e.,
+<code class="reqn">\sigma = \exp(\tilde{\sigma})</code> and <code class="reqn">d = \exp(\tilde{d})</code>,
+where <code class="reqn">(\tilde{\sigma}, \tilde{d})</code> is the parameter vector.
+If a power-law kernel is not identifiable for the dataset at hand,
+the exponential kernel or a lagged power law are useful alternatives.
+</p>
+</dd>
+<dt>
+<code>siaf.powerlaw1</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = (||s|| + 1)^{-d}</code>,<br>
+i.e., <code>siaf.powerlaw</code> with fixed <code class="reqn">\sigma = 1</code>.
+A different fixed value for <code class="reqn">sigma</code> can be specified via the
+<code>sigma</code> argument of <code>siaf.powerlaw1</code>.
+The decay parameter <code class="reqn">d</code> is estimated on the log-scale.
+</p>
+</dd>
+<dt>
+<code>siaf.powerlawL</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = (||s||/\sigma)^{-d}</code>, for <code class="reqn">||s|| \ge \sigma</code>, and
+<code class="reqn">f(s) = 1</code> otherwise,<br>
+which is a <em>L</em>agged power-law kernel featuring uniform
+short-range dispersal (up to distance <code class="reqn">\sigma</code>) and a
+power-law decay (Pareto-style) from distance <code class="reqn">\sigma</code> onwards.
+The parameters are optimized on the log-scale to ensure positivity, i.e.
+<code class="reqn">\sigma = \exp(\tilde{\sigma})</code> and <code class="reqn">d = \exp(\tilde{d})</code>,
+where <code class="reqn">(\tilde{\sigma}, \tilde{d})</code> is the parameter vector.
+However, there is a caveat associated with this kernel: Its
+derivative wrt <code class="reqn">\tilde{\sigma}</code> is mathematically undefined at
+the threshold <code class="reqn">||s||=\sigma</code>. This local non-differentiability
+makes <code>twinstim</code>'s likelihood maximization sensitive wrt
+parameter start values, and is likely to cause false convergence
+warnings by <code>nlminb</code>. Possible workarounds are to use
+the slow and robust <code>method="Nelder-Mead"</code>, or to just ignore
+the warning and verify the result by sets of different start values.
+</p>
+</dd>
+<dt>
+<code>siaf.student</code>:</dt>
+<dd>
+<p><code class="reqn">f(s) = (||s||^2 + \sigma^2)^{-d}</code>,<br>
+which is a reparametrized <code class="reqn">t</code>-kernel.
+For <code class="reqn">d=1</code>, this is the kernel of the Cauchy density with scale
+<code>sigma</code>. In Geostatistics, a correlation function of this
+kind is known as the Cauchy model.<br>
+The parameters are optimized on the log-scale to ensure
+positivity, i.e. <code class="reqn">\sigma = \exp(\tilde{\sigma})</code> and
+<code class="reqn">d = \exp(\tilde{d})</code>, where <code class="reqn">(\tilde{\sigma}, \tilde{d})</code>
+is the parameter vector.
+</p>
+</dd>
+</dl>
+<p>The predefined temporal interaction functions are defined as follows:
+</p>
+
+<dl>
+<dt>
+<code>tiaf.constant</code>:</dt>
+<dd>
+<p><code class="reqn">g(t) = 1</code>
+</p>
+</dd>
+<dt>
+<code>tiaf.step</code>:</dt>
+<dd>
+<p><code class="reqn">g(t) = \sum_{k=0}^K \exp(\alpha_k) I_k(t)</code>,<br>
+where <code class="reqn">\alpha_0 = 0</code>, and <code class="reqn">\alpha_1, \dots, \alpha_K</code> are
+the parameters (heights) to estimate. <code class="reqn">I_k(t)</code> indicates
+if <code class="reqn">t</code> belongs to the <code class="reqn">k</code>th interval
+according to <code>c(0,knots,maxRange)</code>, where <code class="reqn">k=0</code> indicates
+the interval <code>c(0,knots[1])</code>.
+</p>
+</dd>
+<dt>
+<code>tiaf.exponential</code>:</dt>
+<dd>
+<p><code class="reqn">g(t|\kappa) = \exp(-\alpha_\kappa t)</code>,<br>
+which is the kernel of the exponential distribution.
+If <code>nTypes=1</code> (single-type epidemic or type-invariant
+<code>tiaf</code> in multi-type epidemic), then
+<code class="reqn">\alpha_\kappa = \alpha</code> for all types <code class="reqn">\kappa</code>.
+</p>
+</dd>
+</dl>
+<h3>Value</h3>
+
+<p>The specification of an interaction function, which is a list.
+See <code>siaf</code> and <code>tiaf</code>, respectively, for a
+description of its components.  
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Sebastian Meyer
+</p>
+
+
+<h3>References</h3>
+
+<p>Meyer, S. (2010):
+Spatio-Temporal Infectious Disease Epidemiology based on Point Processes.
+Master's Thesis, Ludwig-Maximilians-Universität
+München.<br>
+Available as <a href="https://epub.ub.uni-muenchen.de/11703/">https://epub.ub.uni-muenchen.de/11703/</a>
+</p>
+<p>Meyer, S., Elias, J. and Höhle, M. (2012):
+A space-time conditional intensity model for invasive meningococcal
+disease occurrence. <em>Biometrics</em>, <b>68</b>, 607-616.
+<a href="https://doi.org/10.1111/j.1541-0420.2011.01684.x">doi:10.1111/j.1541-0420.2011.01684.x</a>
+</p>
+<p>Meyer, S. and Held, L. (2014):
+Power-law models for infectious disease spread.
+<em>The Annals of Applied Statistics</em>, <b>8</b> (3), 1612-1639.
+<a href="https://doi.org/10.1214/14-AOAS743">doi:10.1214/14-AOAS743</a>
+</p>
+<p>Meyer, S., Held, L. and Höhle, M. (2017):
+Spatio-temporal analysis of epidemic phenomena using the <span style="font-family: Courier New, Courier; color: #666666;"><b>R</b></span> package
+<span class="pkg">surveillance</span>.
+<em>Journal of Statistical Software</em>, <b>77</b> (11), 1-55.
+<a href="https://doi.org/10.18637/jss.v077.i11">doi:10.18637/jss.v077.i11</a>
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>twinstim</code>, <code>siaf</code>, <code>tiaf</code>,
+and package <span class="pkg">polyCub</span> for the involved cubature methods.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># constant temporal dispersal
+tiaf.constant()
+# step function kernel
+tiaf.step(c(3,7), maxRange=14, nTypes=2)
+# exponential temporal decay
+tiaf.exponential()
+
+# Type-dependent Gaussian spatial interaction function using an adaptive
+# two-dimensional midpoint-rule to integrate it over polygonal domains
+siaf.gaussian(2, F.adaptive=TRUE)
+
+# Single-type Gaussian spatial interaction function (using polyCub.iso)
+siaf.gaussian()
+
+# Exponential kernel
+siaf.exponential()
+
+# Power-law kernel
+siaf.powerlaw()
+
+# Power-law kernel with fixed sigma = 1
+siaf.powerlaw1()
+
+# "lagged" power-law
+siaf.powerlawL()
+
+# (reparametrized) t-kernel
+siaf.student()
+
+# step function kernel
+siaf.step(c(10,20,50), maxRange=100)
+</code></pre>
+
+
+</div>

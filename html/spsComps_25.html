@@ -1,0 +1,146 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>onNextInput</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Wait for the next input change</h2>
+
+<h3>Description</h3>
+
+<p>This is a server function that runs like a callback when the next time
+any input value changes. This is useful for to watch dynamically added components from
+the server and then do something. For example, loading a
+shiny module UI from server by <code>renderUI</code> and loading
+the shiny module server from server by <code>moduleServer</code>. Loading the server must
+wait until <code>renderUI</code> is finished. However, in shiny <code>renderUI</code> is asynchronous.
+It means <code>moduleServer</code> is immediately executed after <code>renderUI</code>. The result
+is module's server part cannot find the UI, because it is still updating.
+This function is hack to solve this problem by waiting for the next input
+settlement operation called from Shiny javascript to R so one can start
+other server actions.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">onNextInput(expr, session = getDefaultReactiveDomain())
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>expr</code></td>
+<td>
+<p>code expression, wrap inside <code>{}</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>session</code></td>
+<td>
+<p>shiny session</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+
+
+<h4>Common usage</h4>
+
+<p>This function adds a <code>on.exit</code> statement to the parent <code>observer</code>, <code>renderXX</code>,
+and other reactive events, so make sure you use them inside these functions
+instead of plain server.
+</p>
+<div class="sourceCode r"><pre>server = function(input, output, session) {
+  # ok
+  output$someID &lt;- renderUI({
+    onNextInput({...})
+    div(...)
+  })
+
+  # following is not ok
+  onNextInput({...})
+}
+</pre></div>
+
+
+
+<h4>About this function</h4>
+
+<p>This function fixes the issue in <a href="https://github.com/rstudio/shiny/issues/3348">shiny #3348</a>.
+Until there is an official support for this feature, this function is
+useful.
+</p>
+
+
+
+<h3>Value</h3>
+
+<p>an observeEvent that runs only one time to watch for the next input change.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">if(interactive()){
+  library(shiny)
+
+  # Simple example
+  ui &lt;- fluidPage(
+    uiOutput("someui")
+  )
+  server &lt;- function(input, output, session) {
+    output$someui &lt;- renderUI({
+      # we update the text of new rendered text input to 3 random letters
+      # after `textInput` is displayed, and it only works for one time.
+      onNextInput({
+        updateTextInput(inputId = "mytext", value = paste0(sample(letters, 3), collapse = ""))
+      })
+      textInput("mytext", "some text")
+    })
+    # if you directly have update event like following line, it won't work
+    # updateTextInput(inputId = "mytext", value = paste0(sample(letters, 3), collapse = ""))
+  }
+  shinyApp(ui, server)
+
+
+  # complex example with modules
+  modUI &lt;- function(id) {
+    ns &lt;- NS(id)
+    textInput(ns("mytext"), "some text")
+  }
+  modServer = function(id) {
+    moduleServer(
+      id,
+      function(input, output, session) {
+        updateTextInput(inputId = "mytext", value = paste0(sample(letters, 3), collapse = ""))
+      }
+    )
+  }
+  ui = fluidPage(
+    actionButton("a", "load module UI"),
+    uiOutput("mod_container")
+  )
+  server = function(input, output, session) {
+    # everytime you click, render a new module UI and update the text value
+    # immediately
+    observeEvent(input$a, {
+      output$mod_container &lt;- renderUI({
+        onNextInput(modServer("mod"))
+        modUI("mod")
+      })
+    })
+    # Without `onNextInput`, module server call will not work
+    # uncomment below and, comment `onNextInput` line to see the difference
+    # modServer("mod")
+  }
+
+  shinyApp(ui, server)
+}
+</code></pre>
+
+
+</div>

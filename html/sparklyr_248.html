@@ -1,0 +1,157 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ml_power_iteration</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Spark ML – Power Iteration Clustering</h2>
+
+<h3>Description</h3>
+
+<p>Power iteration clustering (PIC) is a scalable and efficient algorithm for clustering vertices of a graph given pairwise similarities as edge properties, described in the paper "Power Iteration Clustering" by Frank Lin and William W. Cohen. It computes a pseudo-eigenvector of the normalized affinity matrix of the graph via power iteration and uses it to cluster vertices. spark.mllib includes an implementation of PIC using GraphX as its backend. It takes an RDD of (srcId, dstId, similarity) tuples and outputs a model with the clustering assignments. The similarities must be nonnegative. PIC assumes that the similarity measure is symmetric. A pair (srcId, dstId) regardless of the ordering should appear at most once in the input data. If a pair is missing from input, their similarity is treated as zero.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ml_power_iteration(
+  x,
+  k = 4,
+  max_iter = 20,
+  init_mode = "random",
+  src_col = "src",
+  dst_col = "dst",
+  weight_col = "weight",
+  ...
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A 'spark_connection'  or a 'tbl_spark'.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>k</code></td>
+<td>
+<p>The number of clusters to create.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>max_iter</code></td>
+<td>
+<p>The maximum number of iterations to run.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>init_mode</code></td>
+<td>
+<p>This can be either "random", which is the default, to use a random vector as vertex properties, or "degree" to use normalized sum similarities.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>src_col</code></td>
+<td>
+<p>Column in the input Spark dataframe containing 0-based indexes of all source vertices in the affinity matrix described in the PIC paper.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dst_col</code></td>
+<td>
+<p>Column in the input Spark dataframe containing 0-based indexes of all destination vertices in the affinity matrix described in the PIC paper.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight_col</code></td>
+<td>
+<p>Column in the input Spark dataframe containing non-negative edge weights in the affinity matrix described in the PIC paper.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>Optional arguments. Currently unused.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A 2-column R dataframe with columns named "id" and "cluster" describing the resulting cluster assignments
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+
+library(sparklyr)
+
+sc &lt;- spark_connect(master = "local")
+
+r1 &lt;- 1
+n1 &lt;- 80L
+r2 &lt;- 4
+n2 &lt;- 80L
+
+gen_circle &lt;- function(radius, num_pts) {
+  # generate evenly distributed points on a circle centered at the origin
+  seq(0, num_pts - 1) %&gt;%
+    lapply(
+      function(pt) {
+        theta &lt;- 2 * pi * pt / num_pts
+
+        radius * c(cos(theta), sin(theta))
+      }
+    )
+}
+
+guassian_similarity &lt;- function(pt1, pt2) {
+  dist2 &lt;- sum((pt2 - pt1)^2)
+
+  exp(-dist2 / 2)
+}
+
+gen_pic_data &lt;- function() {
+  # generate points on 2 concentric circle centered at the origin and then
+  # compute pairwise Gaussian similarity values of all unordered pair of
+  # points
+  n &lt;- n1 + n2
+  pts &lt;- append(gen_circle(r1, n1), gen_circle(r2, n2))
+  num_unordered_pairs &lt;- n * (n - 1) / 2
+
+  src &lt;- rep(0L, num_unordered_pairs)
+  dst &lt;- rep(0L, num_unordered_pairs)
+  sim &lt;- rep(0, num_unordered_pairs)
+
+  idx &lt;- 1
+  for (i in seq(2, n)) {
+    for (j in seq(i - 1)) {
+      src[[idx]] &lt;- i - 1L
+      dst[[idx]] &lt;- j - 1L
+      sim[[idx]] &lt;- guassian_similarity(pts[[i]], pts[[j]])
+      idx &lt;- idx + 1
+    }
+  }
+
+  dplyr::tibble(src = src, dst = dst, sim = sim)
+}
+
+pic_data &lt;- copy_to(sc, gen_pic_data())
+
+clusters &lt;- ml_power_iteration(
+  pic_data,
+  src_col = "src", dst_col = "dst", weight_col = "sim", k = 2, max_iter = 40
+)
+print(clusters)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

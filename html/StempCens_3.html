@@ -1,0 +1,149 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>CrossStempCens</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Cross-Validation in spatio-temporal model with censored/missing responses</h2>
+
+<h3>Description</h3>
+
+<p>This function performs cross-validation in spatio-temporal model with censored/missing responses, which measure
+the performance of the predictive model on new test dataset. The cross-validation method for assessing the
+model performance is validation set approach (or data split).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">CrossStempCens(Pred.StempCens, yObs.pre)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Pred.StempCens</code></td>
+<td>
+<p>an object of class <code>Pred.StempCens</code> given as output by the <code>PredStempCens</code> function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>yObs.pre</code></td>
+<td>
+<p>a vector of the observed responses, the test data.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>Bias</code></td>
+<td>
+<p>bias prediction error.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Mspe</code></td>
+<td>
+<p>mean squared prediction error.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Rmspe</code></td>
+<td>
+<p>root mean squared prediction error.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>Mae</code></td>
+<td>
+<p>mean absolute error.</p>
+</td>
+</tr>
+</table>
+<h3>Author(s)</h3>
+
+<p>Katherine L. Valeriano, Victor H. Lachos and Larissa A. Matos
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>EstStempCens</code>, <code>PredStempCens</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Not run: 
+# Initial parameter values
+beta &lt;- c(-1,1.50)
+phi &lt;- 5;     rho &lt;- 0.6
+tau2 &lt;- 0.80; sigma2 &lt;- 2
+# Simulating data
+n1 &lt;- 7    # Number of spatial locations
+n2 &lt;- 5    # Number of temporal index
+set.seed(400)
+x.co &lt;- round(runif(n1,0,10),9)    # X coordinate
+y.co &lt;- round(runif(n1,0,10),9)    # Y coordinate
+coord &lt;- cbind(x.co,y.co)          # Cartesian coordinates without repetitions
+coord2 &lt;- cbind(rep(x.co,each=n2),rep(y.co,each=n2)) # Cartesian coordinates with repetitions
+time &lt;- as.matrix(seq(1,n2))       # Time index without repetitions
+time2 &lt;- as.matrix(rep(time,n1))   # Time index with repetitions
+x1 &lt;- rexp(n1*n2,2)
+x2 &lt;- rnorm(n1*n2,2,1)
+x  &lt;- cbind(x1,x2)
+media &lt;- x%*%beta
+# Covariance matrix
+Ms &lt;- as.matrix(dist(coord))   # Spatial distances
+Mt &lt;- as.matrix(dist(time))    # Temporal distances
+Cov &lt;- CovarianceM(phi,rho,tau2,sigma2,Ms,Mt,0,"gaussian")
+# Data
+require(mvtnorm)
+y &lt;- as.vector(rmvnorm(1,mean=as.vector(media),sigma=Cov))
+data &lt;- data.frame(coord2,time2,y,x)
+names(data) &lt;- c("x.coord","y.coord","time","yObs","x1","x2")
+# Splitting the dataset
+local.est  &lt;- coord[c(1,2,4,5,6),]
+data.est   &lt;- data[data$x.coord%in%local.est[,1] &amp; data$y.coord%in%local.est[,2],]
+data.valid &lt;- data[data$x.coord%in%coord[c(3,7),1] &amp; data$y.coord%in%coord[c(3,7),2],]
+# Censored
+perc &lt;- 0.20
+y  &lt;- data.est$yObs
+aa &lt;- sort(y);  bb &lt;- aa[1:(perc*nrow(data.est))]
+cutof &lt;- bb[perc*nrow(data.est)]
+cc &lt;- matrix(1,nrow(data.est),1)*(y&lt;=cutof)
+y[cc==1] &lt;- cutof
+data.est &lt;- data.frame(data.est[,-c(4,5,6)],y,cc,data.est[,c(5,6)])
+names(data.est) &lt;- c("x.coord","y.coord","time","yObs","censored","x1","x2")
+
+# Estimation
+y  &lt;- data.est$yObs
+x  &lt;- cbind(data.est$x1,data.est$x2)
+cc &lt;- data.est$censored
+time2  &lt;- as.data.frame(data.est$time)
+coord2 &lt;- data.est[,1:2]
+LI &lt;- y; LI[cc==1] &lt;- -Inf     # Left-censored
+LS &lt;- y
+est_teste &lt;- EstStempCens(y, x, cc, time2, coord2, LI, LS, init.phi=3.5, init.rho=0.5,
+                 init.tau2=1,type.Data="balanced", method="nlminb", kappa=0,
+                 type.S="gaussian", IMatrix=FALSE, M=20, perc=0.25, MaxIter=300,
+                 pc=0.20)
+# Prediction
+locPre &lt;- data.valid[,1:2]
+timePre &lt;- as.data.frame(data.valid$time)
+xPre &lt;- cbind(data.valid$x1,data.valid$x2)
+pre_teste &lt;- PredStempCens(est_teste, locPre, timePre, xPre)
+class(pre_teste)
+
+# Cross-validation
+cross_teste &lt;- CrossStempCens(pre_teste,data.valid$yObs)
+cross_teste$Mspe # MSPE
+## End(Not run)
+</code></pre>
+
+
+</div>

@@ -1,0 +1,194 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ssn_create_distmat</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Calculate Hydrologic Distances for an <code>SSN</code> object</h2>
+
+<h3>Description</h3>
+
+<p>Creates a collection of (non-symmetric) matrices
+containing pairwise downstream hydrologic distances between sites
+in an <code>SSN</code> object
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ssn_create_distmat(
+  ssn.object,
+  predpts = NULL,
+  overwrite = FALSE,
+  among_predpts = FALSE,
+  only_predpts = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ssn.object</code></td>
+<td>
+<p>An <code>SSN</code> object</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>predpts</code></td>
+<td>
+<p>name of prediction points in an <code>SSN</code> object.
+When a vector with length greater than one, each name is iterated upon.
+Default is NULL.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>overwrite</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, overwrite existing distance
+matrices. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>among_predpts</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, compute the pairwise distances
+between the prediction sites. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>only_predpts</code></td>
+<td>
+<p>Logical. If <code>TRUE</code>, only compute distances for
+prediction sites. Defaults to <code>FALSE</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>A distance matrix that contains the hydrologic distance
+between any two sites in <code>SSN</code> object is needed to fit a spatial
+statistical model using the tail-up and tail-down autocovariance
+functions described in Ver Hoef and Peterson (2010). These models
+are implemented in R via <code>ssn_lm</code> and <code>ssn_glm</code> in
+the<code>SSN2</code> package. The hydrologic distance information needed to
+model the covariance between flow-connected (i.e. water flows
+from one location to the other) and flow-unconnected (i.e. water
+does not flow from one location to the other, but they reside on
+the same network) locations differs. The total hydrologic
+distance is a directionless measure; it represents the hydrologic
+distance between two sites, ignoring flow direction. The
+hydrologic distance from each site to a common downstream stream
+junction is used when creating models for flow-unconnected pairs,
+which we term downstream hydrologic distance. In contrast, the
+total hydrologic distance is used for modeling flow-connected
+pairs, which we term total hydrologic distance.
+</p>
+<p>A downstream hydrologic distance matrix provides enough
+information to meet the data requirements for both the tail-up and
+tail-down models. When two locations are flow-connected, the
+downstream hydrologic distance from the upstream location to the
+downstream location is greater than zero, but it is zero in the
+other direction. When two locations are flow-unconnected the
+downstream hydrologic distance will be greater than zero in both
+directions. A site's downstream hydrologic distance to itself is
+equal to zero. The format of the downstream hydrologic distance
+matrix is efficient because distance information needed to fit
+both the tail-up and tail-down models is only stored once. As an
+example, a matrix containing the total hydrologic distance between
+sites is easily calculated by adding the downstream distance
+matrix to its transpose.
+</p>
+<p>The downstream hydrologic distances are calculated based on the
+binaryIDs and stored as matrices. The matrices are stored in a
+directory named ‘distance’, which is created by the
+<code>ssn_create_distmat</code> function within the .ssn directory. The distance
+directory will always contain at least one directory named
+‘obs’, which contains a number of .RData files, one for each
+network that has observed sites residing on it. The naming
+convention for the files is based on the netID number
+(e.g. dist.net1.RData). Each matrix in the ‘obs’ folder
+contains the information to form a square matrix, which contains
+the downstream hydrologic distance between each pair of observed
+sites on the network. Direction is preserved, with columns
+representing the FROM site and rows representing the TO site. Row
+and column names correspond to the pid attribute for each site.
+</p>
+<p>If the argument <code>predpts</code> is specified in the call to the
+function, the downstream hydrologic distances between the observed
+and prediction sites will also be computed. A new directory is
+created within the distance directory, with the name corresponding
+to the names attribute for the preds
+(e.g. <code>attributes(ssn.object$preds)$names</code>). A sequence of
+.RData files is created within this directory, similar to the
+structure for the observed sites, except that two objects are
+stored for each network that contains <em>both</em> observed and
+prediction sites. The letters <code>a</code> and <code>b</code> are used in
+the naming convention to distinguish between the two objects
+(e.g. dist.net1.a and dist.net1.b). The matrices that these
+objects represent are not necessarily square. In matrices of type
+<code>a</code>, rows correspond to observed locations and columns to
+prediction locations. In contrast, rows correspond to prediction
+locations and columns to observed locations in matrices of type
+<code>b</code>. Direction is also preserved, with columns representing
+the FROM site and rows representing the TO site in both object
+types. Again, row and column names correspond to the pid attribute
+for each site.
+</p>
+<p>If <code>among_predpts = TRUE</code>, the downstream
+hydrologic distances will also be computed between prediction
+sites, for each network. Again these are stored within the distance
+directory with the name corresponding to the prediction points
+dataset. The naming convention for these prediction to prediction
+site distance matrices is the same as the distance matrices stored
+in the ‘obs’ directory (e.g. dist.net1.RData). These extra
+distance matrices are needed to perform block Kriging using
+<code>predict.ssn_lm</code>.
+</p>
+<p>If <code>only_predpts = TRUE</code>, the downstream
+hydrologic distances will not be calculated between observed sites
+themselves. Pairwise distances will only be calculated for observed
+and prediction locations and. Pairwise distances between prediction
+locations will also be calculated if <code>among_predpts = TRUE</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>The <code>ssn_create_distmat</code> function creates a collection
+of hierarchical directories in the <code>ssn$path</code> directory,
+which store the pairwise distances between sites associated with
+the <code>SSN</code> object. See details section for additional information.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">## Copy the MiddleForke04.ssn data to a local temporary directory.
+## Only needed for this example.
+copy_lsn_to_temp()
+## Import SSN data
+mf04p &lt;- ssn_import(paste0(tempdir(), "/MiddleFork04.ssn"),
+  predpts = c("pred1km.gpkg", "CapeHorn"),
+  overwrite = TRUE
+)
+
+## Create distance matrices for observations and one set of prediction sites
+## Include hydrologic distance matrices among prediction sites.
+ssn_create_distmat(mf04p,
+  predpts = "pred1km", overwrite = TRUE,
+  among_predpts = TRUE
+)
+
+## Create distance matrices for an additional set of prediction points.
+## Distance matrices for observations and pred1km prediction sites are
+## not recalculated.
+ssn_create_distmat(mf04p,
+  predpts = "CapeHorn", overwrite = TRUE,
+  among_predpts = TRUE, only_predpts = TRUE
+)
+</code></pre>
+
+
+</div>

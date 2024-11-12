@@ -1,0 +1,183 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.fitStMoMo</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Predict method for Stochastic Mortality Models fits</h2>
+
+<h3>Description</h3>
+
+<p>Obtain predictions from a Stochastic Mortality Model
+fit.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'fitStMoMo'
+predict(object, years, kt = NULL, gc = NULL,
+  oxt = NULL, type = c("link", "rates"), ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p>an object of class <code>"fitStMoMo"</code> with the fitted 
+parameters of a stochastic mortality model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>years</code></td>
+<td>
+<p>vector of years for which a prediction is required.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kt</code></td>
+<td>
+<p>matrix of values of the period indexes to use for the prediction. 
+If the model has any age-period term this argument needs to be provided and 
+the number of rows in <code>kt</code> must be equal to the number of age-period 
+terms in the model and the number of columns in <code>kt</code> must correspond 
+to the length of <code>years</code>. If the Stochastic Mortality Model doesn't 
+have any age-period terms this argument is ignored and needs not be 
+provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>gc</code></td>
+<td>
+<p>vector of values of the cohort indexes to use for the prediction. 
+If the model has a cohort effect this argument needs to be provided. 
+In this case the length of <code>gc</code> must be equal to the number of cohorts 
+for which a prediction is being produced, namely, 
+<code>length(object$ages) + length(years) - 1</code>. If the Stochastic Mortality 
+Model doesn't have a cohort effect  this argument is ignored and needs not 
+be provided.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>oxt</code></td>
+<td>
+<p>optional matrix/vector or scalar of known offset to be used in 
+the prediction.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>the type of the predicted values that should be returned. The 
+alternatives are <code>"link"</code>(default) and <code>"rates"</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>other arguments.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This function evaluates 
+</p>
+<p style="text-align: center;"><code class="reqn">\hat{\eta}_{xt} = o_{xt} + \alpha_x + 
+\sum_{i=1}^N \beta_x^{(i)}\kappa_t^{(i)} + \beta_x^{(0)}\gamma_{t-x}</code>
+</p>
+
+<p>for a fitted Stochastic Mortality model.
+In producing a prediction the static age function, <code class="reqn">\alpha_x</code>, and the
+age-modulating parameters, <code class="reqn">\beta_x^{(i)}, i=0, ..., N</code>, are taken from
+the fitted model in <code>object</code> while the period indexes, 
+<code class="reqn">\kappa_t^{(i)}, i=1,..., N</code>, and cohort index, <code class="reqn">\gamma_{t-x}</code>, 
+are taken from the function arguments.
+</p>
+<p>This function can be useful, for instance, in producing forecasts of 
+mortality rates using time series models different to those available 
+in <code>forecast.fitStMoMo</code> (See examples below).
+</p>
+
+
+<h3>Value</h3>
+
+<p>A matrix with the predicted values.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>forecast.fitStMoMo</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+## Not run: 
+##M6 Forecast using VARIMA(1,1) model
+library(MTS)
+
+# fit m6
+years &lt;- EWMaleData$years
+ages.fit &lt;- 55:89
+M6 &lt;- m6(link = "log")
+M6fit &lt;- fit(M6, data = EWMaleData, ages.fit = ages.fit)
+
+# Forecast kt using VARIMA(1,1) model from MTS
+h &lt;- 50
+kt.M6 &lt;- t(M6fit$kt) 
+kt.M6.diff &lt;- apply(kt.M6, 2, diff)
+fit.kt.M6.11 &lt;- VARMA(kt.M6.diff, p = 1, q = 1)
+pred.ktdiff.M6.11 &lt;- VARMApred(fit.kt.M6.11, h = h)
+pred.kt.M6.11 &lt;- apply(rbind(tail(kt.M6, n = 1),
+                             pred.ktdiff.M6.11$pred), 
+                       2, cumsum)[-1, ]
+
+# set row names
+years.forecast &lt;- seq(tail(years, 1) + 1, length.out = h)
+rownames(pred.kt.M6.11) &lt;- years.forecast
+
+# plot kt1
+plot(x = c(years, years.forecast),
+     y = c(kt.M6[, 1], pred.kt.M6.11[, 1]),
+     col = rep(c("black", "red"), times = c(length(years), h)),
+     xlab = "time",
+     ylab = "k1")
+
+plot(x = c(years, years.forecast),
+     y = c(kt.M6[, 2], pred.kt.M6.11[, 2]),
+     col = rep(c("black", "red"), times = c(length(years), h)),
+     xlab = "time",
+     ylab = "k2")
+
+# forecast cohort effect
+# the following cohorts are required:
+# from 2012 - 89 = 1923
+# to 2061 - 55 = 2006
+pred.gc.M6 &lt;- forecast(auto.arima(M6fit$gc, max.d = 1), h = h)
+
+# use predict to get rates
+pred.qxt.M6.11 &lt;- predict(object = M6fit,
+                          years = years.forecast,
+                          kt = t(pred.kt.M6.11),
+                          gc = c(tail(M6fit$gc, 34), pred.gc.M6$mean),
+                          type = "rates")
+
+qxthatM6 &lt;- fitted(M6fit, type = "rates")
+
+# plot mortality profile at age 60, 70 and 80
+matplot(1961 : 2061,
+        t(cbind(qxthatM6, pred.qxt.M6.11)[c("60", "70", "80"), ]),
+        type = "l", col = "black", xlab = "years", ylab = "rates",
+        lwd = 1.5)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

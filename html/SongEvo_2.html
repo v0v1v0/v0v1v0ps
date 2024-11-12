@@ -1,0 +1,169 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>h.test</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Test hypotheses about song evolution</h2>
+
+<h3>Description</h3>
+
+<p>Test if cultural traits evolve through specific mechanisms (e.g. drift or selection).
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">h.test(summary.results, ts, target.data)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>summary.results</code></td>
+<td>
+<p>The summary.results array (i.e. a multi-dimensional table) from SongEvo(), which includes population summary values for each time step (dimension 1) in each iteration (dimension 2) of the model.  Population summary values are contained in five additional dimensions: population size for each time step of each iteration (“sample.n”), the population mean and variance of the song feature studied (“trait.pop.mean” and “trait.pop.variance”), with associated lower (“lci”) and upper (“uci”) confidence intervals.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>ts</code></td>
+<td>
+<p>The timestep (“ts”) at which to compare simulated trait values to empirical trait values (“empir.trait”).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>target.data</code></td>
+<td>
+<p>Trait values from the test population to compare to simulated results. May be measured (i.e. empirical) or hypothetical.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>a list with two measures of accuracy: 1. The proportion of observed points that fall within the confidence intervals of the simulated data and the residuals between simulated and observed population trait means; 2. Precision is measured as the residuals between simulated and observed population trait variances.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>SongEvo</code>, <code>par.sens</code>, <code>par.opt</code>, <code>mod.val</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">### See vignette for an example that uses all functions in SongEvo.
+
+#Prepare initial song data for Bear Valley.
+data("song.data")
+data("glo.parms")
+years=2005-1969
+iteration=5
+timestep=1
+n.territories &lt;- glo.parms$n.territories
+starting.trait &lt;- subset(song.data, Population=="Bear Valley" &amp; Year==1969)$Trill.FBW
+starting.trait2 &lt;- c(starting.trait, rnorm(n.territories-length(starting.trait),
+                                           mean=mean(starting.trait), sd=sd(starting.trait)))
+init.inds &lt;- data.frame(id = seq(1:n.territories), age = 2, trait = starting.trait2)
+init.inds$x1 &lt;-  round(runif(n.territories, min=-122.481858, max=-122.447270), digits=8)
+init.inds$y1 &lt;-  round(runif(n.territories, min=37.787768, max=37.805645), digits=8)
+
+#Specify and call SongEvo() with test data
+
+SongEvo3 &lt;- with(glo.parms,SongEvo(init.inds = init.inds,
+                    iteration = iteration,
+                    steps = years,
+                    timestep = timestep,
+                    n.territories = n.territories,
+                    terr.turnover = terr.turnover,
+                    learning.method = "integrate",
+                    integrate.dist = 50,
+                    learning.error.d = learning.error.d,
+                    learning.error.sd = learning.error.sd,
+                    mortality.a = mortality.a,
+                    mortality.j = mortality.j,
+                    lifespan = NA,
+                    phys.lim.min = phys.lim.min,
+                    phys.lim.max = phys.lim.max,
+                    male.fledge.n.mean = male.fledge.n.mean,
+                    male.fledge.n.sd = male.fledge.n.sd,
+                    male.fledge.n = male.fledge.n,
+                    disp.age = disp.age,
+                    disp.distance.mean = disp.distance.mean,
+                    disp.distance.sd = disp.distance.sd,
+                    mate.comp = FALSE,
+                    prin = FALSE,
+                    all = FALSE))
+
+#Specify and call `h.test()`
+ts=years
+target.data &lt;- subset(song.data, Population=="Bear Valley" &amp; Year==2005)$Trill.FBW
+h.test1 &lt;- h.test(summary.results=SongEvo3$summary.results, ts=ts, target.data=target.data)
+
+# The output data list includes two measures of accuracy: the proportion of
+# observed points that fall within the confidence intervals of the simulated
+# data and the residuals between simulated and observed population trait means.
+# Precision is measured as the residuals between simulated and observed
+# population trait variances.
+
+# Eighty percent of the observed data fell within the central 95% of the
+# simulated values, providing support for the hypothesis that cultural drift as
+# described in this model is sufficient to describe the evolution of trill
+# frequency bandwidth in this population.
+h.test1
+
+## Not run: 
+#Plot simulated data in relation to measured data.
+#Plot
+plot(SongEvo3$summary.results[1, , "trait.pop.mean"], 
+     xlab="Year", ylab="Bandwidth (Hz)", xaxt="n", type="n",
+     xlim=c(-0.5, 35.5), ylim=range(SongEvo3$summary.results[, , "trait.pop.mean"], na.rm=TRUE))
+	for(p in 1:iteration){
+		lines(SongEvo3$summary.results[p, , "trait.pop.mean"], col="light gray")
+		}
+freq.mean &lt;- apply(SongEvo3$summary.results[, , "trait.pop.mean"], 2, mean, na.rm=TRUE)
+lines(freq.mean, col="blue")
+axis(side=1, at=seq(0, 35, by=5), labels=seq(1970, 2005, by=5))#, tcl=-0.25, mgp=c(2,0.5,0))
+#Plot 95% quantiles (which are similar to credible intervals)
+quant.means &lt;- apply (SongEvo3$summary.results[, , "trait.pop.mean"], MARGIN=2, 
+                      quantile, probs=c(0.95, 0.05), R=600, na.rm=TRUE)
+lines(quant.means[1,], col="blue", lty=2)
+lines(quant.means[2,], col="blue", lty=2)
+ #plot original song values
+library("boot")
+sample.mean &lt;- function(d, x) {
+	mean(d[x])
+}
+boot_hist &lt;- boot(starting.trait, statistic=sample.mean, R=100)#, strata=mn.res$iteration)	
+ci.hist &lt;- boot.ci(boot_hist, conf=0.95, type="basic")
+low &lt;- ci.hist$basic[4]
+high &lt;- ci.hist$basic[5]
+points(0, mean(starting.trait), pch=20, cex=0.6, col="black")
+library("Hmisc")
+errbar(x=0, y=mean(starting.trait), high, low, add=TRUE)
+ #plot current song values
+points(rep(ts, length(target.data)), target.data)
+library("boot")
+sample.mean &lt;- function(d, x) {
+	mean(d[x])
+}
+boot_curr &lt;- boot(target.data, statistic=sample.mean, R=100)#, strata=mn.res$iteration)	
+ci.curr &lt;- boot.ci(boot_curr, conf=0.95, type="basic")
+low &lt;- ci.curr$basic[4]
+high &lt;- ci.curr$basic[5]
+points(years, mean(target.data), pch=20, cex=0.6, col="black")
+library("Hmisc")
+errbar(x=years, y=mean(target.data), high, low, add=TRUE)
+ #text and arrows
+text(x=11, y=2850, labels="Historical songs", pos=1)
+arrows(x0=5, y0=2750, x1=0.4, y1=mean(starting.trait), length=0.1)
+text(x=25, y=2900, labels="Current songs", pos=1)
+arrows(x0=25, y0=2920, x1=years, y1=mean(target.data), length=0.1)
+
+## End(Not run)
+</code></pre>
+
+
+</div>

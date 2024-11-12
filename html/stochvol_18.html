@@ -1,0 +1,164 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>predict.svdraws</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Prediction of Future Returns and Log-Volatilities</h2>
+
+<h3>Description</h3>
+
+<p>Simulates draws from the predictive density of the returns and the latent log-volatility
+process. The same mean model is used for prediction as was used for fitting, which is
+either a) no mean parameter, b) constant mean, c) AR(k) structure, or d) general
+Bayesian regression. In the last case, new regressors need to be provided for prediction.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S3 method for class 'svdraws'
+predict(object, steps = 1L, newdata = NULL, ...)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>object</code></td>
+<td>
+<p><code>svdraws</code> or <code>svldraws</code> object.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>steps</code></td>
+<td>
+<p><em>optional</em> single number, coercible to integer. Denotes the number of
+steps to forecast.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>newdata</code></td>
+<td>
+<p><em>only in case d) of the description</em> corresponds to input
+parameter <code>designmatrix</code> in <code>svsample</code>.
+A matrix of regressors with number of rows equal to parameter <code>steps</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>...</code></td>
+<td>
+<p>currently ignored.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>Returns an object of class <code>svpredict</code>, a list containing
+three elements:
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>vol</code></td>
+<td>
+<p><code>mcmc.list</code> object of simulations from the predictive density of the standard deviations <code>sd_(n+1),...,sd_(n+steps)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p><code>mcmc.list</code> object of simulations from the predictive density of <code>h_(n+1),...,h_(n+steps)</code></p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>y</code></td>
+<td>
+<p><code>mcmc.list</code> object of simulations from the predictive density of <code>y_(n+1),...,y_(n+steps)</code></p>
+</td>
+</tr>
+</table>
+<h3>Note</h3>
+
+<p>You can use the resulting object within <code>plot.svdraws</code> (see example below), or use
+the list items in the usual <code>coda</code> methods for <code>mcmc</code> objects to
+print, plot, or summarize the predictions.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>plot.svdraws</code>, <code>volplot</code>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># Example 1
+## Simulate a short and highly persistent SV process 
+sim &lt;- svsim(100, mu = -10, phi = 0.99, sigma = 0.2)
+
+## Obtain 5000 draws from the sampler (that's not a lot)
+draws &lt;- svsample(sim$y, draws = 5000, burnin = 100,
+  priormu = c(-10, 1), priorphi = c(20, 1.5), priorsigma = 0.2)
+
+## Predict 10 days ahead
+fore &lt;- predict(draws, 10)
+
+## Check out the results
+summary(predlatent(fore))
+summary(predy(fore))
+plot(draws, forecast = fore)
+
+
+# Example 2
+## Simulate now an SV process with an AR(1) mean structure
+len &lt;- 109L
+simar &lt;- svsim(len, phi = 0.93, sigma = 0.15, mu = -9)
+for (i in 2:len) {
+  simar$y[i] &lt;- 0.1 - 0.7 * simar$y[i-1] + simar$vol[i] * rnorm(1)
+}
+
+## Obtain 7000 draws
+drawsar &lt;- svsample(simar$y, draws = 7000, burnin = 300,
+  designmatrix = "ar1", priormu = c(-10, 1), priorphi = c(20, 1.5),
+  priorsigma = 0.2)
+
+## Predict 7 days ahead (using AR(1) mean for the returns)
+forear &lt;- predict(drawsar, 7)
+
+## Check out the results
+plot(forear)
+plot(drawsar, forecast = forear)
+
+## Not run: 
+# Example 3
+## Simulate now an SV process with leverage and with non-zero mean
+len &lt;- 96L
+regressors &lt;- cbind(rep_len(1, len), rgamma(len, 0.5, 0.25))
+betas &lt;- rbind(-1.1, 2)
+simreg &lt;- svsim(len, rho = -0.42)
+simreg$y &lt;- simreg$y + as.numeric(regressors %*% betas)
+
+## Obtain 12000 draws
+drawsreg &lt;- svsample(simreg$y, draws = 12000, burnin = 3000,
+  designmatrix = regressors, priormu = c(-10, 1), priorphi = c(20, 1.5),
+  priorsigma = 0.2, priorrho = c(4, 4))
+
+## Predict 5 days ahead using new regressors
+predlen &lt;- 5L
+predregressors &lt;- cbind(rep_len(1, predlen), rgamma(predlen, 0.5, 0.25))
+forereg &lt;- predict(drawsreg, predlen, predregressors)
+
+## Check out the results
+summary(predlatent(forereg))
+summary(predy(forereg))
+plot(forereg)
+plot(drawsreg, forecast = forereg)
+
+## End(Not run)
+
+</code></pre>
+
+
+</div>

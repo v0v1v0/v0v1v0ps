@@ -1,0 +1,208 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>smfishHmrf.hmrfem.multi.it.min</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Perform HMRF on multivariate normal distributions. Accepts file names as inputs. Accepts multiple betas.</h2>
+
+<h3>Description</h3>
+
+<p>This function performs HMRF (Zhu et al. 2018-Dec-01) for multi variate normal distributions. It takes minimum required inputs (inputs being file names). There are a couple of files required:
+</p>
+
+<ol>
+<li>
+<p> a file containing expression matrix
+</p>
+</li>
+<li>
+<p> a file containing cell neighborhood matrix
+</p>
+</li>
+<li>
+<p> a file containing node (or cell) color. This is used for updating cells during HMRF iterations.
+</p>
+</li>
+</ol>
+<p>HMRF needs users to specify the initializations of parameters (mu and sigma). It is recommended to use the kmeans centroids as initializations (specified by <code>kk</code> parameter). Note: kmeans should be run prior to this function.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">smfishHmrf.hmrfem.multi.it.min(
+  mem_file,
+  nei_file,
+  block_file,
+  kk,
+  par_k,
+  name = "test",
+  output_dir = ".",
+  tolerance = 1e-05,
+  beta = 0,
+  beta_increment = 1,
+  beta_num_iter = 10
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>mem_file</code></td>
+<td>
+<p>expression file. The expression file should be a space-separated file. The rows are genes. The columns are cells. There is no header row. The first column is a gene index (ranges from 1 to the number of genes). Note the first column is not gene name. See section <strong>Data preprocessing</strong> for which form of expression works best.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nei_file</code></td>
+<td>
+<p>file containing cell neighborhood matrix. This should be a space-separated file. The rows are cells. The columns are neighbors. There is no header row. The first column is the cell index (1 to number of cells). Each row lists the indices of neighbor cells. The dimension of the cell neighborhood matrix is (num_cell, max_num_neighbors). If a cell does not have enough neighbors, the remaining entries of that row is padded with -1. The R package Giotto <a href="http://spatialgiotto.com">http://spatialgiotto.com</a> (Dries et al. 2020) contains a number of functions for generating the cell neighborhood network.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>block_file</code></td>
+<td>
+<p>file containing cell colors (which determines cell update order). The order of updating the state probabilities of each cell can matter the result. Cells (or nodes) and their immediate neighbors are not updated at the same time. This is akin to the vertex coloring problem. This file contains the color of each cell such that no two neighbor cells have the same color. The file is 2-column, space-separated. Column 1 is cell ID, and column 2 is the cell color (integer starting at 1). The python utility get_vertex_color.py <a href="https://bitbucket.org/qzhudfci/smfishhmrf-py/src/master/get_vertex_color.py">https://bitbucket.org/qzhudfci/smfishhmrf-py/src/master/get_vertex_color.py</a> (requires smfishHmrf-py package <a href="https://pypi.org/project/smfishHmrf/">https://pypi.org/project/smfishHmrf/</a>) can generate this file.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>kk</code></td>
+<td>
+<p>kmeans results (object returned by kmeans). Kmeans (one of functions smfishHmrf.generate.centroid.it or smfishHmrf.generate.centroid) should be run before this function.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>par_k</code></td>
+<td>
+<p>number of clusters</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>name</code></td>
+<td>
+<p>name for this run (eg test)</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>output_dir</code></td>
+<td>
+<p>output directory</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>tolerance</code></td>
+<td>
+<p>tolerance</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>beta, beta_increment, beta_num_iter</code></td>
+<td>
+<p>3 values specifying the range of betas to try: the initial beta, the beta increment, and the number of betas. Beta is the smoothness parameter. Example: <code>beta</code>=0, <code>beta_increment</code>=2, <code>beta_num_iter</code>=6 means to try betas: 0, 2, 4, 6, 8, 10. See section <strong>Betas</strong> for more information.</p>
+</td>
+</tr>
+</table>
+<h3>Data preprocessing</h3>
+
+<p>It assumes that the expression values follow a multivariate gaussian distribution. We generally recommend using <strong>log2 transformed counts further normalized by z-scores (in both x- and y- dimensions)</strong>. Double z-scoring this way helps to remove the inherent bias of zscoring just one dimension (as the results might present a bias towards cell counts).
+</p>
+
+
+<h3>Betas</h3>
+
+<p>Beta is the smoothness parameter in HMRF. The higher the beta, the more the HMRF borrows information from the neighbors. This function runs HMRF across a range of betas. To decide which beta range, here are some guideline:
+</p>
+
+<ul>
+<li>
+<p> if the number of genes is from 10 to 50, the recommended range is 0 to 10 at beta increment of 0.5.
+</p>
+</li>
+<li>
+<p> if the number of genes is below 50, the recommended range is 0 to 15 at beta increment of 1.
+</p>
+</li>
+<li>
+<p> if the number of genes is between 50 to 100, the range is 0 to 50 at beta increment of 2.
+</p>
+</li>
+<li>
+<p> if the number of genes is between 100 and 500, the range is 0 to 100 at beta increment of 5.
+</p>
+</li>
+</ul>
+<p>Within the range of betas, we recommend selecting the best beta by the Bayes information criterion. This requires first performing randomization of spatial positions to generate the null distribution of log-likelihood scores for randomly distributed cells for the same range of betas. Then find the beta where the difference between the observed and the null log-likelihood is maximized.
+</p>
+
+
+<h3>Variations</h3>
+
+
+<ul>
+<li> <p><code>smfishHmrf.hmrfem.multi.it.min</code> (this function): supports multiple betas; supports file names as inputs. Recommended.
+</p>
+</li>
+<li> <p><code>smfishHmrf.hmrfem.multi.it</code>: supports multiple betas; supports R data structures as inputs.
+</p>
+</li>
+<li> <p><code>smfishHmrf.hmrfem.multi</code>: supports a single beta; supports R data structures as inputs.
+</p>
+</li>
+</ul>
+<h3>References</h3>
+
+<p>Zhu Q, Shah S, Dries R, Cai L, Yuan G (2018-Dec-01).
+“Identification of spatially associated subpopulations by combining scRNAseq and sequential fluorescence in situ hybridization data.”
+<em>Nature Biotechnology</em>, <b>36</b>, 1183–1190.
+doi: <a href="https://doi.org/10.1038/nbt.4260">10.1038/nbt.4260</a>.
+</p>
+<p>Eng CL, Lawson M, Zhu Q, Dries R, Koulena N, Takei Y, Yun J, Cronin C, Karp C, Yuan G, Cai L (2019-Apr-01).
+“Transcriptome-scale super-resolved imaging in tissues by RNA seqFISH+.”
+<em>Nature</em>, <b>568</b>, 235–239.
+doi: <a href="https://doi.org/10.1038/s41586-019-1049-y">10.1038/s41586-019-1049-y</a>.
+</p>
+<p>Dries R, Zhu Q, Dong R, Eng CL, Li H, Liu K, Fu Y, Zhao T, Sarkar A, Bao F, George RE, Pierson N, Cai L, Yuan G (2020).
+“Giotto, a toolbox for integrative analysis and visualization of spatial expression data.”
+<em>bioRxiv</em>.
+doi: <a href="https://doi.org/10.1101/701680">10.1101/701680</a>.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">mem_file = system.file("extdata", "ftest.expression.txt", package="smfishHmrf")
+nei_file = system.file("extdata", "ftest.adjacency.txt", package="smfishHmrf")
+block_file = system.file("extdata", "ftest.blocks.txt", package="smfishHmrf")
+par_k = 9
+name = "test"
+output_dir = tempdir()
+    
+## Not run: 
+kk = smfishHmrf.generate.centroid.it(mem_file, par_k, par_seed=100, 
+nstart=100, name=name, output_dir=output_dir)
+
+## End(Not run)
+
+# alternatively, if you already have run kmeans before, you can load it directly
+kmeans_results = system.file("extdata", package="smfishHmrf")
+kk = smfishHmrf.generate.centroid.use.exist(name=name, input_dir=kmeans_results, par_k)
+
+smfishHmrf.hmrfem.multi.it.min(mem_file, nei_file, block_file, kk, par_k, 
+name=name, output_dir=output_dir, tolerance=1e-5, 
+beta=28, beta_increment=2, beta_num_iter=1)
+    
+## Not run: 
+# alternatively, to test a larger set of beta's
+smfishHmrf.hmrfem.multi.it.min(mem_file, nei_file, block_file, kk, par_k,
+name=name, output_dir=output_dir, tolerance=1e-5, 
+beta=0, beta_increment=2, beta_num_iter=20)
+
+## End(Not run)
+ 
+</code></pre>
+
+
+</div>

@@ -1,0 +1,230 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>calcPathRadDOS</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Compute path radiance based on the dark object method</h2>
+
+<h3>Description</h3>
+
+<p>Compute an estimated path radiance for all sensor bands, which can then be 
+used to roughly correct the radiance values for atmospheric scattering. Path 
+radiance estimation is based on a dark object method.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">## S4 method for signature 'Satellite'
+calcPathRadDOS(x, model = c("DOS2", "DOS4"), esun_method = "RadRef")
+
+## S4 method for signature 'numeric'
+calcPathRadDOS(
+  x,
+  bnbr,
+  band_wls,
+  radm,
+  rada,
+  szen,
+  esun,
+  model = c("DOS2", "DOS4"),
+  scat_coef = c(-4, -2, -1, -0.7, -0.5),
+  dos_adjust = 0.01
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>x</code></td>
+<td>
+<p>A Satellite object or the value (scaled count) of a dark object in 
+<code>bnbr</code> (e.g. minimum raw count of selected raster <code>bnbr</code>). If x is 
+a Satellite object, the value is computed using <code>calcDODN</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>Model to be used to correct for 1% scattering (DOS2, DOS4; must 
+be the same as used by <code>calcAtmosCorr</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>esun_method</code></td>
+<td>
+<p>If x is a Satellite object, name of the method to be used 
+to compute esun using one of <code>calcTOAIrradRadRef</code> ("RadRef"), 
+<code>calcTOAIrradTable</code> ("Table") or <code>calcTOAIrradModel</code>
+("Model")</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>bnbr</code></td>
+<td>
+<p>Band number for which DNmin is valid.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>band_wls</code></td>
+<td>
+<p>Band wavelengths to be corrected; <code>data.frame</code> with min 
+(max) in first (second) column, see details.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>radm</code></td>
+<td>
+<p>Multiplicative coefficient for radiance transformation (i.e. 
+slope).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rada</code></td>
+<td>
+<p>Additive coefficient for radiance transformation (i.e. offset).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>szen</code></td>
+<td>
+<p>Sun zenith angle.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>esun</code></td>
+<td>
+<p>Actual (i.e. non-normalized) TOA solar irradiance, e.g. returned 
+by <code>calcTOAIrradRadRef</code>, <code>calcTOAIrradTable</code> or 
+<code>calcTOAIrradModel</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>scat_coef</code></td>
+<td>
+<p>Scattering coefficient; defaults to -4.0.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dos_adjust</code></td>
+<td>
+<p>Assumed reflection for dark object adjustment; defaults to 0.01.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If x is a Satellite object, the minimum raw count value (x) is computed using
+<code>calcDODN</code>. If the TOA solar irradiance is not part of the 
+Satellite object's metadata, it is computed using 
+<code>calcTOAIrradRadRef</code>, <code>calcTOAIrradTable</code> or 
+<code>calcTOAIrradModel</code>.
+</p>
+<p>The dark object subtraction approach is based on an approximation 
+of the atmospheric path radiance (i.e. upwelling radiation which is 
+scattered into the sensors field of view, aka haze) using the reflectance of a 
+dark object (i.e. reflectance ~1%). 
+</p>
+<p>Chavez (1988) proposed a method which uses the dark object reflectance
+in one band to predict the corresponding path radiances in all other 
+<code>band_wls</code>. This is done using a relative radiance model which depends on 
+the wavelength and overall atmospheric optical thickness (which is estimated 
+based on the dark object's DN value). This has the advantage that the path 
+radiance is actually correlated across different sensor <code>band_wls</code> and 
+not computed individually for each band using independent dark objects. He 
+proposed a relative radiance model which follows a wavelength dependent 
+scattering that ranges from a power of -4 over -2, -1, -0.7 to -0.5 for very 
+clear over clear, moderate, hazy to very hazy conditions. The relative 
+factors are computed individually for each 1/1000 wavelength within each band 
+range and subsequently averaged over the band as proposed by Goslee (2011).
+</p>
+<p>The atmospheric transmittance towards the sensor (Tv) is approximated by 
+1.0 (DOS2, Chavez 1996) or Rayleigh scattering (DOS4, Moran et al. 1992)
+</p>
+<p>The atmospheric transmittance from the sun (Tz) is approximated by the 
+cosine of the sun zenith angle (DOS2, Chavez 1996) or again using Rayleigh
+scattering (DOS4, Moran et al. 1992).
+</p>
+<p>The downwelling diffuse irradiance is approximated by 0.0 (DOS2, Chavez 1996)
+or the hemispherical integral of the path radiance (DOS4, Moran et al. 1992).
+</p>
+<p>Equations for the path radiance are taken from Song et al. (2001).
+</p>
+<p>For some sensors, the band wavelengths are already included. See
+<code>lutInfo()[grepl("_BANDS", names(lutInfo()$META))]</code> if your sensor is
+included. To retrieve a sensor, use <code>lutInfo()$&lt;Sensor ID&gt;_BANDS</code>.
+</p>
+
+
+<h3>Value</h3>
+
+<p>Satellite object with path radiance for each band in the metadata
+(W m-2 micrometer-1)
+</p>
+<p>Vector object with path radiance values for each band 
+(W m-2 micrometer-1)
+</p>
+
+
+<h3>References</h3>
+
+<p>Chavez Jr PS (1988) An improved dark-object subtraction technique 
+for atmospheric scattering correction of multispectral data. Remote Sensing 
+of Environment 24/3, <a href="https://doi.org/10.1016/0034-4257%2888%2990019-3">doi:10.1016/0034-4257(88)90019-3</a>.
+</p>
+<p>Chavez Jr PS (1996) Image-based atmospheric corrections revisited and
+improved. Photogrammetric Engineering and Remote Sensing 62/9,
+available online at 
+<a href="https://www.researchgate.net/publication/236769129_Image-Based_Atmospheric_Corrections_-_Revisited_and_Improved">https://www.researchgate.net/publication/236769129_Image-Based_Atmospheric_Corrections_-_Revisited_and_Improved</a>.
+</p>
+<p>Goslee SC (2011) Analyzing Remote Sensing Data in R: The landsat 
+Package. Journal of Statistical Software, 43/4, 1-25, 
+<a href="https://doi.org/10.18637/jss.v043.i04">doi:10.18637/jss.v043.i04</a>.
+</p>
+<p>Moran MS, Jackson RD, Slater PN, Teillet PM (1992) Evlauation of simplified
+procedures for rretrieval of land surface reflectane factors from satellite
+sensor output.Remote Sensing of Environment 41/2-3, 169-184, 
+<a href="https://doi.org/10.1016/0034-4257%2892%2990076-V">doi:10.1016/0034-4257(92)90076-V</a>.
+</p>
+<p>Song C, Woodcock CE, Seto KC, Lenney MP, Macomber SA (2001) Classification 
+and Change Detection Using Landsat TM Data: When and How to Correct 
+Atmospheric Effects? Remote Sensing of Environment 75/2, 
+<a href="https://doi.org/10.1016/S0034-4257%2800%2900169-3">doi:10.1016/S0034-4257(00)00169-3</a>.
+</p>
+<p>If you refer to Sawyer and Stephen 2014, please note that eq. 5 is wrong.
+</p>
+
+
+<h3>See Also</h3>
+
+<p>This function is used by <code>calcAtmosCorr</code> to 
+compute the path radiance.
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">path &lt;- system.file("extdata", package = "satellite")
+files &lt;- list.files(path, pattern = glob2rx("LC08*.TIF"), full.names = TRUE)
+sat &lt;- satellite(files)
+sat &lt;- calcTOAIrradModel(sat)
+
+bds &lt;- "B002n"
+val &lt;- calcPathRadDOS(x = min(getValues(getSatDataLayer(sat, bds))),
+                      bnbr = getSatLNBR(sat, bds),
+                      band_wls = data.frame(LMIN = getSatLMIN(sat, getSatBCDESolar(sat)),
+                                            LMAX = getSatLMAX(sat, getSatBCDESolar(sat))),
+                      radm = getSatRADM(sat, getSatBCDESolar(sat)),
+                      rada = getSatRADA(sat, getSatBCDESolar(sat)),
+                      szen = getSatSZEN(sat, getSatBCDESolar(sat)),
+                      esun = getSatESUN(sat, getSatBCDESolar(sat)),
+                      model = "DOS2",
+                      scat_coef = -4)
+val
+</code></pre>
+
+
+</div>

@@ -1,0 +1,221 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>ctr_model</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Set up control for sentiment-based sparse regression modeling</h2>
+
+<h3>Description</h3>
+
+<p>Sets up control object for linear or nonlinear modeling of a response variable onto a large panel of
+textual sentiment measures (and potentially other variables). See <code>sento_model</code> for details on the
+estimation and calibration procedure.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">ctr_model(
+  model = c("gaussian", "binomial", "multinomial"),
+  type = c("BIC", "AIC", "Cp", "cv"),
+  do.intercept = TRUE,
+  do.iter = FALSE,
+  h = 0,
+  oos = 0,
+  do.difference = FALSE,
+  alphas = seq(0, 1, by = 0.2),
+  lambdas = NULL,
+  nSample = NULL,
+  trainWindow = NULL,
+  testWindow = NULL,
+  start = 1,
+  do.shrinkage.x = FALSE,
+  do.progress = TRUE,
+  nCore = 1
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>model</code></td>
+<td>
+<p>a <code>character</code> vector with one of the following: <code>"gaussian"</code> (linear regression), <code>"binomial"</code>
+(binomial logistic regression), or <code>"multinomial"</code> (multinomial logistic regression).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>a <code>character</code> vector indicating which model calibration approach to use. Supports "<code>BIC</code>",
+"<code>AIC</code>" and "<code>Cp</code>" (Mallows's Cp) as sparse regression adapted information criteria (Tibshirani and Taylor,
+2012; Zou, Hastie and Tibshirani, 2007), and "<code>cv</code>" (cross-validation based on the <code>train</code>
+function from the <span class="pkg">caret</span> package). The adapted information criteria are only available for a linear regression.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.intercept</code></td>
+<td>
+<p>a <code>logical</code>, <code>TRUE</code> by default fits an intercept.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.iter</code></td>
+<td>
+<p>a <code>logical</code>, <code>TRUE</code> induces an iterative estimation of models at the given <code>nSample</code> size and
+performs the associated out-of-sample prediction exercise through time.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>h</code></td>
+<td>
+<p>an <code>integer</code> value that shifts the time series to have the desired prediction setup; <code>h = 0</code> means
+no change to the input data (nowcasting assuming data is aligned properly), <code>h &gt; 0</code> shifts the dependent variable by
+<code>h</code> periods (i.e., rows) further in time (forecasting), <code>h &lt; 0</code> shifts the independent variables by <code>h</code>
+periods.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>oos</code></td>
+<td>
+<p>a non-negative <code>integer</code> to indicate the number of periods to skip from the end of the training sample
+up to the out-of-sample prediction(s). This is either used in the cross-validation based calibration approach
+(if <code>type = </code> "<code>cv</code>"), or for the iterative out-of-sample prediction analysis (if <code>do.iter = TRUE</code>). For
+instance, given <code class="reqn">t</code>, the (first) out-of-sample prediction is computed at <code class="reqn">t +</code> <code>oos</code> <code class="reqn">+ 1</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.difference</code></td>
+<td>
+<p>a <code>logical</code>, <code>TRUE</code> will difference the target variable <code>y</code> supplied in the
+<code>sento_model</code> function with as lag the absolute value of the <code>h</code> argument, but
+<code>abs(h) &gt; 0</code> is required. For example, if <code>h = 2</code>, and assuming the <code>y</code> variable is properly aligned
+date-wise with the explanatory variables denoted by <code class="reqn">X</code> (the sentiment measures and other in <code>x</code>), the regression
+will be of <code class="reqn">y_{t + 2} - y_t</code> on <code class="reqn">X_t</code>. If <code>h = -2</code>, the regression fitted is <code class="reqn">y_{t + 2} - y_t</code> on
+<code class="reqn">X_{t+2}</code>. The argument is always kept at <code>FALSE</code> if the <code>model</code> argument is one of
+<code>c("binomial", "multinomial")</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alphas</code></td>
+<td>
+<p>a <code>numeric</code> vector of the alphas to test for during calibration, between 0 and 1. A value of
+0 pertains to Ridge regression, a value of 1 to LASSO regression; values in between are pure elastic net.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>lambdas</code></td>
+<td>
+<p>a <code>numeric</code> vector of the lambdas to test for during calibration, <code class="reqn">&gt;= 0</code>.
+A value of zero means no regularization, thus requires care when the data is fat. By default set to
+<code>NULL</code>, such that the lambdas sequence is generated by the <code>glmnet</code> function
+or set to <code>10^seq(2, -2, length.out = 100)</code> in case of cross-validation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nSample</code></td>
+<td>
+<p>a positive <code>integer</code> as the size of the sample for model estimation at every iteration (ignored if
+<code>do.iter = FALSE</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trainWindow</code></td>
+<td>
+<p>a positive <code>integer</code> as the size of the training sample for cross-validation (ignored if
+<code>type != </code> "<code>cv</code>").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>testWindow</code></td>
+<td>
+<p>a positive <code>integer</code> as the size of the test sample for cross-validation (ignored if <code>type != </code>
+"<code>cv</code>").</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>start</code></td>
+<td>
+<p>a positive <code>integer</code> to indicate at which point the iteration has to start (ignored if
+<code>do.iter = FALSE</code>). For example, given 100 possible iterations, <code>start = 70</code> leads to model estimations
+only for the last 31 samples.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.shrinkage.x</code></td>
+<td>
+<p>a <code>logical</code> vector to indicate which of the other regressors provided through the <code>x</code>
+argument of the <code>sento_model</code> function should be subject to shrinkage (<code>TRUE</code>). If argument is of
+length one, it applies to all external regressors.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>do.progress</code></td>
+<td>
+<p>a <code>logical</code>, if <code>TRUE</code> progress statements are displayed during model calibration.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>nCore</code></td>
+<td>
+<p>a positive <code>integer</code> to indicate the number of cores to use for a parallel iterative model
+estimation (<code>do.iter = TRUE</code>). We use the <code>%dopar%</code> construct from the <span class="pkg">foreach</span> package. By default,
+<code>nCore = 1</code>, which implies no parallelization. No progress statements are displayed whatsoever when <code>nCore &gt; 1</code>.
+For cross-validation models, parallelization can also be carried out for a single-shot model (<code>do.iter = FALSE</code>),
+whenever a parallel backend is set up. See the examples in <code>sento_model</code>.</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>A <code>list</code> encapsulating the control parameters.
+</p>
+
+
+<h3>Author(s)</h3>
+
+<p>Samuel Borms, Keven Bluteau
+</p>
+
+
+<h3>References</h3>
+
+<p>Tibshirani and Taylor (2012). <strong>Degrees of freedom in LASSO problems</strong>.
+<em>The Annals of Statistics 40, 1198-1232</em>, doi: <a href="https://doi.org/10.1214/12-AOS1003">10.1214/12-AOS1003</a>.
+</p>
+<p>Zou, Hastie and Tibshirani (2007). <strong>On the degrees of freedom of the LASSO</strong>.
+<em>The Annals of Statistics 35, 2173-2192</em>, doi: <a href="https://doi.org/10.1214/009053607000000127">10.1214/009053607000000127</a>.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>sento_model</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R"># information criterion based model control functions
+ctrIC1 &lt;- ctr_model(model = "gaussian", type = "BIC", do.iter = FALSE, h = 0,
+                    alphas = seq(0, 1, by = 0.10))
+ctrIC2 &lt;- ctr_model(model = "gaussian", type = "AIC", do.iter = TRUE, h = 4, nSample = 100,
+                    do.difference = TRUE, oos = 3)
+
+# cross-validation based model control functions
+ctrCV1 &lt;- ctr_model(model = "gaussian", type = "cv", do.iter = FALSE, h = 0,
+                    trainWindow = 250, testWindow = 4, oos = 0, do.progress = TRUE)
+ctrCV2 &lt;- ctr_model(model = "binomial", type = "cv", h = 0, trainWindow = 250,
+                    testWindow = 4, oos = 0, do.progress = TRUE)
+ctrCV3 &lt;- ctr_model(model = "multinomial", type = "cv", h = 2, trainWindow = 250,
+                    testWindow = 4, oos = 2, do.progress = TRUE)
+ctrCV4 &lt;- ctr_model(model = "gaussian", type = "cv", do.iter = TRUE, h = 0, trainWindow = 45,
+                    testWindow = 4, oos = 0, nSample = 70, do.progress = TRUE)
+
+</code></pre>
+
+
+</div>

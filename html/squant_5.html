@@ -1,0 +1,346 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>squant</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>The SQUANT method</h2>
+
+<h3>Description</h3>
+
+<p><code>squant</code> conducts subgroup identification based on quantitative criteria.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">squant(
+  yvar,
+  censorvar = NULL,
+  xvars,
+  trtvar = NULL,
+  trtcd = 1,
+  data,
+  type = "c",
+  weight = NULL,
+  dir = "larger",
+  quant = NULL,
+  xvars.keep = NULL,
+  alpha = 1,
+  fold = 5,
+  n.cv = 50,
+  FDR = 0.15,
+  progress = TRUE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>yvar</code></td>
+<td>
+<p>A character. The response variable name in the <code>data</code>.
+The corresponding column in the <code>data</code> should be numeric.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>censorvar</code></td>
+<td>
+<p>A character or NULL. The event indicator variable name in
+the <code>data</code>. The corresponding column in the <code>data</code> should
+be 0(censor) or 1(event). Use NULL when it is not a time-to-event case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xvars</code></td>
+<td>
+<p>A vector of characters. The covariates (predictors) variable
+names in the <code>data</code>. The corresponding columns in the <code>data</code>
+should be numeric.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trtvar</code></td>
+<td>
+<p>A character or NULL. The trt variable name in the <code>data</code>
+for the predictive case. The corresponding column in the <code>data</code>
+should contain the treatment assignments, and can be either numeric
+or character. Use NULL for the prognostics case.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>trtcd</code></td>
+<td>
+<p>The code for the treatment arm for the predictive case,
+e.g. trtcd="treatment" or trtcd=1, etc.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data</code></td>
+<td>
+<p>The data frame for training.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>type</code></td>
+<td>
+<p>The response type. Use "s" for survival, "b" for binary, and
+"c" for continuous.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>weight</code></td>
+<td>
+<p>The weight of every observation, has to be a numeric vector&gt;0
+or NULL (equivalent to all 1).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>dir</code></td>
+<td>
+<p>A character, "larger" or "smaller".
+When dir == "larger", larger response is preferred for the target subgroup.
+In the predictive case, it means selecting patients satisfying
+E(Y|X,TRT)-E(Y|X,CTRL)&gt;=quant.
+In the prognostic case, it means selecting patients satisfying
+E(Y|X)&gt;=quant.
+When dir == "smaller", smaller response is preferred for the target subgroup.
+In the predictive case, it means selecting patients satisfying
+E(Y|X,CTRL)-E(Y|X,TRT)&gt;=quant.
+In the prognostic case, it means selecting patients satisfying
+E(Y|X)&lt;=quant.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>quant</code></td>
+<td>
+<p>A numeric value or NULL. The quantitative subgroup selection criterion.
+Please see <code>dir</code>. When NULL, the program will automatically select the best
+quant based on cross validation.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xvars.keep</code></td>
+<td>
+<p>A character vector. The names of variables that we want to keep
+in the final model.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>alpha</code></td>
+<td>
+<p>The same alpha as in <code>glmnet</code>. alpha=1 is the lasso penalty.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>fold</code></td>
+<td>
+<p>A numeric value. The number of folds for internal cross validation
+for variable selection.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n.cv</code></td>
+<td>
+<p>A numeric value. The number of different values of <code>quant</code> used
+for cross validation. It's also the number of CV to conduct variable selection.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FDR</code></td>
+<td>
+<p>A numeric value. The level of FDR control for variable selection and
+the entire training process.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>progress</code></td>
+<td>
+<p>a logical value (TRUE/FALSE), whether to display the program progress.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>This is the main function of SQUANT to train subgroup signatures.
+This method can handle continuous, binary and survival endpoint for both
+prognostic and predictive case. For the predictive case, the method aims at
+identifying a subgroup for which treatment is better than control by at
+least a pre-specified or auto-selected constant. For the prognostic case,
+the method aims at identifying a subgroup that is at least better than a
+pre-specified/auto-selected constant. The derived signature is a linear
+combination of predictors, and the selected subgroup are subjects with
+the signature &gt; 0. The false discover rate when no true subgroup exists
+is strictly controlled at a user-specified level.
+</p>
+
+
+<h3>Value</h3>
+
+<p>An object of "squant". A list containing the following elements.
+</p>
+<table>
+<tr style="vertical-align: top;">
+<td><code>squant.fit</code></td>
+<td>
+<p>The fitted signature from training, which is the coefficients of
+the linear combination of predictors plus an intercept.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>data.pred</code></td>
+<td>
+<p>The training data with the predicted subgroup in the last column.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>performance</code></td>
+<td>
+<p>The output of eval_squant (excluding the data.pred).
+The performance of subgroup identification. In the predictive
+case, the performance includes the interaction p value, the p value of the
+trt difference in the selected positive group, the p value of the trt difference
+in the unselected negative group (all adjusted for prognostic markers if any) and
+the stats for each arm in each group. In the prognostic case, the performance
+includes p value of group comparison and the stats of each group.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>d.sel</code></td>
+<td>
+<p>Closely related to quant.Please see element: <code>interpretation</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>min.diff, threshold</code></td>
+<td>
+<p>Please see <code>interpretation</code>.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xvars.top</code></td>
+<td>
+<p>The ordered variable importance list.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>FDR.min</code></td>
+<td>
+<p>The minimum achievable FDR threshold so that a signature
+can be derived. This is useful when a pre-specified <code>FDR</code> does not lead to
+a signature, in which case the <code>FDR.min</code> can be used instead.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prog.adj</code></td>
+<td>
+<p>Prognostic effect contributed by xvars.adj for each subject (predictive case only).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>xvars.adj</code></td>
+<td>
+<p>Important prognostic markers to adjust in the model (predictive case only).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interpretation1</code></td>
+<td>
+<p>Interpretation of the result.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>interpretation2</code></td>
+<td>
+<p>Interpretation of the result.</p>
+</td>
+</tr>
+</table>
+<h3>References</h3>
+
+<p>Yan Sun, Samad Hedayat. Subgroup Identification based on Quantitative Objectives. (submitted)
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">#toy example#
+set.seed(888)
+x=as.data.frame(matrix(rnorm(200),100,2))
+names(x) = c("x1", "x2")
+trt = sample(0:1, size=100, replace=TRUE)
+y= 2*x[,2]*trt+rnorm(100)
+data = cbind(y=y, trt=trt, x)
+res = squant(yvar="y", censorvar=NULL, xvars=c("x1", "x2"),
+             trtvar="trt", trtcd=1, data=data, type="c", weight=NULL,
+             dir="larger", quant=NULL, xvars.keep=NULL, alpha=1,
+             fold=2, n.cv = 10, FDR = 0.1, progress=FALSE)
+
+
+
+#predictive case with continuous response#
+set.seed(888)
+x=as.data.frame(matrix(rnorm(20000),200,100))
+names(x) = paste("x", 1:100,sep="")
+trt = sample(0:1, size=200, replace=TRUE)
+y=x[,1]+x[,2]*trt+rnorm(200)
+data = cbind(y=y, trt=trt, x)
+res = squant(yvar="y", censorvar=NULL, xvars=paste("x", 1:100,sep=""),
+             trtvar="trt", trtcd=1, data=data, type="c", weight=NULL,
+             dir="larger", quant=NULL, xvars.keep=NULL, alpha=1,
+             fold=5, n.cv = 50, FDR = 0.1)
+res
+#fitted signature#
+res$squant.fit
+#performance of the identified subgroup#
+#including:
+#  interaction p value,
+#  p valve of trt difference in positive group,
+#  p value of trt difference in negative group,
+#  and stats for each arm in each group.
+res$performance
+#interpretation#
+res$interpretation1
+res$interpretation2
+
+#evaluation of prediction performance#
+eval.res = eval_squant(yvar="y", censorvar=NULL, trtvar="trt", trtcd=1, dir="larger",
+                       type="c", data=data, squant.out=res, brief=FALSE)
+#plot the subgroups#
+plot(res, trt.name="Trt", ctrl.name="Ctrl")
+plot(eval.res, trt.name="Trt", ctrl.name="Ctrl")
+
+
+
+#prognostic case with survival response#
+set.seed(888)
+x=as.data.frame(matrix(rnorm(20000),200,100))
+names(x) = paste("x", 1:100,sep="")
+y=10*(10+x[,1]+rnorm(200))
+data = cbind(y=y, x)
+data$event = sample(c(rep(1,150),rep(0,50)))
+res = squant(yvar="y", censorvar="event", xvars=paste("x", 1:100,sep=""),
+             trtvar=NULL, trtcd=NULL, data=data, type="s", weight=NULL,
+             dir="larger", quant=NULL, xvars.keep=NULL, alpha=1,
+             fold=5, n.cv = 50, FDR = 0.1)
+res
+
+#fitted signature#
+res$squant.fit
+#performance of the identified subgroup#
+res$performance
+#evaluation of prediction performance#
+eval.res = eval_squant(yvar="y", censorvar="event", trtvar=NULL, trtcd=NULL, dir="larger",
+                       type="s", data=data, squant.out=res, brief=FALSE)
+
+#plot the subgroups#
+plot(res, trt.name=NULL, ctrl.name=NULL)
+plot(eval.res, trt.name=NULL, ctrl.name=NULL)
+
+
+</code></pre>
+
+
+</div>

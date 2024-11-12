@@ -1,0 +1,154 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>sim</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Simulate Observed or Full Data from <code>DAG</code> Object</h2>
+
+<h3>Description</h3>
+
+<p>This function simulates full data based on a list of intervention DAGs, returning a list of <code>data.frame</code>s. See the vignette for examples and detailed description.
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">sim(
+  DAG,
+  actions,
+  n,
+  wide = TRUE,
+  LTCF = NULL,
+  rndseed = NULL,
+  rndseed.reset.node = NULL,
+  verbose = getOption("simcausal.verbose")
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>DAG</code></td>
+<td>
+<p>A DAG objects that has been locked with set.DAG(DAG). Observed data from this DAG will be simulated if actions argument is omitted.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>actions</code></td>
+<td>
+<p>Character vector of action names which will be extracted from the DAG object. Alternatively, this can be a list of action DAGs selected with <code>A(DAG)</code> function, in which case the argument <code>DAG</code> is unused. When <code>actions</code> is omitted, the function returns simulated observed data (see <code>simobs</code>).</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>n</code></td>
+<td>
+<p>Number of observations to sample.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>wide</code></td>
+<td>
+<p>A logical, if TRUE the output data is generated in wide format, if FALSE, the output longitudinal data in generated in long format</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>LTCF</code></td>
+<td>
+<p>If forward imputation is desired for the missing variable values, this argument should be set to the name of the node that indicates the end of follow-up event.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rndseed</code></td>
+<td>
+<p>Seed for the random number generator.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>rndseed.reset.node</code></td>
+<td>
+<p>When <code>rndseed</code> is specified, use this argument to specify the name of the <code>DAG</code> node at which the random number generator seed is reset back to <code>NULL</code> (simulation function will call <code>set.seed(NULL)</code>).
+Can be useful if one wishes to simulate data using the set seed <code>rndseed</code> only for the first K nodes of the DAG and use an entirely random sample when simulating the rest of the nodes starting at K+1 and on.
+The name of such (K+1)th order <code>DAG</code> node should be then specified with this argument.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>verbose</code></td>
+<td>
+<p>Set to <code>TRUE</code> to print messages on status and information to the console.
+Turn this off by default using options(simcausal.verbose=FALSE).</p>
+</td>
+</tr>
+</table>
+<h3>Value</h3>
+
+<p>If actions argument is missing a simulated data.frame is returned, otherwise the function returns a named list of action-specific simulated data.frames with action names giving names to corresponding list items.
+</p>
+
+
+<h3>Forward Imputation</h3>
+
+<p>By default, when LTCF is left unspecified, all variables that follow after any end of follow-up (EFU) event are set to missing (NA).
+The end of follow-up event occurs when a binary node of type <code>EFU=TRUE</code> is equal to 1, indicating a failing or right-censoring event.
+To forward impute the values of the time-varying nodes after the occurrence of the <code>EFU</code> event, set the LTCF argument to a name of the EFU node representing this event.
+For additional details and examples see the vignette and <code>doLTCF</code> function.
+</p>
+
+
+<h3>References</h3>
+
+<p>Sofrygin O, van der Laan MJ, Neugebauer R (2017).
+"simcausal R Package: Conducting Transparent and Reproducible Simulation Studies of Causal Effect Estimation with Complex Longitudinal Data."
+Journal of Statistical Software, 81(2), 1-47. doi: 10.18637/jss.v081.i02.
+</p>
+
+
+<h3>See Also</h3>
+
+<p><code>simobs</code> - a wrapper function for simulating observed data only; <code>simfull</code> - a wrapper function for simulating full data only; <code>doLTCF</code> - forward imputation of the missing values in already simulating data; <code>DF.to.long</code>, <code>DF.to.longDT</code> - converting longitudinal data from wide to long formats.
+</p>
+<p>Other simulation functions: 
+<code>simfull()</code>,
+<code>simobs()</code>
+</p>
+
+
+<h3>Examples</h3>
+
+<pre><code class="language-R">t_end &lt;- 10
+lDAG &lt;- DAG.empty()
+lDAG &lt;- lDAG +
+	node(name = "L2", t = 0, distr = "rconst", const = 0) +
+	node(name = "A1", t = 0, distr = "rconst", const = 0) +
+	node(name = "L2", t = 1:t_end, distr = "rbern",
+ 	prob = ifelse(A1[t - 1]  ==  1, 0.1,
+ 			ifelse(L2[t-1] == 1, 0.9,
+        min(1,0.1 + t/t_end)))) +
+	node(name = "A1", t = 1:t_end, distr = "rbern",
+ 	prob = ifelse(A1[t - 1]  ==  1, 1,
+ 			 ifelse(L2[0] == 0, 0.3,
+			  ifelse(L2[0] == 0, 0.1,
+			   ifelse(L2[0] == 1, 0.7, 0.5))))) +
+	node(name = "Y", t = 1:t_end, distr = "rbern",
+ 	prob = plogis(-6.5 + 4 * L2[t] + 0.05 * sum(I(L2[0:t] == rep(0,(t + 1))))),
+ 	EFU = TRUE)
+lDAG &lt;- set.DAG(lDAG)
+#---------------------------------------------------------------------------------------
+# EXAMPLE 1. No forward imputation.
+#---------------------------------------------------------------------------------------
+Odat.wide &lt;- sim(DAG = lDAG, n = 1000, rndseed = 123)
+Odat.wide[c(21,47), 1:18]
+Odat.wideLTCF &lt;- sim(DAG = lDAG, n = 1000, LTCF = "Y", rndseed = 123)
+Odat.wideLTCF[c(21,47), 1:18]
+#---------------------------------------------------------------------------------------
+# EXAMPLE 2. With forward imputation.
+#---------------------------------------------------------------------------------------
+Odat.wideLTCF2 &lt;- doLTCF(data = Odat.wide, LTCF = "Y")
+Odat.wideLTCF2[c(21,47), 1:18]
+# all.equal(Odat.wideLTCF, Odat.wideLTCF2)
+</code></pre>
+
+
+</div>

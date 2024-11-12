@@ -1,0 +1,152 @@
+<div class="container">
+
+<table style="width: 100%;"><tr>
+<td>bulk_generator</td>
+<td style="text-align: right;">R Documentation</td>
+</tr></table>
+<h2>Generate artificial bulk RNA-seq samples based on simulation</h2>
+
+<h3>Description</h3>
+
+<p>Generate artificial bulk RNA-seq samples with random or pre-defined cell-type proportions for benchmarking deconvolution algorithms
+</p>
+
+
+<h3>Usage</h3>
+
+<pre><code class="language-R">bulk_generator(
+  ref,
+  phenodata,
+  num_mixtures = 500,
+  num_mixtures_sprop = 10,
+  pool_size = 100,
+  seed = 1234,
+  prop = NULL,
+  replace = FALSE
+)
+</code></pre>
+
+
+<h3>Arguments</h3>
+
+<table>
+<tr style="vertical-align: top;">
+<td><code>ref</code></td>
+<td>
+<p>a matrix-like object of gene expression values with rows representing genes, columns representing cells.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>phenodata</code></td>
+<td>
+<p>a data.frame with rows representing cells, columns representing cell attributes. It should at least contain the first two columns as:
+</p>
+
+<ol>
+<li>
+<p> cell barcodes
+</p>
+</li>
+<li>
+<p> cell types
+</p>
+</li>
+</ol>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_mixtures</code></td>
+<td>
+<p>total number of simulated bulk samples. Have to be multiple of <code>num_mixtures_sprop</code>. Default to 500.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>num_mixtures_sprop</code></td>
+<td>
+<p>number of simulated bulk samples with the same simulated cell type proportions. Only applicable when <code>prop</code> is not specified.
+Those samples will be used to estimate bias &amp; variance. Default to 10.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>pool_size</code></td>
+<td>
+<p>number of cells to use to construct each artificial bulk sample. Default to 100.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>seed</code></td>
+<td>
+<p>seed to use for simulation. Default to 1234.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>prop</code></td>
+<td>
+<p>a data.frame with two columns. The first column includes unique cell types in phenodata; the second column includes cell type proportions.
+If specified, bulk samples will be simulated based on the specified cell proportions.</p>
+</td>
+</tr>
+<tr style="vertical-align: top;">
+<td><code>replace</code></td>
+<td>
+<p>logical value indicating whether to sample cells with replacement. Default to FALSE, to sample cells without replacement.</p>
+</td>
+</tr>
+</table>
+<h3>Details</h3>
+
+<p>If <code>prop</code> is not specified, cell type proportions will be firstly randomly generated with at least two cell types present. Then, for each cell proportion
+vector, <code>num_mixtures_sprop</code> number of samples is simulated. Eventually, a total of <code>num_mixtures</code> number of samples is simulated. If prop is
+specified, then a total of <code>num_mixtures</code> number of samples will be simulated based on the same cell proportion vector specified.
+</p>
+
+
+<h3>Value</h3>
+
+<p>a list of two objects:
+</p>
+
+<ol>
+<li>
+<p> simulated bulk RNA-seq data, with rows representing genes, columns representing samples
+</p>
+</li>
+<li>
+<p> cell type proportions used to simulate the bulk RNA-seq data, with rows representing cell types, columns representing samples
+</p>
+</li>
+</ol>
+<h3>Examples</h3>
+
+<pre><code class="language-R">
+ref_list &lt;- c(paste0(system.file("extdata", package = "SCdeconR"), "/refdata/sample1"),
+              paste0(system.file("extdata", package = "SCdeconR"), "/refdata/sample2"))
+phenopath1 &lt;- paste0(system.file("extdata", package = "SCdeconR"),
+"/refdata/phenodata_sample1.txt")
+phenopath2 &lt;- paste0(system.file("extdata", package = "SCdeconR"),
+"/refdata/phenodata_sample2.txt")
+phenodata_list &lt;- c(phenopath1,phenopath2)
+
+# construct integrated reference using harmony algorithm
+refdata &lt;- construct_ref(ref_list = ref_list,
+                      phenodata_list = phenodata_list,
+                      data_type = "cellranger",
+                      method = "harmony",
+                      group_var = "subjectid",
+                      nfeature_rna = 50,
+                      vars_to_regress = "percent_mt", verbose = FALSE)
+phenodata &lt;- data.frame(cellid = colnames(refdata),
+                        celltypes = refdata$celltype,
+                        subjectid = refdata$subjectid)
+prop &lt;- data.frame(celltypes = unique(refdata$celltype), 
+proportion = rep(1/length(unique(refdata$celltype)), length(unique(refdata$celltype))))
+bulk_sim &lt;- bulk_generator(ref = GetAssayData(refdata, slot = "data", assay = "SCT"),
+                           phenodata = phenodata,
+                           num_mixtures = 20,
+                           prop = prop,
+                           num_mixtures_sprop = 1)
+
+</code></pre>
+
+
+</div>
